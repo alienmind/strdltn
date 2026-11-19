@@ -87,3 +87,11 @@ The first play now waits for the pack, for at most 6 seconds.
 Tried. Starting a second instance of the installed VS Code failed with "Code is
 currently being updated" while an update was pending. The test runner downloads its own
 stable build unless `VSCODE_EXE` is set.
+
+## Passing the .vsix from create to attach through /tmp
+
+Tried, in the first Codespace. `postCreateCommand` built the `.vsix` and copied it to
+`/tmp/vstrudel.vsix`, and `postAttachCommand` installed from there. On attach the file
+did not exist (`ENOENT`). We could not read the creation log, so we do not know whether
+the build failed or the file was lost. The install step now builds or downloads the file
+itself when it is missing, and keeps it in the home folder.

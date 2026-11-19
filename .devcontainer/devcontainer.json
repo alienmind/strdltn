@@ -3,8 +3,7 @@
 {
 	"name": "vstrudel (built from source)",
 	"image": "mcr.microsoft.com/devcontainers/javascript-node:24",
-	"containerEnv": { "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0" },
-	"postCreateCommand": "corepack enable && pnpm install --frozen-lockfile && pnpm package && cp vstrudel-*.vsix /tmp/vstrudel.vsix",
+	"postCreateCommand": "bash scripts/codespace-install.sh build",
 	// Installing needs a connected editor, so it runs on attach and not on create.
-	"postAttachCommand": "code --install-extension /tmp/vstrudel.vsix --force"
+	"postAttachCommand": "bash scripts/codespace-install.sh install"
 }

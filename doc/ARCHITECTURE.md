@@ -246,9 +246,13 @@ The extension is not on the Marketplace, so a devcontainer installs the `.vsix` 
 | `template/.devcontainer/devcontainer.json` | The template once it is its own repo | The latest GitHub release |
 
 All three install with `code --install-extension` in `postAttachCommand`, because the
-`code` command needs a connected editor. This is expected to work and has not been
-tested. If it does not, right-click the `.vsix` in the explorer and choose "Install
-Extension VSIX".
+`code` command needs a connected editor. Measured in Codespaces: the command runs there
+and reaches the installer ("Installing extensions on Codespaces").
+
+The source configuration uses `scripts/codespace-install.sh`. `build` makes the `.vsix`
+in `postCreateCommand`, and `install` installs it on attach and builds first when the
+file is missing. The `.vsix` is kept in the home folder. The two template configurations
+do the same in one command with `curl`. A successful install has not been seen yet.
 
 ## Tooling
 

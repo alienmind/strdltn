@@ -27,14 +27,20 @@ Report the result by check number. When something fails, add the content of Outp
 
 ## Next: test in Codespaces
 
-Target: **a Codespace on `alienmind/vstrudel`, branch `main`, opened in Chrome**. When
-you create it, choose the configuration "vstrudel template (released extension)". It
-needs the `v0.0.1` release to exist.
+Target: **a new Codespace on `alienmind/vstrudel`, branch `main`, opened in Chrome**.
+Create it from "New with options" and choose the configuration "vstrudel template
+(released extension)". The plain "Create codespace" button takes the other
+configuration, which builds from source.
+
+The first try used the source configuration and failed: the `.vsix` was not at
+`/tmp/vstrudel.vsix` on attach. We do not know why the build step left no file. The
+install now builds on attach when the file is missing, so a build error shows in the
+terminal.
 
 | # | Do this | Should happen |
 |---|---------|---------------|
 | 1 | Wait for the Codespace to finish starting, then look at the Extensions view | `vstrudel` is installed |
-| 2 | Only if check 1 failed: run `code --install-extension /tmp/vstrudel.vsix` in the terminal | It installs |
+| 2 | Only if check 1 failed: copy the terminal output of the attach command | It shows where it stopped |
 | 3 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Sound in your browser, with the `blip` sample |
 | 4 | Press the swap button, then Ctrl+Enter in the native editor | The stage opens. Note whether it needs a click |
 
@@ -42,7 +48,7 @@ Expected still broken: the same as on desktop. Nothing has been measured in Code
 so any of these can fail.
 
 Report the result by check number, plus Output > `vstrudel` and, for check 1, the
-output of the "postAttachCommand" in the creation log.
+terminal output of the attach command.
 
 The default configuration, "vstrudel (built from source)", builds the extension inside
 the Codespace. Use it to try a branch that has no release.
@@ -51,7 +57,9 @@ the Codespace. Use it to try a branch that has no release.
 
 - Does a real key press in the native editor count as a click for the stage? A command
   sent by the test does not. Desktop check 5 answers it.
-- Does `code --install-extension` work in `postAttachCommand` in Codespaces?
+- Does the install on attach finish in Codespaces? The command runs there, but the
+  first try had no file to install.
+- Why did `postCreateCommand` leave no `.vsix` in the first Codespace?
 - Does a webview in Codespaces start audio after a click, like on desktop?
 - Does the scheduler keep exact time in a hidden tab? The test only saw that it kept
   running.

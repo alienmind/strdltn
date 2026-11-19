@@ -2,7 +2,7 @@
 	"name": "vstrudel",
 	"displayName": "vstrudel",
 	"description": "Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"private": true,
 	"publisher": "vstrudel",
 	"license": "AGPL-3.0-or-later",
@@ -74,6 +74,41 @@
 				"command": "vstrudel.openStage",
 				"title": "Strudel: Open stage",
 				"icon": "$(open-preview)"
+			},
+			{
+				"command": "vstrudel.previewSound",
+				"title": "Strudel: Preview sound",
+				"icon": "$(play)"
+			},
+			{
+				"command": "vstrudel.insertSound",
+				"title": "Strudel: Insert sound name at cursor",
+				"icon": "$(insert)"
+			},
+			{
+				"command": "vstrudel.copySoundName",
+				"title": "Strudel: Copy sound name",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "vstrudel.refreshSounds",
+				"title": "Strudel: Refresh sounds",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "vstrudel.insertSnippet",
+				"title": "Strudel: Insert snippet at cursor",
+				"icon": "$(insert)"
+			},
+			{
+				"command": "vstrudel.openSnippet",
+				"title": "Strudel: Open snippet file",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "vstrudel.refreshSnippets",
+				"title": "Strudel: Refresh snippets",
+				"icon": "$(refresh)"
 			}
 		],
 		"menus": {
@@ -92,6 +127,57 @@
 					"command": "vstrudel.toggleMode",
 					"when": "activeCustomEditorId == vstrudel.editor || resourceExtname == .strudel",
 					"group": "navigation@3"
+				}
+			],
+			"view/title": [
+				{
+					"command": "vstrudel.refreshSounds",
+					"when": "view == vstrudel.sounds",
+					"group": "navigation"
+				},
+				{
+					"command": "vstrudel.refreshSnippets",
+					"when": "view == vstrudel.snippets",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "vstrudel.insertSound",
+					"when": "view == vstrudel.sounds && viewItem == sound",
+					"group": "inline"
+				},
+				{
+					"command": "vstrudel.copySoundName",
+					"when": "view == vstrudel.sounds && viewItem == sound",
+					"group": "vstrudel@1"
+				},
+				{
+					"command": "vstrudel.openSnippet",
+					"when": "view == vstrudel.snippets && viewItem == snippet",
+					"group": "inline"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "vstrudel.previewSound",
+					"when": "false"
+				},
+				{
+					"command": "vstrudel.insertSound",
+					"when": "false"
+				},
+				{
+					"command": "vstrudel.copySoundName",
+					"when": "false"
+				},
+				{
+					"command": "vstrudel.insertSnippet",
+					"when": "false"
+				},
+				{
+					"command": "vstrudel.openSnippet",
+					"when": "false"
 				}
 			]
 		},
@@ -129,7 +215,38 @@
 					"description": "Workspace folder that holds reusable Strudel snippets."
 				}
 			}
-		}
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "vstrudel",
+					"title": "Strudel",
+					"icon": "media/strudel.svg"
+				}
+			]
+		},
+		"views": {
+			"vstrudel": [
+				{
+					"id": "vstrudel.sounds",
+					"name": "Sounds"
+				},
+				{
+					"id": "vstrudel.snippets",
+					"name": "Snippets"
+				}
+			]
+		},
+		"viewsWelcome": [
+			{
+				"view": "vstrudel.sounds",
+				"contents": "Open a .strudel file to load the sound list."
+			},
+			{
+				"view": "vstrudel.snippets",
+				"contents": "No snippets yet. Put .strudel files in a lib/ folder."
+			}
+		]
 	},
 	"scripts": {
 		"build": "node scripts/build.mjs",
@@ -147,6 +264,7 @@
 		"@strudel/draw": "1.2.6",
 		"@strudel/hydra": "1.2.6",
 		"@strudel/mini": "1.2.6",
+		"@strudel/soundfonts": "1.3.0",
 		"@strudel/tonal": "1.2.6",
 		"@strudel/transpiler": "1.2.6",
 		"@strudel/webaudio": "1.3.0",

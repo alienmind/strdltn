@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { diffText, type FromWebview, type Mode, type ToWebview } from '../shared/protocol';
+import { diffText, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { scanSamples } from './samples';
 
 /**
@@ -20,6 +20,8 @@ export class Session {
 	started = false;
 	/** Everything the webview logged. Read by the integration test through the extension API. */
 	readonly logs: string[] = [];
+	/** When this session's tab was last the active one. Picks the target of a preview or insert. */
+	lastActiveAt = Date.now();
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -27,7 +29,7 @@ export class Session {
 		readonly panel: vscode.WebviewPanel,
 		readonly mode: Mode,
 		private readonly output: vscode.OutputChannel,
-		onDispose: (session: Session) => void,
+		private readonly events: { onDispose(session: Session): void; onSounds(sounds: SoundInfo[]): void },
 	) {
 		this.known = document.getText();
 		const workspaceFolders = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
@@ -51,10 +53,30 @@ export class Session {
 				this.post({ type: 'update', text });
 			}),
 		);
+		this.disposables.push(
+			panel.onDidChangeViewState(() => {
+				if (panel.active) this.lastActiveAt = Date.now();
+			}),
+		);
 		panel.onDidDispose(() => {
 			this.disposables.forEach((d) => d.dispose());
-			onDispose(this);
+			events.onDispose(this);
 		});
+	}
+
+	preview(name: string, index: number): void {
+		this.post({ type: 'preview', name, index });
+	}
+
+	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */
+	insert(text: string): void {
+		this.post({ type: 'insert', text });
+	}
+
+	/** Scans the samples folder again, after files were added or removed. */
+	async refreshSamples(): Promise<void> {
+		if (!this.ready) return;
+		this.post({ type: 'samples', samples: await scanSamples(await this.samplesFolder(), this.panel.webview) });
 	}
 
 	play(): void {
@@ -88,6 +110,9 @@ export class Session {
 				break;
 			case 'started':
 				this.started = message.started;
+				break;
+			case 'sounds':
+				this.events.onSounds(message.sounds);
 				break;
 			case 'log': {
 				const line = `[${this.mode}] ${message.level}: ${message.message}`;

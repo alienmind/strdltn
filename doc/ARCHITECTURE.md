@@ -49,6 +49,8 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/extension.ts` | Registers the custom editor `vstrudel.editor` and the commands. Owns the list of sessions. |
 | `src/extension/session.ts` | Binds one webview to one document. Text sync, sample scan, HTML and CSP. |
 | `src/extension/samples.ts` | Turns the samples folder into the map upstream `samples()` accepts. |
+| `src/extension/sounds.ts` | The Sounds view: groups the sound list that the engine reports. |
+| `src/extension/snippets.ts` | The Snippets view: the `.strudel` files under `lib/`. |
 | `src/shared/protocol.ts` | Message types and `diffText`, used by both sides. |
 | `src/webview/main.ts` | Creates `StrudelMirror`, syncs text, handles play and stop, fills the stage dock. |
 | `scripts/build.mjs` | esbuild: `dist/extension.cjs` (Node, CommonJS) and `dist/webview.js` (browser, ESM). |
@@ -82,6 +84,10 @@ another, so the sound stops on a switch. See `doc/TODO.md` for the open question
 | webview -> host | `edit {text}` | The user changed the code in CodeMirror |
 | host -> webview | `update {text}` | The document changed from somewhere else |
 | host -> webview | `play`, `stop` | A VS Code command was run |
+| host -> webview | `samples {samples}` | The samples folder changed. Register the new map |
+| host -> webview | `preview {name, index}` | Play one sound once |
+| host -> webview | `insert {text}` | Insert at the cursor of the Strudel editor |
+| webview -> host | `sounds {sounds}` | The engine's sound list, sent after loading and after every change |
 | webview -> host | `started {started}` | The scheduler started or stopped |
 | webview -> host | `log {level, message}` | Goes to the `vstrudel` output channel |
 
@@ -108,9 +114,55 @@ samples. A subfolder is a sound name and its
 audio files are the numbered variations. An audio file directly in the folder is a sound
 named after the file. The URLs come from `asWebviewUri`.
 
-The webview also loads `github:tidalcycles/dirt-samples` over the network. The first
-play waits for that pack for up to 6 seconds. Without the wait, the first play on a slow
-network said `sound bd not found`. With the cap, offline use still starts.
+A watcher on the samples folder sends a new map to every open webview when files are
+added or removed, so a new sample works without a reload. A removed sample stays
+registered in the engine until the webview is reloaded.
+
+## Default sounds
+
+The webview loads the sounds strudel.cc loads. The list is the one upstream publishes
+in `@strudel/repl` (`prebake.mjs`, 1.3.0): synths, ZZFX, the General MIDI soundfonts
+from `@strudel/soundfonts`, and six sample maps from `raw.githubusercontent.com`
+(`tidal-drum-machines`, `piano`, `Dirt-Samples`, `vcsl`, `mridangam`, `uzu-drumkit`),
+plus the drum machine aliases. We add the tag `drum-machines` to two of them, as the
+website does, so the view can group them. The list is ours to keep in step with
+upstream.
+
+Only the maps are downloaded at start. An audio file is fetched when it is first played.
+
+The first play waits for the packs for up to 6 seconds. Without the wait, the first play
+on a slow network said `sound bd not found`. With the cap, offline use still starts.
+Each pack gets three tries, and a try that has no answer after 15 seconds is given up.
+One run without retries lost every pack until the window was closed.
+
+## Sounds view
+
+superdough keeps every sound it can play in `soundMap`. The webview sends that list to
+the host after loading and again whenever it changes (300 ms after the last change,
+because a pack registers hundreds of sounds one by one). The view never has a list of
+its own, so it shows exactly what can be played, including the workspace samples.
+
+`SoundsProvider` sorts the list into groups: local samples, samples, drum machines,
+synths, soundfonts, wavetables, other. A sound with numbered variations opens into
+`name:0`, `name:1` and so on, up to 64.
+
+A click plays the sound once through `superdough()`, with the note `a3` for anything
+that is not a plain sample list, as the sounds tab of strudel.cc does. The inline button
+inserts the name at the cursor. The view is empty until a `.strudel` file is open,
+because the list lives in an engine.
+
+Measured in VS Code 1.130: 151 samples, 1347 drum machine sounds, 25 synths and 125
+soundfonts are listed, and one sound of each group plays.
+
+## Snippets view
+
+`SnippetsProvider` lists every `.strudel` file under a folder named by
+`vstrudel.libFolder` (default `lib`), anywhere in the workspace. One file is one
+snippet. A click inserts the file's text at the cursor. A watcher refreshes the list.
+
+Inserting goes to the Strudel editor when it is the active tab, and to the native
+editor otherwise. `window.activeTextEditor` is undefined while the Strudel editor is
+active, because it is a webview.
 
 ## Starting audio
 
@@ -120,10 +172,12 @@ resolves and `navigator.userActivation` is false. The Chromium switch
 `--autoplay-policy=no-user-gesture-required` did not change that. `initAudio()` from
 superdough resolves without resuming the context, so we call `resume()` ourselves.
 
-So `play()` in the webview tries to resume for 1.5 seconds. If the context is still
-suspended it shows the overlay "Click to enable audio". The click on the overlay is the
-gesture, and it plays. This happens once per webview. Playing with Ctrl+Enter inside the
-Strudel editor does not need it, because the user has already clicked in the code.
+So `withAudio()` in the webview tries to resume for 1.5 seconds. If the context is still
+suspended it shows the overlay "Click to enable audio" and remembers what was asked. The
+click on the overlay is the gesture, and the remembered action runs. Play and sound
+preview both go through it. This happens once per webview. Playing with Ctrl+Enter
+inside the Strudel editor does not need it, because the user has already clicked in the
+code.
 
 Not measured: whether a real key press in the native editor counts as a gesture for the
 stage. The test sends commands, which is not a key press.
@@ -196,6 +250,10 @@ In VS Code 1.130.0 on Windows (Electron 42, Chrome 148), with `pnpm test:vscode`
 | Hydra: `hydra-synth` loads from unpkg.com and creates its canvas | Works |
 | `canPlayType` for wav, mp3, ogg, opus, flac, aac | All supported |
 | `crossOriginIsolated` | false. `SharedArrayBuffer` is not available |
+| The Sounds view lists the default packs and the local samples | Works |
+| Preview of a local sample, a sample, a drum machine sound, a synth and a soundfont | Works |
+| A new folder under `samples/` appears in the list without a reload | Works |
+| Insert a sound name into the Strudel editor, and a snippet into the native editor | Works |
 
 The test cannot hear or see. "Works" for audio means the `AudioContext` is running, the
 scheduler started and the samples decoded. It does not prove sound came out of the
@@ -205,7 +263,12 @@ In Chrome, with `pnpm smoke`: the editor, inline widgets, slider, note highlight
 text sync in both directions and the stage dock were also checked by looking at the
 page.
 
-Nothing has been measured in Codespaces.
+Looked at in screenshots of the same test: the Sounds and Snippets views, the inline
+scope, piano roll and slider, the outlines on playing notes, and Hydra shapes behind the
+code.
+
+In Codespaces, by hand, with version 0.0.1: a new Codespace installs the extension by
+itself and `demo.strudel` plays with sound in the browser.
 
 ## Integration test
 
@@ -223,6 +286,10 @@ DevTools Protocol (`--remote-debugging-port`), with `Runtime.evaluate` and
 `userGesture: true`. It first looks for the overlay without `userGesture`. An evaluation
 with `userGesture` gives the page user activation even when it clicks nothing, and that
 hid the fact that a click was needed.
+
+The test can ask for a picture of the whole window. It drops a `<name>.request` file,
+the runner takes a screenshot with `Page.captureScreenshot` and writes
+`tmp/shots/<name>.png`. This is how we look at the UI without a person.
 
 ## Build pipeline
 
@@ -254,9 +321,10 @@ in `postCreateCommand`, and `install` installs it on attach and builds first whe
 file is missing. The `.vsix` is kept in the home folder. The two template configurations
 do the same in one command with `curl`.
 
-Measured in a Codespace on `main`: `bash scripts/codespace-install.sh install` built the
-`.vsix` and installed the extension. The two template configurations have not been
-tried. Sound in a Codespace has not been confirmed.
+Measured by hand: in an existing Codespace, `bash scripts/codespace-install.sh install`
+built the `.vsix` and installed the extension. A new Codespace then came up with the
+extension installed and played `demo.strudel` with sound. We did not record which of
+the configurations that new Codespace used.
 
 ## Tooling
 

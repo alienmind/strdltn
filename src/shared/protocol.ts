@@ -6,16 +6,31 @@ export type Mode = 'editor' | 'stage';
 /** Sound name -> list of absolute URLs, the shape upstream `samples()` accepts. */
 export type SampleMap = Record<string, string[]>;
 
+/** One entry of the engine's sound list, as shown in the Sounds view. */
+export interface SoundInfo {
+	name: string;
+	/** superdough's own type: 'sample', 'synth', 'soundfont', 'wavetable'... */
+	type: string;
+	/** Set by whoever loaded the sound. We use 'local' and, like strudel.cc, 'drum-machines'. */
+	tag?: string;
+	/** Number of variations (`name:0`, `name:1`...). 1 for a synth. */
+	count: number;
+}
+
 export type ToWebview =
 	| { type: 'init'; text: string; mode: Mode; samples: SampleMap }
 	| { type: 'update'; text: string }
+	| { type: 'samples'; samples: SampleMap }
 	| { type: 'play' }
-	| { type: 'stop' };
+	| { type: 'stop' }
+	| { type: 'preview'; name: string; index: number }
+	| { type: 'insert'; text: string };
 
 export type FromWebview =
 	| { type: 'ready' }
 	| { type: 'edit'; text: string }
 	| { type: 'started'; started: boolean }
+	| { type: 'sounds'; sounds: SoundInfo[] }
 	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string };
 
 export interface TextChange {

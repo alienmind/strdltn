@@ -80,7 +80,11 @@ Code with a switch. The overlay that asks for one click stays.
 
 Tried. The first version started loading `github:tidalcycles/dirt-samples` and did not
 wait, as strudel.cc does. On a slow network the first play logged `sound bd not found`.
-The first play now waits for the pack, for at most 6 seconds.
+The first play now waits for the packs, for at most 6 seconds.
+
+Waiting was not enough either. In one run every pack failed to load and nothing tried
+again, so `bd` stayed missing until the window was closed. Each pack now gets three
+tries.
 
 ## Testing in the installed VS Code by default
 

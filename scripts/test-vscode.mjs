@@ -4,7 +4,7 @@
 // Extra arguments go to VS Code, for example:
 //   pnpm test:vscode -- --autoplay-policy=no-user-gesture-required
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron';
@@ -24,6 +24,12 @@ const out = join(profile, 'result.json');
 // variables that would make the new Code.exe run as plain Node or attach to the parent.
 const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(ELECTRON_|VSCODE_)/.test(name)));
 env.VSTRUDEL_TEST_OUT = out;
+// The test asks for pictures of the window by dropping `<name>.request` files here.
+// They end up as tmp/shots/<name>.png, for a person or an agent to look at.
+const shots = join(root, 'tmp', 'shots');
+rmSync(shots, { recursive: true, force: true });
+mkdirSync(shots, { recursive: true });
+env.VSTRUDEL_TEST_SHOTS = shots;
 
 const args = [
 	`--extensionDevelopmentPath=${root}`,
@@ -53,7 +59,8 @@ const overlayScript = (click) => `(() => {
 	return 'none';
 })()`;
 
-function evaluateIn(webSocketUrl, expression, userGesture) {
+/** One Chrome DevTools Protocol call on one target. Resolves to its result, or undefined. */
+function cdp(webSocketUrl, method, params) {
 	return new Promise((done) => {
 		const socket = new WebSocket(webSocketUrl);
 		const finish = (value) => {
@@ -61,11 +68,26 @@ function evaluateIn(webSocketUrl, expression, userGesture) {
 			socket.close();
 			done(value);
 		};
-		const timer = setTimeout(() => finish(undefined), 3000);
-		socket.onopen = () => socket.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, userGesture } }));
-		socket.onmessage = (event) => finish(JSON.parse(event.data).result?.result?.value);
+		const timer = setTimeout(() => finish(undefined), 5000);
+		socket.onopen = () => socket.send(JSON.stringify({ id: 1, method, params }));
+		socket.onmessage = (event) => finish(JSON.parse(event.data).result);
 		socket.onerror = () => finish(undefined);
 	});
+}
+
+const evaluateIn = async (webSocketUrl, expression, userGesture) =>
+	(await cdp(webSocketUrl, 'Runtime.evaluate', { expression, userGesture }))?.result?.value;
+
+async function takeRequestedShots(targets) {
+	const requests = readdirSync(shots).filter((file) => file.endsWith('.request'));
+	if (!requests.length) return;
+	const workbench = targets.find((target) => target.type === 'page' && target.url.startsWith('vscode-file://'));
+	if (!workbench?.webSocketDebuggerUrl) return;
+	for (const request of requests) {
+		const picture = await cdp(workbench.webSocketDebuggerUrl, 'Page.captureScreenshot', { format: 'png' });
+		rmSync(join(shots, request), { force: true });
+		if (picture?.data) writeFileSync(join(shots, request.replace(/\.request$/, '.png')), Buffer.from(picture.data, 'base64'));
+	}
 }
 
 let running = true;
@@ -73,6 +95,7 @@ let running = true;
 	while (running) {
 		try {
 			const targets = await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`)).json();
+			await takeRequestedShots(targets);
 			for (const target of targets) {
 				if (!target.url.startsWith('vscode-webview://') || !target.webSocketDebuggerUrl) continue;
 				// Look first without a gesture. An evaluation with userGesture gives the

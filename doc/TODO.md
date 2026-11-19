@@ -3,21 +3,27 @@
 What is in flight, what is undecided, and what to try next. Finished work is deleted
 from here.
 
-## Next: test by hand on desktop
+## Next: test by hand
 
-`pnpm test:vscode` already passes in VS Code 1.130 (see "Measured" in
-`doc/ARCHITECTURE.md`). It cannot hear or see, so these checks are what is left.
+`pnpm test:vscode` passes in VS Code 1.130 and we looked at its screenshots (see
+"Measured" in `doc/ARCHITECTURE.md`). It cannot hear. Version 0.0.1 was heard on
+desktop and in Codespaces. Version 0.0.2 adds the Sounds and Snippets views, and nobody
+has listened to those.
 
-Target: **desktop VS Code, F5 on this repo** (opens `template/`).
+Target: **desktop VS Code, F5 on this repo**, or **a new Codespace on `main`** with the
+configuration "vstrudel template (released extension)".
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Open `demo.strudel`, click in the code, press Ctrl+Enter | You hear drums, a bass line and a blip. The scope and piano roll move. Playing notes are outlined |
-| 2 | Drag the slider in the code | The filter changes while it plays, and the number in the code changes |
-| 3 | Open another tab for 30 seconds while it plays | The sound keeps going, in time |
-| 4 | Press the swap button in the title bar (or Ctrl+Alt+M) | The same tab becomes the native editor. The sound stops |
-| 5 | In the native editor press Ctrl+Enter | A stage opens beside the code. Note whether it plays at once or shows "Click to enable audio" |
-| 6 | Open `hydra.strudel` in the Strudel editor, click in the code, press Ctrl+Enter | Hydra shapes behind the code, and sound |
+| 1 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Sound, as before |
+| 2 | Click the Strudel icon in the activity bar | A Sounds view with groups and counts, and a Snippets view with `drums` |
+| 3 | Open "Drum machines" and click a few sounds | Each one is heard once |
+| 4 | Open "Soundfonts" and click `gm_piano` | A piano note |
+| 5 | Open "Local samples", click `blip` | The blip |
+| 6 | Put the cursor inside a `s("...")`, press the insert button on a sound | The name is typed at the cursor |
+| 7 | Copy a folder with a few `.wav` files into `samples/` | It appears under "Local samples" in a few seconds, and plays |
+| 8 | Put the cursor on an empty line, click `drums` in Snippets | The text of `lib/drums.strudel` is inserted |
+| 9 | Press the swap button, then Ctrl+Enter in the native editor | The stage opens. Note whether it plays at once or asks for a click |
 
 Expected still broken: sound stops on every mode switch, and sliders are missing in the
 stage.
@@ -25,43 +31,14 @@ stage.
 Report the result by check number. When something fails, add the content of Output >
 `vstrudel`.
 
-## Next: test in Codespaces
-
-Target: **a new Codespace on `alienmind/vstrudel`, branch `main`, opened in Chrome**.
-Create it from "New with options" and choose the configuration "vstrudel template
-(released extension)". The plain "Create codespace" button takes the other
-configuration, which builds from source.
-
-The first try used the source configuration and failed: the `.vsix` was not at
-`/tmp/vstrudel.vsix` on attach. We do not know why the build step left no file. The
-install now builds on attach when the file is missing, so a build error shows in the
-terminal.
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Wait for the Codespace to finish starting, then look at the Extensions view | `vstrudel` is installed |
-| 2 | Only if check 1 failed: copy the terminal output of the attach command | It shows where it stopped |
-| 3 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Sound in your browser, with the `blip` sample |
-| 4 | Press the swap button, then Ctrl+Enter in the native editor | The stage opens. Note whether it needs a click |
-
-Expected still broken: the same as on desktop. Nothing has been measured in Codespaces,
-so any of these can fail.
-
-Report the result by check number, plus Output > `vstrudel` and, for check 1, the
-terminal output of the attach command.
-
-The default configuration, "vstrudel (built from source)", builds the extension inside
-the Codespace. Use it to try a branch that has no release.
-
 ## Open questions
 
 - Does a real key press in the native editor count as a click for the stage? A command
-  sent by the test does not. Desktop check 5 answers it.
-- Does the template configuration install the extension on its own, with no command
-  typed? Only the source script was run by hand so far.
-- Does a webview in Codespaces start audio after a click, like on desktop?
+  sent by the test does not. Check 9 answers it.
 - Does the scheduler keep exact time in a hidden tab? The test only saw that it kept
   running.
+- Which devcontainer configuration did the working new Codespace use? Both should work,
+  only one was seen.
 
 ## Open decisions
 
@@ -86,9 +63,10 @@ the extension is not on the Marketplace. Publishing to the VS Code Marketplace a
 VSX would let a devcontainer install it by id. That needs a publisher account, and the
 `publisher` in `package.json` is a placeholder until then.
 
-**How `lib/` is reused.** Strudel has no module system for local files. Recommended for
-a first version: a palette that inserts snippets, plus an optional prelude that
-evaluates every file in `lib/` before the song. Not decided.
+**How `lib/` is reused.** Today a snippet is a file whose text is pasted. Strudel has no
+module system for local files. A second way to reuse code would be a prelude that
+evaluates every file in `lib/` before the song, so that its functions are global. Not
+decided.
 
 **Where the template lives.** It is the folder `template/` in this repo for now, so F5
 and the test have something to open. It should become its own GitHub template repo
@@ -101,25 +79,33 @@ before M5. `template/.devcontainer/` is already written for that.
 - Cursor and scroll position are not carried across a mode switch.
 - Sliders do not appear in the stage.
 - Notes that are playing are not highlighted in the native editor.
-- The sample map is built once, when the webview loads. New files need a reload.
+- A sample that was deleted stays in the Sounds view until the editor is reloaded.
+- The Sounds view is empty until a `.strudel` file is open.
+- A sound with more than 64 variations only shows the first 64.
+- The Sounds view has no search box of its own. The tree filter of VS Code (Ctrl+F in
+  the view) works.
+- A snippet is a whole file. There is no way to put several in one file or to give one
+  a description.
 - `stop` stops every session, not only the active one.
 - The grammar only reuses JavaScript highlighting. Mini-notation is not highlighted in
   the native editor.
 - The editor font and theme are Strudel's defaults, not VS Code's.
+- The status text in the corner of the editor ("editor | audio running | playing") is a
+  debugging aid and should become a status bar item.
 - The integration test does not run in CI. A runner has no sound card and needs a
   virtual display.
 - The integration test leaves `demo.strudel` marked as changed in its own window. It
   does not save, so the file on disk is untouched.
-- The `.vsix` is 543 KB with a 1.9 MB webview bundle. Not looked at.
+- The default sound packs need the network. Offline, only synths, ZZFX and local samples
+  play.
 
 ## Milestones
 
 | Milestone | Content |
 |---|---|
-| M0 | Spike proven by hand on desktop and in Codespaces. The two tables above |
-| M1 | Solid core: settings for theme and font, eval errors as diagnostics, status bar, sample map refresh |
+| M1 | Solid core: settings for theme and font, eval errors as diagnostics, status bar |
 | M2 | Native mode feedback: note highlighting through decorations, sliders in the stage with write-back, one undo history |
-| M3 | Side panels: Strudel reference (from `@strudel/reference`), sample browser with preview, snippet palette over `lib/` |
+| M3 | What is left of the side panels: the Strudel reference (from `@strudel/reference`), search in the Sounds view |
 | M4 | Language support in the native editor: completion, hover, signature help, mini-notation grammar and diagnostics |
 | M5 | Ship: Marketplace and Open VSX, template as its own repo, Renovate for `@strudel/*` |
 

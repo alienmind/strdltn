@@ -1,7 +1,8 @@
 // Integration test that runs inside a real VS Code (see scripts/test-vscode.mjs).
 // It drives the extension through its commands and reads what the webviews logged.
 // It records facts rather than asserting them: the result file is the M0 report.
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import * as vscode from 'vscode';
 import type { VstrudelApi } from '../extension/extension';
 
@@ -36,6 +37,22 @@ export async function run(): Promise<void> {
 				.at(-1);
 		const problems = (mode: string, uri: vscode.Uri) =>
 			session(mode, uri)?.logs.filter((line) => /\] (error|warn): /.test(line)) ?? [];
+		// Asks the runner (scripts/test-vscode.mjs) for a picture of the whole window.
+		const shots = process.env.VSTRUDEL_TEST_SHOTS;
+		const shot = async (name: string) => {
+			if (!shots) return;
+			writeFileSync(join(shots, `${name}.request`), '');
+			await until(() => existsSync(join(shots, `${name}.png`)), 8000);
+		};
+		const text = async (uri: vscode.Uri) => (await vscode.workspace.openTextDocument(uri)).getText();
+		const count = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+		const restore = async (uri: vscode.Uri, original: string) => {
+			const document = await vscode.workspace.openTextDocument(uri);
+			const edit = new vscode.WorkspaceEdit();
+			edit.replace(uri, new vscode.Range(0, 0, document.lineCount, 0), original);
+			await vscode.workspace.applyEdit(edit);
+			await sleep(300);
+		};
 		const tabs = (uri: vscode.Uri) =>
 			vscode.window.tabGroups.all.flatMap((group) =>
 				group.tabs
@@ -56,6 +73,48 @@ export async function run(): Promise<void> {
 		steps.editorNeedsClick = has('editor', demo, 'click inside the webview');
 		await sleep(4000);
 		steps.editorStartedAfter4s = session('editor', demo)?.started;
+		save();
+
+		// 2b. The Sounds view: the engine's own list, preview and insert.
+		const demoText = await text(demo);
+		steps.soundsArrived = await until(() => api.sounds().length > 50, 40000);
+		steps.soundGroups = api.soundGroups();
+		const pick = (test: (s: { name: string; type: string; tag?: string; count: number }) => boolean) => api.sounds().find(test);
+		const picks = {
+			local: pick((s) => s.tag === 'local'),
+			sample: pick((s) => s.name === 'bd'),
+			drumMachine: pick((s) => s.tag === 'drum-machines'),
+			synth: pick((s) => s.name === 'sawtooth'),
+			soundfont: pick((s) => s.type === 'soundfont'),
+		};
+		steps.soundPicks = Object.fromEntries(Object.entries(picks).map(([key, s]) => [key, s && `${s.name} (${s.type}, ${s.count})`]));
+		await vscode.commands.executeCommand('vstrudel.sounds.focus');
+		await sleep(1500);
+		await shot('sounds-view');
+		const previews: Record<string, boolean> = {};
+		for (const [key, sound] of Object.entries(picks)) {
+			if (!sound) continue;
+			await vscode.commands.executeCommand('vstrudel.previewSound', { kind: 'sound', sound });
+			previews[key] = await until(() => has('editor', demo, `preview: ${sound.name}:0`), 15000);
+			await sleep(700);
+		}
+		steps.previews = previews;
+		if (picks.soundfont) {
+			await vscode.commands.executeCommand('vstrudel.insertSound', { kind: 'sound', sound: picks.soundfont });
+			steps.insertSoundInStrudelEditor = await until(() => false, 1500).then(async () => (await text(demo)).includes(picks.soundfont!.name));
+			await restore(demo, demoText);
+		}
+		steps.soundProblems = problems('editor', demo);
+		save();
+
+		// 2c. A new folder of samples shows up without a reload.
+		const zap = vscode.Uri.joinPath(folder, 'samples', 'zap-test');
+		try {
+			await vscode.workspace.fs.copy(vscode.Uri.joinPath(folder, 'samples', 'blip'), zap, { overwrite: true });
+			steps.newSampleFolderSeen = await until(() => api.sounds().some((s) => s.name === 'zap-test'), 20000);
+		} finally {
+			await vscode.workspace.fs.delete(zap, { recursive: true }).then(undefined, () => undefined);
+		}
 		save();
 
 		// 3. Hide the editor tab for a while. The engine should survive.
@@ -81,6 +140,20 @@ export async function run(): Promise<void> {
 		steps.tabsAfterToggleToNative = tabs(demo);
 		steps.activeTextEditorIsDemo = vscode.window.activeTextEditor?.document.uri.toString() === demo.toString();
 		steps.editorSessionGoneAfterToggle = !session('editor', demo);
+
+		// 4b. The Snippets view, inserting into the native editor.
+		steps.snippets = api.snippets();
+		await vscode.commands.executeCommand('vstrudel.snippets.focus');
+		await sleep(1000);
+		await shot('snippets-view');
+		const snippetBody = 's("bd*2, ~ sd, hh*8")';
+		const nativeBefore = await text(demo);
+		const snippetUri = vscode.Uri.joinPath(folder, 'lib', 'drums.strudel');
+		await vscode.commands.executeCommand('vstrudel.insertSnippet', { uri: snippetUri, name: 'drums' });
+		await sleep(700);
+		steps.insertSnippetInNativeEditor = count(await text(demo), snippetBody) === count(nativeBefore, snippetBody) + 1;
+		await restore(demo, nativeBefore);
+		await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
 
 		// 5. Play from the native editor: a stage opens beside it.
 		await vscode.commands.executeCommand('vstrudel.play');
@@ -133,6 +206,7 @@ export async function run(): Promise<void> {
 		await sleep(3000);
 		steps.hydraReport = last('editor', hydra, 'report:');
 		steps.hydraProblems = problems('editor', hydra);
+		await shot('hydra');
 		await vscode.commands.executeCommand('vstrudel.stop');
 		result.finished = true;
 		result.logs = api.sessions().map((s) => ({ mode: s.mode, uri: s.uri.split('/').pop(), logs: s.logs }));

@@ -265,3 +265,5 @@ tried. Sound in a Codespace has not been confirmed.
 - `package.json` has `"type": "module"`, so the extension host bundle is written as
   `dist/extension.cjs`.
 - `vsce package` is run with `--no-dependencies` because everything is bundled.
+- `vsce package` stops and asks a question in a terminal when `package.json` has no
+  `repository` field. In a Codespace that hangs the container build. Keep the field.

@@ -92,6 +92,8 @@ stable build unless `VSCODE_EXE` is set.
 
 Tried, in the first Codespace. `postCreateCommand` built the `.vsix` and copied it to
 `/tmp/vstrudel.vsix`, and `postAttachCommand` installed from there. On attach the file
-did not exist (`ENOENT`). We could not read the creation log, so we do not know whether
-the build failed or the file was lost. The install step now builds or downloads the file
-itself when it is missing, and keeps it in the home folder.
+did not exist (`ENOENT`). The cause showed up later: `vsce package` asked "Do you want
+to continue? [y/N]" because `package.json` had no `repository` field, and nobody answers
+a question during create. CI did not ask, so the pipeline passed. `package.json` now has
+the field. The install step also builds or downloads the file itself when it is missing,
+and keeps it in the home folder.

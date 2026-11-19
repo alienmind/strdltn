@@ -336,3 +336,25 @@ the configurations that new Codespace used.
 - `vsce package` is run with `--no-dependencies` because everything is bundled.
 - `vsce package` stops and asks a question in a terminal when `package.json` has no
   `repository` field. In a Codespace that hangs the container build. Keep the field.
+
+## Public page
+
+`doc/ABOUT.md` is shown at <https://www-alienmind.vercel.app/vstrudel/index.html>. The
+home page repo, `alienmind-www`, has this repo as the git submodule `projects/vstrudel`.
+Its `scripts/build-docs.ts` turns `doc/ABOUT.md` into `public/vstrudel/index.html` and
+copies the images that sit in `doc/`. The card on the front page is an entry in
+`src/App.tsx` there, with `public/vstrudel.png` as its picture.
+
+The generated page is committed in `alienmind-www`, so a change here does not show by
+itself. To publish a new `doc/ABOUT.md`:
+
+```
+cd ../alienmind-www
+git submodule update --remote projects/vstrudel
+pnpm build:docs
+git add projects/vstrudel public/vstrudel
+git commit -m "chore: refresh the vstrudel page"
+git push
+```
+
+Vercel deploys on the push. It was live 40 seconds after the first one.

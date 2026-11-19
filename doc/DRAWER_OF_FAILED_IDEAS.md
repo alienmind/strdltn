@@ -66,3 +66,24 @@ result would be an approximation. Legally, most plugin licenses forbid reverse
 engineering, the result is likely a derivative work, and many plugins have copy
 protection. We will not build it for plugins we do not hold the rights to. The useful
 version is porting open-source plugins from source, see `doc/TODO.md`.
+
+## Starting audio without a click
+
+Tried, in VS Code 1.130 with `pnpm test:vscode`. A play that comes from a VS Code
+command has no user gesture inside the webview, and `AudioContext.resume()` never
+resolves. We started VS Code with the Chromium switch
+`--autoplay-policy=no-user-gesture-required`. VS Code passed it on with a warning and
+the result did not change. Even if it had worked, a user cannot be asked to start VS
+Code with a switch. The overlay that asks for one click stays.
+
+## Playing before the default sample pack has loaded
+
+Tried. The first version started loading `github:tidalcycles/dirt-samples` and did not
+wait, as strudel.cc does. On a slow network the first play logged `sound bd not found`.
+The first play now waits for the pack, for at most 6 seconds.
+
+## Testing in the installed VS Code by default
+
+Tried. Starting a second instance of the installed VS Code failed with "Code is
+currently being updated" while an update was pending. The test runner downloads its own
+stable build unless `VSCODE_EXE` is set.

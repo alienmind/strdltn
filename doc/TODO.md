@@ -3,78 +3,91 @@
 What is in flight, what is undecided, and what to try next. Finished work is deleted
 from here.
 
-## Next: M0 test in desktop VS Code
+## Next: test by hand on desktop
 
-The spike is built. It needs a person, because sound and VS Code cannot be checked from
-the terminal. Target: **desktop VS Code, F5 on this repo** (opens `template/`).
+`pnpm test:vscode` already passes in VS Code 1.130 (see "Measured" in
+`doc/ARCHITECTURE.md`). It cannot hear or see, so these checks are what is left.
+
+Target: **desktop VS Code, F5 on this repo** (opens `template/`).
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Open `demo.strudel` | Strudel editor opens with the code, not the native editor |
-| 2 | Click in the code, press Ctrl+Enter | Sound. Inline scope and piano roll move. Playing notes are outlined |
-| 3 | Drag the slider in the code | The filter changes while it plays, and the number in the code changes |
-| 4 | Listen for the third pattern | The `blip` sample from `samples/blip/` is heard |
-| 5 | Press Ctrl+. | Sound stops |
-| 6 | Play, then open another tab so the editor is hidden for 30 seconds | Sound keeps going, in time |
-| 7 | Press the swap button in the title bar (or Ctrl+Alt+M) | The same tab becomes the native editor. No second tab |
-| 8 | In the native editor press Ctrl+Enter | A stage opens beside the code and plays. If it shows "Click to enable audio", note it and click |
-| 9 | Type in the native editor, press Ctrl+Enter again | The stage plays the new code |
-| 10 | Toggle back to the Strudel editor | The stage closes. The code has the edits from step 9 |
-| 11 | Edit `demo.strudel` from outside (another program, or `git checkout`) while the Strudel editor is open | The editor shows the new text |
-| 12 | Open `hydra.strudel`, press Ctrl+Enter | Hydra visuals behind the code, and sound |
+| 1 | Open `demo.strudel`, click in the code, press Ctrl+Enter | You hear drums, a bass line and a blip. The scope and piano roll move. Playing notes are outlined |
+| 2 | Drag the slider in the code | The filter changes while it plays, and the number in the code changes |
+| 3 | Open another tab for 30 seconds while it plays | The sound keeps going, in time |
+| 4 | Press the swap button in the title bar (or Ctrl+Alt+M) | The same tab becomes the native editor. The sound stops |
+| 5 | In the native editor press Ctrl+Enter | A stage opens beside the code. Note whether it plays at once or shows "Click to enable audio" |
+| 6 | Open `hydra.strudel` in the Strudel editor, click in the code, press Ctrl+Enter | Hydra shapes behind the code, and sound |
 
-Expected still broken: sound stops on every mode switch (steps 7 and 10), and sliders
-are missing in the stage.
+Expected still broken: sound stops on every mode switch, and sliders are missing in the
+stage.
 
-Report the result by check number, plus the content of Output > `vstrudel`. Its first
-lines hold the user agent, the codec support and the AudioContext state, which answer
-the codec question without listening.
+Report the result by check number. When something fails, add the content of Output >
+`vstrudel`.
 
-After desktop passes, run the same table in Codespaces. That needs the extension
-installed there, see "Codespaces install path" below.
+## Next: test in Codespaces
 
-## Questions M0 answers
+Target: **a Codespace on `alienmind/vstrudel`, branch `main`, opened in Chrome**. When
+you create it, choose the configuration "vstrudel template (released extension)". It
+needs the `v0.0.1` release to exist.
 
-| Question | Check |
-|---|---|
-| Does a webview start audio from a click inside it? | 2 |
-| Does a play command from VS Code start audio with no click in the webview? | 8 |
-| Do AudioWorklets load from `data:` URLs under our CSP? | 2, and no error in the log |
-| Does `fetch` of an `asWebviewUri` URL work for samples? | 4 |
-| Which codecs does the VS Code build decode? | The `codecs:` line in the log |
-| Does the scheduler keep time when the tab is hidden? | 6 |
-| Does `vscode.openWith` swap the tab in place? | 7 |
-| How long does a mode switch take? | 7, by feel for now |
-| Does Hydra load from unpkg.com and get WebGL? | 12 |
+| # | Do this | Should happen |
+|---|---------|---------------|
+| 1 | Wait for the Codespace to finish starting, then look at the Extensions view | `vstrudel` is installed |
+| 2 | Only if check 1 failed: run `code --install-extension /tmp/vstrudel.vsix` in the terminal | It installs |
+| 3 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Sound in your browser, with the `blip` sample |
+| 4 | Press the swap button, then Ctrl+Enter in the native editor | The stage opens. Note whether it needs a click |
+
+Expected still broken: the same as on desktop. Nothing has been measured in Codespaces,
+so any of these can fail.
+
+Report the result by check number, plus Output > `vstrudel` and, for check 1, the
+output of the "postAttachCommand" in the creation log.
+
+The default configuration, "vstrudel (built from source)", builds the extension inside
+the Codespace. Use it to try a branch that has no release.
+
+## Open questions
+
+- Does a real key press in the native editor count as a click for the stage? A command
+  sent by the test does not. Desktop check 5 answers it.
+- Does `code --install-extension` work in `postAttachCommand` in Codespaces?
+- Does a webview in Codespaces start audio after a click, like on desktop?
+- Does the scheduler keep exact time in a hidden tab? The test only saw that it kept
+  running.
 
 ## Open decisions
 
 **Sound across a mode switch.** Each webview has its own engine, so a switch stops the
 sound. Upstream `StrudelMirror` keeps editor, scheduler and drawing in one page, which
 makes a separate engine webview costly: highlighting and scopes need the haps and the
-analyser data where the editor is. Options to try after M0:
+analyser data where the editor is. Options to try:
 1. Accept the gap and restart playback in the new webview at the same cycle position.
 2. One long-lived panel that holds the engine and is moved or shown differently, instead
    of two webview kinds.
 3. A separate hidden engine webview, with the editor webview running a silent copy of
    the pattern for visuals.
 
+A new webview also needs a new click before it may play. Option 1 would show the
+overlay on every switch. That counts against it.
+
 **Default editor for `.strudel`.** Today the Strudel editor is the default
 (`priority: default`). Planned: a setting `vstrudel.defaultEditor: strudel | native`.
 
-**Codespaces install path.** Recommended: publish to the VS Code Marketplace and Open
-VSX, then `devcontainer.json` installs by id. Alternative: download the `.vsix` from a
-GitHub release in `postAttachCommand`. Not decided. The `publisher` in `package.json` is
-a placeholder.
+**Publishing.** The devcontainers install the `.vsix` from a GitHub release, because
+the extension is not on the Marketplace. Publishing to the VS Code Marketplace and Open
+VSX would let a devcontainer install it by id. That needs a publisher account, and the
+`publisher` in `package.json` is a placeholder until then.
 
 **How `lib/` is reused.** Strudel has no module system for local files. Recommended for
 a first version: a palette that inserts snippets, plus an optional prelude that
 evaluates every file in `lib/` before the song. Not decided.
 
 **Where the template lives.** It is the folder `template/` in this repo for now, so F5
-has something to open. It should become its own GitHub template repo before M5.
+and the test have something to open. It should become its own GitHub template repo
+before M5. `template/.devcontainer/` is already written for that.
 
-## Known gaps in the spike
+## Known gaps
 
 - Undo in the Strudel editor is CodeMirror's own history. It should go through VS Code
   so there is one history across both modes.
@@ -85,19 +98,23 @@ has something to open. It should become its own GitHub template repo before M5.
 - `stop` stops every session, not only the active one.
 - The grammar only reuses JavaScript highlighting. Mini-notation is not highlighted in
   the native editor.
-- The webview bundle is 3 MB unminified. Not looked at.
 - The editor font and theme are Strudel's defaults, not VS Code's.
+- The integration test does not run in CI. A runner has no sound card and needs a
+  virtual display.
+- The integration test leaves `demo.strudel` marked as changed in its own window. It
+  does not save, so the file on disk is untouched.
+- The `.vsix` is 543 KB with a 1.9 MB webview bundle. Not looked at.
 
 ## Milestones
 
 | Milestone | Content |
 |---|---|
-| M0 | Spike proven on desktop and in Codespaces. The table above |
+| M0 | Spike proven by hand on desktop and in Codespaces. The two tables above |
 | M1 | Solid core: settings for theme and font, eval errors as diagnostics, status bar, sample map refresh |
 | M2 | Native mode feedback: note highlighting through decorations, sliders in the stage with write-back, one undo history |
 | M3 | Side panels: Strudel reference (from `@strudel/reference`), sample browser with preview, snippet palette over `lib/` |
 | M4 | Language support in the native editor: completion, hover, signature help, mini-notation grammar and diagnostics |
-| M5 | Ship: `.vsix`, Marketplace and Open VSX, template repo with devcontainer, CI, Renovate for `@strudel/*` |
+| M5 | Ship: Marketplace and Open VSX, template as its own repo, Renovate for `@strudel/*` |
 
 ## Ideas for later
 

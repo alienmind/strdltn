@@ -8,8 +8,8 @@ vstrudel hosts the upstream Strudel packages (`@strudel/*`, source at
 [codeberg.org/uzu/strudel](https://codeberg.org/uzu/strudel)). It is licensed
 AGPL-3.0-or-later, like Strudel.
 
-**Status: first spike.** The extension builds and the editor works in a plain browser.
-It has not been confirmed inside VS Code yet. See `doc/TODO.md`.
+**Status: first spike, version 0.0.1.** An automated test passes inside desktop VS Code.
+Nobody has listened to it yet, and Codespaces is untested. See `doc/TODO.md`.
 
 ## What works in the spike
 
@@ -23,6 +23,15 @@ It has not been confirmed inside VS Code yet. See `doc/TODO.md`.
   becomes `s("kick")`.
 - Edits made outside the editor (another editor, git, an agent) show up live.
 
+The first time you press play from a button or from the native editor, the page may ask
+for one click ("Click to enable audio"). Browsers do not start sound without a click.
+
+## Try it in Codespaces
+
+Create a Codespace on this repo and choose the configuration "vstrudel template
+(released extension)". It opens the `template/` folder with the extension installed.
+Open `demo.strudel`, click in the code and press Ctrl+Enter.
+
 ## Keys
 
 | Key | Does |
@@ -33,7 +42,7 @@ It has not been confirmed inside VS Code yet. See `doc/TODO.md`.
 
 ## Run it from source
 
-You need Node 24 and pnpm.
+You need Node 24 and pnpm. A tag `v*` on GitHub builds a release with the `.vsix`.
 
 ```
 pnpm install
@@ -50,6 +59,7 @@ Other commands:
 | `pnpm watch` | Rebuild on every change |
 | `pnpm typecheck` | Type check without building |
 | `pnpm smoke` | Serve the editor in a plain browser, muted, to test without VS Code |
+| `pnpm test:vscode` | Run the integration test inside a real VS Code |
 | `pnpm package` | Build a `.vsix` |
 
 ## Folders

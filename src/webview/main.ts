@@ -87,9 +87,15 @@ function init(text: string, initialMode: Mode, samples: SampleMap): void {
 				),
 				strudelWebaudio.registerSynthSounds(),
 			]);
-			// Not awaited, as on strudel.cc: a slow or offline network must not block local sounds.
-			void strudelWebaudio.samples('github:tidalcycles/dirt-samples');
 			if (Object.keys(samples).length) await strudelWebaudio.samples(samples);
+			// The first play waits for the default pack, or "bd" is not found yet (measured
+			// on a slow network). The wait is capped so that offline use still starts.
+			await Promise.race([
+				Promise.resolve(strudelWebaudio.samples('github:tidalcycles/dirt-samples')).catch((error: Error) =>
+					log('warn', `dirt-samples not loaded: ${error?.message}`),
+				),
+				new Promise((resolve) => setTimeout(resolve, 6000)),
+			]);
 			log('info', `local samples: ${Object.keys(samples).join(', ') || 'none'}`);
 		},
 		// StrudelMirror 1.3.0 calls this without arguments, so the code comes from the mirror.
@@ -143,7 +149,27 @@ function applyRemoteText(text: string): void {
 async function play(): Promise<void> {
 	if (!mirror) return;
 	const context: AudioContext = strudelWebaudio.getAudioContext();
-	await Promise.race([strudelWebaudio.initAudio(), new Promise((resolve) => setTimeout(resolve, 1500))]);
+	const startedAt = performance.now();
+	const outcome = await Promise.race([
+		strudelWebaudio.initAudio().then(
+			() => 'initAudio resolved',
+			(error: Error) => `initAudio failed: ${error?.message}`,
+		),
+		new Promise<string>((resolve) => setTimeout(() => resolve('initAudio still pending'), 3000)),
+	]);
+	log('info', `play: ${outcome} after ${Math.round(performance.now() - startedAt)} ms, audio=${context.state}, userActivation=${navigator.userActivation?.isActive}/${navigator.userActivation?.hasBeenActive}`);
+	if (context.state !== 'running') {
+		// initAudio() does not resume the context by itself (measured in VS Code 1.130).
+		// resume() stays pending for ever when the browser wants a user gesture first.
+		const resumed = await Promise.race([
+			context.resume().then(
+				() => 'resume resolved',
+				(error: Error) => `resume failed: ${error?.message}`,
+			),
+			new Promise<string>((resolve) => setTimeout(() => resolve('resume still pending'), 1500)),
+		]);
+		log('info', `play: ${resumed}, audio=${context.state}`);
+	}
 	if (context.state !== 'running') {
 		log('warn', `AudioContext is "${context.state}" after a command-triggered play: a click inside the webview is needed`);
 		unlockElement.classList.add('visible');

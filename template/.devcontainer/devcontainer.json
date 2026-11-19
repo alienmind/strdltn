@@ -1,0 +1,8 @@
+// Codespace for writing music. It installs the released vstrudel extension.
+{
+	"name": "vstrudel template",
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+	"postCreateCommand": "curl -fsSL -o /tmp/vstrudel.vsix https://github.com/alienmind/vstrudel/releases/latest/download/vstrudel.vsix",
+	// Installing needs a connected editor, so it runs on attach and not on create.
+	"postAttachCommand": "code --install-extension /tmp/vstrudel.vsix --force"
+}

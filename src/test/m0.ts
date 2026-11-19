@@ -51,9 +51,7 @@ export async function run(): Promise<void> {
 
 		// 2. Play from a command, with no click inside the webview.
 		await vscode.commands.executeCommand('vstrudel.play');
-		steps.editorPlayOutcome = (await until(() => has('editor', demo, 'report:') || has('editor', demo, 'click inside the webview'), 20000))
-			? 'answered'
-			: 'timeout';
+		steps.editorPlayed = await until(() => has('editor', demo, 'report:'), 30000);
 		steps.editorReport = last('editor', demo, 'report:');
 		steps.editorNeedsClick = has('editor', demo, 'click inside the webview');
 		await sleep(4000);
@@ -86,9 +84,7 @@ export async function run(): Promise<void> {
 
 		// 5. Play from the native editor: a stage opens beside it.
 		await vscode.commands.executeCommand('vstrudel.play');
-		steps.stagePlayOutcome = (await until(() => has('stage', demo, 'report:') || has('stage', demo, 'click inside the webview'), 30000))
-			? 'answered'
-			: 'timeout';
+		steps.stagePlayed = await until(() => has('stage', demo, 'report:'), 40000);
 		steps.stageReport = last('stage', demo, 'report:');
 		steps.stageNeedsClick = has('stage', demo, 'click inside the webview');
 
@@ -133,12 +129,13 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('vscode.openWith', hydra, EDITOR);
 		steps.hydraLoaded = await until(() => has('editor', hydra, 'local samples'), 30000);
 		await vscode.commands.executeCommand('vstrudel.play');
-		await until(() => has('editor', hydra, 'report:') || has('editor', hydra, 'click inside the webview'), 30000);
+		steps.hydraPlayed = await until(() => has('editor', hydra, 'report:'), 40000);
 		await sleep(3000);
 		steps.hydraReport = last('editor', hydra, 'report:');
 		steps.hydraProblems = problems('editor', hydra);
 		await vscode.commands.executeCommand('vstrudel.stop');
 		result.finished = true;
+		result.logs = api.sessions().map((s) => ({ mode: s.mode, uri: s.uri.split('/').pop(), logs: s.logs }));
 	} catch (error) {
 		result.error = String((error as Error)?.stack ?? error);
 	}

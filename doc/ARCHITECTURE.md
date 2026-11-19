@@ -53,6 +53,8 @@ extension host (Node, may be remote)          webview (browser)
 | `src/webview/main.ts` | Creates `StrudelMirror`, syncs text, handles play and stop, fills the stage dock. |
 | `scripts/build.mjs` | esbuild: `dist/extension.cjs` (Node, CommonJS) and `dist/webview.js` (browser, ESM). |
 | `scripts/smoke/` | The webview bundle in a plain browser with a fake `acquireVsCodeApi`. Muted. |
+| `src/test/m0.ts` | Integration test that runs inside VS Code and records what happened. |
+| `scripts/test-vscode.mjs` | Starts VS Code with that test and prints the result. |
 
 ## Layouts
 
@@ -100,12 +102,31 @@ corrupt the text.
 ## Samples
 
 `scanSamples` reads the folder named by the setting `vstrudel.samplesFolder` (default
-`samples`) in the workspace folder of the file. A subfolder is a sound name and its
+`samples`). We take the one nearest to the file: beside it, or in a parent folder, up to
+the workspace root. A song in a subfolder of a bigger repo then still finds its own
+samples. A subfolder is a sound name and its
 audio files are the numbered variations. An audio file directly in the folder is a sound
 named after the file. The URLs come from `asWebviewUri`.
 
-The webview also loads `github:tidalcycles/dirt-samples` over the network and does not
-wait for it, so local sounds work offline.
+The webview also loads `github:tidalcycles/dirt-samples` over the network. The first
+play waits for that pack for up to 6 seconds. Without the wait, the first play on a slow
+network said `sound bd not found`. With the cap, offline use still starts.
+
+## Starting audio
+
+A webview does not start an `AudioContext` without a real click inside it. Measured in
+VS Code 1.130: after a play that came from a VS Code command, `context.resume()` never
+resolves and `navigator.userActivation` is false. The Chromium switch
+`--autoplay-policy=no-user-gesture-required` did not change that. `initAudio()` from
+superdough resolves without resuming the context, so we call `resume()` ourselves.
+
+So `play()` in the webview tries to resume for 1.5 seconds. If the context is still
+suspended it shows the overlay "Click to enable audio". The click on the overlay is the
+gesture, and it plays. This happens once per webview. Playing with Ctrl+Enter inside the
+Strudel editor does not need it, because the user has already clicked in the code.
+
+Not measured: whether a real key press in the native editor counts as a gesture for the
+stage. The test sends commands, which is not a key press.
 
 ## Stage dock
 
@@ -157,18 +178,77 @@ Read from the 1.2.6 / 1.3.0 packages in `node_modules`:
 
 ## Measured
 
-| What | Where | Result |
-|---|---|---|
-| Bundle loads, editor shows the document | Chrome, `pnpm smoke` | Works |
-| Ctrl+Enter plays; scope, piano roll and slider render inline; playing notes are highlighted | Chrome, `pnpm smoke` | Works |
-| Local sample map is accepted | Chrome, `pnpm smoke` | Works (`local samples: blip` in the log) |
-| Typing sends `edit`; a remote `update` is applied and not echoed | Chrome, `pnpm smoke` | Works |
-| Stage layout: editor hidden, widgets in the dock, survives a second evaluation | Chrome, `pnpm smoke` | Works |
-| `pnpm build`, `pnpm typecheck` | Windows, Node 24, TypeScript 7 | Pass |
+In VS Code 1.130.0 on Windows (Electron 42, Chrome 148), with `pnpm test:vscode`:
 
-Nothing has been measured inside VS Code yet. The smoke test says the bundle is sound.
-It says nothing about webview autoplay rules, codecs, CSP or `asWebviewUri`. Those are
-the M0 checks in `doc/TODO.md`.
+| What | Result |
+|---|---|
+| The webview loads under our CSP and shows the document | Works |
+| AudioWorklets load from `data:` URLs | Works |
+| Audio starts after a click in the webview | Works |
+| Audio starts from a command with no click | Does not. See "Starting audio" |
+| A sample from `samples/` is fetched through `asWebviewUri` and decoded | Works (`blip`, 15.5 KiB in 16 ms) |
+| Samples from `github:tidalcycles/dirt-samples` load | Works |
+| Inline scope and piano roll are created in the editor | Works |
+| The engine keeps running while its tab is hidden for 6 seconds | Works. Timing was not measured |
+| `vscode.openWith` swaps the tab in place, both directions | Works. The command returns in 110 to 140 ms |
+| Stage: opens on play from the native editor, widgets in the dock | Works |
+| An edit to the document reaches the stage | Works |
+| Hydra: `hydra-synth` loads from unpkg.com and creates its canvas | Works |
+| `canPlayType` for wav, mp3, ogg, opus, flac, aac | All supported |
+| `crossOriginIsolated` | false. `SharedArrayBuffer` is not available |
+
+The test cannot hear or see. "Works" for audio means the `AudioContext` is running, the
+scheduler started and the samples decoded. It does not prove sound came out of the
+speakers, or that a canvas shows the right picture.
+
+In Chrome, with `pnpm smoke`: the editor, inline widgets, slider, note highlighting,
+text sync in both directions and the stage dock were also checked by looking at the
+page.
+
+Nothing has been measured in Codespaces.
+
+## Integration test
+
+`pnpm test:vscode` builds the extension and runs `src/test/m0.ts` inside VS Code, in a
+throwaway profile. The test drives the extension through its commands and reads the logs
+of the webviews through the object that `activate` returns. It records facts instead of
+asserting them and prints them as JSON.
+
+It downloads a stable VS Code into `.vscode-test/` once. Set `VSCODE_EXE` to use one you
+already have. An installed VS Code with an update pending refuses to start a second
+instance.
+
+Nobody can click the audio overlay in a test. The runner clicks it through the Chrome
+DevTools Protocol (`--remote-debugging-port`), with `Runtime.evaluate` and
+`userGesture: true`. It first looks for the overlay without `userGesture`. An evaluation
+with `userGesture` gives the page user activation even when it clicks nothing, and that
+hid the fact that a click was needed.
+
+## Build pipeline
+
+`.github/workflows/ci.yml` runs on pushes to `main`, on pull requests and on tags. It
+installs with pnpm, type checks, and builds the `.vsix`, which it uploads as an
+artifact. On a tag `v*` it also checks that the tag matches the version in
+`package.json` and creates a GitHub release with two files: `vstrudel-<version>.vsix`
+and `vstrudel.vsix`. The second has a fixed name so that
+`releases/latest/download/vstrudel.vsix` always works.
+
+The integration test does not run in CI yet.
+
+## Codespaces
+
+The extension is not on the Marketplace, so a devcontainer installs the `.vsix` itself.
+
+| File | For | Gets the extension from |
+|---|---|---|
+| `.devcontainer/devcontainer.json` | Working on the extension | Builds it from the checkout |
+| `.devcontainer/template/devcontainer.json` | Trying the template from this repo. Opens `template/` | The latest GitHub release |
+| `template/.devcontainer/devcontainer.json` | The template once it is its own repo | The latest GitHub release |
+
+All three install with `code --install-extension` in `postAttachCommand`, because the
+`code` command needs a connected editor. This is expected to work and has not been
+tested. If it does not, right-click the `.vsix` in the explorer and choose "Install
+Extension VSIX".
 
 ## Tooling
 

@@ -38,9 +38,61 @@ const args = [
 	join(root, 'template'),
 ];
 
+// A webview only starts audio after a real click inside it (measured, see
+// doc/ARCHITECTURE.md). The extension shows a "Click to enable audio" overlay for that.
+// Nobody is there to click in a test, so we click the overlay through the Chrome
+// DevTools Protocol. `userGesture: true` makes the browser treat it as a real click.
+const DEBUG_PORT = 9339;
+args.unshift(`--remote-debugging-port=${DEBUG_PORT}`);
+const overlayScript = (click) => `(() => {
+	const documents = [document, ...[...document.querySelectorAll('iframe')].map((frame) => { try { return frame.contentDocument; } catch { return null; } })];
+	for (const doc of documents) {
+		const overlay = doc?.getElementById('unlock');
+		if (overlay?.classList.contains('visible')) { ${click ? 'overlay.click();' : ''} return 'visible'; }
+	}
+	return 'none';
+})()`;
+
+function evaluateIn(webSocketUrl, expression, userGesture) {
+	return new Promise((done) => {
+		const socket = new WebSocket(webSocketUrl);
+		const finish = (value) => {
+			clearTimeout(timer);
+			socket.close();
+			done(value);
+		};
+		const timer = setTimeout(() => finish(undefined), 3000);
+		socket.onopen = () => socket.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, userGesture } }));
+		socket.onmessage = (event) => finish(JSON.parse(event.data).result?.result?.value);
+		socket.onerror = () => finish(undefined);
+	});
+}
+
+let running = true;
+(async () => {
+	while (running) {
+		try {
+			const targets = await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`)).json();
+			for (const target of targets) {
+				if (!target.url.startsWith('vscode-webview://') || !target.webSocketDebuggerUrl) continue;
+				// Look first without a gesture. An evaluation with userGesture gives the
+				// page user activation even when it clicks nothing, and that would hide
+				// whether a click was needed at all.
+				if ((await evaluateIn(target.webSocketDebuggerUrl, overlayScript(false), false)) !== 'visible') continue;
+				await evaluateIn(target.webSocketDebuggerUrl, overlayScript(true), true);
+				console.log('test: clicked the audio overlay');
+			}
+		} catch {
+			// VS Code is still starting, or already gone.
+		}
+		await new Promise((done) => setTimeout(done, 700));
+	}
+})();
+
 const child = spawn(executable, args, { env, stdio: 'inherit' });
 const timeout = setTimeout(() => child.kill(), 6 * 60 * 1000);
 child.on('exit', (code) => {
+	running = false;
 	clearTimeout(timeout);
 	console.log(existsSync(out) ? readFileSync(out, 'utf8') : 'no result file was written');
 	try {

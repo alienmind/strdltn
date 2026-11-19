@@ -37,6 +37,18 @@ const builds = [
 	},
 ];
 
+if (process.argv.includes('--test')) {
+	builds.push({
+		...shared,
+		entryPoints: ['src/test/m0.ts'],
+		outfile: 'dist/test/m0.cjs',
+		platform: 'node',
+		format: 'cjs',
+		target: 'node20',
+		external: ['vscode'],
+	});
+}
+
 const contexts = await Promise.all(builds.map((options) => context(options)));
 if (watch) {
 	await Promise.all(contexts.map((c) => c.watch()));

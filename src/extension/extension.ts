@@ -4,7 +4,12 @@ import { Session } from './session';
 const EDITOR_VIEW_TYPE = 'vstrudel.editor';
 const STAGE_VIEW_TYPE = 'vstrudel.stage';
 
-export function activate(context: vscode.ExtensionContext): void {
+/** What `activate` returns. Only the integration test in `src/test/` uses it. */
+export interface VstrudelApi {
+	sessions(): { mode: string; uri: string; started: boolean; logs: string[] }[];
+}
+
+export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	const output = vscode.window.createOutputChannel('vstrudel');
 	const sessions = new Set<Session>();
 	const forget = (session: Session) => sessions.delete(session);
@@ -38,6 +43,11 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand('vstrudel.openStage', () => stageForActiveTextEditor()),
 		vscode.commands.registerCommand('vstrudel.toggleMode', toggleMode),
 	);
+
+	const api: VstrudelApi = {
+		sessions: () =>
+			[...sessions].map((s) => ({ mode: s.mode, uri: s.document.uri.toString(), started: s.started, logs: [...s.logs] })),
+	};
 
 	function onlySession(): Session | undefined {
 		return sessions.size === 1 ? [...sessions][0] : undefined;
@@ -91,6 +101,8 @@ export function activate(context: vscode.ExtensionContext): void {
 			}
 		}
 	}
+
+	return api;
 }
 
 export function deactivate(): void {}

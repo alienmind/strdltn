@@ -18,6 +18,8 @@ export class Session {
 	private playWhenReady = false;
 	private readonly disposables: vscode.Disposable[] = [];
 	started = false;
+	/** Everything the webview logged. Read by the integration test through the extension API. */
+	readonly logs: string[] = [];
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -71,9 +73,7 @@ export class Session {
 	private async receive(message: FromWebview): Promise<void> {
 		switch (message.type) {
 			case 'ready': {
-				const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri ?? vscode.Uri.joinPath(this.document.uri, '..');
-				const name = vscode.workspace.getConfiguration('vstrudel').get<string>('samplesFolder', 'samples');
-				const samples = await scanSamples(vscode.Uri.joinPath(folder, name), this.panel.webview);
+				const samples = await scanSamples(await this.samplesFolder(), this.panel.webview);
 				this.known = this.document.getText();
 				this.post({ type: 'init', text: this.known, mode: this.mode, samples });
 				this.ready = true;
@@ -89,9 +89,35 @@ export class Session {
 			case 'started':
 				this.started = message.started;
 				break;
-			case 'log':
-				this.output.appendLine(`[${this.mode}] ${message.level}: ${message.message}`);
+			case 'log': {
+				const line = `[${this.mode}] ${message.level}: ${message.message}`;
+				this.logs.push(line);
+				this.output.appendLine(line);
 				break;
+			}
+		}
+	}
+
+	/**
+	 * The samples folder nearest to the file: beside it, or in a parent folder, up to
+	 * the workspace root. A song in a subfolder of a bigger repo then still finds the
+	 * samples that belong to it.
+	 */
+	private async samplesFolder(): Promise<vscode.Uri> {
+		const name = vscode.workspace.getConfiguration('vstrudel').get<string>('samplesFolder', 'samples');
+		const root = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
+		let folder = vscode.Uri.joinPath(this.document.uri, '..');
+		for (;;) {
+			const candidate = vscode.Uri.joinPath(folder, name);
+			try {
+				const stat = await vscode.workspace.fs.stat(candidate);
+				if (stat.type & vscode.FileType.Directory) return candidate;
+			} catch {
+				// Not here, look one folder up.
+			}
+			const parent = vscode.Uri.joinPath(folder, '..');
+			if (!root || folder.toString() === root.toString() || parent.toString() === folder.toString()) return candidate;
+			folder = parent;
 		}
 	}
 

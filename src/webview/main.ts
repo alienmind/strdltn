@@ -152,6 +152,19 @@ async function play(): Promise<void> {
 	}
 	await mirror.evaluate();
 	updateStatus();
+	report();
+}
+
+/** One line on what the page looks like after a play. The integration test reads it. */
+function report(): void {
+	const canvases = [...document.querySelectorAll('canvas')]
+		.map((canvas) => `${canvas.id}@${canvas.parentElement?.id || canvas.parentElement?.className || canvas.parentElement?.tagName}`)
+		.join(',');
+	const context: AudioContext = strudelWebaudio.getAudioContext();
+	log(
+		'info',
+		`report: audio=${context.state} started=${!!mirror.repl.scheduler.started} docLength=${mirror.code.length} canvases=${canvases}`,
+	);
 }
 
 /**

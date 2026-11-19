@@ -3,3 +3,4 @@ dist/
 tmp/
 *.vsix
 *.tsbuildinfo
+.vscode-test/

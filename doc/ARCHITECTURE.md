@@ -252,7 +252,11 @@ and reaches the installer ("Installing extensions on Codespaces").
 The source configuration uses `scripts/codespace-install.sh`. `build` makes the `.vsix`
 in `postCreateCommand`, and `install` installs it on attach and builds first when the
 file is missing. The `.vsix` is kept in the home folder. The two template configurations
-do the same in one command with `curl`. A successful install has not been seen yet.
+do the same in one command with `curl`.
+
+Measured in a Codespace on `main`: `bash scripts/codespace-install.sh install` built the
+`.vsix` and installed the extension. The two template configurations have not been
+tried. Sound in a Codespace has not been confirmed.
 
 ## Tooling
 

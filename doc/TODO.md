@@ -57,9 +57,8 @@ the Codespace. Use it to try a branch that has no release.
 
 - Does a real key press in the native editor count as a click for the stage? A command
   sent by the test does not. Desktop check 5 answers it.
-- Does the install on attach finish in Codespaces? The command runs there, but the
-  first try had no file to install.
-- Why did `postCreateCommand` leave no `.vsix` in the first Codespace?
+- Does the template configuration install the extension on its own, with no command
+  typed? Only the source script was run by hand so far.
 - Does a webview in Codespaces start audio after a click, like on desktop?
 - Does the scheduler keep exact time in a hidden tab? The test only saw that it kept
   running.

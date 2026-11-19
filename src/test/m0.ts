@@ -89,8 +89,16 @@ export async function run(): Promise<void> {
 		};
 		steps.soundPicks = Object.fromEntries(Object.entries(picks).map(([key, s]) => [key, s && `${s.name} (${s.type}, ${s.count})`]));
 		await vscode.commands.executeCommand('vstrudel.sounds.focus');
+		await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
+		await vscode.commands.executeCommand('notifications.clearAll');
+		await api.expandSoundGroup('Local samples');
+		await api.expandSoundGroup('Drum machines');
 		await sleep(1500);
 		await shot('sounds-view');
+		await vscode.commands.executeCommand('workbench.action.closeSidebar');
+		await sleep(1200);
+		await shot('editor');
+		await vscode.commands.executeCommand('vstrudel.sounds.focus');
 		const previews: Record<string, boolean> = {};
 		for (const [key, sound] of Object.entries(picks)) {
 			if (!sound) continue;
@@ -160,6 +168,9 @@ export async function run(): Promise<void> {
 		steps.stagePlayed = await until(() => has('stage', demo, 'report:'), 40000);
 		steps.stageReport = last('stage', demo, 'report:');
 		steps.stageNeedsClick = has('stage', demo, 'click inside the webview');
+		await vscode.commands.executeCommand('workbench.action.closeSidebar');
+		await sleep(2500);
+		await shot('stage');
 
 		// 6. An edit to the document reaches the stage.
 		const document = await vscode.workspace.openTextDocument(demo);
@@ -206,6 +217,8 @@ export async function run(): Promise<void> {
 		await sleep(3000);
 		steps.hydraReport = last('editor', hydra, 'report:');
 		steps.hydraProblems = problems('editor', hydra);
+		await vscode.commands.executeCommand('workbench.action.closeSidebar');
+		await sleep(1500);
 		await shot('hydra');
 		await vscode.commands.executeCommand('vstrudel.stop');
 		result.finished = true;

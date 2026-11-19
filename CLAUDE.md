@@ -147,3 +147,7 @@ and every fact we measured about the platform. Implementation detail goes here.
 
 `README.md` is for a user: what the project does and how to use it. No implementation
 detail.
+
+`doc/ABOUT.md` is the public page of the project. The home page builds it into a web
+page, with the images that sit beside it in `doc/`. It is written for somebody who has
+never seen the project. When a release changes what a user can do, update it.

@@ -289,7 +289,8 @@ hid the fact that a click was needed.
 
 The test can ask for a picture of the whole window. It drops a `<name>.request` file,
 the runner takes a screenshot with `Page.captureScreenshot` and writes
-`tmp/shots/<name>.png`. This is how we look at the UI without a person.
+`tmp/shots/<name>.png`. This is how we look at the UI without a person. The pictures in `doc/` that
+`doc/ABOUT.md` shows are copies of these.
 
 ## Build pipeline
 

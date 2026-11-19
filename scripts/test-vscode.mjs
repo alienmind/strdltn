@@ -31,6 +31,19 @@ rmSync(shots, { recursive: true, force: true });
 mkdirSync(shots, { recursive: true });
 env.VSTRUDEL_TEST_SHOTS = shots;
 
+// A quiet window for the screenshots: no welcome tab, no git question, no chat panel.
+mkdirSync(join(profile, 'user', 'User'), { recursive: true });
+writeFileSync(
+	join(profile, 'user', 'User', 'settings.json'),
+	JSON.stringify({
+		'workbench.startupEditor': 'none',
+		'git.openRepositoryInParentFolders': 'never',
+		'workbench.secondarySideBar.defaultVisibility': 'hidden',
+		'chat.commandCenter.enabled': false,
+		'window.zoomLevel': 0,
+	}),
+);
+
 const args = [
 	`--extensionDevelopmentPath=${root}`,
 	`--extensionTestsPath=${join(root, 'dist/test/m0.cjs')}`,

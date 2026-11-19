@@ -3,9 +3,9 @@ import type { SoundInfo } from '../shared/protocol';
 
 /** A group, a sound, or one numbered variation of a sound. */
 export type SoundNode =
-	| { kind: 'group'; label: string; sounds: SoundInfo[] }
-	| { kind: 'sound'; sound: SoundInfo }
-	| { kind: 'variation'; sound: SoundInfo; index: number };
+	| { kind: 'group'; label: string; sounds: SoundInfo[]; children?: SoundNode[] }
+	| { kind: 'sound'; sound: SoundInfo; parent?: SoundNode }
+	| { kind: 'variation'; sound: SoundInfo; index: number; parent?: SoundNode };
 
 /** Group order in the view. Local sounds come first: they are the user's own. */
 const GROUPS: { label: string; test: (sound: SoundInfo) => boolean }[] = [
@@ -28,12 +28,23 @@ const MAX_VARIATIONS = 64;
  */
 export class SoundsProvider implements vscode.TreeDataProvider<SoundNode> {
 	private sounds: SoundInfo[] = [];
+	/** The group nodes are kept, with their children, so that `TreeView.reveal` finds the same objects again. */
+	private roots: SoundNode[] = [];
 	private readonly changed = new vscode.EventEmitter<void>();
 	readonly onDidChangeTreeData = this.changed.event;
 
 	setSounds(sounds: SoundInfo[]): void {
 		this.sounds = [...sounds].sort((a, b) => a.name.localeCompare(b.name));
+		this.roots = this.groups().map((group) => ({ kind: 'group', ...group }));
 		this.changed.fire();
+	}
+
+	group(label: string): SoundNode | undefined {
+		return this.roots.find((node) => node.kind === 'group' && node.label === label);
+	}
+
+	getParent(node: SoundNode): SoundNode | undefined {
+		return node.kind === 'group' ? undefined : node.parent;
 	}
 
 	all(): SoundInfo[] {
@@ -50,11 +61,11 @@ export class SoundsProvider implements vscode.TreeDataProvider<SoundNode> {
 	}
 
 	getChildren(node?: SoundNode): SoundNode[] {
-		if (!node) return this.groups().map((group) => ({ kind: 'group', ...group }));
-		if (node.kind === 'group') return node.sounds.map((sound) => ({ kind: 'sound', sound }));
+		if (!node) return this.roots;
+		if (node.kind === 'group') return (node.children ??= node.sounds.map((sound) => ({ kind: 'sound', sound, parent: node })));
 		if (node.kind === 'sound' && node.sound.count > 1) {
 			const count = Math.min(node.sound.count, MAX_VARIATIONS);
-			return Array.from({ length: count }, (_, index) => ({ kind: 'variation', sound: node.sound, index }));
+			return Array.from({ length: count }, (_, index) => ({ kind: 'variation', sound: node.sound, index, parent: node }));
 		}
 		return [];
 	}

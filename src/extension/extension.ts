@@ -13,6 +13,8 @@ export interface VstrudelApi {
 	sounds(): SoundInfo[];
 	soundGroups(): { label: string; count: number }[];
 	snippets(): string[];
+	/** Opens one group of the Sounds view. */
+	expandSoundGroup(label: string): Promise<void>;
 }
 
 export function activate(context: vscode.ExtensionContext): VstrudelApi {
@@ -33,6 +35,8 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	const lastSession = (mode?: Session['mode']) =>
 		[...sessions].filter((s) => !mode || s.mode === mode).sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
 
+	const soundsView = vscode.window.createTreeView('vstrudel.sounds', { treeDataProvider: sounds, showCollapseAll: true });
+
 	context.subscriptions.push(
 		output,
 		vscode.window.registerCustomEditorProvider(
@@ -49,7 +53,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			// hidden, and the sound stops with it.
 			{ webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false },
 		),
-		vscode.window.createTreeView('vstrudel.sounds', { treeDataProvider: sounds, showCollapseAll: true }),
+		soundsView,
 		vscode.window.createTreeView('vstrudel.snippets', { treeDataProvider: snippets }),
 
 		vscode.commands.registerCommand('vstrudel.play', () => {
@@ -196,6 +200,10 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		sounds: () => sounds.all(),
 		soundGroups: () => sounds.groups().map((group) => ({ label: group.label, count: group.sounds.length })),
 		snippets: () => snippets.all().map((snippet) => snippet.name),
+		expandSoundGroup: async (label) => {
+			const node = sounds.group(label);
+			if (node) await soundsView.reveal(node, { expand: true, focus: false, select: false });
+		},
 	};
 }
 

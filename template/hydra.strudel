@@ -1,0 +1,7 @@
+// Hydra visuals driven by a pattern. Loads hydra-synth from unpkg.com (needs network).
+await initHydra()
+
+let pattern = "3 4 5 [6 7]*2"
+shape(H(pattern)).repeat(2, 2).rotate(() => time / 4).out(o0)
+
+n(pattern).scale("A:minor").s("triangle").gain(.5)

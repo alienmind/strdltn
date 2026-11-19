@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><title>vstrudel smoke</title>
+<style>html,body{height:100%;margin:0;background:#222;color:#fff}#editor{position:relative;z-index:1;min-height:100%}
+body.stage #editor{display:none !important}#dock{display:none}body.stage #dock{display:flex;flex-direction:column}
+#unlock{display:none}#unlock.visible{display:flex;position:fixed;inset:0;z-index:4;background:rgba(0,0,0,.7);align-items:center;justify-content:center}</style></head>
+<body><div id="editor"></div><div id="dock"></div><div id="status"></div><div id="unlock">Click to enable audio</div>
+<script>
+// Silent smoke test: anything connected to the speakers goes through a gain of 0.
+const connect = AudioNode.prototype.connect;
+AudioNode.prototype.connect = function (target, ...rest) {
+  if (target instanceof AudioDestinationNode) {
+    const ctx = this.context;
+    if (!ctx.__mute) { ctx.__mute = ctx.createGain(); ctx.__mute.gain.value = 0; connect.call(ctx.__mute, target); }
+    return connect.call(this, ctx.__mute, ...rest);
+  }
+  return connect.call(this, target, ...rest);
+};
+</script>
+<script>
+const mode = new URLSearchParams(location.search).get('mode') || 'editor';
+window.__messages = [];
+window.acquireVsCodeApi = () => ({ postMessage(m) {
+  window.__messages.push(m); console.log('[smoke]', JSON.stringify(m));
+  if (m.type === 'ready') fetch('/template/demo.strudel').then(r => r.text()).then(text =>
+    window.postMessage({ type: 'init', text, mode, samples: { blip: [location.origin + '/template/samples/blip/blip.wav'] } }, '*'));
+}});
+</script>
+<script type="module" src="/dist/webview.js"></script></body></html>
+
+

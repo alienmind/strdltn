@@ -1,0 +1,15 @@
+// vstrudel demo. Ctrl+Enter plays or updates, Ctrl+. stops.
+setcpm(30)
+
+// drums from the dirt-samples pack (needs network)
+$: s("bd*2, ~ sd, hh*8").gain(.8)._scope()
+
+// a synth, no samples needed. Drag the slider while it plays.
+$: note("c2 [eb2 g2] bb1 [c2 c3]")
+  .s("sawtooth")
+  .lpf(slider(800, 200, 4000))
+  .gain(.5)
+  ._pianoroll()
+
+// a sample from this project: samples/blip/blip.wav
+$: s("blip(3,8)").speed("<1 1.5 2 .75>")

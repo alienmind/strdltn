@@ -1,0 +1,6 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Strudel",
+	"scopeName": "source.strudel",
+	"patterns": [{ "include": "source.js" }]
+}

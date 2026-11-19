@@ -4,10 +4,12 @@ title: "vstrudel"
 
 # vstrudel
 
-![The Strudel editor inside VS Code, with the Sounds view open](screenshot-sounds.png)
+![vstrudel logo](logo.jpg)
 
 **[Strudel](https://strudel.cc) live coding inside VS Code.** Open a `.strudel` file,
 press Ctrl+Enter, and it plays.
+
+![The Strudel editor inside VS Code, with the Sounds view open](screenshot-sounds.png)
 
 Strudel is a great language for making music with code. Its home is a web page, and a
 web page is a hard place to keep a growing pile of songs, samples and reusable ideas.

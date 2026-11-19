@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="doc/logo.jpg" alt="vstrudel - VS Code extension, live coding in strudel.cc" width="760">
+</p>
+
 # vstrudel
 
 [Strudel](https://strudel.cc) live coding inside VS Code. Open a `.strudel` file, press

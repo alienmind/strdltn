@@ -212,6 +212,16 @@ picture is a view of its own, `strdltn.logo`: a webview with one image and no sc
 The image is `media/logo.jpg`, the middle band of `doc/logo.jpg` at 640 by 149 pixels
 (16 KB). `doc/` is not in the `.vsix`, `media/` is. When `doc/logo.jpg` changes, cut it again.
 
+The extension has two icons, both the logo split into four lines: `[str]`, `dltn`,
+`live`, `[code]`. `media/icon.png` (256 by 256) is the `icon` of `package.json`, shown
+in the Extensions view and the Marketplace, in the colors of the logo: the brackets
+`#40A9C6` in Consolas, the words white in Century Gothic Bold, on black.
+`media/strdltn.svg` is the activity bar icon. VS Code paints that one in one color of the
+theme, so it is the same layout as plain paths with `fill="currentColor"`, with the
+glyphs of Consolas Bold and Century Gothic Bold turned into outlines, so it does not
+depend on the fonts of the machine. At 24 pixels `dltn` and `live` read, the bracket
+lines only show as shape.
+
 A webview view cannot take the height of its content. The four views share the height
 by the weights in `package.json` (`initialSize`: logo 1, Files 3, Sounds 4, Snippets 4).
 Seen in the screenshot of the test at 1250 pixels of window height: the logo shows whole,

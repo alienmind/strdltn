@@ -12,7 +12,7 @@ experimental SHRUB editor panel are back on `main`. The tag 1.0.0 is the vstrude
 without these two features. The extension is renamed to [str]dltn Live[code]: id
 `strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it
 installs beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry
-over. The next step is the new icon: `media/strdltn.svg` is still the old one.
+over.
 
 Next in line:
 
@@ -41,7 +41,7 @@ offline, the silent quick test, Copilot with the instructions).
 | 7 | MIDI: build the desktop bridge now, knowing it cannot work in Codespaces? | Not built |
 | 8 | Sound across a mode switch (see "Open design questions") | Sound stops |
 | 9 | Default editor for `.strudel`: the Strudel editor, or the native one with the stage? | The Strudel editor |
-| 10 | Marketplace: publisher id, token, and an icon without the VS Code logo (see "Publishing") | Waiting |
+| 10 | Marketplace: publisher id and token (see "Publishing") | Waiting |
 | 11 | Should the test screenshots keep the title "[Extension Development Host]"? The debug text in the corner is gone, the status bar item replaced it | Kept |
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
 | 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
@@ -264,11 +264,8 @@ secret. What is left, in order:
 2. Set `publisher` in `package.json` to that publisher id. This changes the extension
    id, which is `<publisher>.strdltn`. The id is also written in `src/test/m0.ts`.
 3. Add the token to the GitHub repository as the secret `VSCE_PAT`.
-4. Add an `icon` to `package.json`: a PNG of at least 128 by 128 pixels. The Marketplace
-   restricts the use of the VS Code logo in an extension's icon, and `doc/logo.jpg`
-   contains it, so the icon needs its own picture.
-5. Tag a release. The pipeline publishes it.
-6. Change the three devcontainer files to install by id
+4. Tag a release. The pipeline publishes it.
+5. Change the three devcontainer files to install by id
    (`customizations.vscode.extensions`) and drop the `.vsix` download.
 
 Until then the devcontainers install the `.vsix` from a GitHub release. Open VSX is not

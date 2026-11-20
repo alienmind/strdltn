@@ -6,6 +6,7 @@
 	"private": true,
 	"publisher": "strdltn",
 	"license": "AGPL-3.0-or-later",
+	"icon": "media/icon.png",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/alienmind/strdltn"

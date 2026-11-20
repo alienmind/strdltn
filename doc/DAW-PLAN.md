@@ -16,7 +16,7 @@ The screen of Ableton Live, with code where Live has clips:
 | Area of Live | What we build | Today |
 |---|---|---|
 | Browser (left pane) | One Browser view: search box, color tags, categories, places, and the results in the same column | Three tree views: Files, Sounds, Snippets |
-| Session view with the mixer | A Mixer panel: one channel per chain of the song, one channel per orbit, a main channel, and cables between them | Nothing |
+| Session view with the mixer | A Mixer panel: one channel per chain of the song, made of the sliders that act on it, folded to its gain. Cables only for sidechains (`.duck` to `.orbit`) | The sliders are rows in the stage |
 | Clip and device view (bottom) | The stage, as now, and a Devices view: one panel per firmware that plays, and the SHRUB window | The stage. Firmwares have no panel. SHRUB is a mockup tab behind a setting |
 | Arrangement | The code editor, as now | The Strudel editor and the native editor |
 | MIDI in and out | Devices in the Browser, `.midi()`, `midin()`, `midikeys()`, MIDI learn on the mixer | Nothing. A webview may not use MIDI (measured) |
@@ -171,7 +171,8 @@ extension host                        webviews (browser side)
 | index     catalog + tags  | <-----> | Browser view (side bar)              |
 | model     chains, orbits, |         |   search, colors, categories, list   |
 |           routes of a song| <-----> | Mixer panel (bottom panel)           |
-| relay     passes messages |         |   channels, orbits, main, cables     |
+| relay     passes messages |         |   a channel per chain, its sliders,  |
+|                           |         |   cables for sidechains              |
 |           between views   | <-----> | Devices view (bottom panel)          |
 |                           |         |   one panel per running firmware,    |
 |                           |         |   the SHRUB window                   |
@@ -333,130 +334,137 @@ A webview view in the bottom panel of VS Code, next to Terminal and Problems, wi
 id `strdltn.mixer`. It can be dragged elsewhere like any view. It shows the song in
 front.
 
+**The Mixer is made of the song's sliders.** Every `slider()` that the stage shows today
+becomes a fader in the Mixer instead, and the stage keeps only the visuals. The sliders
+are grouped by the chain they act on, and each group is a channel: a vertical strip with
+the name of the chain on top, as in the Session view of Live. Folded, a channel shows one
+fader, its gain. A click on its name unfolds it, and the strip widens to show every
+slider of that chain side by side, each with its label. A click again folds it.
+
 ```
- kick    snare   hh     hhr    bass   lowend  riser  |  orbit 1  orbit 2  orbit 3  orbit 4 |  main
-+------+------+------+------+------+------+------+   +--------+--------+--------+--------+  +------+
-|scope |scope |scope |scope |piano |piano |      |   | room   |        |        |        |  |scope |
-|      |      |      |      |roll  |roll  |      |   | delay  |        |        |        |  |      |
-| o--------------------duck---------------------------------->o------>o------->o         |  |      |
-| o out| o out| o out| o out| o out| o out| o out|   | o in   | o in   | o in   | o in   |  |      |
-| [M][S| [M][S| ...                              |   |        |        |        |        |  |      |
-|  ||  |  ||  |                                  |   |  ||    |  ||    |  ||    |  ||    |  |  ||  |
-|  ||  |  ||  |   fader and meter                |   |  ||    |  ||    |  ||    |  ||    |  |  ||  |
-+------+------+------+------+------+------+------+   +--------+--------+--------+--------+  +------+
+ folded                 kick unfolded, bass unfolded
++--------+--------+    +--------+--------+-----------------+-----------------+--------+
+| vocals | kick   |    | vocals | kick   | bass            | lowendbass      | riser  |
+| [M][S] | [M][S] |    | [M][S] | [M][S] | [M][S]          | [M][S]          | [M][S] |
+|   ||   |   ||   |    |   ||   |   ||   |   ||       ||   |   ||       ||   |        |
+|   ||   |   ||   |    |   ||   |   ||   |   ||       ||   |   ||       ||   |  (no   |
+|   ##   |   ##   |    |   ##   |   ##   |   ##       ||   |   ##       ##   | slider)|
+|   ||   |   ||   |    |   ||   |   ||   |   ||       ##   |   ||       ||   |        |
+|  gain  |  gain  |    |  gain  |  gain  |  gain    lpenv  |  gain    lpenv  |        |
+|  0.50  |  0.61  |    |  0.50  |  0.61  |  1.00    1.00   |  0.45    2.00   |        |
+| duck o-+--------+----+--------+--o-----+-----------------+-----------------+--------+
++--------+--------+    +--------+-----\--+-----------------+-----------------+--------+
+                                        \___ orbit 2 ___/ \___ orbit 3 ___/ \_orbit 4_/
 ```
 
-Channels stand side by side, each one a vertical strip, as in the Session view of Live:
-the chains on the left, the orbits where Live has its return tracks, the main channel on
-the right.
+**Channels.** One per `$:` or `name:` line, in the order of the code, named as the line
+names it: `$kick:` gives "kick", `lowendbass:` gives "lowendbass". An anonymous `$:` is
+named by the rules of `src/shared/context.ts` that name a visual today. A chain with no
+slider still gets a strip, so it can be muted, soloed and ducked, but it has no fader.
+One more strip on the left, "global", holds the sliders that act on no chain (a slider
+used in `setcps()`, or one not used anywhere). It is left out when it is empty.
 
-**A chain channel**, one per `$:` or `name:` line, in the order of the code:
+**Which slider belongs to which chain.** A parser of the code (`src/shared/chains.ts`,
+with tests) finds the range of every chain, every `slider(...)` call and every constant
+a slider is assigned to. A slider belongs to a chain when its call is inside the range
+of the chain, or when a constant it is assigned to is used inside that range.
+`const KICK_VOL = slider(0.607, 0, 1)` at the top of the song and `.gain(KICK_VOL)`
+inside `$kick:` puts it in "kick". A slider used by two chains shows in both, and the two
+faders move together, because they are one slider. We parse with `acorn`, which
+`@strudel/transpiler` already brings, so the Mixer can be drawn from the text before the
+song plays.
 
-| Part | Shows | Does |
-|---|---|---|
-| Title | The name (`kick`), or a name from the rules of `src/shared/context.ts` for an anonymous `$:`. The color of the channel | A click moves the cursor of the editor to that line |
-| Top area | Where Live has clips: the inline visuals of that chain (`_scope`, `_pianoroll`) when it has any, else the sounds it plays (`bd tr909`) and a light that blinks on each event | - |
-| Jacks | "out" (the orbit it plays on) and "duck" (the orbits it ducks) | Start of a cable, see "Cables" |
-| Mute, solo | The state of the code: `_name:` is muted, `Sname:` is solo | A click writes that into the code |
-| Fader | The volume of the chain | See "The fader" |
-| Meter | The level of the chain | See "Meters" |
+**The label of a fader.** The name of the call the slider feeds, where it is used:
+`.gain(KICK_VOL)` gives "gain", `.lpenv(BASS_ENERGY)` gives "lpenv", `.lpf(slider(...))`
+gives "lpf". Under it, smaller, the name of the constant when there is one ("kick vol",
+the label the stage shows today) and the value. A slider whose use is not a call gets
+the label of today's rules. The tooltip says the rule, as the stage does now.
 
-**An orbit channel**, one per orbit that the song uses, in number order. Orbit 1 is
-always there, because it is the default.
+**The gain fader.** The fader a folded channel shows is the slider used in `.gain()`,
+else in `.postgain()`, else in `.velocity()`. A chain with sliders but none of these
+shows its first slider folded, with its label, so a folded strip never lies about what
+it controls.
 
-| Part | Shows | Does |
-|---|---|---|
-| Title | `orbit 2` | - |
-| Top area | The shared effects of the orbit that the song sets: `room`, `delay`, `djf`, and which chain sets them | - |
-| Jacks | "in" and "duck in" | End of a cable |
-| Fader, meter | The level of the orbit bus | The fader moves the output volume of the bus while the song plays. Not written to the code: Strudel has no call for it. Shown as "not saved" until we find a place for it (decision 6) |
+**What the song in the template gives.** From `template/demo.strudel`, read by hand, as
+the test will check it:
 
-**The main channel**: meter and scope of everything, and the fader of the output.
-
-**A last empty strip "+ orbit"**: a cable dropped there makes the next free orbit.
-
-**Where the model comes from.** Two sources, merged in the extension host
-(`src/shared/chains.ts`, with tests):
-
-1. The text. A parser finds each chain: name, range in the document, muted or solo, and
-   the literal calls `.orbit(n)`, `.duck("...")`, `.gain(...)`, `.postgain(...)`,
-   `.midi(...)` with their ranges. We parse with `acorn`, which `@strudel/transpiler`
-   already brings, on the code as written. The parser gives the model before the song
-   plays, and the ranges that edits need.
-2. The engine. What really plays: the chains of the last evaluation, the orbits seen in
-   events (an orbit can be a pattern, `.orbit("<2 3>")`), the levels. Events have to
-   carry the id of their chain. The plan: in `beforeEval` we wrap
-   `Pattern.prototype.p` so that the pattern it stores marks its events with the id in
-   their context. Expected to work, spike D1.
-
-When both agree, the channel is normal. A value the parser cannot read as a literal
-(`.orbit(pick(...))`) shows what the engine saw, with the control locked and a note
-"set in code".
-
-**The fader.** Strudel has no volume per chain outside the pattern, so the fader has to
-be one of these. We recommend A, and ask in decision 3.
-
-| | How | Good | Bad |
+| Channel | Folded fader | Unfolded faders | Ducked by |
 |---|---|---|---|
-| A | The fader is a `.postgain(x)` call at the end of the chain. A drag changes the level at once in the engine (the wrapper of D1 multiplies the level of the events) and writes the number into the code when the drag ends | The code is the mix. The song sounds the same anywhere | Adds a call to every chain that is mixed |
-| B | The fader only lives in the panel and is kept per song in the workspace | The code stays untouched | The song sounds different on strudel.cc and for anybody else. A hidden state |
-| C | The fader is a `slider()` in the code, as the demo does with `KICK_VOL` | Already works with the stage and with `midin` | Only for chains written that way. The Mixer can find them and bind to them |
+| vocals | gain (`VOCALS_VOL`) | gain | - |
+| kick | gain (`KICK_VOL`) | gain | - |
+| snare | gain (`SNARE_VOL`) | gain | - |
+| hh | gain (`HH_VOL`) | gain | - |
+| hhr | gain (`HHR_VOL`) | gain | - |
+| bass | gain (`BASS_VOL`) | gain, lpenv (`BASS_ENERGY`) | kick, orbit 2 |
+| lowendbass | gain (`SUB_VOL`) | gain, lpenv (`SUB_ENERGY`) | kick, orbit 3 |
+| riser | none | none | kick, orbit 4 |
 
-A and C fit together: a chain whose `gain` is a slider binds the fader to that slider,
-any other chain gets `.postgain`.
+**A fader does what a slider row of the stage does today** (see "Sliders" in
+`doc/ARCHITECTURE.md`): the sound changes at once, and the number is written into the
+code 150 ms after the last move. The message for that exists: the host sends the engine
+`slider {index, value}`, which moves the slider "as a drag would". The Mixer sends the
+host the slider by its position in the code, the host finds the index. When no engine
+plays the song, a move only writes the code.
 
-**Meters.** The orbit and main meters tap the audio: an `AnalyserNode` connected to the
-output node of an orbit bus and to the destination gain. Reading a node from outside is
-not a patch. Expected to work, spike D2. A chain has no node of its own, so its meter is
-computed from its events: the gain of each event with a decay. It shows activity, not
-the true level. That limit is stated in the panel's tooltip.
+**Mute and solo.** Each strip has M and S. They write upstream's own syntax into the
+code: `_kick:` mutes, `Skick:` solos (decision 5). A muted or soloed channel is drawn as
+such from the text.
+
+**Title and activity.** A click on the strip's title, beside the fold, moves the cursor
+of the editor to that chain. A small light in the header blinks on each event of the
+chain while it plays. The light needs the events to carry the id of their chain: in
+`beforeEval` we wrap `Pattern.prototype.p` so that the pattern it keeps marks its events
+with the id. Expected to work, spike D1. Without it, the Mixer works the same with no
+light.
+
+**The stage after this.** The dock of the stage keeps the visuals (`_scope`,
+`_pianoroll`, `_punchcard`...) and loses its slider rows. The Strudel editor keeps
+upstream's inline sliders in the code, so a slider shows twice while both are open:
+inline in the code and as a fader. They are the same slider and move together.
 
 **Messages added to the protocol.**
 
 | Direction | Message | Meaning |
 |---|---|---|
-| engine -> host | `chains {chains}` | After each evaluation: id, name, muted, solo of each chain |
-| engine -> host | `levels {chains, orbits, main}` | About 20 times a second while playing: activity per chain, peak per orbit and main, orbits seen |
-| host -> engine | `mix {chain, gain}` | A fader is being dragged |
-| host -> engine | `orbitGain {orbit, gain}` | An orbit fader moved |
-| host -> mixer | `model {chains, orbits, routes}` | The merged model |
-| mixer -> host | `route {from, to, kind}`, `unroute {...}`, `mute`, `solo`, `fader`, `reveal` | What the user did |
-
-In Codespaces every message between two webviews crosses the network twice. The level
-messages are small and rare enough for that (expected, spike D3). Scopes are not sent:
-the visuals of a chain in the top area are a later step that depends on the engine
-phase.
+| host -> mixer | `model {chains, sliders, ducks}` | From the parser: channels, faders with their labels and values, duck cables. Sent on every change of the document, after the same pause the packs use |
+| mixer -> host | `slider {position, value}` | A fader moved. The host passes it to the engine as `slider {index, value}`, or only edits the code |
+| mixer -> host | `mute`, `solo`, `duck {from, to}`, `unduck {from, to}`, `reveal {chain}` | What the user did |
+| engine -> host -> mixer | `activity {chains}` | About 20 times a second while playing, from D1 |
 
 ### Cables
 
-Ported from ableton-rackutils as `src/webview/cables.ts`, plain TypeScript and SVG, no
-framework. One fixed SVG layer over the Mixer, `pointer-events: none`.
+The only cables are sidechains. A cable goes from the chain that ducks to each chain it
+ducks. Everything else is shown by the order and the grouping of the strips, not by
+cables.
 
-| Cable | From | To | Means in code | Look |
-|---|---|---|---|---|
-| Route | "out" of a chain | "in" of an orbit | `.orbit(n)` | The color of the chain, solid |
-| Sidechain | "duck" of a chain | "duck in" of an orbit | `.duck("n")` | The color of the chain, dashed, with an arrow head |
-| MIDI (phase 5) | "out" of a chain | A MIDI output channel | `.midi("device")` | Gray, solid |
-
-A chain with no `.orbit()` has a cable to orbit 1, drawn dim, because that is what
-Strudel does.
+**What a cable means in Strudel.** `.duck("2,3,4")` on `$kick:` pulls down the volume of
+the orbits 2, 3 and 4 on each kick. A chain is ducked when it plays on one of those
+orbits with `.orbit(n)`. So a cable goes from the "duck" jack of the kick strip to the
+strip of every chain on a ducked orbit, and carries the number of the orbit as its
+label. Two chains on the same orbit both get a cable, and both are ducked together,
+because the orbit is one bus. A ducked orbit with no chain on it gets no cable; the
+kick's strip lists it under its jack as "orbit 5 (empty)".
 
 **Editing by cable.** Each gesture is one edit of the document, so undo takes it back.
 
 | Gesture | Edit |
 |---|---|
-| Drag "out" to an orbit | Add `.orbit(n)` at the end of the chain, or replace the number of the one it has |
-| Drag "out" to "+ orbit" | The same with the next free number |
-| Drag "duck" to an orbit | Add `.duck("n")`, or add `n` to the list it has |
-| Pull a plug off and drop it on nothing | Remove the call, or the number from the list |
-| Drop on a locked jack | Refused: the cable turns red and goes back |
+| Drag "duck" of one strip onto another strip that has `.orbit(n)` | Add `n` to the `.duck("...")` of the first chain, or add `.duck("n")` |
+| The same onto a strip with no `.orbit()` | That chain plays on orbit 1, which is everyone's default, so ducking 1 would duck most of the song. The target gets the next free orbit, `.orbit(k)`, and `k` is added to the duck list. The cable says so in a tooltip, because `room` and `delay` are shared per orbit and the target leaves the reverb of orbit 1 |
+| Pull a cable off its target and drop it on nothing | Remove `n` from the duck list, and `.duck()` when the list is empty. When other chains are on orbit `n`, all their cables go, and the dialog in the tooltip says which |
+| Drop on a strip whose `.orbit()` or `.duck()` is not a literal (`.orbit(pick(...))`) | Refused: the cable turns red and goes back |
+| The settings of the duck (`duckattack`, `duckdepth`) | Not cables. They are calls on the ducking chain, and a slider in them shows as a fader of that chain |
 
 A cable is never stored. After the edit the model is built again from the text and the
 cables are drawn from the model.
 
-The physics, constants, sleeping loop and pointer handling are the ones listed under
-"The cables of ableton-rackutils". Colors come from the `--vscode-*` variables and the
-channel color. `prefers-reduced-motion` turns the spring off.
+**How cables are drawn.** Ported from ableton-rackutils as `src/webview/cables.ts`,
+plain TypeScript and SVG, no framework: the physics, constants, sleeping loop and
+pointer handling listed under "The cables of ableton-rackutils". One fixed SVG layer over
+the Mixer, `pointer-events: none`. A cable leaves the bottom of the ducking strip and ends
+at the bottom of the ducked strip, so it hangs under the faders and does not cross them.
+Its color is the color of the ducking chain, and its label the orbit. Colors come from
+the `--vscode-*` variables. `prefers-reduced-motion` turns the spring off.
 
 ### Engine
 
@@ -611,8 +619,8 @@ under the Mixer, and either can be dragged to another place.
 - Browser, category MIDI: outputs and inputs, as the list in `doc/TODO.md` says. A click
   on an output types `.midi("name")`. A click on an input types
   `const cc = await midin("name")`.
-- Mixer: a chain with `.midi()` gets a gray cable to a channel of that device, on the
-  right of the orbits. Its meter shows the notes sent.
+- Mixer: a chain with `.midi()` shows the device name in the header of its strip, and
+  its activity light blinks on the notes sent. No cable: cables are only for sidechains.
 - MIDI learn: right click on a fader, mute or solo, "Learn", move a knob. The binding is
   kept in `strdltn.index.json` under the name of the controller. The demo song was
   written for an "MPK mini 3" with eight knobs as a mixer, and it is the first test.
@@ -630,8 +638,7 @@ Under `tmp/`, each deleted when its answer is written down.
 
 | # | Question | How | Answer goes to |
 |---|---|---|---|
-| D1 | Can we mark every event with the id of its chain by wrapping `Pattern.prototype.p` in `beforeEval`, and scale its `postgain` live? | In the webview, with `demo.strudel`: log the ids seen in the trigger, move a level while it plays | ARCHITECTURE "Mixer" |
-| D2 | Can an `AnalyserNode` tap an orbit bus and the destination, and can the output volume of an orbit be set from outside? | Connect to `getSuperdoughAudioController().getOrbit(n)` after the first event | ARCHITECTURE "Mixer" |
+| D1 | Can we mark every event with the id of its chain by wrapping `Pattern.prototype.p` in `beforeEval`? | In the webview, with `demo.strudel`: log the ids seen in the trigger | ARCHITECTURE "Mixer". Only the activity light depends on it |
 | D3 | How late is a message from one webview to another through the host, on desktop and in a Codespace? | Timestamps on 1000 messages | ARCHITECTURE "Measured" |
 | D4 | Can text be dragged from a webview view into the native editor and into the Strudel editor? | A draggable row with `text/plain` | ARCHITECTURE "Browser". If not: click and Enter only |
 | S5 | Can the extension host send MIDI on time? | As in `doc/TODO.md` | TODO "MIDI" |
@@ -643,7 +650,7 @@ Under `tmp/`, each deleted when its answer is written down.
 | F3 | Does `shrub.audio/editor/` load in a frame of a webview view, and does it make sound there? | The existing mockup, moved into a webview view | The drawer entry, or ARCHITECTURE |
 | E3 | Does the engine page work in a normal browser from a forwarded port, with WebMIDI? | Serve `dist/` from the host, open in Chrome on desktop and from a Codespace | ARCHITECTURE "Engine" |
 
-D1 to D4 come first. They gate phases 1 to 3. F1 to F3 gate phase 4. S5 gates phase 5.
+D3 and D4 come first. They gate phases 1 to 3. D1 can wait for phase 3. F1 to F3 gate phase 4. S5 gates phase 5.
 E1 to E3 gate phases 6 and 7 and can wait.
 
 ### Phase 1: index and Browser
@@ -674,29 +681,30 @@ Size: 4 to 6 sessions.
 
 ### Phase 2: Mixer, read only
 
-1. `src/shared/chains.ts` and its test: chains, mute, solo, `orbit`, `duck`, `gain`,
-   `postgain`, with ranges. Cases from `template/demo.strudel` and the examples.
-2. The wrapper of D1 in `src/webview/main.ts`, the taps of D2, the messages `chains`
-   and `levels`.
-3. The Mixer webview: `src/mixer/` as a third bundle. Channels, orbit channels, main,
-   meters, titles that jump to the code.
-4. `src/webview/cables.ts`: the cables that stay, drawn from the model, with the spring.
-5. The integration test records the model of `demo.strudel`: 7 chains, the orbits 1 to
-   4, the routes bass -> 2, lowendbass -> 3, riser -> 4, the duck of kick to 2, 3 and 4.
-   A screenshot.
+1. `src/shared/chains.ts` and its test: chains with their ranges and names, mute and
+   solo, slider calls, the constants they are assigned to, where each one is used and
+   in which call, `.orbit(n)` and `.duck("...")`. Cases from `template/demo.strudel`
+   (the table under "Mixer panel") and the examples.
+2. The Mixer webview: `src/mixer/` as a third bundle. Strips, fold and unfold, faders
+   with labels and values, the "global" strip.
+3. `src/webview/cables.ts`: the duck cables drawn from the model, with the spring.
+4. The stage loses its slider rows.
+5. The integration test records the model of `demo.strudel` and takes a screenshot with
+   every strip folded and one with bass unfolded.
 
-Size: 3 to 4 sessions.
+Size: 2 to 3 sessions.
 
 ### Phase 3: Mixer, editing
 
-1. Edits from the Mixer as `WorkspaceEdit`: mute, solo, `.orbit`, `.duck`, `.postgain`.
-   One function per edit in `src/shared/chains.ts`, tested on text.
-2. Cable drag: the drag cable, jack hit test, connect, refuse, pull off.
-3. The fader by the answer to decision 3, live through `mix` and written on release.
-4. Orbit faders, the "+ orbit" strip.
+1. Faders move the sound and write the code, through the existing `slider` message.
+2. Mute and solo as edits. Every edit is one function in `src/shared/chains.ts`, tested
+   on text.
+3. Cable drag: the drag cable, the hit test on strips, connect, refuse, pull off, and the
+   new orbit for a target on orbit 1.
+4. The activity light, after D1.
 5. Hand test by the maintainer: the table is written when the build exists.
 
-Size: 3 to 4 sessions.
+Size: 2 to 3 sessions.
 
 ### Phase 4: Devices
 
@@ -725,7 +733,8 @@ Size: 3 to 4 sessions.
    sending worker thread with the clock of S5, input forwarding.
 3. `src/webview/midi.ts`: our `midi`, `midin`, `midikeys`, `midicmd`, `midimaps`,
    `defaultmidimap`, with the clock offset.
-4. Browser category MIDI. Mixer MIDI channels and cables. MIDI learn.
+4. Browser category MIDI. The device name on the Mixer strips. MIDI learn on faders,
+   mute and solo.
 5. Notes off on stop, on a closed window and on an error, so no note hangs.
 6. Tests: a unit test for the queue and the clock rule. The integration test sends to
    "Microsoft GS Wavetable Synth" when it exists and records the lateness. A hand test
@@ -757,12 +766,12 @@ Size: 3 to 4 sessions after phase 6, more without it.
 
 | # | Question | Our recommendation |
 |---|---|---|
-| 1 | Channels side by side as vertical strips (Live's Session view), or rows under each other? "Vertically" can mean both | Strips side by side, orbits on the right. The cables then run mostly sideways and hang down |
+| 1 | Strips side by side as in the Session view of Live, each unfolding sideways into its faders, or channels as rows under each other with horizontal faders? | Side by side. Faders are vertical, and the duck cables hang under the strips |
 | 2 | Remove the tree views in the same release as the Browser, or keep them behind a setting for one release? | Remove them. Two browsers are worse than one |
-| 3 | The fader of a chain: A (`.postgain` in the code), B (only in the panel), C (bind to a `slider()`)? | A, and C where a chain already has a slider |
+| 3 | A chain with no slider: offer a button on its strip that writes `.gain(slider(1, 0, 1))` into it? | Yes, as a small "+ gain" on the empty strip |
 | 4 | The user's tags and colors: in the project (`strdltn.index.json`, committed, travels with the songs), global for the user (kept by VS Code, the same in every project), or both? | Project. A color on a default sound then follows the project, not the person. Global can be added later as a fourth layer |
 | 5 | Mute and solo from the Mixer write `_name:` and `Sname:` into the code. OK, or runtime only? | Write. It is upstream's own syntax and the song stays the truth |
-| 6 | An orbit fader has no call in Strudel to be saved in. Leave it unsaved, save it in `strdltn.index.json`, or leave the fader out? | Leave it out in phase 2, decide when the panel is in use |
+| 6 | A slider used by two chains shows in both strips. Or only in the first one, with a note in the second? | Both. It is the truth of the song, and they move together |
 | 7 | Is the browser page (phase 7) wanted? It is the only road to MIDI in Codespaces, and it is the "IDE as a dumb client" design | Yes, after phase 5, and before phase 6 if MIDI in Codespaces matters more than sound across a mode switch |
 | 8 | The Mixer in the bottom panel, where the stage also opens "below the code". Both fit as two views of the panel, or the stage moves beside the code | Mixer in the bottom panel, stage where `strdltn.stage.position` says, as now |
 | 9 | Order: Browser first, or Mixer first? | Browser. It has no open technical question, and the index is needed by the MIDI category later |
@@ -772,13 +781,13 @@ Size: 3 to 4 sessions after phase 6, more without it.
 ## Risks
 
 - **The wrapper of `p` (D1)** depends on how the repl puts `p` back at each evaluation.
-  A Strudel update can change that. The wrapper is 20 lines and has a test that fails
-  when ids stop arriving. If upstream offers a hook, we use the hook.
+  A Strudel update can change that. Only the activity light depends on it.
+- **Grouping by parser.** A slider used through a function or a variable that is not a
+  constant (`let`, an object, an argument) is not traced to its chain and lands in
+  "global". The test cases decide how far the parser goes.
 - **Edits from the Mixer** change the user's code. Every edit goes through the parser's
   ranges, is one undo step, and is refused when the parser is not sure. A chain the
   parser cannot read is shown locked.
-- **A meter per chain is not a true level.** It is activity from the events. A true
-  level needs a bus per chain in superdough, which is a change upstream.
 - **One webview for the whole side bar** loses what VS Code gives a tree for free:
   keyboard navigation, the filter of Ctrl+F, screen reader support. We build the first
   two. The third needs ARIA roles on the list and a test with a reader.

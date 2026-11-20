@@ -15,7 +15,7 @@ installs beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do
 over.
 
 The plan to make this a DAW (one Browser view with tags and search, a Mixer panel with
-cables, a Devices view with a panel per firmware and the SHRUB window, MIDI, one engine)
+sidechain cables, a Devices view with a panel per firmware and the SHRUB window, MIDI, one engine)
 is in `doc/DAW-PLAN.md`. It waits for the maintainer's answers
 to its "Decisions for the maintainer". Nothing of it is built.
 

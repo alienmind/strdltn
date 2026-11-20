@@ -241,3 +241,16 @@ bar. The view is a tree now. The preview is the hover of a row, which VS Code dr
 outside the side bar, and the two actions are the same small buttons a sound has. What
 we gave up: the filter box that also searched the description, and our own coloring of
 the code (the hover uses the highlighter of the editor instead).
+
+## A mixer with orbit channels and a fader per chain
+
+Designed, in the first version of `doc/DAW-PLAN.md`, and dropped before anything was
+built. Every chain was a strip with a fader, every orbit a strip like a return track of
+Live, plus a main strip, and cables meant three things: the orbit a chain plays on, the
+orbits it ducks, and MIDI. Strudel has no volume per chain outside the pattern, so the
+fader had to write a `.postgain()` call into every chain that was mixed, and an orbit
+fader had no call in Strudel to be saved in at all. Meters needed taps on superdough's
+orbit buses. The maintainer chose a smaller design: the strips are made of the sliders
+the song already has, grouped by chain and folded to their gain, and cables only show
+sidechains. Nothing is added to a song that it did not have, and the orbit buses are not
+touched.

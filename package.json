@@ -2,7 +2,7 @@
 	"name": "vstrudel",
 	"displayName": "vstrudel",
 	"description": "Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "0.2.0",
+	"version": "1.0.0",
 	"private": true,
 	"publisher": "vstrudel",
 	"license": "AGPL-3.0-or-later",
@@ -90,11 +90,6 @@
 				"command": "vstrudel.toggleMode",
 				"title": "vstrudel: Toggle Strudel editor / native editor",
 				"icon": "$(arrow-swap)"
-			},
-			{
-				"command": "vstrudel.openShrubEditor",
-				"title": "vstrudel: Open SHRUB editor (experimental)",
-				"icon": "$(beaker)"
 			},
 			{
 				"command": "vstrudel.openStage",
@@ -204,11 +199,6 @@
 					"command": "vstrudel.refreshSnippets",
 					"when": "view == vstrudel.snippets",
 					"group": "navigation"
-				},
-				{
-					"command": "vstrudel.openShrubEditor",
-					"when": "view == vstrudel.sounds && config.vstrudel.experimental.shrubEditor",
-					"group": "navigation@3"
 				}
 			],
 			"view/item/context": [
@@ -279,10 +269,6 @@
 				{
 					"command": "vstrudel.disablePreview",
 					"when": "false"
-				},
-				{
-					"command": "vstrudel.openShrubEditor",
-					"when": "config.vstrudel.experimental.shrubEditor"
 				}
 			]
 		},
@@ -313,16 +299,6 @@
 					"type": "string",
 					"default": "samples",
 					"description": "Workspace folder that holds your samples. Each subfolder becomes a sound name."
-				},
-				"vstrudel.firmwareFolder": {
-					"type": "string",
-					"default": "firmware",
-					"description": "Workspace folder that holds VIBE FM firmwares (.wasm) from thefirmwarehub.com. Each one plays as s(\"vibefm1:<id>\")."
-				},
-				"vstrudel.experimental.shrubEditor": {
-					"type": "boolean",
-					"default": false,
-					"description": "Experimental mockup: adds the command \"Open SHRUB editor\", which shows Xfer's SHRUB web editor (shrub.audio/editor) in a tab. It is a separate synth: not in the song's mix or tempo, and no MIDI inside VS Code."
 				},
 				"vstrudel.libFolder": {
 					"type": "string",
@@ -385,6 +361,13 @@
 					"default": 0,
 					"minimum": 0,
 					"description": "Font size of the Strudel editor in pixels. 0: the size of the VS Code editor (editor.fontSize)."
+				},
+				"vstrudel.stage.position": {
+					"type": "string",
+					"default": "below",
+					"enum": ["below", "beside"],
+					"enumDescriptions": ["Under the code, in a group of its own", "To the right of the code"],
+					"description": "Where the stage opens when a song plays in the native editor. It can be dragged anywhere after that."
 				},
 				"vstrudel.remoteSamples.cache": {
 					"type": "boolean",
@@ -474,7 +457,6 @@
 		"@vscode/test-electron": "^3.1.0",
 		"@vscode/vsce": "^4.1.1",
 		"esbuild": "^0.28.2",
-		"fflate": "0.8.2",
 		"typescript": "^7.0.2"
 	}
 }

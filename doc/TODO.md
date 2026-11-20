@@ -8,14 +8,11 @@ from here.
 **Released:** 0.1.0, tag `v0.1.0` on `main`. The GitHub release has the `.vsix`, the
 maintainer's own VS Code runs that build (`pnpm promote`), and the home page shows it.
 
-**On `main`, not released:** 0.2.0 (pull request #4) and, on top of it, Firmware Hub
-(pull request #3): firmwares from a `firmware/` folder or from an address
-(`firmware(url)`, cached for offline use) play in a song as `vibefm1:<id>`, with
-`.progNum()` for their sounds. The two were merged by hand, with conflicts resolved but
-without a test of the merge. `package.json` says 0.2.0. Next: the hand test of `main`
-below, and the hand test under "Firmware Hub". Then the maintainer decides whether the
-tag `v0.2.0` goes on this `main`, with Firmware Hub in it, and the rest of "Release" in
-`doc/ARCHITECTURE.md` (tag, `pnpm promote`, home page).
+**Released:** 1.0.0, the stable line on `main`, tag `v1.0.0`. It is 0.2.0 with the fixes
+tested after it (Ctrl+Enter starts the audio, `//` over a selection, the stage below the
+code, Copilot instructions inside the template), and without Firmware Hub and the SHRUB
+panel. Those two live on, with everything else, on the branch `experimental` (1.0.0-b1),
+which the maintainer keeps for a fork.
 
 **In flight:** nothing. New work starts on a new feature branch.
 
@@ -26,40 +23,12 @@ Next in line:
 | 1 | MIDI: devices in the Sounds view, playing through them, mappings | Spike done, not built. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 3 | The hand test below | Waiting for the maintainer |
-| 4 | Firmware Hub: VIBE FM firmwares as synths in a song, with a Firmware view | Plays from a local folder, works in Chrome. Waiting for a hand test in VS Code. See "Firmware Hub" |
 
 ## Next: test by hand
 
-`pnpm test:vscode` passes in VS Code 1.147 and we looked at its screenshots. It cannot
-hear, and it cannot feel whether a click does what you expect.
-
-Target: **desktop VS Code, F5 on this repo** (opens `template/`).
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Your Sea of Souls mix plays, with the vocals from `samples/sos-vocals` |
-| 2 | Drag the sliders at the top of the code | Parts come in and out |
-| 3 | Click the vstrudel icon. Open "Drum machines", then a bank | Banks by name, each with a drum icon. Sounds inside are `bd`, `cp`... |
-| 4 | Click a sound | You hear it. Nothing is typed |
-| 5 | Press the speaker button at the top of Sounds, click another sound | No sound, nothing typed. The title says "preview off" |
-| 6 | Press the button on a bank | `.bank("...")` is typed |
-| 7 | In Snippets, rest the mouse on a snippet | A hover floats beside it: title, description, fields, colored code |
-| 8 | Press the first small button on the row | Only the code is inserted, not the header |
-| 9 | Press the second small button on the row | Its file opens in the native editor |
-| 10 | Open the Files view and click `examples`, then a file | The file opens. Only folders with `.strudel` files are listed |
-| 27 | Put the cursor inside a `s("...")` and press the two small buttons on a sound | The first types the full name at the cursor, without sound. The second plays without typing |
-| 29 | F5 on this repo, open `demo.strudel` in the native editor, and ask Copilot Chat in agent mode "add a bass line" | It adds one `$bass:` pattern (or similar) to `demo.strudel` and touches no other file |
-| 30 | Open the template as its own folder (File > Open Folder > `template/`) and ask the same | The same. Its answer may name `AGENTS.md` or `reference/` as what it read |
-| 28 | Run `pnpm test:quick` in a terminal | No sound from the test window. Done in about 75 seconds |
-| 11 | Open `examples/05-coastline.strudel` | A group `github:eddyflux/crate` appears in Sounds, with a bank `crate`. The status bar shows the download |
-| 13 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage lists Sliders (kick vol, snare vol...) and Visuals (kick, snare...), each with its name |
-| 14 | Drag a slider in the stage | The part gets louder or quieter, and the number in the code changes |
-| 12 | Play it, then turn the network off, reload the window and play it again | It still plays |
-
-Expected still broken: sound stops on every mode switch, no MIDI.
-
-Report the result by check number. When something fails, add the content of Output >
-`vstrudel`.
+Nothing waits for a hand test. The checks of `fix/ctrl-enter-audio` passed (Ctrl+Enter
+after a reload, `//` over a selection, the stage below the code, coastline offline, the
+silent quick test, Copilot with the instructions).
 
 ## Decisions waiting for the maintainer
 
@@ -76,9 +45,6 @@ Report the result by check number. When something fails, add the content of Outp
 | 10 | Marketplace: publisher id, token, and an icon without the VS Code logo (see "Publishing") | Waiting |
 | 11 | Should the test screenshots keep the title "[Extension Development Host]"? The debug text in the corner is gone, the status bar item replaced it | Kept |
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
-| 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
-| 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
-| 15 | SHRUB: write to Xfer (steve@xferrecords.com) and ask for a VIBE FM build? See "SHRUB" | Nothing sent |
 
 
 ## MIDI
@@ -157,120 +123,6 @@ The maintainer's `demo.strudel` was written for an "MPK mini 3" with eight knobs
 mixer. Its `midin` lines are commented out and sliders stand in for the knobs. When the
 bridge exists, that file is the first test.
 
-## Firmware Hub
-
-The goal: play the firmwares of The Firmware Hub (thefirmwarehub.com) as instruments in
-a song, in time with the rest of it. A Firmware view in the side bar lists them, and a
-click puts one in the song. This is a cheaper and better route than "Plugins on Strudel
-channels" and "Native VST3 on desktop" below: the firmwares are already wasm, built from
-source, and they run in a browser.
-
-How it works today, and what was measured, is under "Firmware" in `doc/ARCHITECTURE.md`.
-In short: a `.wasm` in the workspace's `firmware/` folder plays as
-`note("c2 eb2").s("vibefm1:<id>")`, through our own AudioWorklet host, with notes on their
-exact frame and the song's tempo and play state passed on. Tested in Chrome, not yet in
-VS Code.
-
-### Hand test
-
-Target: **desktop VS Code, F5 on this repo** (opens `template/`). Checks 1, 2 and 8 need
-a firmware in `template/firmware/`: `obervave.wasm` and `obervave.json` from the
-`firmwares/` folder of `github.com/Vibe-FM-SDK/vibe-fm-sdk`. Do not commit them (GPL-3.0,
-800 KB). The examples load OBERVAVE from GitHub by themselves.
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Open the Sounds view, group "Firmware" | `vibefm1`, and under it `vibefm1:obervave` |
-| 2 | Click `vibefm1:obervave` with the speaker button on | `vibefm1:obervave` is typed, a note of OBERVAVE plays |
-| 3 | In a new file, play `note("c2 eb2 g2 bb2").s("vibefm1:obervave")` with `s("bd*4")` beside it | It sounds, on the beat with the kick |
-| 4 | Open `examples/07-vibefm1-obervave.strudel` and play it | Drums, a deep bass ducked by the kick, a dark pad, an arp |
-| 5 | Open `examples/08-vibefm1-patterns.strudel` and play it | The lead changes its sound every cycle |
-| 6 | Change the sound to `vibefm1:nosuch` and play | Output > `vstrudel` says "no such firmware" once and lists `obervave` |
-| 7 | Stop | The firmware is silent at once |
-| 8 | Delete `obervave.wasm` and add it again | The group empties and comes back without a reload |
-| 9 | Play example 07 once, then turn the network off, reload the window and play it again | It still plays. `.vstrudel/cache/firmware/` holds `obervave.wasm` |
-
-Expected still broken: no Firmware view, no catalog of the hub, `.room()` and other effects
-on the firmware's line do nothing. Report by check number, with Output >
-`vstrudel` when one fails.
-
-### What we know about the hub
-
-Read from the hub's pages on 2026-11-20. Not tested.
-
-- The hub builds each FM-1 firmware from its own source into a VIBE FM firmware: one
-  `.wasm` and a `firmware.json`, packed in a `.zip` (for example
-  `thefirmwarehub.com/fw/vibe/boom-native-vibe.zip`). Each zip carries its license and
-  source.
-- Licenses: most firmwares are GPL-3.0, some MPL-2.0, M-VAVE's own V15 is Apache-2.0. The
-  SDK is Apache-2.0. The VIBE FM VST and the browser emulator are closed, all rights
-  reserved: we may not copy, embed or host them. vstrudel is AGPL-3.0.
-- The Playground (`play.thefirmwarehub.com/?fw=<id>`) reads its list from
-  `firmware/index.json` on that host. We could not fetch it from our sandbox, so its
-  shape and its CORS headers are unknown. The hub documents no public catalog API.
-
-### Steps left
-
-| # | Step | Done when |
-|---|---|---|
-| 1 | Catalog: find a list we may use. Try `play.thefirmwarehub.com/firmware/index.json` from Node, look at the hub's pages, ask the author (decision 13). Write the result in `doc/ARCHITECTURE.md` | We know the URL, the fields and how often it changes |
-| 2 | The hub's catalog in the host: fetched and kept for a day, works offline from the last copy. A firmware picked from it goes through `firmware(url)` and the cache that exists, with a SHA-256 check when the catalog has one | `pnpm test:unit` covers the unpack and the cache paths |
-| 3 | Check the transport with a firmware that has its own sequencer (SLOOP) | It follows play, stop and `setcps` |
-| 4 | `.vp()` for parameters by their id, through `VIBE_EV_PARAM`. `VibeCore` already reads the list and has the event | A slider moves a firmware parameter |
-| 5 | The Firmware view: groups "In this project" and the hub's list by device; name, version, author, license; a click types `s("vibefm1:<id>")` and starts the download; buttons for the hub page, the cheat sheet, the parameters and a test note; a filter box; "Add firmware..." for a `.zip` or `.wasm` from disk | The hand test of the view passes |
-| 7 | `.midi("vibefm1:...")`, once the webview's own `.midi()` from "MIDI" exists: names that start with `vibefm1:` go to the firmware, CCs and `midimaps` work too | Code written for an FM-1 over MIDI plays the firmware |
-| 8 | Store: `vibe_host_store` writes go to `.vstrudel/firmware-store/<id>/` through the host, and come back on load | Save a sound in a firmware, reload, it is there |
-| 9 | A snippet in `lib/` for a firmware part | |
-| 10 | README and `doc/ABOUT.md`, once the view exists | |
-| 11 | Later: the 480 x 320 display in the stage, from `vibe_wasm_draw` at 30 fps | |
-
-### Effects on a firmware
-
-A hap's effects need the sound to pass through the hap's own chain. A firmware is one
-stream, so today it skips that chain. One way to try: per hap, return a gain node fed
-from the firmware's output and gated by the hap's duration, the way superdough's own
-`bus` sound works. Then `room`, `lpf`, `pan` apply. The cost: two overlapping haps on
-the same firmware pass its whole output twice, so a chord is three times as loud. Maybe
-right for monophonic lines only. Decision 14.
-
-### Risks and open questions
-
-- Firmwares built with two flows (`VIBE_PARALLEL_AUDIO`) or worker jobs (`VIBE_JOBS`,
-  shared memory, `--enable-multi-thread`) may expect a host that calls draw and jobs on
-  other threads. OBERVAVE plays without either. To check with a firmware that uses jobs.
-- A firmware that traps stops for good and logs "firmware ... stopped". It starts again
-  only with a reload of the webview.
-- Some firmwares make sound on their own (a sequencer that plays from start). A stopped
-  song sends "play off", but a firmware may ignore it.
-- A firmware is GPL-3.0: we download it at run time and never ship it inside the `.vsix`.
-  The examples in `template/` load it from GitHub, they do not contain it.
-- Named patches, `vibefm1:shrub:lead` was asked for. Strudel reads a second colon as gain
-  (`bd:3:0.5`, checked: `vibefm1:shrub:lead_saw` gives `gain: "lead_saw"`). `.progNum()`
-  works today. A name needs each firmware's list of program names, which the wasm does
-  not give a host. A firmware could put it in `firmware.json`; ask on the SDK issues.
-
-### SHRUB
-
-SHRUB is Xfer's stripped-down Serum for the FM-1: firmware for the device, an editor in
-the browser (`shrub.audio/editor/`) and a VST3. It is closed ("All rights reserved"). It
-cannot play in `vibefm1`: its `SHRUB.fwsc` is native code for the FM-1, see the drawer.
-The ways it could reach a song, best first:
-
-1. Xfer builds SHRUB as a VIBE FM firmware with the SDK. Then it is one more `vibefm1`
-   firmware, with patches through `.progNum()`. Only Xfer can do it: ask
-   steve@xferrecords.com (decision 15).
-2. A real FM-1 with SHRUB installed, played through the MIDI bridge of "MIDI" above
-   (desktop only). Patches by program change, if SHRUB takes them.
-3. A panel with the editor in a webview, as asked. Possible only if the site allows
-   framing. It would be a second, separate synth: its own audio, not in our mix and not in
-   time, and no MIDI (a webview, and a frame inside it, may not use WebMIDI). It would be a
-   browser tab inside VS Code, good for editing patches for a real FM-1 and nothing else.
-   Not worth building further. A mockup exists, off by default: the setting
-   `vstrudel.experimental.shrubEditor` and the command "vstrudel: Open SHRUB editor
-   (experimental)". To try by hand: does the site load in the frame, and does it make
-   sound there?
-
-
 ## Sound card
 
 Measured in the webview: `enumerateDevices()` returns one audio output with no label,
@@ -341,6 +193,7 @@ planned yet.
 
 ## Known gaps
 
+
 - Undo in the Strudel editor is CodeMirror's own history. It should go through VS Code
   so there is one history across both modes.
 - Cursor and scroll position are not carried across a mode switch.
@@ -368,8 +221,6 @@ planned yet.
 - The logo view has an empty strip under the picture, and its own title row that says
   "vstrudel" again under the title of the side bar. VS Code gives a view no way to fit
   its content or to hide its title.
-- The instructions for AI assistants are not tested with any assistant yet. Checks 29
-  and 30 are the first test.
 - Inline completion of Copilot does not read the instruction files. Only Chat and agents
   do.
 - The Files view shows `.strudel` files only by name. It has no button to play a file

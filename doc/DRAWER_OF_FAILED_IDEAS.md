@@ -148,59 +148,6 @@ from Strudel's own examples, "Array (Lil Data Edit)" under CC BY-NC-SA) and the
 maintainer's own song. For the rest we wrote our own snippets with the same techniques
 and put the name in `@credits`.
 
-## One sound per firmware
-
-Tried, in Chrome with the webview bundle. The first plan registered each firmware as its own sound,
-`s("vibe:obervave")`. Mini-notation reads the colon as the variation: the sound `vibe`, number `obervave`, and
-superdough said "sound vibe not found". We then named each sound `vibe_obervave`, which worked, but every firmware was
-a separate sound and the firmware could not be a pattern value. Now there is one instrument, `vibefm1`, and the colon
-does what it does for samples: `vibefm1:obervave` picks the firmware.
-
-## FM-1 update packages (`.fwsc`) in vibefm1
-
-Designed, with a fake file to check the message. The idea was to play SHRUB (Xfer's stripped-down Serum for the FM-1)
-through `vibefm1` from `https://shrub.audio/editor/firmware/SHRUB.fwsc`. A `.fwsc` is the update package the FM-1's
-updater writes to the device: M-VAVE's own firmware ships as `FM-1.fwsc`, and ChoralRoot ships a one-core and a
-two-core `.fwsc` for the FM-1's processor. That is native code for the FM-1's chip, not wasm, and only the hub's
-converter turns an FM-1 firmware into a VIBE FM `.wasm`, from its source. SHRUB's source is closed ("copyright 2026 Xfer
-Inc. All rights reserved"), so nobody but Xfer can make that build. Playing a `.fwsc` would need an emulator of the
-FM-1's chip. `firmware()` now says what the file is instead of failing on it as broken wasm. We could not fetch the
-SHRUB file from our sandbox to look at its bytes; the claim rests on how the other `.fwsc` files are described.
-
-## midichan as OBERVAVE's tracks
-
-Designed, and wrong. The first hand test said `.midichan("<1 2>")` would switch between OBERVAVE's tracks. Its source
-says otherwise: with its MIDI setting on OMNI, the default, every channel plays the selected track. Separate sounds come
-from separate orbits.
-
-## A panel with the SHRUB editor
-
-Designed, and dropped as a feature. A mockup exists behind the setting `vstrudel.experimental.shrubEditor`, only to see
-how it looks. The idea was a webview panel that shows `shrub.audio/editor/`, so patches are made beside the
-song. The editor would be a second synth with its own audio: not in our mix, not in time with the song, and with no MIDI
-in or out, because a webview, and any frame inside it, may not use WebMIDI. It would be a browser tab inside VS Code,
-only useful to edit patches for a real FM-1. We do not know if the site allows framing. A VIBE FM build of SHRUB
-would make the panel unnecessary, see "SHRUB" in `doc/TODO.md`.
-
-## Named patches after a second colon
-
-Designed, and dropped. `vibefm1:shrub:lead_saw` was asked for. Strudel reads a second colon as gain, as in `bd:3:0.5`:
-checked, `vibefm1:shrub:lead_saw` gives `{ s: 'vibefm1', n: 'shrub', gain: 'lead_saw' }`. Using gain as a patch name
-would break `.gain()` on the same line. `.progNum(n)` picks a patch by number today. Names need each firmware to say
-which name is which program, and the wasm gives a host no such list.
-
-## Room and delay on a firmware through its orbit
-
-Designed, and wrong. The first plan said a firmware on an orbit would get the orbit's `room` and `delay`. In superdough
-1.3.0 those are sends that each hap sets up in its own chain, and a firmware has no chain per hap. Only what sits on the
-orbit itself reaches it: its filter (`djf`) and ducking. See "Effects on a firmware" in `doc/TODO.md`.
-
-## Starting every firmware of the folder at once
-
-Designed, and dropped. To make a switch of firmware instant, the first plan started every firmware the first time
-`vibefm1` played. A running firmware costs CPU even when silent (1.1% of real time for OBERVAVE with a chord, measured).
-Now every firmware is only compiled then, which is the slow part of a first load, and runs from its first note.
-
 ## An engine of its own for the Sounds view
 
 Designed. The Sounds view was empty until a `.strudel` file was open, because the sound

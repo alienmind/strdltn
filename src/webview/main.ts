@@ -1,7 +1,7 @@
 // The webview: upstream StrudelMirror (editor, engine and visuals in one page) bound to
 // a VS Code text document. We host upstream and add nothing to it, so that a new visual
 // or widget in a later @strudel release arrives with a version bump.
-import { StateEffect } from '@codemirror/state';
+import { Prec, StateEffect, type EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import * as strudelCodemirror from '@strudel/codemirror';
 import * as strudelCore from '@strudel/core';
@@ -13,10 +13,10 @@ import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
 import { sliderLabel, visualLabel } from '../shared/context';
+import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
-import { diffText, type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
-import { addFirmware, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
+import { diffText, type EditorSettings, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
@@ -29,6 +29,8 @@ const unlockElement = document.getElementById('unlock')!;
 const dockElement = document.getElementById('dock')!;
 
 let mirror: any;
+/** Upstream's own `mirror.evaluate`, before init() routes the method through play(). */
+let evaluateUpstream: () => Promise<void> = async () => undefined;
 let mode: Mode = 'editor';
 /** True while a change from the extension host is being applied, so it is not sent back. */
 let applyingRemote = false;
@@ -47,7 +49,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 	const message = event.data;
 	switch (message.type) {
 		case 'init':
-			init(message.text, message.mode, message.samples, message.firmware, message.settings);
+			init(message.text, message.mode, message.samples, message.settings);
 			break;
 		case 'settings':
 			applySettings(message.settings);
@@ -57,12 +59,6 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'update':
 			applyRemoteText(message.text);
-			break;
-		case 'firmware':
-			registerFirmware(message.firmware);
-			break;
-		case 'firmwareCache':
-			setFirmwareCache(message.map);
 			break;
 		case 'samples':
 			void loadLocalSamples(message.samples);
@@ -111,19 +107,11 @@ function applySettings(settings: EditorSettings): void {
 	log('info', `settings: theme=${theme} font=${fontFamily} size=${fontSize}`);
 }
 
-function init(text: string, initialMode: Mode, samples: SampleMap, firmware: FirmwareInfo[], settings: EditorSettings): void {
+function init(text: string, initialMode: Mode, samples: SampleMap, settings: EditorSettings): void {
 	mode = initialMode;
 	document.body.classList.toggle('stage', mode === 'stage');
 	reportEnvironment();
 	applySettings(settings);
-
-	initFirmware({
-		log,
-		clock: () => {
-			const scheduler = mirror?.repl?.scheduler;
-			return { cycle: scheduler?.started ? scheduler.now() : 0, cps: scheduler?.cps ?? 0.5, playing: !!scheduler?.started };
-		},
-	});
 
 	mirror = new strudelCodemirror.StrudelMirror({
 		id: REPL_ID,
@@ -149,8 +137,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 					strudelHydra,
 					strudelSoundfonts,
 					// Last, so that it replaces the `samples` of @strudel/webaudio in the song's scope.
-					// `firmware` is ours: VIBE FM firmwares from an address, for `vibefm1`.
-					{ samples: taggedSamples, firmware: addFirmware },
+					{ samples: taggedSamples },
 				),
 				strudelWebaudio.registerSynthSounds(),
 				strudelWebaudio.registerZZFXSounds(),
@@ -158,7 +145,6 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			]);
 			strudelWebaudio.registerSamplesPrefix('github:', resolveGithubPack);
 			await loadLocalSamples(samples);
-			registerFirmware(firmware);
 			log('info', `local samples: ${Object.keys(samples).join(', ') || 'none'}`);
 			// The first play waits for the default packs, or "bd" is not found yet (measured
 			// on a slow network). The wait is capped so that offline use still starts.
@@ -174,11 +160,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
 			post({ type: 'evaluated' });
 		},
-		onToggle: (started: boolean) => {
-			// The firmwares follow the transport of the song.
-			transport(started);
-			postState();
-		},
+		onToggle: () => postState(),
 		onEvalError: (error: Error & { pos?: unknown }) => {
 			log('error', `eval: ${error.message}`);
 			const place = locateError(mirror.code, error);
@@ -197,6 +179,16 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			}),
 		),
 	});
+	mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(slashComment()) });
+
+	// Ctrl+Enter and Alt+Enter in the editor are upstream's keymap, which calls
+	// mirror.evaluate() directly. That path never resumed the AudioContext: upstream only
+	// starts audio on a mouse click in the page. After a reload, Ctrl+Enter without a click
+	// first ran the song with the audio suspended and nothing said why (seen by the
+	// maintainer in 0.2.0). So the method goes through play(), like the play button. A key
+	// press is a user gesture for the browser, so resume() is allowed there.
+	evaluateUpstream = mirror.evaluate.bind(mirror);
+	mirror.evaluate = () => play();
 
 	unlockElement.addEventListener('click', () => {
 		unlockElement.classList.remove('visible');
@@ -355,8 +347,7 @@ function publishSounds(): void {
 			type: String(data.type ?? 'other'),
 			tag: data.tag,
 			// Only a plain list has numbered variations. A pitched map (piano) has one sound.
-			count: Array.isArray(data.variations) ? data.variations.length : Array.isArray(data.samples) ? data.samples.length : 1,
-			variations: Array.isArray(data.variations) ? data.variations : undefined,
+			count: Array.isArray(data.samples) ? data.samples.length : 1,
 		}));
 	post({ type: 'sounds', sounds });
 }
@@ -377,6 +368,53 @@ function insert(text: string): void {
 	if (!mirror) return;
 	mirror.editor.dispatch(mirror.editor.state.replaceSelection(text));
 	mirror.editor.focus();
+}
+
+/**
+ * `//` typed over a selection comments the selected lines, and the same keys again take
+ * the comment off (the rule is `toggleComment` in src/shared/comment.ts). The first `/`
+ * waits for the second: any other key, or a pause of half a second, types the `/` as usual,
+ * over the selection. Without a selection `/` is an ordinary key.
+ */
+function slashComment() {
+	let pending: { selection: EditorSelection; timer: ReturnType<typeof setTimeout> } | undefined;
+	const typeSlash = (view: EditorView, after = '') => view.dispatch(view.state.replaceSelection(`/${after}`));
+	return Prec.highest(
+		EditorView.inputHandler.of((view, _from, _to, text) => {
+			const { selection } = view.state;
+			if (pending) {
+				const waiting = pending;
+				pending = undefined;
+				clearTimeout(waiting.timer);
+				if (!waiting.selection.eq(selection)) return false;
+				if (text !== '/') {
+					typeSlash(view, text);
+					return true;
+				}
+				const doc = view.state.doc.toString();
+				const seen = new Set<number>();
+				const changes = selection.ranges
+					.flatMap((range) => toggleComment(doc, range.from, range.to))
+					// Two ranges on one line would edit it twice.
+					.filter((edit) => !seen.has(edit.at) && seen.add(edit.at))
+					.sort((a, b) => a.at - b.at)
+					.map((edit) => ({ from: edit.at, to: edit.at + edit.remove, insert: edit.insert }));
+				if (changes.length) view.dispatch({ changes, userEvent: 'input.comment' });
+				return true;
+			}
+			if (text !== '/' || selection.ranges.every((range) => range.empty)) return false;
+			pending = {
+				selection,
+				// Half a second: the maintainer found a whole second too slow for a plain slash.
+				timer: setTimeout(() => {
+					// Typed once and left: it was a plain slash. Unless the selection moved since.
+					if (pending?.selection.eq(view.state.selection)) typeSlash(view);
+					pending = undefined;
+				}, 500),
+			};
+			return true;
+		}),
+	);
 }
 
 /**
@@ -406,7 +444,7 @@ async function withAudio(action: () => unknown): Promise<void> {
 function play(): Promise<void> {
 	if (!mirror) return Promise.resolve();
 	return withAudio(async () => {
-		await mirror.evaluate();
+		await evaluateUpstream();
 		postState();
 		report();
 	});

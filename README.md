@@ -187,7 +187,6 @@ extension loaded.
 |---|---|
 | `src/extension/` | The part that runs in VS Code |
 | `src/webview/` | The page that hosts the Strudel editor and makes the sound |
-| `src/snippets-view/` | The page of the Snippets view |
 | `doc/` | Architecture, open work and dropped ideas |
 
 ## Thanks

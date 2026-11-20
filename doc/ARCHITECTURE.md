@@ -50,8 +50,9 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/session.ts` | Binds one webview to one document. Text sync, sample scan, problems, HTML and CSP. |
 | `src/extension/samples.ts` | Turns the samples folder into the map upstream `samples()` accepts. |
 | `src/extension/sounds.ts` | The Sounds view: groups the sound list that the engine reports. |
-| `src/extension/snippets.ts` | The Snippets view: reads the `.strudel` files under `lib/` and owns the view's webview. |
-| `src/snippets-view/main.ts` | The page of the Snippets view: folders, cards, code colors. Built as `dist/snippets-view.js`. |
+| `src/extension/snippets.ts` | The Snippets view: reads the `.strudel` files under `lib/` and shows them as a tree with a hover. |
+| `src/extension/files.ts` | The Files view: the folders of the workspace that hold `.strudel` files. |
+| `src/shared/filetree.ts` | Builds the tree of the Files view from a list of paths. `filetree.test.ts` holds the cases. |
 | `src/shared/snippet.ts` | Splits a snippet file into header fields and code. |
 | `src/shared/context.ts` | The rules that name a slider or a visual from the code around it. `context.test.ts` holds the cases. |
 | `src/extension/packs.ts` | Downloads the remote samples a song loads into `.vstrudel/cache/`, measures the cache and empties it. |
@@ -168,7 +169,9 @@ anywhere). When preview is on, the click also plays the sound once through
 `superdough()`, with the note `a3` for anything that is not a plain sample list, as the
 sounds tab of strudel.cc does. The speaker button at the top of the view turns preview
 on and off. It is two commands that swap on the context key `vstrudel.previewSounds`,
-and the choice is kept in `globalState`. The play button on a row plays without typing.
+and the choice is kept in `globalState`. The view also says "preview on" or "preview
+off" in words beside its title, because the icon alone was read both ways. A row has two
+buttons: insert types the name without playing, play plays without typing.
 The button on a bank types `.bank("RolandTR909")`.
 
 The icons are our own files in `media/icons/`: a drum, a keyboard, a wave for samples,
@@ -191,25 +194,51 @@ We chose a kept list over an engine of its own for the view, see the drawer.
 Measured in VS Code 1.130: 151 samples, 1347 drum machine sounds in 138 banks, 25
 synths and 125 soundfonts are listed, and one sound of each group plays.
 
+## Files view
+
+The first view of the side bar lists every folder of the workspace that holds a
+`.strudel` file, at any depth, and those files. It is the Explorer with everything else
+left out, so a song is one click away without leaving the vstrudel side bar.
+
+`FilesProvider` asks VS Code for `**/*.strudel`, without `node_modules`, `.vstrudel` and
+`.git`, and `buildFileTree` turns the paths into folders and files, folders first, names
+sorted as a person reads them (`2-b` before `10-a`). With one workspace folder its
+content is the top level. With several, each is a row. A watcher on `**/*.strudel`
+refreshes the view when a file is added or removed.
+
+A row has the address of its file (`resourceUri`), so it gets the icon of the file
+theme and the colors of git. A click runs `vscode.open`, which opens the file as the
+Explorer would: in the Strudel editor, unless the user chose another default.
+
+Which workspace folder a file is in is asked of VS Code (`getWorkspaceFolder`). The
+first version compared the paths as text and listed nothing on Windows, where the drive
+letter of the two can differ in case.
+
 ## Snippets view
 
 `SnippetsView` lists every `.strudel` file under a folder named by `vstrudel.libFolder`
 (default `lib`), anywhere in the workspace. One file is one snippet. A watcher refreshes
 the list when a file is added, removed or saved.
 
-The view is a webview view, not a tree. A tree row is one line of plain text, and a
-snippet needs a card: the header fields as a table, the code in color, and buttons. The
-page (`src/snippets-view/main.ts`) groups the snippets by the folder they are in, with a
-filter box on top. A click opens the card in place. A double click opens the file in the
-native editor. "Insert at cursor" inserts the code without the header.
+The view is a tree, built like the Sounds view: a row per folder of the library, and
+under it a row per snippet with its title, its tags in the dimmed text after it, and a
+dot in the color of its category. A row has two small buttons, the same as a sound has:
+insert at the cursor (`$(insert)`) and open the file (`$(go-to-file)`). A click on the
+row itself only selects it.
 
-The colors of the code come from a regular expression that knows comments, strings,
-numbers, keywords, `$name:` labels and function calls. VS Code does not let a webview
-use the editor's highlighter, and a preview does not need a parser.
+The description, the header fields and the code are in the hover of the row
+(`SnippetsView.preview`, a `MarkdownString`). VS Code draws the hover itself, so it
+floats over the editor and is not held inside the narrow side bar, and the code block
+is colored by the highlighter of the editor. The hover shows the first 30 lines of a
+long snippet.
+
+It was a webview with cards before, see the drawer.
 
 Inserting goes to the Strudel editor when it is the active tab, and to the native
-editor otherwise. `window.activeTextEditor` is undefined while the Strudel editor is
-active, because it is a webview.
+editor when that shows a Strudel file. `window.activeTextEditor` is undefined while the
+Strudel editor is active, because it is a webview. Nothing is inserted into a file of
+another language: a click on a sound while a markdown file had the focus used to type
+the sound name into it.
 
 ### Snippet header
 
@@ -594,6 +623,18 @@ for the song in front and then for the other, stop all, the sound list in the So
 view after a window reload with no file open, the cache size message, and clearing the
 cache with an open song still playing from the network.
 
+With `pnpm test:quick` in VS Code 1.147.0, after the Files view and the new Snippets
+view:
+
+| What | Result |
+|---|---|
+| The Files view on `template/` | 29 files. Top level: `examples`, `lib`, `demo.strudel` |
+| A click on the name of a sound, in the Strudel editor and in the native editor with a stage | The name is typed and the sound is played, both times |
+| Insert a sound while a markdown file has the focus | Nothing is typed |
+| The Snippets view as a tree | Seen in the screenshot: folders, a colored dot and the tags per row, the two buttons on the selected row |
+
+Not seen: the hover of a snippet. The test cannot hover.
+
 Not measured by the test: what a restart shows in the Sounds view (the test has a new
 profile on every run, it only reads the file back), clearing the cache, and a light
 theme with a song that has no full page visual. The hand test above covers the first
@@ -621,6 +662,18 @@ itself and `demo.strudel` plays with sound in the browser.
 throwaway profile. The test drives the extension through its commands and reads the logs
 of the webviews through the object that `activate` returns. It records facts instead of
 asserting them and prints them as JSON.
+
+`pnpm test:quick` is the same test for a small change. It starts VS Code with the
+Chromium switch `--mute-audio`, so nothing comes out of the speakers while the engine
+runs as always, and it leaves out the long parts: the pack downloads, the play of every
+template file, Hydra, and most of the wait with a hidden tab. Measured: 75 seconds, and
+the steps it keeps record the same results as the full run. That the window is silent
+was not measured by us, the test cannot hear. The full run is the regression test and
+stays audible, because hearing it is the one check a person adds.
+
+The switch has to be the first argument. VS Code reads the word after a switch it does
+not know as the value of that switch, and at the end that word was the folder to open:
+the test window came up without a workspace.
 
 It downloads a stable VS Code into `.vscode-test/` once. Set `VSCODE_EXE` to use one you
 already have. An installed VS Code with an update pending refuses to start a second

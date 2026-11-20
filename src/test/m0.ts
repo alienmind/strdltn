@@ -139,11 +139,24 @@ export async function run(): Promise<void> {
 		steps.soundBanks = api.soundBanks().length;
 		steps.previewSoundsOn = api.previewSounds();
 		steps.snippetDetails = api.snippetDetails().slice(0, 3);
+		// The Files view: every folder with .strudel files, and nothing else.
+		steps.files = api.files().length;
+		steps.filesTopLevel = api.filesTopLevel();
+		steps.filesByFolder = Object.fromEntries(
+			[...new Set(api.files().map((path) => path.split('/').slice(0, -1).join('/') || '.'))].map((folder) => [
+				folder,
+				api.files().filter((path) => (path.split('/').slice(0, -1).join('/') || '.') === folder).length,
+			]),
+		);
+		await vscode.commands.executeCommand('vstrudel.files.focus');
+		await api.expandFilesFolder('examples');
+		await sleep(1000);
+		await shot('files-view');
 		await api.expandSoundGroup('Synths');
 		await api.expandSoundBank('RolandTR909');
 		await vscode.commands.executeCommand('vstrudel.snippets.focus');
 		await sleep(1200);
-		api.expandSnippet('bass/acid-303');
+		await api.expandSnippet('bass/acid-303');
 		await sleep(1500);
 		await shot('sounds-view');
 		await vscode.commands.executeCommand('workbench.action.closeSidebar');
@@ -158,6 +171,17 @@ export async function run(): Promise<void> {
 			await sleep(700);
 		}
 		steps.previews = previews;
+		// A click on the name of a sound: the name is typed and, with preview on, heard.
+		const previewCount = (mode: string) => session(mode, demo)?.logs.filter((line) => line.includes('preview: bd:0')).length ?? 0;
+		if (picks.sample) {
+			const heardBefore = previewCount('editor');
+			await vscode.commands.executeCommand('vstrudel.clickSound', { kind: 'sound', sound: picks.sample });
+			steps.clickSoundInStrudelEditor = {
+				heard: await until(() => previewCount('editor') > heardBefore, 5000),
+				typed: (await text(demo)).length === demoText.length + picks.sample.name.length,
+			};
+			await restore(demo, demoText);
+		}
 		if (picks.soundfont) {
 			await vscode.commands.executeCommand('vstrudel.insertSound', { kind: 'sound', sound: picks.soundfont });
 			steps.insertSoundInStrudelEditor = await until(() => false, 1500).then(async () => (await text(demo)).includes(picks.soundfont!.name));
@@ -218,7 +242,7 @@ export async function run(): Promise<void> {
 		// 3. Hide the editor tab for a while. The engine should survive.
 		const other = await vscode.workspace.openTextDocument({ content: 'hidden tab test', language: 'plaintext' });
 		await vscode.window.showTextDocument(other);
-		await sleep(6000);
+		await sleep(process.env.VSTRUDEL_TEST_QUICK === '1' ? 1000 : 6000);
 		steps.editorStartedWhileHidden = session('editor', demo)?.started;
 		steps.editorSessionAliveWhileHidden = !!session('editor', demo);
 		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
@@ -241,6 +265,16 @@ export async function run(): Promise<void> {
 
 		// 4b. The Snippets view, inserting into the native editor.
 		steps.snippets = api.snippets();
+
+		// 4a. A click on a sound does not type into a file that is not a Strudel file.
+		const notes = await vscode.workspace.openTextDocument({ content: 'notes', language: 'markdown' });
+		await vscode.window.showTextDocument(notes);
+		await vscode.commands.executeCommand('vstrudel.insertSound', { kind: 'sound', sound: { name: 'bd', type: 'sample', count: 1 } });
+		await sleep(500);
+		steps.otherFileUntouched = notes.getText() === 'notes';
+		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+		await vscode.commands.executeCommand('notifications.clearAll');
+		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(demo));
 		await vscode.commands.executeCommand('vstrudel.snippets.focus');
 		await sleep(1000);
 		await shot('snippets-view');
@@ -259,6 +293,18 @@ export async function run(): Promise<void> {
 		steps.stageReport = last('stage', demo, 'report:');
 		steps.stageNeedsClick = has('stage', demo, 'click inside the webview');
 		steps.stageDock = last('stage', demo, 'dock:');
+		{
+			// The same click from the native editor: typed there, heard through the stage.
+			const lengthBefore = (await text(demo)).length;
+			const heardBefore = previewCount('stage');
+			await vscode.commands.executeCommand('vstrudel.clickSound', { kind: 'sound', sound: { name: 'bd', type: 'sample', count: 8 } });
+			steps.clickSoundInNativeEditor = {
+				heard: await until(() => previewCount('stage') > heardBefore, 5000),
+				typed: (await text(demo)).length === lengthBefore + 2,
+			};
+			await vscode.commands.executeCommand('undo');
+			await sleep(300);
+		}
 		// Move the first slider of the stage. The number in the code has to follow.
 		const beforeSlider = await text(demo);
 		api.setStageSlider(0, 0.123);
@@ -387,6 +433,7 @@ export async function run(): Promise<void> {
 		save();
 
 		// 8. Hydra: loaded from unpkg.com at run time, needs WebGL.
+		if (!quick) {
 		await vscode.commands.executeCommand('vscode.openWith', hydra, EDITOR);
 		steps.hydraLoaded = await until(() => has('editor', hydra, 'local samples'), 30000);
 		await vscode.commands.executeCommand('vstrudel.play');
@@ -398,6 +445,7 @@ export async function run(): Promise<void> {
 		await sleep(1500);
 		await shot('hydra');
 		await vscode.commands.executeCommand('vstrudel.stop');
+		}
 		result.finished = true;
 		result.logs = api.sessions().map((s) => ({ mode: s.mode, uri: s.uri.split('/').pop(), logs: s.logs }));
 	} catch (error) {

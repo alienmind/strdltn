@@ -1,7 +1,11 @@
 // Runs src/test/m0.ts inside a real desktop VS Code and prints what it recorded.
 //
 // The instance has its own throwaway profile, so your own settings are not touched.
-// Extra arguments go to VS Code, for example:
+// `--quick` (pnpm test:quick) is for a small change: no sound on the speakers, and
+// without the long parts (the pack downloads, the play of every template file, Hydra
+// and the wait with a hidden tab). The full run is the regression test and is audible.
+//
+// Other arguments go to VS Code, for example:
 //   pnpm test:vscode -- --autoplay-policy=no-user-gesture-required
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -24,6 +28,8 @@ const out = join(profile, 'result.json');
 // variables that would make the new Code.exe run as plain Node or attach to the parent.
 const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(ELECTRON_|VSCODE_)/.test(name)));
 env.VSTRUDEL_TEST_OUT = out;
+const quick = process.argv.includes('--quick') || process.env.VSTRUDEL_TEST_QUICK === '1';
+if (quick) env.VSTRUDEL_TEST_QUICK = '1';
 // The test asks for pictures of the window by dropping `<name>.request` files here.
 // They end up as tmp/shots/<name>.png, for a person or an agent to look at.
 const shots = join(root, 'tmp', 'shots');
@@ -53,7 +59,7 @@ const args = [
 	'--skip-welcome',
 	'--skip-release-notes',
 	'--disable-updates',
-	...process.argv.slice(2),
+	...process.argv.slice(2).filter((argument) => argument !== '--quick'),
 	join(root, 'template'),
 ];
 
@@ -63,6 +69,10 @@ const args = [
 // DevTools Protocol. `userGesture: true` makes the browser treat it as a real click.
 const DEBUG_PORT = 9339;
 args.unshift(`--remote-debugging-port=${DEBUG_PORT}`);
+// Chromium's own switch. The engine runs as always, only the output of the window is
+// silent, so the test records the same facts. It goes in front: VS Code reads the word
+// after a switch it does not know as its value, and the last word is the folder to open.
+if (quick) args.unshift('--mute-audio');
 const overlayScript = (click) => `(() => {
 	const documents = [document, ...[...document.querySelectorAll('iframe')].map((frame) => { try { return frame.contentDocument; } catch { return null; } })];
 	for (const doc of documents) {

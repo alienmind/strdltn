@@ -40,10 +40,13 @@ Target: **desktop VS Code, F5 on this repo** (opens `template/`).
 | 4 | Put the cursor inside a `s("...")` and click a sound | The full name is typed at the cursor, and you hear the sound |
 | 5 | Press the speaker button at the top of Sounds, click another sound | The name is typed, no sound. The button changed |
 | 6 | Press the button on a bank | `.bank("...")` is typed |
-| 7 | In Snippets, click a snippet | A card opens under it: fields, colored code, two buttons |
-| 8 | Press "Insert at cursor" | Only the code is inserted, not the header |
-| 9 | Double click a snippet | Its file opens in the native editor |
-| 10 | Type in the filter box of Snippets | The list narrows, on title, description and tags |
+| 7 | In Snippets, rest the mouse on a snippet | A hover floats beside it: title, description, fields, colored code |
+| 8 | Press the first small button on the row | Only the code is inserted, not the header |
+| 9 | Press the second small button on the row | Its file opens in the native editor |
+| 10 | Open the Files view and click `examples`, then a file | The file opens. Only folders with `.strudel` files are listed |
+| 26 | With preview on ("preview on" beside the title of Sounds), click the name of a drum machine sound | The name is typed and you hear the sound |
+| 27 | Press the two small buttons on a sound | The first types the name without sound. The second plays without typing |
+| 28 | Run `pnpm test:quick` in a terminal | No sound from the test window. Done in about 75 seconds |
 | 11 | Open `examples/05-coastline.strudel` | A group `github:eddyflux/crate` appears in Sounds, with a bank `crate`. The status bar shows the download |
 | 13 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage lists Sliders (kick vol, snare vol...) and Visuals (kick, snare...), each with its name |
 | 14 | Drag a slider in the stage | The part gets louder or quieter, and the number in the code changes |
@@ -239,6 +242,13 @@ planned yet.
 - The Sounds view has no search box of its own. The tree filter of VS Code (Ctrl+F in
   the view) works.
 - A snippet is a whole file. Several snippets in one file are not possible.
+- The Snippets view lost its filter box when it became a tree. The tree filter of VS
+  Code (Ctrl+F in the view) works on what a row shows. Expected to cover title and
+  tags, not tested. It does not search the description.
+- A click on a snippet row does nothing but select it. A click on a sound types it.
+  The maintainer has not said which of the two a snippet should follow.
+- The Files view shows `.strudel` files only by name. It has no button to play a file
+  and none to create one.
 - The samples of a map written in the song (`samples({...}, 'github:...')`) are not
   listed and not cached before the song has played once.
 - Not cached: a map where a sound has its own `_base`, an address with a query (what
@@ -453,6 +463,15 @@ outside the container, on the real GPU. Docker is installed here. Ollama is not.
 7. The recommended completion extension and the offline container, as its own piece of
    work, since it needs a server.
 ## Noted for later, not planned
+
+**Pictures of the drum machines.** The maintainer asked for a hover on each drum machine
+bank that shows the real instrument: a diagram of the device from above, all devices at
+one size. The hover is the same mechanism the Snippets view uses, and a `MarkdownString`
+can show an image that ships with the extension. The work is the pictures. There are 134
+banks. A photo by somebody else needs a license that allows it, so the plan is our own
+drawings (SVG), one per device. Open: who draws them, how true to the device they must
+be, and whether a drawing of a commercial product needs anything from its maker. A first
+step is five or six of the best known machines, to see the size and the style.
 
 **Help and tutorials inside VS Code.** A structured manual beside the code: every
 function with its parameters and examples, and the Strudel tutorial. The function

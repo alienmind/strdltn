@@ -36,6 +36,7 @@ the plan for the local model.
 |---|---|
 | `pnpm build`, `pnpm typecheck` | After every change |
 | `pnpm test:unit` | Fast. The rules that name things in the stage |
+| `pnpm test:quick` | The same test for a small change: silent, without the long parts, about 75 seconds |
 | `pnpm test:vscode` | The real test. It starts a VS Code window, plays every file of `template/`, and prints what happened as JSON. About ten minutes. Set `VSCODE_EXE` to the installed `Code.exe` to skip a download |
 | `pnpm promote` | Installs a build into the maintainer's own VS Code. Only on request |
 

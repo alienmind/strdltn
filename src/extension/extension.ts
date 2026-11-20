@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { SoundInfo } from '../shared/protocol';
+import { FilesProvider } from './files';
 import { formatBytes, PackCache, type CacheUsage } from './packs';
 import { Session, type SessionHost } from './session';
 import { SnippetsView, type Snippet } from './snippets';
@@ -23,12 +24,19 @@ export interface VstrudelApi {
 	sounds(): SoundInfo[];
 	soundGroups(): { label: string; count: number }[];
 	snippets(): string[];
+	/** The files of the Files view, as paths from the workspace folder. */
+	files(): string[];
+	/** Opens one top folder of the Files view. */
+	expandFilesFolder(name: string): Promise<void>;
+	/** The rows at the top of the Files view. */
+	filesTopLevel(): string[];
 	snippetDetails(): { name: string; folder: string; title: string; category?: string; fields: number; codeStartsWith: string }[];
 	/** Opens one group of the Sounds view, or one drum machine bank. */
 	expandSoundGroup(label: string): Promise<void>;
 	expandSoundBank(name: string): Promise<void>;
 	soundBanks(group?: string): string[];
-	expandSnippet(name: string): void;
+	/** Shows the row of one snippet in the Snippets view. */
+	expandSnippet(name: string): Promise<void>;
 	/** Moves a slider of the stage of the active text editor. For the test. */
 	setStageSlider(index: number, value: number): void;
 	/** The remote sample packs seen so far and whether they are in the cache. */
@@ -46,7 +54,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	const sessions = new Set<Session>();
 	const packs = new PackCache(output);
 	const sounds = new SoundsProvider(context.extensionUri);
-	const snippets = new SnippetsView(context.extensionUri);
+	const snippets = new SnippetsView();
 	// Whether a click on a sound also plays it. A button at the top of the Sounds view
 	// flips it, and the choice is kept between sessions.
 	const PREVIEW_KEY = 'vstrudel.previewSounds';
@@ -55,8 +63,9 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		previewSounds = on;
 		void context.globalState.update(PREVIEW_KEY, on);
 		void vscode.commands.executeCommand('setContext', PREVIEW_KEY, on);
+		// In words beside the title of the view. The icon alone was read both ways.
+		soundsView.description = on ? 'preview on' : 'preview off';
 	};
-	setPreview(previewSounds);
 	const diagnostics = vscode.languages.createDiagnosticCollection('vstrudel');
 	// Right side, beside the language of the file: it is about the file in front.
 	const status = vscode.window.createStatusBarItem('vstrudel.status', vscode.StatusBarAlignment.Right, 101);
@@ -105,6 +114,10 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		[...sessions].filter((s) => s.started).sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
 
 	const soundsView = vscode.window.createTreeView('vstrudel.sounds', { treeDataProvider: sounds, showCollapseAll: true });
+	setPreview(previewSounds);
+	const snippetsView = vscode.window.createTreeView('vstrudel.snippets', { treeDataProvider: snippets, showCollapseAll: true });
+	const files = new FilesProvider();
+	const filesView = vscode.window.createTreeView('vstrudel.files', { treeDataProvider: files, showCollapseAll: true });
 
 	context.subscriptions.push(
 		output,
@@ -129,7 +142,10 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		vscode.window.onDidChangeActiveTextEditor(() => updateStatus()),
 		// The view keeps its page while hidden, so open cards and the filter survive a
 		// switch to another side bar view.
-		vscode.window.registerWebviewViewProvider('vstrudel.snippets', snippets, { webviewOptions: { retainContextWhenHidden: true } }),
+		snippetsView,
+		filesView,
+		vscode.commands.registerCommand('vstrudel.refreshFiles', () => files.refresh()),
+		vscode.workspace.onDidChangeWorkspaceFolders(() => files.refresh()),
 
 		vscode.commands.registerCommand('vstrudel.play', () => {
 			const session = activeEditorSession() ?? stageForActiveTextEditor() ?? onlySession();
@@ -321,17 +337,29 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		const strudel = activeEditorSession();
 		const native = vscode.window.activeTextEditor;
 		if (strudel) return strudel.insert(text);
-		if (native) {
+		// Only into a Strudel file. A click in the Sounds view while a markdown file had
+		// the focus typed sound names into it, and nobody saw it happen.
+		if (isStrudel(native)) {
 			await native.edit((builder) => native.selections.forEach((selection) => builder.replace(selection, text)));
 			return;
 		}
 		const last = lastSession('editor');
 		if (last) return last.insert(text);
-		void vscode.window.showInformationMessage('Open a file to insert into.');
+		void vscode.window.showInformationMessage('Open a .strudel file to insert into.');
 	}
 
 	/** New samples and new snippets show up without a reload. */
 	function watchFolders(): void {
+		// The Files view lists every .strudel file of the workspace, so it follows all of
+		// them. Not changes: the view shows names, and a save does not change a name.
+		const songs = vscode.workspace.createFileSystemWatcher('**/*.strudel', false, true, false);
+		let filesTimer: ReturnType<typeof setTimeout> | undefined;
+		const filesChanged = () => {
+			// A checkout or a copied folder fires one event per file.
+			clearTimeout(filesTimer);
+			filesTimer = setTimeout(() => void files.refresh(), 300);
+		};
+		context.subscriptions.push(songs, songs.onDidCreate(filesChanged), songs.onDidDelete(filesChanged));
 		let watchers: vscode.Disposable[] = [];
 		let samplesTimer: ReturnType<typeof setTimeout> | undefined;
 		const samplesChanged = () => {
@@ -421,6 +449,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		}
 	}
 
+	void files.refresh();
 	// Last, when everything they use exists.
 	void recallSounds();
 	updateStatus();
@@ -437,6 +466,12 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		sounds: () => sounds.all(),
 		soundGroups: () => sounds.groups().map((group) => ({ label: group.label, count: group.sounds.length })),
 		snippets: () => snippets.all().map((snippet) => snippet.name),
+		files: () => files.all(),
+		filesTopLevel: () => files.getChildren().map((node) => node.item.name),
+		expandFilesFolder: async (name) => {
+			const node = files.getChildren().find((child) => child.item.kind === 'folder' && child.item.name === name);
+			if (node) await filesView.reveal(node, { expand: true, focus: false, select: false });
+		},
 		identity,
 		snippetDetails: () =>
 			snippets.all().map((s) => ({ name: s.name, folder: s.folder, title: s.title, category: s.category, fields: s.fields.length, codeStartsWith: s.code.slice(0, 40) })),
@@ -449,7 +484,10 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			if (node) await soundsView.reveal(node, { expand: true, focus: false, select: false });
 		},
 		soundBanks: (label = 'Drum machines') => sounds.banksOf(label),
-		expandSnippet: (name) => snippets.expand(name),
+		expandSnippet: async (name) => {
+			const node = snippets.node(name);
+			if (node) await snippetsView.reveal(node, { expand: true, focus: false, select: true });
+		},
 		setStageSlider: (index, value) => lastSession('stage')?.setSlider(index, value),
 		packs: () => packs.list(),
 		previewSounds: () => previewSounds,

@@ -66,6 +66,11 @@
 				"icon": "$(debug-stop)"
 			},
 			{
+				"command": "vstrudel.refreshFiles",
+				"title": "vstrudel: Refresh files",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "vstrudel.stopAll",
 				"title": "vstrudel: Stop all"
 			},
@@ -142,12 +147,12 @@
 			},
 			{
 				"command": "vstrudel.enablePreview",
-				"title": "Preview sound on click (now off)",
+				"title": "Preview on click is OFF. Press to turn it on",
 				"icon": "$(mute)"
 			},
 			{
 				"command": "vstrudel.disablePreview",
-				"title": "Preview sound on click (now on)",
+				"title": "Preview on click is ON. Press to turn it off",
 				"icon": "$(unmute)"
 			}
 		],
@@ -186,6 +191,11 @@
 					"group": "navigation@2"
 				},
 				{
+					"command": "vstrudel.refreshFiles",
+					"when": "view == vstrudel.files",
+					"group": "navigation"
+				},
+				{
 					"command": "vstrudel.refreshSnippets",
 					"when": "view == vstrudel.snippets",
 					"group": "navigation"
@@ -193,14 +203,29 @@
 			],
 			"view/item/context": [
 				{
+					"command": "vstrudel.insertSound",
+					"when": "view == vstrudel.sounds && viewItem == sound",
+					"group": "inline@1"
+				},
+				{
 					"command": "vstrudel.previewSound",
 					"when": "view == vstrudel.sounds && viewItem == sound",
-					"group": "inline"
+					"group": "inline@2"
 				},
 				{
 					"command": "vstrudel.insertBank",
 					"when": "view == vstrudel.sounds && viewItem == bank",
 					"group": "inline"
+				},
+				{
+					"command": "vstrudel.insertSnippet",
+					"when": "view == vstrudel.snippets && viewItem == snippet",
+					"group": "inline@1"
+				},
+				{
+					"command": "vstrudel.openSnippet",
+					"when": "view == vstrudel.snippets && viewItem == snippet",
+					"group": "inline@2"
 				},
 				{
 					"command": "vstrudel.copySoundName",
@@ -361,17 +386,24 @@
 		"views": {
 			"vstrudel": [
 				{
+					"id": "vstrudel.files",
+					"name": "Files"
+				},
+				{
 					"id": "vstrudel.sounds",
 					"name": "Sounds"
 				},
 				{
 					"id": "vstrudel.snippets",
-					"name": "Snippets",
-					"type": "webview"
+					"name": "Snippets"
 				}
 			]
 		},
 		"viewsWelcome": [
+			{
+				"view": "vstrudel.files",
+				"contents": "No .strudel files in this folder yet."
+			},
 			{
 				"view": "vstrudel.sounds",
 				"contents": "Open a .strudel file to load the sound list."
@@ -383,6 +415,7 @@
 		"watch": "node scripts/build.mjs --watch",
 		"typecheck": "tsc --noEmit",
 		"test:vscode": "node scripts/test-vscode.mjs",
+		"test:quick": "node scripts/test-vscode.mjs --quick",
 		"smoke": "node scripts/build.mjs && node scripts/smoke/serve.mjs",
 		"package": "node scripts/build.mjs --production && vsce package --no-dependencies",
 		"promote": "node scripts/promote.mjs",

@@ -175,3 +175,14 @@ leave a squiggle on text that was not the error any more. Moving it along with t
 is possible in the webview (CodeMirror maps positions), but only for the Strudel editor,
 which shows no squiggle. So an edit removes the diagnostic, and the status bar keeps the
 message until the next evaluation.
+
+## Snippet cards in a webview
+
+Tried, released in 0.1.0. The Snippets view was a webview: a click on a row opened a
+card under it with the header fields as a table, the code in color and two buttons. The
+reason was that a tree row is one line of text. The maintainer found it inconsistent
+with the Sounds view above it, and the card pushed the list down inside a narrow side
+bar. The view is a tree now. The preview is the hover of a row, which VS Code draws
+outside the side bar, and the two actions are the same small buttons a sound has. What
+we gave up: the filter box that also searched the description, and our own coloring of
+the code (the hover uses the highlighter of the editor instead).

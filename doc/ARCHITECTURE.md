@@ -453,9 +453,19 @@ superdough resolves without resuming the context, so we call `resume()` ourselve
 So `withAudio()` in the webview tries to resume for 1.5 seconds. If the context is still
 suspended it shows the overlay "Click to enable audio" and remembers what was asked. The
 click on the overlay is the gesture, and the remembered action runs. Play and sound
-preview both go through it. This happens once per webview. Playing with Ctrl+Enter
-inside the Strudel editor does not need it, because the user has already clicked in the
-code.
+preview both go through it. This happens once per webview.
+
+Ctrl+Enter and Alt+Enter inside the Strudel editor go through it too. They are
+upstream's keymap, which calls `StrudelMirror.evaluate()` directly, and upstream only
+starts the audio on a mouse click in the page (`initAudioOnFirstClick` listens for
+`mousedown`). Until 0.2.0 we thought a user who types Ctrl+Enter has always clicked in
+the code first. Not after a reload: the editor has the focus, Ctrl+Enter runs the song,
+and the `AudioContext` stays suspended with nothing to say why. The maintainer saw it
+offline, and the cause has nothing to do with the network. So `init()` replaces the
+`evaluate` method of our `StrudelMirror` instance with our `play()`, which calls the
+original through `evaluateUpstream`. Upstream's code is not changed. A key press is a
+user gesture for the browser, so `resume()` is expected to succeed there and no overlay
+should show. Not measured yet: the test sends commands and cannot press a key.
 
 Not measured: whether a real key press in the native editor counts as a gesture for the
 stage. The test sends commands, which is not a key press.
@@ -800,6 +810,17 @@ view:
 | The Snippets view as a tree | Seen in the screenshot: folders, a colored dot and the tags per row, the two buttons on the selected row |
 
 Not seen: the hover of a snippet. The test cannot hover.
+
+By hand, on 2026-11-20, in the maintainer's VS Code with the promoted build
+`0.2.0-dev.20261120131811` of `main` after the merge of Firmware Hub (`d0e0de8`): the
+side bar, sounds, snippets, stage, errors, status bar, stop and the sample pack cache
+work. Firmware Hub works too: the "Firmware" group, a firmware from the folder and from
+an address, both examples, an unknown id, stop, the folder watcher, and OBERVAVE from
+the cache with the network off. Two things were seen. A firmware that changes source
+restarts with a short silence. And Ctrl+Enter in the Strudel editor after a reload ran
+the song without sound, while the play button worked: see "Starting audio".
+`vstrudel.editor.theme` only colors the Strudel editor and the stage, as built; the
+native editor keeps the VS Code theme.
 
 Full `pnpm test:vscode` for the release of 0.2.0, in VS Code 1.147.0 on Windows, build
 `v0.1.0-13-g37b76fc` with the version set to 0.2.0: every step of the test passed, the

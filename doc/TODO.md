@@ -11,13 +11,14 @@ maintainer's own VS Code runs that build (`pnpm promote`), and the home page sho
 **On `main`, not released:** 0.2.0 (pull request #4) and, on top of it, Firmware Hub
 (pull request #3): firmwares from a `firmware/` folder or from an address
 (`firmware(url)`, cached for offline use) play in a song as `vibefm1:<id>`, with
-`.progNum()` for their sounds. The two were merged by hand, with conflicts resolved but
-without a test of the merge. `package.json` says 0.2.0. Next: the hand test of `main`
-below, and the hand test under "Firmware Hub". Then the maintainer decides whether the
-tag `v0.2.0` goes on this `main`, with Firmware Hub in it, and the rest of "Release" in
+`.progNum()` for their sounds. `package.json` says 0.2.0. The maintainer tested `main`
+by hand and it works, see "Measured" in `doc/ARCHITECTURE.md`. Open: whether the tag
+`v0.2.0` goes on `main` with Firmware Hub in it, and the rest of "Release" in
 `doc/ARCHITECTURE.md` (tag, `pnpm promote`, home page).
 
-**In flight:** nothing. New work starts on a new feature branch.
+**In flight:** branch `fix/ctrl-enter-audio`. Ctrl+Enter in the Strudel editor did not
+start the audio after a reload, see "Starting audio" in `doc/ARCHITECTURE.md`. Next: the
+hand test below.
 
 Next in line:
 
@@ -26,37 +27,24 @@ Next in line:
 | 1 | MIDI: devices in the Sounds view, playing through them, mappings | Spike done, not built. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 3 | The hand test below | Waiting for the maintainer |
-| 4 | Firmware Hub: VIBE FM firmwares as synths in a song, with a Firmware view | Plays from a local folder, works in Chrome. Waiting for a hand test in VS Code. See "Firmware Hub" |
+| 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 
 ## Next: test by hand
 
-`pnpm test:vscode` passes in VS Code 1.147 and we looked at its screenshots. It cannot
-hear, and it cannot feel whether a click does what you expect.
-
-Target: **desktop VS Code, F5 on this repo** (opens `template/`).
+Target: **desktop VS Code, F5 on this repo, branch `fix/ctrl-enter-audio`** (opens
+`template/`).
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Your Sea of Souls mix plays, with the vocals from `samples/sos-vocals` |
-| 2 | Drag the sliders at the top of the code | Parts come in and out |
-| 3 | Click the vstrudel icon. Open "Drum machines", then a bank | Banks by name, each with a drum icon. Sounds inside are `bd`, `cp`... |
-| 4 | Click a sound | You hear it. Nothing is typed |
-| 5 | Press the speaker button at the top of Sounds, click another sound | No sound, nothing typed. The title says "preview off" |
-| 6 | Press the button on a bank | `.bank("...")` is typed |
-| 7 | In Snippets, rest the mouse on a snippet | A hover floats beside it: title, description, fields, colored code |
-| 8 | Press the first small button on the row | Only the code is inserted, not the header |
-| 9 | Press the second small button on the row | Its file opens in the native editor |
-| 10 | Open the Files view and click `examples`, then a file | The file opens. Only folders with `.strudel` files are listed |
-| 27 | Put the cursor inside a `s("...")` and press the two small buttons on a sound | The first types the full name at the cursor, without sound. The second plays without typing |
-| 29 | F5 on this repo, open `demo.strudel` in the native editor, and ask Copilot Chat in agent mode "add a bass line" | It adds one `$bass:` pattern (or similar) to `demo.strudel` and touches no other file |
-| 30 | Open the template as its own folder (File > Open Folder > `template/`) and ask the same | The same. Its answer may name `AGENTS.md` or `reference/` as what it read |
-| 28 | Run `pnpm test:quick` in a terminal | No sound from the test window. Done in about 75 seconds |
-| 11 | Open `examples/05-coastline.strudel` | A group `github:eddyflux/crate` appears in Sounds, with a bank `crate`. The status bar shows the download |
-| 13 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage lists Sliders (kick vol, snare vol...) and Visuals (kick, snare...), each with its name |
-| 14 | Drag a slider in the stage | The part gets louder or quieter, and the number in the code changes |
-| 12 | Play it, then turn the network off, reload the window and play it again | It still plays |
+| 1 | Reload the window. Open `demo.strudel` in the Strudel editor and press Ctrl+Enter without clicking anywhere first | It plays. Output > `vstrudel` shows `AudioContext state -> running` |
+| 2 | The same with the network off and `examples/07-vibefm1-obervave.strudel` | OBERVAVE plays from the cache |
+| 3 | Run `pnpm test:quick` in a terminal | No sound from the test window. Done in about 75 seconds |
+| 4 | F5 on this repo, open `demo.strudel` in the native editor, and ask Copilot Chat in agent mode "add a bass line" | It adds one `$bass:` pattern (or similar) to `demo.strudel` and touches no other file |
+| 5 | Open the template as its own folder (File > Open Folder > `template/`) and ask the same | The same. Its answer may name `AGENTS.md` or `reference/` as what it read |
+| 6 | Play `examples/05-coastline.strudel`, then turn the network off, reload the window and play it again | It still plays, from the cache |
 
-Expected still broken: sound stops on every mode switch, no MIDI.
+Expected still broken: sound stops on every mode switch, no MIDI, a short silence when a
+firmware changes source.
 
 Report the result by check number. When something fails, add the content of Output >
 `vstrudel`.
@@ -170,29 +158,6 @@ In short: a `.wasm` in the workspace's `firmware/` folder plays as
 `note("c2 eb2").s("vibefm1:<id>")`, through our own AudioWorklet host, with notes on their
 exact frame and the song's tempo and play state passed on. Tested in Chrome, not yet in
 VS Code.
-
-### Hand test
-
-Target: **desktop VS Code, F5 on this repo** (opens `template/`). Checks 1, 2 and 8 need
-a firmware in `template/firmware/`: `obervave.wasm` and `obervave.json` from the
-`firmwares/` folder of `github.com/Vibe-FM-SDK/vibe-fm-sdk`. Do not commit them (GPL-3.0,
-800 KB). The examples load OBERVAVE from GitHub by themselves.
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Open the Sounds view, group "Firmware" | `vibefm1`, and under it `vibefm1:obervave` |
-| 2 | Click `vibefm1:obervave` with the speaker button on | `vibefm1:obervave` is typed, a note of OBERVAVE plays |
-| 3 | In a new file, play `note("c2 eb2 g2 bb2").s("vibefm1:obervave")` with `s("bd*4")` beside it | It sounds, on the beat with the kick |
-| 4 | Open `examples/07-vibefm1-obervave.strudel` and play it | Drums, a deep bass ducked by the kick, a dark pad, an arp |
-| 5 | Open `examples/08-vibefm1-patterns.strudel` and play it | The lead changes its sound every cycle |
-| 6 | Change the sound to `vibefm1:nosuch` and play | Output > `vstrudel` says "no such firmware" once and lists `obervave` |
-| 7 | Stop | The firmware is silent at once |
-| 8 | Delete `obervave.wasm` and add it again | The group empties and comes back without a reload |
-| 9 | Play example 07 once, then turn the network off, reload the window and play it again | It still plays. `.vstrudel/cache/firmware/` holds `obervave.wasm` |
-
-Expected still broken: no Firmware view, no catalog of the hub, `.room()` and other effects
-on the firmware's line do nothing. Report by check number, with Output >
-`vstrudel` when one fails.
 
 ### What we know about the hub
 
@@ -340,6 +305,11 @@ planned yet.
 - Does the pack cache work in Codespaces, where the workspace is remote?
 
 ## Known gaps
+
+- A firmware that changes source restarts, with a short silence. That happens when a
+  song loads a firmware by address and the same id is added to or removed from the
+  `firmware/` folder while it plays. Seen by the maintainer. The two files can be the
+  same bytes, so the running firmware could be kept when they are.
 
 - Undo in the Strudel editor is CodeMirror's own history. It should go through VS Code
   so there is one history across both modes.

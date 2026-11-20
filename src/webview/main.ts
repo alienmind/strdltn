@@ -29,6 +29,8 @@ const unlockElement = document.getElementById('unlock')!;
 const dockElement = document.getElementById('dock')!;
 
 let mirror: any;
+/** Upstream's own `mirror.evaluate`, before init() routes the method through play(). */
+let evaluateUpstream: () => Promise<void> = async () => undefined;
 let mode: Mode = 'editor';
 /** True while a change from the extension host is being applied, so it is not sent back. */
 let applyingRemote = false;
@@ -197,6 +199,15 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			}),
 		),
 	});
+
+	// Ctrl+Enter and Alt+Enter in the editor are upstream's keymap, which calls
+	// mirror.evaluate() directly. That path never resumed the AudioContext: upstream only
+	// starts audio on a mouse click in the page. After a reload, Ctrl+Enter without a click
+	// first ran the song with the audio suspended and nothing said why (seen by the
+	// maintainer in 0.2.0). So the method goes through play(), like the play button. A key
+	// press is a user gesture for the browser, so resume() is allowed there.
+	evaluateUpstream = mirror.evaluate.bind(mirror);
+	mirror.evaluate = () => play();
 
 	unlockElement.addEventListener('click', () => {
 		unlockElement.classList.remove('visible');
@@ -406,7 +417,7 @@ async function withAudio(action: () => unknown): Promise<void> {
 function play(): Promise<void> {
 	if (!mirror) return Promise.resolve();
 	return withAudio(async () => {
-		await mirror.evaluate();
+		await evaluateUpstream();
 		postState();
 		report();
 	});

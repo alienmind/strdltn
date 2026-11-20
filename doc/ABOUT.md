@@ -23,9 +23,12 @@ Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Co
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
 from a browser on any machine, with nothing installed.
 
-> **Version 1.0.0.** The first stable release. Errors in the code are shown where they
-> are, a status bar says what plays, the side bar has a Files view and new Snippets, and
-> AI assistants know how to edit a song. See "What is missing" at the end.
+> **Version 0.0.1.** Errors in the code are shown where they are, a status bar says
+> what plays, the side bar has a Files view and new Snippets, and AI assistants know how
+> to edit a song. See "What is missing" at the end.
+
+This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
+it because the scope grew beyond a VS Code extension.
 
 ---
 

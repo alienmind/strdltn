@@ -71,11 +71,6 @@ Report the result by check number. When something fails, add the content of Outp
 | 11 | Should the test screenshots keep the title "[Extension Development Host]"? The debug text in the corner is gone, the status bar item replaced it | Kept |
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
 
-| 13 | The Strudel editor now takes its font and size from VS Code (`editor.fontFamily`, `editor.fontSize`) unless `vstrudel.editor.*` says otherwise. Before it was Strudel's own 18 px monospace. OK as the default? | VS Code's font |
-| 14 | The theme stays Strudel's own (`strudelTheme`) by default. Should it follow a light or dark VS Code theme, for example `vscodeLight` and `vscodeDark`? | Does not follow |
-| 15 | Ctrl+. stops the song in front, and the song in another tab when nothing plays in front. "Stop all" has no key. Should it have one? | No key |
-| 16 | An edit removes the squiggle of an error, and the status bar keeps the message (see the drawer). OK? | Removed on edit |
-| 17 | After "Clear sample pack cache", a pack is downloaded again the next time a song that loads it is opened or edited. Or should a cleared pack stay away until asked for? | Downloaded again |
 
 ## MIDI
 

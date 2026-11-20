@@ -380,6 +380,8 @@ edited.
 | `examples/` | Songs to learn from: three of ours, Hydra visuals, `coastline` from Strudel's own examples, and "Array (Lil Data Edit)" |
 | `lib/` | Snippets by category, one folder each |
 | `samples/` | Local samples |
+| `AGENTS.md`, `.github/copilot-instructions.md` | Rules for an AI assistant, see "Instructions for AI assistants" |
+| `reference/` | The Strudel functions and the tutorial of strudel.cc as Markdown, made by `pnpm reference` and `pnpm tutorial` |
 
 Rules for what goes in:
 
@@ -390,6 +392,50 @@ Rules for what goes in:
   as our own code, and the snippet names the person in `@credits`.
 - The integration test plays every file in `lib/` and `examples/`. That is how we know a
   function or a sound name exists in the pinned Strudel version.
+
+## Instructions for AI assistants
+
+An assistant such as Copilot Chat, asked "add a bass line" with a song open in this
+repo, went for the source of the extension. The repo holds both the tool and the songs,
+and nothing told the assistant which one a request is about. So there are instructions
+on both sides:
+
+| File | Read by | Says |
+|---|---|---|
+| `AGENTS.md` (root) | Agents that read `AGENTS.md` | A request about music edits the open `.strudel` file. A request about the tool follows `CLAUDE.md` |
+| `.github/instructions/strudel.instructions.md` | Copilot, for files that match `applyTo: "**/*.strudel"` | The same, with an example, and where the guide to the language is |
+| `template/AGENTS.md` | Agents in a music project made from the template | The rules for a song, the folders, and a short guide to Strudel |
+| `template/.github/copilot-instructions.md` | Copilot in a music project | A short version, pointing at `template/AGENTS.md` |
+
+`template/AGENTS.md` says what a request about music means (edit the open song, the
+smallest change, keep the rest), how a song is written (one `$name:` pattern per part),
+the sounds, the mini-notation and the common effects in tables, and where to look before
+using a function. Its tables only name functions that exist in the pinned version:
+checked against `@strudel/reference` 1.2.2, and `delaytime`, `._scope()` and
+`._pianoroll()` against the source, because the reference does not list them. Muting with
+`_$:` is in `repl.mjs` of `@strudel/core` 1.2.6.
+
+Two files give the assistant the language itself, so it can look a function up instead of
+guessing a name:
+
+| File | Made by | From |
+|---|---|---|
+| `template/reference/strudel-functions.md` | `pnpm reference` (`scripts/build-reference.mjs`) | `@strudel/reference` 1.2.2, pinned as a dev dependency: 538 functions with their parameters, 366 of them with examples. 139 KB |
+| `template/reference/strudel-tutorial.md` | `pnpm tutorial` (`scripts/build-tutorial.mjs`) | The workshop and the "learn" pages of strudel.cc, fetched from the Strudel source at commit `f610965f4332`, the tag `@strudel/codemirror@1.3.0`. 25 pages, 100 KB |
+
+Both are AGPL-3.0-or-later, as Strudel and this repo, and say so at the top. Both are
+plain ASCII. The tutorial turns each live code field of the site into a code block and
+drops the components of the site, its pictures and the pages that do not apply here
+(MIDI, OSC, Csound, the website). Two pages that exist on `main` today, `motors` and
+`lfo`, are not at the pinned commit and are not in the file. When the `@strudel/*`
+packages are updated, update `@strudel/reference` and `COMMIT` in the script, and run
+both commands again.
+
+What the instructions cannot do: inline completion (the gray text while typing) does
+not read instruction files. It takes its context from the open file and the other open
+tabs. Expected, not measured: a snippet of `lib/` open in a second tab gives it better
+examples to follow.
+
 ## Starting audio
 
 A webview does not start an `AudioContext` without a real click inside it. Measured in

@@ -428,6 +428,8 @@
 		"smoke": "node scripts/build.mjs && node scripts/smoke/serve.mjs",
 		"package": "node scripts/build.mjs --production && vsce package --no-dependencies",
 		"promote": "node scripts/promote.mjs",
+		"reference": "node scripts/build-reference.mjs",
+		"tutorial": "node scripts/build-tutorial.mjs",
 		"test:unit": "node --test \"src/**/*.test.ts\""
 	},
 	"devDependencies": {
@@ -438,6 +440,7 @@
 		"@strudel/draw": "1.2.6",
 		"@strudel/hydra": "1.2.6",
 		"@strudel/mini": "1.2.6",
+		"@strudel/reference": "1.2.2",
 		"@strudel/soundfonts": "1.3.0",
 		"@strudel/tonal": "1.2.6",
 		"@strudel/transpiler": "1.2.6",

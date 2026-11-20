@@ -160,6 +160,8 @@ for one click ("Click to enable audio"). Browsers do not start sound without a c
 | `examples/` | Songs to learn from and to play, from a first beat to full tracks |
 | `lib/` | Snippets: drums, bass lines, chords, effects, helper functions |
 | `samples/` | Your own audio files |
+| `AGENTS.md`, `.github/` | Rules for an AI assistant such as Copilot: a request like "add a bass line" changes the song you have open |
+| `reference/` | Every Strudel function and the strudel.cc tutorial as text, for the assistant to look things up |
 
 ## Work on vstrudel itself
 

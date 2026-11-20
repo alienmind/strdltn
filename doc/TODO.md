@@ -45,6 +45,8 @@ Target: **desktop VS Code, F5 on this repo** (opens `template/`).
 | 9 | Press the second small button on the row | Its file opens in the native editor |
 | 10 | Open the Files view and click `examples`, then a file | The file opens. Only folders with `.strudel` files are listed |
 | 27 | Put the cursor inside a `s("...")` and press the two small buttons on a sound | The first types the full name at the cursor, without sound. The second plays without typing |
+| 29 | F5 on this repo, open `demo.strudel` in the native editor, and ask Copilot Chat in agent mode "add a bass line" | It adds one `$bass:` pattern (or similar) to `demo.strudel` and touches no other file |
+| 30 | Open the template as its own folder (File > Open Folder > `template/`) and ask the same | The same. Its answer may name `AGENTS.md` or `reference/` as what it read |
 | 28 | Run `pnpm test:quick` in a terminal | No sound from the test window. Done in about 75 seconds |
 | 11 | Open `examples/05-coastline.strudel` | A group `github:eddyflux/crate` appears in Sounds, with a bank `crate`. The status bar shows the download |
 | 13 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage lists Sliders (kick vol, snare vol...) and Visuals (kick, snare...), each with its name |
@@ -246,6 +248,10 @@ planned yet.
 - The logo view has an empty strip under the picture, and its own title row that says
   "vstrudel" again under the title of the side bar. VS Code gives a view no way to fit
   its content or to hide its title.
+- The instructions for AI assistants are not tested with any assistant yet. Checks 29
+  and 30 are the first test.
+- Inline completion of Copilot does not read the instruction files. Only Chat and agents
+  do.
 - The Files view shows `.strudel` files only by name. It has no button to play a file
   and none to create one.
 - The samples of a map written in the song (`samples({...}, 'github:...')`) are not
@@ -473,10 +479,9 @@ be, and whether a drawing of a commercial product needs anything from its maker.
 step is five or six of the best known machines, to see the size and the style.
 
 **Help and tutorials inside VS Code.** A structured manual beside the code: every
-function with its parameters and examples, and the Strudel tutorial. The function
-reference can come from `@strudel/reference` (the data behind the reference on
-strudel.cc). The tutorial is harder: upstream writes it as web pages with live
-examples, so it has to be converted, with each example as a snippet that can be played.
+function with its parameters and examples, and the Strudel tutorial. The text exists now
+in `template/reference/`, made for AI assistants. What is left is a view that shows it,
+with each example as a snippet that can be played.
 
 **Plugins on Strudel channels.** Load an audio plugin with something like
 `.vst("name")` and insert it on that pattern's orbit. In the Strudel editor the call

@@ -54,6 +54,9 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/files.ts` | Lists every `.strudel` file of the workspace, the songs of the Browser. |
 | `src/shared/catalog.ts`, `tags.ts`, `search.ts`, `browser.ts` | The items of the Browser, their tags, the search, the messages. Tests beside them |
 | `src/browser/main.ts` | The page of the Browser. Built as `dist/browser.js` |
+| `src/extension/mixer.ts` | The Mixer in the bottom panel: follows the song in front and sends its model. See "Mixer" |
+| `src/shared/chains.ts`, `mixer.ts` | The model of a song for the Mixer (chains, sliders, duck cables), read with acorn, and the messages. `chains.test.ts` holds the cases |
+| `src/mixer/main.ts`, `cables.ts` | The page of the Mixer and its cables. Built as `dist/mixer.js` |
 | `src/shared/snippet.ts` | Splits a snippet file into header fields and code. |
 | `src/shared/context.ts` | The rules that name a slider or a visual from the code around it. `context.test.ts` holds the cases. |
 | `src/extension/packs.ts` | Downloads the remote samples a song loads into `.strdltn/cache/`, measures the cache and empties it. |
@@ -306,6 +309,49 @@ Measured in the quick test on VS Code 1.147 with the template: 2222 items (151 s
 1347 drum sounds in 139 banks, 153 samples, 22 snippets, 31 songs, 518 functions). "909
 bd" gives 6 results, the chips Drums/Kick and Maker/Roland give 20, "lpf" in Functions
 gives 6.
+
+## Mixer
+
+A webview view, `strdltn.mixer`, in a container of its own in the bottom panel (next to
+Terminal and Problems). Phase 2 of `doc/DAW-PLAN.md`: it shows, it does not edit yet.
+
+**The model.** `readChains` in `src/shared/chains.ts` parses the song with acorn 8.19.0,
+the version and the options upstream's transpiler uses (`ecmaVersion: 2022`,
+`allowAwaitOutsideFunction`). A chain is a top level labeled statement (`$kick: ...`,
+`name: ...`), which is what the transpiler turns into `.p('name')`. Mute and solo follow
+upstream's `Pattern.prototype.p` in `@strudel/core` 1.2.6: a label that starts or ends
+with `_` is muted, one that starts with `S` and is longer than one letter is a solo.
+Sliders are counted in the order of the code, the same order as the transpiler's widgets,
+so a slider's index here is its index in the stage. A slider belongs to a chain when its
+call is inside the chain or a top level `const` holding it is used there (also through
+another `const`). The label of a fader is the call whose arguments hold the slider or the
+constant, walking up through anything that is not a call: `.gain(KICK_VOL.mul(2))` gives
+"gain". `.orbit(n)` and `.duck("2,3,4")` count only on the chain's own calls; one inside a
+function, or a value that is not a literal, makes the orbit unknown. superdough takes the
+duck orbits as a list (`"2:3"`) or one per event (`"2,3,4"`, a stack), so both read as
+the same set.
+
+**The host.** `MixerView` follows the `.strudel` file of the active tab, in either
+editor. Any other tab (the Mixer itself, a terminal, a stage) keeps the last song. The
+model is read again 300 ms after the last change of the text. Code that does not parse
+keeps the last good model, drawn dimmed, with the parser's message in the bar.
+
+**The page.** Strips side by side, folded to the gain fader, unfolded to every slider;
+which strips are unfolded is kept by name in the webview state. A click on a strip's name
+puts the cursor at the chain, in the Strudel editor (message `select`) or the native one.
+The cables are `src/mixer/cables.ts`: one SVG path per cable with a damped spring on its
+sag, the constants of ableton-rackutils (see the plan). The layer is inside the scrolling
+strip area, 1 pixel big with `overflow: visible`: sized to the scroll area, as first
+written, it made the scroll area grow by its own size. Labels sit near the target end; at
+the middle of the curve the labels of cables from one jack covered each other.
+
+**Measured in the quick test on VS Code 1.147.** `demo.strudel` gives the table of the
+plan: 8 strips, 9 sliders, kick ducks bass, lowendbass and riser on orbits 2, 3, 4. In the
+default bottom panel (about 350 pixels high) the strips were first squeezed to the panel
+and the faders ran out of them; the strips now keep their height and the area scrolls,
+and the faders get shorter in a low panel. The first report of a Mixer opened by the test
+came before the model reached it, so the test's `mixerShow` sends the model again with
+each try.
 
 ## Snippets
 

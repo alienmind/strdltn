@@ -313,6 +313,13 @@
 					"title": "[str]dltn Live[code]",
 					"icon": "media/strdltn.svg"
 				}
+			],
+			"panel": [
+				{
+					"id": "strdltn-mixer",
+					"title": "Mixer",
+					"icon": "media/strdltn.svg"
+				}
 			]
 		},
 		"views": {
@@ -320,6 +327,13 @@
 				{
 					"id": "strdltn.browser",
 					"name": "Browser",
+					"type": "webview"
+				}
+			],
+			"strdltn-mixer": [
+				{
+					"id": "strdltn.mixer",
+					"name": "Mixer",
 					"type": "webview"
 				}
 			]

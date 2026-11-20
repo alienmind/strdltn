@@ -122,6 +122,11 @@ export class Session {
 		this.post({ type: 'slider', index, value });
 	}
 
+	/** Puts the cursor of the Strudel editor at an offset and scrolls to it. */
+	select(offset: number): void {
+		this.post({ type: 'select', offset });
+	}
+
 	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */
 	insert(text: string, bare?: string): void {
 		this.post({ type: 'insert', text, bare });

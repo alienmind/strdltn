@@ -64,6 +64,17 @@ browser.
 - Ctrl+. stops the song in front. Press it again to stop a song that plays in another
   tab. "strdltn: Stop all" stops every song.
 
+**Mixer**
+
+- A Mixer in the bottom panel, next to Terminal: one strip per chain of the song in front
+  (`$kick:`, `bass:`), side by side as in the Session view of Live.
+- A strip shows the slider in the chain's `.gain()` as a fader. Unfold it to see every
+  other slider of the chain. A slider assigned to a constant (`const KICK_VOL =
+  slider(...)`) shows in the chain that uses the constant.
+- M and S show whether a chain is muted (`_kick:`) or soloed (`Skick:`).
+- Sidechain cables: a chain with `.duck("2,3")` is cabled to the chains on those orbits.
+- Read only for now: move a slider in the code or the stage, and the fader follows.
+
 **Browser**
 
 - One Browser in the side bar, laid out like the browser of Ableton Live: a search

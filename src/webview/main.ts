@@ -85,6 +85,12 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 		case 'insert':
 			insert(message.text, message.bare);
 			break;
+		case 'select':
+			if (mirror && mode === 'editor') {
+				mirror.editor.dispatch({ selection: { anchor: Math.min(message.offset, mirror.editor.state.doc.length) }, scrollIntoView: true });
+				mirror.editor.focus();
+			}
+			break;
 		case 'slider':
 			if (stageSliders[message.index]) moveSlider(stageSliders[message.index], String(message.value));
 			break;

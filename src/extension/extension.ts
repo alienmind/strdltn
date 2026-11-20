@@ -6,6 +6,7 @@ import type { SoundInfo } from '../shared/protocol';
 import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
 import { FirmwareCache } from './firmware';
+import { MixerView } from './mixer';
 import { formatBytes, PackCache, type CacheUsage } from './packs';
 import { ShrubPanel } from './shrub';
 import { Session, type SessionHost } from './session';
@@ -41,6 +42,10 @@ export interface StrdltnApi {
 	browserShow(filter: Partial<BrowserFilterState>, open?: string[]): Promise<unknown>;
 	/** Handles a message as if the Browser had sent it: a click on a row, a color. */
 	browserMessage(message: FromBrowser): Promise<void>;
+	/** The Mixer's model of the song in front. */
+	mixer(): ReturnType<MixerView['current']>;
+	/** Unfolds the named strips of the Mixer, folds the others, and returns what it reports. */
+	mixerShow(unfold: string[]): ReturnType<MixerView['show']>;
 	/** Moves a slider of the stage of the active text editor. For the test. */
 	setStageSlider(index: number, value: number): void;
 	/** The remote sample packs seen so far and whether they are in the cache. */
@@ -63,6 +68,9 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const browser = new BrowserView(context, snippets, songs, output, {
 		preview: (name, index) => previewSound(name, index),
 		insert: (text, bare) => insertText(text, bare),
+	});
+	const mixer = new MixerView(context, output, {
+		reveal: (document, offset) => void revealOffset(document, offset),
 	});
 	const diagnostics = vscode.languages.createDiagnosticCollection('strdltn');
 	// Right side, beside the language of the file: it is about the file in front.
@@ -132,6 +140,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// The Browser keeps its page while hidden, so its filters and open headings survive a
 		// switch to another side bar.
 		vscode.window.registerWebviewViewProvider('strdltn.browser', browser, { webviewOptions: { retainContextWhenHidden: true } }),
+		// The Mixer keeps its page too, so its strips stay unfolded behind the Terminal tab.
+		vscode.window.registerWebviewViewProvider('strdltn.mixer', mixer, { webviewOptions: { retainContextWhenHidden: true } }),
 		diagnostics,
 		status,
 		vscode.window.onDidChangeActiveTextEditor(() => updateStatus()),
@@ -326,6 +336,21 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		void vscode.window.showInformationMessage('Open a .strudel file to insert into.');
 	}
 
+	/**
+	 * Puts the cursor at an offset of a song: in its Strudel editor when it has one,
+	 * else in the native editor, opened where the song already shows.
+	 */
+	async function revealOffset(document: vscode.TextDocument, offset: number): Promise<void> {
+		const strudel = find(document.uri, 'editor');
+		if (strudel) {
+			strudel.panel.reveal(undefined, false);
+			return strudel.select(offset);
+		}
+		const shown = vscode.window.visibleTextEditors.find((e) => e.document === document);
+		const position = document.positionAt(offset);
+		await vscode.window.showTextDocument(document, { viewColumn: shown?.viewColumn, selection: new vscode.Range(position, position) });
+	}
+
 	/** New samples, snippets and songs show up without a reload. */
 	function watchFolders(): void {
 		// The Songs of the Browser are every .strudel file of the workspace, so it follows all
@@ -498,6 +523,11 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			return browser.state();
 		},
 		browserMessage: (message) => browser.handle(message),
+		mixer: () => mixer.current(),
+		mixerShow: async (unfold) => {
+			await vscode.commands.executeCommand('strdltn.mixer.focus');
+			return mixer.show(unfold);
+		},
 		setStageSlider: (index, value) => lastSession('stage')?.setSlider(index, value),
 		packs: () => packs.list(),
 		previewSounds: () => context.globalState.get('strdltn.previewSounds', true),

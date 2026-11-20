@@ -295,6 +295,11 @@ folder of the heading that is selected under Songs (`examples/`), else the root 
 first workspace folder. What the new file holds: a short header (`// @title New Track`)
 and one line that plays, so Ctrl+Enter makes a sound at once. The text is to be agreed.
 
+**Insert a song.** Asked by the maintainer on 2026-11-20. A song of the Template place
+(the examples) gets an "Insert at the cursor" button beside "Open", which types the
+song's code (without its header) at the cursor, the way a snippet is inserted. Noted,
+not built.
+
 Open questions for the maintainer: does "Locate in browser" mean Reveal in Explorer (VS
 Code's side bar), Reveal in File Explorer (Windows), or both as above? Should a new
 track start from the empty header or from a template song? Should the same menu work
@@ -487,9 +492,20 @@ code 150 ms after the last move. The message for that exists: the host sends the
 host the slider by its position in the code, the host finds the index. When no engine
 plays the song, a move only writes the code.
 
-**Mute and solo.** Each strip has M and S. They write upstream's own syntax into the
-code: `_kick:` mutes, `Skick:` solos (decision 5). A muted or soloed channel is drawn as
-such from the text.
+**Mute and solo.** Each strip has M and S, as a track of Live has. They write upstream's
+own syntax into the code: `_kick:` mutes, `Skick:` solos (decision 5). A muted or soloed
+channel is drawn as such from the text. Phase 2 draws the two buttons and their state;
+a click does nothing yet.
+
+The maintainer said on 2026-11-20 that the way people do it by hand is with comments:
+mute comments out the chain, solo comments out every other chain. We propose the labels
+anyway, because a commented chain is gone from the code the parser reads, so its strip
+would vanish and could not be unmuted from the Mixer; and a solo by comments edits every
+other chain of the song, where `S` edits one line. Upstream reads `_` and `S` the same
+on strudel.cc. Two catches of the labels: upstream solos any label that starts with `S`
+(`Snare:` is a solo, the Mixer shows it so), and a soloed `$:` becomes `S$:`. If the
+maintainer wants comments, the parser has to read commented chains too (a line `// $kick:
+...` as a muted strip). Decision 5, asked again.
 
 **Title and activity.** A click on the strip's title, beside the fold, moves the cursor
 of the editor to that chain. A small light in the header blinks on each event of the
@@ -1183,6 +1199,19 @@ Size: 4 to 6 sessions.
 
 ### Phase 2: Mixer, read only
 
+Built on the branch `feat/mixer`, waiting for the maintainer's hand test (the table in
+`doc/TODO.md`). What was built differs from the steps below in four places:
+
+- The stage keeps its slider rows. Step 4 moves to phase 3: without faders that move,
+  the stage would lose the only sliders a native editor has.
+- The cables are `src/mixer/cables.ts`, not `src/webview/cables.ts`: only the Mixer uses
+  them. The layer sits inside the scrolling strip area instead of a fixed layer over the
+  page, so it scrolls and clips with the strips without code of its own.
+- Spike D3 (latency of a message through the host) is not run. Phase 2 only sends the
+  model from the host, which waits 300 ms for typing to stop anyway. D3 still comes before
+  the faders move in phase 3.
+- M and S are drawn with their state from the label; a click does nothing yet.
+
 1. `src/shared/chains.ts` and its test: chains with their ranges and names, mute and
    solo, slider calls, the constants they are assigned to, where each one is used and
    in which call, `.orbit(n)` and `.duck("...")`. Cases from `template/demo.strudel`
@@ -1199,6 +1228,7 @@ Size: 2 to 3 sessions.
 
 ### Phase 3: Mixer, editing
 
+0. Spike D3, then the stage loses its slider rows (step 4 of phase 2).
 1. Faders move the sound and write the code, through the existing `slider` message.
 2. Mute and solo as edits. Every edit is one function in `src/shared/chains.ts`, tested
    on text.
@@ -1381,7 +1411,7 @@ Size: unknown, at least one session per device.
 | 2 | Remove the tree views in the same release as the Browser, or keep them behind a setting for one release? | Remove them. Two browsers are worse than one |
 | 3 | A chain with no slider: offer a button on its strip that writes `.gain(slider(1, 0, 1))` into it? | Yes, as a small "+ gain" on the empty strip |
 | 4 | The user's tags and colors: in the project (`strdltn.index.json`, committed, travels with the songs), global for the user (kept by VS Code, the same in every project), or both? | Project. A color on a default sound then follows the project, not the person. Global can be added later as a fourth layer |
-| 5 | Mute and solo from the Mixer write `_name:` and `Sname:` into the code. OK, or runtime only? | Write. It is upstream's own syntax and the song stays the truth |
+| 5 | Mute and solo from the Mixer write `_name:` and `Sname:` into the code, or comment the chain out (mute) and every other chain (solo), as the maintainer does by hand? | `_name:` and `Sname:`. A commented chain loses its strip, and a solo by comments edits the whole song. See "Mute and solo" |
 | 6 | A slider used by two chains shows in both strips. Or only in the first one, with a note in the second? | Both. It is the truth of the song, and they move together |
 | 7 | Is the browser page (phase 7) wanted? It is the only road to MIDI in Codespaces, and it is the "IDE as a dumb client" design | Yes, after phase 5, and before phase 6 if MIDI in Codespaces matters more than sound across a mode switch |
 | 8 | The Mixer in the bottom panel, where the stage also opens "below the code". Both fit as two views of the panel, or the stage moves beside the code | Mixer in the bottom panel, stage where `strdltn.stage.position` says, as now |

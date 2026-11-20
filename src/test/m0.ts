@@ -117,6 +117,23 @@ export async function run(): Promise<void> {
 		steps.settingsBack = await until(() => settingsLine() === steps.settingsAtStart, 5000);
 		save();
 
+		// 2a3. The Mixer: the model of demo.strudel, every strip folded, then bass unfolded.
+		const mixer = api.mixer();
+		const sliderName = (i?: number) => (i === undefined ? undefined : mixer.model?.sliders[i].label);
+		steps.mixerSong = mixer.song;
+		steps.mixerModel = mixer.model && {
+			chains: mixer.model.chains.map((c) => `${c.name} gain=${sliderName(c.gain)} controls=${c.controls.map(sliderName).join('+')} orbit=${c.orbit}`),
+			ducks: mixer.model.ducks.map((d) => `${mixer.model!.chains[d.from].name}->${d.to === undefined ? 'empty' : mixer.model!.chains[d.to].name}@${d.orbit}`),
+			global: mixer.model.global.length,
+		};
+		steps.mixerFolded = await api.mixerShow([]);
+		await sleep(800);
+		await shot('mixer');
+		steps.mixerBass = await api.mixerShow(['bass']);
+		await sleep(800);
+		await shot('mixer-bass');
+		save();
+
 		// 2b. The Browser: the engine's own list, preview and insert.
 		const demoText = await text(demo);
 		steps.soundsArrived = await until(() => api.sounds().length > 50, 40000);

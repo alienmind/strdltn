@@ -4,3 +4,4 @@ tmp/
 *.vsix
 *.tsbuildinfo
 .vscode-test/
+.bin/

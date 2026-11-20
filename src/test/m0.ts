@@ -17,6 +17,7 @@ export async function run(): Promise<void> {
 	try {
 		const extension = vscode.extensions.getExtension<VstrudelApi>('vstrudel.vstrudel')!;
 		const api = await extension.activate();
+		result.identity = api.identity;
 		const folder = vscode.workspace.workspaceFolders![0].uri;
 		const demo = vscode.Uri.joinPath(folder, 'demo.strudel');
 		const hydra = vscode.Uri.joinPath(folder, 'hydra.strudel');

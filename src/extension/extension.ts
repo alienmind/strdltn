@@ -4,6 +4,9 @@ import { Session } from './session';
 import { SnippetsProvider, snippetText, type Snippet } from './snippets';
 import { SoundsProvider, soundText, type SoundNode } from './sounds';
 
+/** `git describe` of the checkout this bundle was built from. Set by scripts/build.mjs. */
+declare const __BUILD__: string;
+
 const EDITOR_VIEW_TYPE = 'vstrudel.editor';
 const STAGE_VIEW_TYPE = 'vstrudel.stage';
 
@@ -15,10 +18,15 @@ export interface VstrudelApi {
 	snippets(): string[];
 	/** Opens one group of the Sounds view. */
 	expandSoundGroup(label: string): Promise<void>;
+	identity: string;
 }
 
 export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	const output = vscode.window.createOutputChannel('vstrudel');
+	// Says which copy is running: the promoted one in the maintainer's own editor
+	// (extensionMode Production) or the work in progress in a development host.
+	const identity = `vstrudel ${context.extension.packageJSON.version} (build ${__BUILD__}, ${vscode.ExtensionMode[context.extensionMode].toLowerCase()})`;
+	output.appendLine(identity);
 	const sessions = new Set<Session>();
 	const sounds = new SoundsProvider();
 	const snippets = new SnippetsProvider();
@@ -84,6 +92,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			vscode.commands.executeCommand('vscode.openWith', snippet.uri, 'default'),
 		),
 		vscode.commands.registerCommand('vstrudel.refreshSnippets', () => snippets.refresh()),
+		vscode.commands.registerCommand('vstrudel.showVersion', () => vscode.window.showInformationMessage(identity)),
 	);
 
 	watchFolders();
@@ -200,6 +209,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		sounds: () => sounds.all(),
 		soundGroups: () => sounds.groups().map((group) => ({ label: group.label, count: group.sounds.length })),
 		snippets: () => snippets.all().map((snippet) => snippet.name),
+		identity,
 		expandSoundGroup: async (label) => {
 			const node = sounds.group(label);
 			if (node) await soundsView.reveal(node, { expand: true, focus: false, select: false });

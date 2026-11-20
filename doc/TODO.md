@@ -58,10 +58,22 @@ overlay on every switch. That counts against it.
 **Default editor for `.strudel`.** Today the Strudel editor is the default
 (`priority: default`). Planned: a setting `vstrudel.defaultEditor: strudel | native`.
 
-**Publishing.** The devcontainers install the `.vsix` from a GitHub release, because
-the extension is not on the Marketplace. Publishing to the VS Code Marketplace and Open
-VSX would let a devcontainer install it by id. That needs a publisher account, and the
-`publisher` in `package.json` is a placeholder until then.
+**Publishing.** Decided: music projects get the extension from the VS Code Marketplace.
+The pipeline already has the publish step. It does nothing until the repository has a
+`VSCE_PAT` secret. What is left, in order:
+1. The maintainer creates a publisher on the Marketplace and a token for it. Only the
+   maintainer can do this.
+2. Set `publisher` in `package.json` to that publisher id. This changes the extension
+   id, which is `<publisher>.vstrudel`. The id is also written in `src/test/m0.ts`.
+3. Add the token to the GitHub repository as the secret `VSCE_PAT`.
+4. Add an `icon` to `package.json`: a PNG of at least 128 by 128 pixels. The Marketplace
+   restricts the use of the VS Code logo in an extension's icon, and `doc/logo.jpg`
+   contains it, so the icon needs its own picture.
+5. Tag a release. The pipeline publishes it.
+6. Change the three devcontainer files to install by id
+   (`customizations.vscode.extensions`) and drop the `.vsix` download.
+Until then the devcontainers install the `.vsix` from a GitHub release. Open VSX is not
+planned yet.
 
 **How `lib/` is reused.** Today a snippet is a file whose text is pasted. Strudel has no
 module system for local files. A second way to reuse code would be a prelude that

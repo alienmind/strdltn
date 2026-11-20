@@ -12,7 +12,7 @@ vstrudel hosts the upstream Strudel packages (`@strudel/*`, source at
 [codeberg.org/uzu/strudel](https://codeberg.org/uzu/strudel)). It is licensed
 AGPL-3.0-or-later, like Strudel.
 
-**Status: early, version 0.0.2.** Version 0.0.1 was heard playing on desktop and in
+**Status: early, version 0.0.3.** Version 0.0.1 was heard playing on desktop and in
 Codespaces. An automated test covers the rest. See `doc/TODO.md` for what is missing.
 
 ## What works
@@ -71,6 +71,7 @@ Other commands:
 | `pnpm smoke` | Serve the editor in a plain browser, muted, to test without VS Code |
 | `pnpm test:vscode` | Run the integration test inside a real VS Code |
 | `pnpm package` | Build a `.vsix` |
+| `pnpm promote` | Build a release copy into `.bin/` and install it in your own VS Code |
 
 ## Folders
 

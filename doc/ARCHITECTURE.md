@@ -358,3 +358,44 @@ git push
 ```
 
 Vercel deploys on the push. It was live 40 seconds after the first one.
+
+## Two copies of the extension
+
+A maintainer's machine has two copies, so that work in progress never changes the
+editor the maintainer is working in.
+
+| Copy | Where | Who loads it | Changes when |
+|---|---|---|---|
+| Work in progress | `dist/` | Only an Extension Development Host: F5, or `pnpm test:vscode` with its throwaway profile | Any build, at any moment |
+| Promoted | `.bin/vstrudel.vsix`, installed into the maintainer's VS Code | Every normal VS Code window | Only when `pnpm promote` runs |
+
+`pnpm promote` makes a production build, packages it into `.bin/`, installs it with
+`code --install-extension --force`, and puts the development build back in `dist/`.
+`.bin/PROMOTED.txt` records which build that was. `.bin/` is not in git.
+
+The installed copy is a copy. VS Code unpacks the `.vsix` into its own extensions
+folder, so later builds in `dist/` do not reach it. A running window keeps the old copy
+until "Developer: Restart Extension Host" (or "Restart Extensions" in the Extensions
+view). Nothing outside VS Code can trigger that restart.
+
+In a development host the work in progress wins over the installed copy, because VS
+Code prefers the extension under development with the same id.
+
+To see which copy a window runs: the first line of Output > `vstrudel`, or the command
+"Strudel: Show version and build". It shows the version, the `git describe` of the
+build, and `production` or `development`.
+
+For fast work on the work in progress: `pnpm watch`, press F5 once, and use "Developer:
+Reload Window" in the development host after a change.
+
+## Release
+
+1. Set the new version in `package.json`. Update `doc/ABOUT.md` and `README.md` when a
+   user can do something new.
+2. `pnpm typecheck` and `pnpm test:vscode` pass.
+3. Commit, merge to `main`, tag `v<version>`, push the branch and the tag. The pipeline
+   builds the GitHub release.
+4. `pnpm promote`, so the maintainer's own VS Code gets the same build. It warns when
+   the checkout is not exactly the tag. Tell the maintainer to restart the extension
+   host.
+5. When `doc/ABOUT.md` changed, refresh the home page (see "Public page").

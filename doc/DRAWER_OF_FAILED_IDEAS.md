@@ -101,3 +101,24 @@ to continue? [y/N]" because `package.json` had no `repository` field, and nobody
 a question during create. CI did not ask, so the pipeline passed. `package.json` now has
 the field. The install step also builds or downloads the file itself when it is missing,
 and keeps it in the home folder.
+
+## Loading a .vsix from a folder through .vscode settings
+
+Designed. The idea was a folder such as `.bin/` whose `.vsix` the editor loads by
+itself, set up in `.vscode/`. VS Code has no such setting. `.vscode/extensions.json`
+only recommends extensions by Marketplace id. We keep the folder and add an install
+step (`pnpm promote`).
+
+## The promoted copy as a local workspace extension
+
+Designed. VS Code 1.89 and later offers an unpacked extension under
+`.vscode/extensions/<name>/` for install in that workspace. That is the closest thing
+to loading from a folder. We did not use it because it only applies to windows opened on
+this repo, and the maintainer also writes music in other folders. We did not test how it
+picks up a changed copy.
+
+## Linking the source folder into the VS Code extensions folder
+
+Designed. A link from `~/.vscode/extensions/` to this checkout makes every build live
+in the maintainer's editor. That is the opposite of what we want: an agent's half
+finished build would break the editor the maintainer is working in.

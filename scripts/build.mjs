@@ -1,10 +1,20 @@
 // Builds the two bundles: the extension host (Node, CommonJS) and the webview (browser, ESM).
+import { execFileSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { context } from 'esbuild';
 
 // A production build writes no source maps. Without this, maps from an earlier
 // development build would stay in dist/ and end up in the .vsix.
 rmSync('dist', { recursive: true, force: true });
+
+// Baked into the extension so that the Output channel can say which build is running:
+// the promoted one in your own editor, or work in progress in a development host.
+let stamp = 'unknown';
+try {
+	stamp = execFileSync('git', ['describe', '--tags', '--always', '--dirty'], { encoding: 'utf8' }).trim();
+} catch {
+	// Built from a source archive without git.
+}
 
 const watch = process.argv.includes('--watch');
 const production = process.argv.includes('--production');
@@ -25,6 +35,7 @@ const builds = [
 		format: 'cjs',
 		target: 'node20',
 		external: ['vscode'],
+		define: { __BUILD__: JSON.stringify(stamp) },
 	},
 	{
 		...shared,

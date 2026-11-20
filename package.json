@@ -2,7 +2,7 @@
 	"name": "vstrudel",
 	"displayName": "vstrudel",
 	"description": "Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"private": true,
 	"publisher": "vstrudel",
 	"license": "AGPL-3.0-or-later",
@@ -109,6 +109,10 @@
 				"command": "vstrudel.refreshSnippets",
 				"title": "Strudel: Refresh snippets",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "vstrudel.showVersion",
+				"title": "Strudel: Show version and build"
 			}
 		],
 		"menus": {
@@ -254,7 +258,8 @@
 		"typecheck": "tsc --noEmit",
 		"test:vscode": "node scripts/test-vscode.mjs",
 		"smoke": "node scripts/build.mjs && node scripts/smoke/serve.mjs",
-		"package": "node scripts/build.mjs --production && vsce package --no-dependencies"
+		"package": "node scripts/build.mjs --production && vsce package --no-dependencies",
+		"promote": "node scripts/promote.mjs"
 	},
 	"devDependencies": {
 		"@codemirror/state": "^6.7.6",

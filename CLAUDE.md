@@ -15,6 +15,20 @@ Third-party code comes from its upstream release with pinned versions. No patche
 `node_modules`. If upstream behavior has to change, wrap it from outside or send the fix
 upstream.
 
+## Work in progress stays out of the maintainer's own tools
+
+Some projects are a tool the maintainer also uses while working on it: an editor
+extension, a command line tool. Then two copies exist, the work in progress and the
+promoted copy the maintainer runs every day, and they must not mix.
+
+- Build and test the work in progress only, in the isolated host the project provides.
+- Never install, replace or reload the maintainer's copy as a side effect of other work.
+- Promote as the last step of a release the maintainer approved: versioned, tagged and
+  pushed. Then say that it was promoted and what the maintainer has to restart.
+
+The commands and the release steps of this project are under "Release" in
+`doc/ARCHITECTURE.md`.
+
 ## Asking for a manual test
 
 Some things cannot be proven from the terminal. A change like that lands as a build to

@@ -23,7 +23,7 @@ It is free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop
 Code and in GitHub Codespaces, so you can also play from a browser with nothing
 installed.
 
-> **Early release, version 0.0.2.** It plays, and the parts below work. It is young:
+> **Early release, version 0.0.3.** It plays, and the parts below work. It is young:
 > expect rough edges, and see "What is missing" at the end.
 
 ---

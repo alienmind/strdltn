@@ -64,10 +64,11 @@ browser.
   files appear without a reload.
 - Sample packs from GitHub (`samples('github:user/repo')`) are listed before you press
   play, get their own group, and are copied into your project so they play offline.
-- Synths from [The Firmware Hub](https://thefirmwarehub.com): put a VIBE FM firmware
-  (`.wasm`) in a `firmware/` folder and play it like any sound, `s("vibe_<name>")`, in
-  time with the rest of the song. Effects on its line, such as `.room()`, do not reach
-  it yet.
+- Synths from [The Firmware Hub](https://thefirmwarehub.com): put VIBE FM firmwares
+  (`.wasm`) in a `firmware/` folder and play them through one instrument,
+  `s("vibefm1:<name>")`, in time with the rest of the song. The firmware can change per
+  step: `s("vibefm1:<obervave sloop>")`. Effects on its line, such as `.room()`, do not
+  reach it yet.
 
 **Snippets**
 

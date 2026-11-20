@@ -148,8 +148,10 @@ from Strudel's own examples, "Array (Lil Data Edit)" under CC BY-NC-SA) and the
 maintainer's own song. For the rest we wrote our own snippets with the same techniques
 and put the name in `@credits`.
 
-## `vibe:<id>` as the sound name of a firmware
+## One sound per firmware
 
-Tried, in Chrome with the webview bundle. The plan said `s("vibe:obervave")`. Mini-notation reads the colon as the
-variation: the sound `vibe`, number `obervave`, and superdough said "sound vibe not found". A firmware's sound name is
-now one word, `vibe_obervave`, the same form as the `gm_` soundfonts.
+Tried, in Chrome with the webview bundle. The first plan registered each firmware as its own sound,
+`s("vibe:obervave")`. Mini-notation reads the colon as the variation: the sound `vibe`, number `obervave`, and
+superdough said "sound vibe not found". We then named each sound `vibe_obervave`, which worked, but every firmware was
+a separate sound and the firmware could not be a pattern value. Now there is one instrument, `vibefm1`, and the colon
+does what it does for samples: `vibefm1:obervave` picks the firmware.

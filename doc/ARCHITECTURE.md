@@ -61,7 +61,7 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/firmware.ts` | Lists the VIBE FM firmwares in the `firmware/` folder. See "Firmware" |
 | `src/webview/vibe/core.ts` | Hosts one firmware `.wasm` and renders its sound. No Web Audio in it, so the tests run it. `core.test.ts` holds the cases |
 | `src/webview/vibe/worklet.ts` | The AudioWorklet processor around `core.ts`. Built as `dist/vibe-worklet.js` |
-| `src/webview/vibe/index.ts` | Registers each firmware as a superdough sound and sends it notes, clock and transport |
+| `src/webview/vibe/index.ts` | Registers the instrument `vibefm1`, picks the firmware of each hap, sends it notes, clock and transport |
 | `scripts/build.mjs` | esbuild: `dist/extension.cjs` (Node, CommonJS), `dist/webview.js` (browser, ESM) and `dist/vibe-worklet.js` (an AudioWorklet script). |
 | `scripts/smoke/` | The webview bundle in a plain browser with a fake `acquireVsCodeApi`. Muted. |
 | `src/test/m0.ts` | Integration test that runs inside VS Code and records what happened. |
@@ -355,7 +355,8 @@ To tune a rule, add the code that got a wrong label to `src/shared/context.test.
 first, then change `context.ts`. `pnpm test:unit` runs the cases.
 ## Firmware
 
-A VIBE FM firmware from thefirmwarehub.com plays as a sound: `note("c2 eb2").s("vibe_obervave")`. A firmware is one
+A VIBE FM firmware from thefirmwarehub.com plays through one instrument, `vibefm1`, with the firmware after the colon:
+`note("c2 eb2").s("vibefm1:obervave")`. A firmware is one
 `.wasm`, built from its own C source with the VIBE FM SDK. The same file runs in the VIBE FM VST plugin, the hub's
 browser Playground and the VIBE FM hardware. We host it ourselves in the webview, so it needs no MIDI and works in
 Codespaces.
@@ -367,8 +368,17 @@ unzipped package from the hub). The json gives name, author, version and license
 as an `asWebviewUri` address, like a sample. A watcher sends the list again when the folder changes. Downloading
 from the hub is not built yet, see `doc/TODO.md`.
 
-**The sound name** is `vibe_` and the id, with everything but `a-z0-9` turned into `_` (`firmwareSound`). It has to be
-one word: mini-notation reads `vibe:obervave` as the sound `vibe` with variation `obervave`. We tried that first.
+**The instrument.** superdough knows one sound, `vibefm1`: the firmware host. Mini-notation turns `vibefm1:obervave`
+into `{ s: 'vibefm1', n: 'obervave' }` (checked with `@strudel/mini` 1.2.6, also for ids with `-` and `.`), and the
+trigger picks the firmware from `n` on every hap. So the firmware is a pattern value: `s("vibefm1:<obervave sloop>")`
+changes it per cycle. A number picks by position in the folder and wraps, as `bd:3` does for samples; no `n` is the
+first one. An id that is not in the folder logs one error with the ids there are. The Sounds view shows `vibefm1` with
+its firmwares as named variations (`SoundInfo.variations`), and a click types `vibefm1:<id>`.
+
+The catch: a later `.n()` replaces the firmware. `s("vibefm1:obervave").n("0 2").scale("c2:minor")` ends up with
+`n` gone, and then plays the first firmware. Put `n(...).scale(...)` first, or use `note`. The first time `vibefm1`
+plays, every firmware of the folder is compiled, so a switch does not wait for a download. A firmware starts running
+only with its first note, because a running one costs CPU even when silent.
 
 **The host.** `VibeCore` is written from the SDK's Apache-2.0 headers and `sdk/src/vibe_sdk.c`. The SDK's browser
 emulator (`emulator/`) is closed, all rights reserved, and nothing comes from it. The contract we use:
@@ -474,7 +484,10 @@ VIBE FM SDK repo (OBERVAVE 3.4, GPL-3.0), on 2026-11-20:
 | What | Result |
 |---|---|
 | A firmware compiled in the page and passed to an AudioWorklet in `processorOptions` | Works |
-| `note("c2 eb2 g2 bb2").s("vibe_obervave")` through superdough to the output | Sounds: peak 0.218. Silent after stop |
+| `note("c2 eb2 g2 bb2").s("vibefm1:obervave")` through superdough to the output | Sounds: peak 0.218. Silent after stop |
+| `note("c2*4").s("vibefm1:<obervave second>")`, two firmwares, at cps 0.5 | The first sounds in cycle 0, the second in cycle 1. The first only rings out in cycle 1 |
+| `vibefm1:1`, and a preview of variation 1 from the Sounds view | The second firmware plays |
+| `vibefm1:nosuch` | One error, "no such firmware. There are: obervave, second". Nothing starts |
 | OBERVAVE's start | Host protocol 7, 236 parameters, logs "OberVave 3.4 (native VIBE)" |
 | A note sent for frame 24000, rendered offline | First sample above 1e-4 at frame 24005 |
 | CPU, rendered offline, each firmware holding a 4-note chord, Xeon at 2.1 GHz | 1 firmware: 1.1% of real time. 4 firmwares: 5.0% |

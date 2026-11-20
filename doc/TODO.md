@@ -11,6 +11,7 @@ maintainer's own VS Code runs that build (`pnpm promote`), and the home page sho
 **In flight:** nothing. New work starts on a new feature branch and reaches `main`
 through a pull request. The version stays 0.1.0 until the maintainer asks for a
 release.
+
 Next in line:
 
 | # | What | State |

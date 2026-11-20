@@ -11,6 +11,7 @@ open a `.strudel` file.**
 the real Strudel, the same editor and the same sound engine as strudel.cc, and adds
 panels around it for the things a web page cannot give you:
 
+- **Files**: the songs of your project, without everything else.
 - **Sounds**: every instrument you can play, to browse, hear and insert. Drum machines
   by bank, synths, soundfonts, and your own samples.
 - **Snippets**: your own library of reusable code, with a description and a preview of
@@ -23,7 +24,7 @@ music project as a repository and open it in a browser from any machine, with no
 installed. Fork this repository, open your fork in a Codespace, and start from the
 `template/` folder.
 
-Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.1.0.** See
+Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.2.0.** See
 `doc/TODO.md` for what is missing.
 
 ## Install
@@ -51,6 +52,14 @@ browser.
 - A stage beside the native editor: sliders and visuals, each with a name taken from
   your code.
 - Edits from outside (git, another editor, an AI agent) show up at once, while it plays.
+- An error in the code is underlined and listed in the Problems view, and the song keeps
+  playing what worked last.
+- A status bar item says what the song does (playing, stopped, error) and plays or stops
+  it with a click.
+- Settings for the theme of the editor (the 39 themes of strudel.cc) and its font. By
+  default the font and size are those of your VS Code editor.
+- Ctrl+. stops the song in front. Press it again to stop a song that plays in another
+  tab. "vstrudel: Stop all" stops every song.
 
 **Sounds**
 
@@ -58,12 +67,16 @@ browser.
   MIDI soundfonts, the synths.
 - A Sounds view that lists everything you can play, with an icon per kind.
 - Drum machines grouped by bank.
-- A click types the name of a sound at the cursor. With preview on, it also plays it.
+- A click on a sound plays it when preview is on. It never types.
+- Two buttons on each sound: one types its name at the cursor, one plays it.
 - A button on a bank types `.bank("...")`.
+- The list is there as soon as VS Code starts, before you open a song.
 - Your own samples: audio files in a `samples/` folder are sounds, with no setup. New
   files appear without a reload.
-- Sample packs from GitHub (`samples('github:user/repo')`) are listed before you press
-  play, get their own group, and are copied into your project so they play offline.
+- Sample packs from GitHub (`samples('github:user/repo')`) or from any address
+  (`samples('https://.../strudel.json')`) are listed before you press play, get their
+  own group, and are copied into your project so they play offline.
+- Commands show how much space the copies take, and delete them.
 - Synths from [The Firmware Hub](https://thefirmwarehub.com): put VIBE FM firmwares
   (`.wasm`) in a `firmware/` folder, or load one from an address with
   `firmware('https://.../name.wasm')`, which is kept in your project so it plays
@@ -74,23 +87,27 @@ browser.
 
 **Snippets**
 
-- A Snippets view over the `.strudel` files in your `lib/` folder, grouped by folder.
-- A click opens a card: description, tags, author, and the code in color.
-- "Insert at cursor" pastes the code. A double click opens the file.
-- A filter box that searches titles, descriptions and tags.
+- A Snippets view over the `.strudel` files in your `lib/` folder, grouped by folder,
+  with a colored dot per category and the tags of each snippet.
+- Rest the mouse on a snippet: its description and its code in color float beside it.
+- Two buttons on each snippet: one inserts the code at the cursor, one opens the file.
 - Snippets describe themselves in comments at the top of the file.
 
 **Projects**
 
 - Songs, samples and snippets are plain files: git, search and folders work as usual.
+- A Files view lists every folder of your project that holds songs, and only those.
+- Ready for AI assistants such as Copilot: the template tells them that "add a bass line"
+  means a change to the song you have open, and gives them the Strudel reference and
+  tutorial to look things up.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 
 Experimental, off by default: the setting `vstrudel.experimental.shrubEditor` adds a tab
 with Xfer's SHRUB web editor, to see how it would look. It is not connected to your songs.
 
-Not there yet: MIDI, sound across a switch of editor, completion and hover, the
-Marketplace. See `doc/TODO.md`.
+Not there yet: MIDI, sound across a switch of editor, completion and hover in the code,
+the Marketplace. See `doc/TODO.md`.
 
 ## A closer look
 
@@ -112,26 +129,32 @@ song plays.
 
 ### Sounds
 
-The vstrudel icon in the activity bar opens the Sounds view. It lists what the engine
-can play, your own samples first:
+The vstrudel icon in the activity bar opens the side bar: the logo, then the Files,
+Sounds and Snippets views. Sounds lists what the engine can play, your own samples
+first:
 
-- A click types the name of the sound at the cursor.
-- With the speaker button at the top of the view on, the click also plays the sound.
+- A click on a sound plays it when preview is on. The title of the view says "preview
+  on" or "preview off", and the speaker button at the top switches it.
+- A click never types. The first button on a row types the name at the cursor, the
+  second plays it.
 - Drum machines are grouped by bank. The button on a bank types `.bank("RolandTR909")`.
 
 Your own samples need no setup. A folder `samples/kick/` with audio files in it becomes
 `s("kick")`, and `s("kick:1")` is its second file. A new folder shows up a few seconds
 after you copy it in.
 
-A song can load a pack from GitHub with `samples('github:user/repo')`. The pack shows up
-in the Sounds view when you open the file, and it is copied into `.vstrudel/` in your
-project, so next time it plays without the network. That folder ignores itself for git.
+A song can load a pack from GitHub with `samples('github:user/repo')`, or from any
+address with `samples('https://.../strudel.json')`. The pack shows up in the Sounds view
+when you open the file, and it is copied into `.vstrudel/` in your project, so next time
+it plays without the network. That folder ignores itself for git. "vstrudel: Show sample
+pack cache size" says how much it holds, and "vstrudel: Clear sample pack cache" deletes
+it.
 
 ### Snippets
 
 Put `.strudel` files in a `lib/` folder and they appear in the Snippets view, grouped by
-folder. A click opens a card with a description, the code in color and an "Insert at
-cursor" button. A double click opens the file.
+folder. Rest the mouse on a snippet to see its description and its code. The first
+button on the row inserts the code at the cursor, the second opens the file.
 
 A snippet describes itself in comments at the top:
 
@@ -147,12 +170,29 @@ s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
 Only the code is inserted. The categories are `drums`, `bass`, `melody`, `chords`,
 `texture`, `effect`, `function`, `song` and `visual`.
 
+### Errors and the status bar
+
+When the code has an error, the song keeps playing what worked last. The error is
+underlined in the native editor, listed in the Problems view, and the status bar item
+turns red with the message. The item also says whether the song plays, and a click on it
+plays or stops.
+
+### Settings
+
+| Setting | Does |
+|---|---|
+| `vstrudel.editor.theme` | The color theme of the Strudel editor, one of the themes of strudel.cc |
+| `vstrudel.editor.fontFamily`, `vstrudel.editor.fontSize` | Its font. Empty and 0 take the font of your VS Code editor |
+| `vstrudel.samplesFolder` | The folder of your own samples. Default `samples` |
+| `vstrudel.libFolder` | The folder of your snippets. Default `lib` |
+| `vstrudel.remoteSamples.cache`, `vstrudel.remoteSamples.maxFiles` | Whether packs are copied into the project, and up to how many files |
+
 ## Keys
 
 | Key | Does |
 |---|---|
 | Ctrl+Enter | Play, or update the playing pattern |
-| Ctrl+. | Stop |
+| Ctrl+. | Stop the song in front. Again: stop the song that plays in another tab |
 | Ctrl+Alt+M | Switch between the Strudel editor and the native editor |
 
 On a Mac use Cmd in place of Ctrl.
@@ -170,6 +210,8 @@ for one click ("Click to enable audio"). Browsers do not start sound without a c
 | `examples/` | Songs to learn from and to play, from a first beat to full tracks |
 | `lib/` | Snippets: drums, bass lines, chords, effects, helper functions |
 | `samples/` | Your own audio files |
+| `AGENTS.md`, `.github/` | Rules for an AI assistant such as Copilot: a request like "add a bass line" changes the song you have open |
+| `reference/` | Every Strudel function and the strudel.cc tutorial as text, for the assistant to look things up |
 
 ## Work on vstrudel itself
 
@@ -189,7 +231,9 @@ extension loaded.
 | `pnpm typecheck` | Type check without building |
 | `pnpm test:unit` | Run the unit tests, for now the rules that name things in the stage |
 | `pnpm smoke` | Serve the editor in a plain browser, muted, to test without VS Code |
-| `pnpm test:vscode` | Run the integration test inside a real VS Code |
+| `pnpm test:quick` | The integration test for a small change: silent, about 75 seconds |
+| `pnpm test:vscode` | The full integration test inside a real VS Code. Plays sound, about ten minutes |
+| `pnpm reference`, `pnpm tutorial` | Write `template/reference/` again from upstream |
 | `pnpm package` | Build a `.vsix` |
 | `pnpm promote` | Build a release copy into `.bin/` and install it in your own VS Code |
 
@@ -197,7 +241,6 @@ extension loaded.
 |---|---|
 | `src/extension/` | The part that runs in VS Code |
 | `src/webview/` | The page that hosts the Strudel editor and makes the sound |
-| `src/snippets-view/` | The page of the Snippets view |
 | `doc/` | Architecture, open work and dropped ideas |
 
 ## Thanks

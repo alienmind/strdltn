@@ -200,3 +200,42 @@ orbit itself reaches it: its filter (`djf`) and ducking. See "Effects on a firmw
 Designed, and dropped. To make a switch of firmware instant, the first plan started every firmware the first time
 `vibefm1` played. A running firmware costs CPU even when silent (1.1% of real time for OBERVAVE with a chord, measured).
 Now every firmware is only compiled then, which is the slow part of a first load, and runs from its first note.
+
+## An engine of its own for the Sounds view
+
+Designed. The Sounds view was empty until a `.strudel` file was open, because the sound
+list lives in an engine and an engine lives in a webview. The idea was a webview that
+exists from the start, only to hold an engine for the list and for preview. VS Code has
+no hidden webview: a `WebviewPanel` is a visible tab, and a `WebviewView` is only
+created once its view is shown. A visible panel that the user did not ask for is worse
+than an empty list. We keep the last list in a file and show that, see "Sounds view" in
+`doc/ARCHITECTURE.md`. Preview still needs an open file.
+
+## Reading the map of `samples(map, base)` from the text of the song
+
+Designed. A pack loaded by name is found by a regular expression over the text, before
+the song plays. The same was the first idea for a map written in the song with a remote
+base. The map is code: it can span lines, hold comments, or be a variable built
+somewhere else. A regular expression cannot read that, and a parser would only cover the
+maps that are literals. The webview asks the host when the song runs instead, with the
+real map in hand. The cost is that such samples are not listed before the first play.
+
+## Keeping the squiggle of an error after an edit
+
+Designed. A diagnostic has a fixed range, and VS Code does not move it when the text
+changes. We cannot check the code again without playing it. Keeping the diagnostic would
+leave a squiggle on text that was not the error any more. Moving it along with the edits
+is possible in the webview (CodeMirror maps positions), but only for the Strudel editor,
+which shows no squiggle. So an edit removes the diagnostic, and the status bar keeps the
+message until the next evaluation.
+
+## Snippet cards in a webview
+
+Tried, released in 0.1.0. The Snippets view was a webview: a click on a row opened a
+card under it with the header fields as a table, the code in color and two buttons. The
+reason was that a tree row is one line of text. The maintainer found it inconsistent
+with the Sounds view above it, and the card pushed the list down inside a narrow side
+bar. The view is a tree now. The preview is the hover of a row, which VS Code draws
+outside the side bar, and the two actions are the same small buttons a sound has. What
+we gave up: the filter box that also searched the description, and our own coloring of
+the code (the hover uses the highlighter of the editor instead).

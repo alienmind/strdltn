@@ -2,7 +2,7 @@
 	"name": "vstrudel",
 	"displayName": "vstrudel",
 	"description": "Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"private": true,
 	"publisher": "vstrudel",
 	"license": "AGPL-3.0-or-later",
@@ -66,6 +66,27 @@
 				"icon": "$(debug-stop)"
 			},
 			{
+				"command": "vstrudel.refreshFiles",
+				"title": "vstrudel: Refresh files",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "vstrudel.stopAll",
+				"title": "vstrudel: Stop all"
+			},
+			{
+				"command": "vstrudel.togglePlay",
+				"title": "vstrudel: Play / Stop"
+			},
+			{
+				"command": "vstrudel.showPackCache",
+				"title": "vstrudel: Show sample pack cache size"
+			},
+			{
+				"command": "vstrudel.clearPackCache",
+				"title": "vstrudel: Clear sample pack cache"
+			},
+			{
 				"command": "vstrudel.toggleMode",
 				"title": "vstrudel: Toggle Strudel editor / native editor",
 				"icon": "$(arrow-swap)"
@@ -121,7 +142,7 @@
 			},
 			{
 				"command": "vstrudel.clickSound",
-				"title": "vstrudel: Insert sound name and preview",
+				"title": "vstrudel: Preview sound on click",
 				"icon": "$(insert)"
 			},
 			{
@@ -131,12 +152,12 @@
 			},
 			{
 				"command": "vstrudel.enablePreview",
-				"title": "Preview sound on click (now off)",
+				"title": "Preview on click is OFF. Press to turn it on",
 				"icon": "$(mute)"
 			},
 			{
 				"command": "vstrudel.disablePreview",
-				"title": "Preview sound on click (now on)",
+				"title": "Preview on click is ON. Press to turn it off",
 				"icon": "$(unmute)"
 			}
 		],
@@ -175,6 +196,11 @@
 					"group": "navigation@2"
 				},
 				{
+					"command": "vstrudel.refreshFiles",
+					"when": "view == vstrudel.files",
+					"group": "navigation"
+				},
+				{
 					"command": "vstrudel.refreshSnippets",
 					"when": "view == vstrudel.snippets",
 					"group": "navigation"
@@ -187,14 +213,29 @@
 			],
 			"view/item/context": [
 				{
+					"command": "vstrudel.insertSound",
+					"when": "view == vstrudel.sounds && viewItem == sound",
+					"group": "inline@1"
+				},
+				{
 					"command": "vstrudel.previewSound",
 					"when": "view == vstrudel.sounds && viewItem == sound",
-					"group": "inline"
+					"group": "inline@2"
 				},
 				{
 					"command": "vstrudel.insertBank",
 					"when": "view == vstrudel.sounds && viewItem == bank",
 					"group": "inline"
+				},
+				{
+					"command": "vstrudel.insertSnippet",
+					"when": "view == vstrudel.snippets && viewItem == snippet",
+					"group": "inline@1"
+				},
+				{
+					"command": "vstrudel.openSnippet",
+					"when": "view == vstrudel.snippets && viewItem == snippet",
+					"group": "inline@2"
 				},
 				{
 					"command": "vstrudel.copySoundName",
@@ -288,10 +329,67 @@
 					"default": "lib",
 					"description": "Workspace folder that holds reusable Strudel snippets."
 				},
+				"vstrudel.editor.theme": {
+					"type": "string",
+					"default": "strudelTheme",
+					"enum": [
+						"strudelTheme",
+						"algoboy",
+						"archBtw",
+						"androidstudio",
+						"atomone",
+						"aura",
+						"bbedit",
+						"blackscreen",
+						"bluescreen",
+						"bluescreenlight",
+						"CutiePi",
+						"darcula",
+						"dracula",
+						"duotoneDark",
+						"eclipse",
+						"fruitDaw",
+						"githubDark",
+						"githubLight",
+						"greenText",
+						"gruvboxDark",
+						"gruvboxLight",
+						"sonicPink",
+						"materialDark",
+						"materialLight",
+						"monokai",
+						"noctisLilac",
+						"nord",
+						"redText",
+						"solarizedDark",
+						"solarizedLight",
+						"sublime",
+						"teletext",
+						"tokyoNight",
+						"tokyoNightDay",
+						"tokyoNightStorm",
+						"vscodeDark",
+						"vscodeLight",
+						"whitescreen",
+						"xcodeLight"
+					],
+					"description": "Color theme of the Strudel editor and the stage. These are the themes of strudel.cc."
+				},
+				"vstrudel.editor.fontFamily": {
+					"type": "string",
+					"default": "",
+					"description": "Font of the Strudel editor. Empty: the font of the VS Code editor (editor.fontFamily)."
+				},
+				"vstrudel.editor.fontSize": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"description": "Font size of the Strudel editor in pixels. 0: the size of the VS Code editor (editor.fontSize)."
+				},
 				"vstrudel.remoteSamples.cache": {
 					"type": "boolean",
 					"default": true,
-					"description": "Keep a copy of the sample packs a song loads from GitHub (samples('github:user/repo')) in .vstrudel/cache of the workspace, so they play without the network."
+					"description": "Keep a copy of the remote samples a song loads (samples('github:user/repo'), samples('https://.../strudel.json'), or a map with such a base) in .vstrudel/cache of the workspace, so they play without the network."
 				},
 				"vstrudel.remoteSamples.maxFiles": {
 					"type": "number",
@@ -312,17 +410,33 @@
 		"views": {
 			"vstrudel": [
 				{
+					"id": "vstrudel.logo",
+					"name": "vstrudel",
+					"type": "webview",
+					"initialSize": 1
+				},
+				{
+					"id": "vstrudel.files",
+					"name": "Files",
+					"initialSize": 3
+				},
+				{
 					"id": "vstrudel.sounds",
-					"name": "Sounds"
+					"name": "Sounds",
+					"initialSize": 4
 				},
 				{
 					"id": "vstrudel.snippets",
 					"name": "Snippets",
-					"type": "webview"
+					"initialSize": 4
 				}
 			]
 		},
 		"viewsWelcome": [
+			{
+				"view": "vstrudel.files",
+				"contents": "No .strudel files in this folder yet."
+			},
 			{
 				"view": "vstrudel.sounds",
 				"contents": "Open a .strudel file to load the sound list."
@@ -334,9 +448,12 @@
 		"watch": "node scripts/build.mjs --watch",
 		"typecheck": "tsc --noEmit",
 		"test:vscode": "node scripts/test-vscode.mjs",
+		"test:quick": "node scripts/test-vscode.mjs --quick",
 		"smoke": "node scripts/build.mjs && node scripts/smoke/serve.mjs",
 		"package": "node scripts/build.mjs --production && vsce package --no-dependencies",
 		"promote": "node scripts/promote.mjs",
+		"reference": "node scripts/build-reference.mjs",
+		"tutorial": "node scripts/build-tutorial.mjs",
 		"test:unit": "node --test \"src/**/*.test.ts\""
 	},
 	"devDependencies": {
@@ -347,6 +464,7 @@
 		"@strudel/draw": "1.2.6",
 		"@strudel/hydra": "1.2.6",
 		"@strudel/mini": "1.2.6",
+		"@strudel/reference": "1.2.2",
 		"@strudel/soundfonts": "1.3.0",
 		"@strudel/tonal": "1.2.6",
 		"@strudel/transpiler": "1.2.6",

@@ -13,8 +13,9 @@ import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
 import { sliderLabel, visualLabel } from '../shared/context';
-import { githubBase, type PackInfo } from '../shared/packs';
-import { diffText, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { locateError } from '../shared/diagnostic';
+import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
+import { diffText, type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { addFirmware, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -24,7 +25,6 @@ const vscode = acquireVsCodeApi();
 const post = (message: FromWebview) => vscode.postMessage(message);
 const log = (level: 'info' | 'warn' | 'error', message: string) => post({ type: 'log', level, message });
 
-const statusElement = document.getElementById('status')!;
 const unlockElement = document.getElementById('unlock')!;
 const dockElement = document.getElementById('dock')!;
 
@@ -47,7 +47,13 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 	const message = event.data;
 	switch (message.type) {
 		case 'init':
-			init(message.text, message.mode, message.samples, message.firmware);
+			init(message.text, message.mode, message.samples, message.firmware, message.settings);
+			break;
+		case 'settings':
+			applySettings(message.settings);
+			break;
+		case 'cachedFiles':
+			fileQuestions.get(message.id)?.(message.base);
 			break;
 		case 'update':
 			applyRemoteText(message.text);
@@ -84,10 +90,32 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 
 post({ type: 'ready' });
 
-function init(text: string, initialMode: Mode, samples: SampleMap, firmware: FirmwareInfo[]): void {
+/**
+ * Theme and font of the Strudel editor. Upstream keeps them in a store that the editor
+ * reads when it is created, so the store is set first and a new editor starts with the
+ * right look. An editor that exists is told as well.
+ */
+function applySettings(settings: EditorSettings): void {
+	const theme = settings.theme in strudelCodemirror.themes ? settings.theme : 'strudelTheme';
+	const { fontFamily, fontSize } = settings;
+	try {
+		strudelCodemirror.codemirrorSettings.set({ ...strudelCodemirror.codemirrorSettings.get(), theme, fontFamily, fontSize });
+	} catch {
+		// The store writes to localStorage. Without it the editor is told below.
+	}
+	if (mirror) {
+		mirror.setTheme(theme);
+		mirror.setFontSize(fontSize);
+		mirror.setFontFamily(fontFamily);
+	}
+	log('info', `settings: theme=${theme} font=${fontFamily} size=${fontSize}`);
+}
+
+function init(text: string, initialMode: Mode, samples: SampleMap, firmware: FirmwareInfo[], settings: EditorSettings): void {
 	mode = initialMode;
 	document.body.classList.toggle('stage', mode === 'stage');
 	reportEnvironment();
+	applySettings(settings);
 
 	initFirmware({
 		log,
@@ -144,13 +172,18 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		},
 		afterEval: ({ meta }: { meta: { widgets?: unknown[] } }) => {
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
+			post({ type: 'evaluated' });
 		},
 		onToggle: (started: boolean) => {
+			// The firmwares follow the transport of the song.
 			transport(started);
-			post({ type: 'started', started });
-			updateStatus();
+			postState();
 		},
-		onEvalError: (error: Error) => log('error', `eval: ${error.message}`),
+		onEvalError: (error: Error & { pos?: unknown }) => {
+			log('error', `eval: ${error.message}`);
+			const place = locateError(mirror.code, error);
+			post({ type: 'evaluated', error: { message: String(error.message), from: place?.from, to: place?.to } });
+		},
 	});
 
 	// Send every local change to the document. appendConfig because StrudelMirror
@@ -169,9 +202,10 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		unlockElement.classList.remove('visible');
 		const action = afterUnlock;
 		afterUnlock = undefined;
+		postState();
 		if (action) void withAudio(action);
 	});
-	updateStatus();
+	postState();
 }
 
 /**
@@ -224,11 +258,45 @@ const cachedPacks = new Map<string, { map: Record<string, unknown>; base: string
 const registeredPacks = new Set<string>();
 
 /**
- * `samples()` as the song sees it. A pack loaded by name gets that name as its tag, and
- * the Sounds view makes a group of it. Nothing else changes.
+ * `samples()` as the song sees it. Two things are added to upstream.
+ *
+ * A pack loaded by name gets that name as its tag, and the Sounds view makes a group of
+ * it. A cached `github:` pack is answered by `resolveGithubPack`. An `https://` map has
+ * no such hook upstream, so its cached copy is handed over here.
+ *
+ * A map written in the song with a remote base (`samples({ bd: 'bd/x.wav' },
+ * 'github:user/repo')`) plays from the cache when the host has every file of it.
  */
-function taggedSamples(map: unknown, base?: string, options: Record<string, unknown> = {}): Promise<void> {
-	return strudelWebaudio.samples(map, base, typeof map === 'string' ? { tag: map, ...options } : options);
+async function taggedSamples(map: any, base?: string, options: Record<string, unknown> = {}): Promise<void> {
+	if (typeof map === 'string') {
+		const cached = map.startsWith('github:') ? undefined : cachedPacks.get(map);
+		if (cached) return strudelWebaudio.samples(structuredClone(cached.map), base || cached.base, { tag: map, ...options });
+		return strudelWebaudio.samples(map, base, { tag: map, ...options });
+	}
+	const remote = base ?? map?._base;
+	if (map && typeof map === 'object' && isRemote(remote) && !hasOwnBases(map)) {
+		const local = await cachedFolder(remote, packFiles(map));
+		log('info', `samples from ${remote}: ${local ? 'cache' : 'network'}`);
+		if (local) return strudelWebaudio.samples(map, local, options);
+	}
+	return strudelWebaudio.samples(map, base, options);
+}
+
+const fileQuestions = new Map<number, (base?: string) => void>();
+let fileQuestionId = 0;
+/**
+ * Asks the host for the cached folder of a remote base. The answer is the address of
+ * that folder when it holds every file, and nothing otherwise. The host then downloads
+ * what is missing, for the next time. A host that does not answer in 2 seconds counts
+ * as "not cached", so a song never waits long for it.
+ */
+function cachedFolder(base: string, files: string[]): Promise<string | undefined> {
+	const id = ++fileQuestionId;
+	return new Promise<string | undefined>((resolve) => {
+		fileQuestions.set(id, resolve);
+		setTimeout(() => resolve(undefined), 2000);
+		post({ type: 'cacheFiles', id, base, files });
+	}).finally(() => fileQuestions.delete(id));
 }
 
 /**
@@ -253,6 +321,10 @@ async function loadPacks(packs: PackInfo[]): Promise<void> {
 	await mirror?.prebaked;
 	for (const pack of packs) {
 		if (pack.cached) cachedPacks.set(pack.source, pack.cached);
+		else if (cachedPacks.delete(pack.source)) {
+			// The cache was emptied. Register the pack again, from the network this time.
+			registeredPacks.delete(pack.source);
+		}
 		const key = `${pack.source}${pack.cached ? ' (cached)' : ''}`;
 		if (registeredPacks.has(key)) continue;
 		registeredPacks.add(key);
@@ -325,7 +397,7 @@ async function withAudio(action: () => unknown): Promise<void> {
 		log('warn', `AudioContext is "${context.state}" after a request from VS Code: a click inside the webview is needed`);
 		afterUnlock = action;
 		unlockElement.classList.add('visible');
-		updateStatus();
+		postState();
 		return;
 	}
 	await action();
@@ -335,7 +407,7 @@ function play(): Promise<void> {
 	if (!mirror) return Promise.resolve();
 	return withAudio(async () => {
 		await mirror.evaluate();
-		updateStatus();
+		postState();
 		report();
 	});
 }
@@ -515,9 +587,14 @@ function describeDock(): string {
 		})
 		.join(' ; ');
 }
-function updateStatus(): void {
+
+/** Tells the host what the engine does. The status bar of VS Code shows it. */
+function postState(): void {
 	const context: AudioContext = strudelWebaudio.getAudioContext();
-	statusElement.textContent = `${mode} | audio ${context.state} | ${mirror?.repl?.scheduler?.started ? 'playing' : 'stopped'}`;
+	post({
+		type: 'state',
+		state: { started: !!mirror?.repl?.scheduler?.started, audio: context.state, needsClick: unlockElement.classList.contains('visible') },
+	});
 }
 
 /** Records the platform facts (codecs, isolation, audio state) in the log. */
@@ -540,7 +617,7 @@ function reportEnvironment(): void {
 	log('info', `crossOriginIsolated=${crossOriginIsolated} audioWorklet=${'audioWorklet' in context} sampleRate=${context.sampleRate} state=${context.state}`);
 	context.addEventListener('statechange', () => {
 		log('info', `AudioContext state -> ${context.state}`);
-		updateStatus();
+		postState();
 	});
 	void probe('midi', async () => {
 		const access = await (navigator as any).requestMIDIAccess();

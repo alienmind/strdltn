@@ -1,10 +1,34 @@
 import * as vscode from 'vscode';
-import { diffText, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { diffText, type EditorSettings, type EngineState, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { findPackSources } from '../shared/packs';
 import type { PackCache } from './packs';
 import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
 import { type FirmwareCache, scanFirmware } from './firmware';
 import { scanSamples } from './samples';
+
+/** What a session needs from the extension, and what it tells it. */
+export interface SessionHost {
+	output: vscode.OutputChannel;
+	packs: PackCache;
+	firmwareCache: FirmwareCache;
+	/** Evaluation errors go here, so they show in the Problems view and as squiggles in the native editor. */
+	diagnostics: vscode.DiagnosticCollection;
+	onDispose(session: Session): void;
+	onSounds(sounds: SoundInfo[]): void;
+	/** The engine state, the error or the active tab changed. The status bar follows. */
+	onState(session: Session): void;
+}
+
+/** The settings `vstrudel.editor.*`. An empty font and a size of 0 mean: as the VS Code editor. */
+export function editorSettings(): EditorSettings {
+	const ours = vscode.workspace.getConfiguration('vstrudel.editor');
+	const editor = vscode.workspace.getConfiguration('editor');
+	return {
+		theme: ours.get('theme', 'strudelTheme'),
+		fontFamily: ours.get('fontFamily', '') || editor.get('fontFamily', 'monospace'),
+		fontSize: ours.get('fontSize', 0) || editor.get('fontSize', 14),
+	};
+}
 
 /**
  * One webview bound to one text document. The same class backs both layouts: the
@@ -18,10 +42,16 @@ export class Session {
 	/** Edits from the webview are applied one at a time. Each one is a diff against the
 	 * document, so a second diff computed before the first has landed would corrupt the text. */
 	private queue: Promise<unknown> = Promise.resolve();
-	private ready = false;
 	private playWhenReady = false;
 	private readonly disposables: vscode.Disposable[] = [];
-	started = false;
+	/** False until the webview has its content. */
+	ready = false;
+	state: EngineState = { started: false, audio: 'suspended', needsClick: false };
+	/** The error of the last evaluation. Kept until the next one, also after the squiggle is gone. */
+	error: string | undefined;
+	get started(): boolean {
+		return this.state.started;
+	}
 	/** Everything the webview logged. Read by the integration test through the extension API. */
 	readonly logs: string[] = [];
 	/** When this session's tab was last the active one. Picks the target of a preview or insert. */
@@ -32,10 +62,7 @@ export class Session {
 		readonly document: vscode.TextDocument,
 		readonly panel: vscode.WebviewPanel,
 		readonly mode: Mode,
-		private readonly output: vscode.OutputChannel,
-		private readonly events: { onDispose(session: Session): void; onSounds(sounds: SoundInfo[]): void },
-		private readonly packs: PackCache,
-		private readonly firmwareCache: FirmwareCache,
+		private readonly host: SessionHost,
 	) {
 		this.known = document.getText();
 		const workspaceFolders = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
@@ -59,18 +86,30 @@ export class Session {
 				this.post({ type: 'update', text });
 				this.sendPacksSoon();
 			}),
+			vscode.workspace.onDidChangeTextDocument((event) => {
+				// The squiggle marks a place in the text that was evaluated. After an edit
+				// it would mark something else. The status bar keeps the message.
+				if (event.document === document && event.contentChanges.length) host.diagnostics.delete(document.uri);
+			}),
 			// A pack finished downloading: the webview can now play it from the cache.
-			packs.onDidChange(() => void this.sendPacks()),
-			firmwareCache.onDidChange(() => void this.sendFirmwareCache()),
-		);
-		this.disposables.push(
+			// The cache was emptied: the webview goes back to the network, and nothing
+			// is downloaded again until the song is opened or edited.
+			host.packs.onDidChange((what) => void this.sendPacks(what === 'cached')),
+			host.firmwareCache.onDidChange(() => void this.sendFirmwareCache()),
+			vscode.workspace.onDidChangeConfiguration((event) => {
+				if (!event.affectsConfiguration('vstrudel.editor') && !event.affectsConfiguration('editor.fontFamily') && !event.affectsConfiguration('editor.fontSize')) return;
+				this.post({ type: 'settings', settings: editorSettings() });
+			}),
 			panel.onDidChangeViewState(() => {
 				if (panel.active) this.lastActiveAt = Date.now();
+				host.onState(this);
 			}),
 		);
 		panel.onDidDispose(() => {
 			this.disposables.forEach((d) => d.dispose());
-			events.onDispose(this);
+			clearTimeout(this.packsTimer);
+			host.diagnostics.delete(document.uri);
+			host.onDispose(this);
 		});
 	}
 
@@ -103,13 +142,13 @@ export class Session {
 	 * ones we have, and starts the download of the others. The webview registers them at
 	 * once, so their sounds are in the Sounds view before the song has played.
 	 */
-	private async sendPacks(): Promise<void> {
+	private async sendPacks(download = true): Promise<void> {
 		const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
 		if (!this.ready || !folder) return;
 		const sources = findPackSources(this.document.getText());
-		const packs = await Promise.all(sources.map((source) => this.packs.info(source, folder, this.panel.webview)));
+		const packs = await Promise.all(sources.map((source) => this.host.packs.info(source, folder, this.panel.webview)));
 		this.post({ type: 'packs', packs });
-		for (const pack of packs) if (!pack.cached) void this.packs.ensure(pack.source, folder);
+		if (download) for (const pack of packs) if (!pack.cached) void this.host.packs.ensure(pack.source, folder);
 	}
 
 	/**
@@ -121,9 +160,9 @@ export class Session {
 		if (!this.ready || !folder) return;
 		const map: FirmwareCacheMap = {};
 		for (const url of findFirmwareUrls(this.document.getText())) {
-			const cached = await this.firmwareCache.cached(url, folder, this.panel.webview);
+			const cached = await this.host.firmwareCache.cached(url, folder, this.panel.webview);
 			if (cached) map[url] = cached;
-			else void this.firmwareCache.ensure(url, folder);
+			else void this.host.firmwareCache.ensure(url, folder);
 		}
 		this.post({ type: 'firmwareCache', map });
 	}
@@ -159,8 +198,9 @@ export class Session {
 				const samples = await scanSamples(await this.samplesFolder(), this.panel.webview);
 				const firmware = await scanFirmware(await this.firmwareFolder(), this.panel.webview);
 				this.known = this.document.getText();
-				this.post({ type: 'init', text: this.known, mode: this.mode, samples, firmware });
+				this.post({ type: 'init', text: this.known, mode: this.mode, samples, firmware, settings: editorSettings() });
 				this.ready = true;
+				this.host.onState(this);
 				void this.sendPacks();
 				void this.sendFirmwareCache();
 				if (this.playWhenReady) {
@@ -172,19 +212,50 @@ export class Session {
 			case 'edit':
 				this.queue = this.queue.then(() => this.applyEdit(message.text));
 				break;
-			case 'started':
-				this.started = message.started;
+			case 'state':
+				this.state = message.state;
+				this.host.onState(this);
 				break;
+			case 'evaluated':
+				this.showError(message.error);
+				break;
+			case 'cacheFiles': {
+				const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
+				const cached = folder && (await this.host.packs.files(message.base, message.files, folder));
+				this.post({ type: 'cachedFiles', id: message.id, base: cached && `${this.panel.webview.asWebviewUri(cached).toString()}/` });
+				break;
+			}
 			case 'sounds':
-				this.events.onSounds(message.sounds);
+				this.host.onSounds(message.sounds);
 				break;
 			case 'log': {
 				const line = `[${this.mode}] ${message.level}: ${message.message}`;
 				this.logs.push(line);
-				this.output.appendLine(line);
+				this.host.output.appendLine(line);
 				break;
 			}
 		}
+	}
+
+	/**
+	 * Shows the error of an evaluation as a problem of the document, or takes the old
+	 * one away after a good evaluation. An error we could not place goes on the first
+	 * line: the Problems view needs a line, and the message is what matters.
+	 */
+	private showError(error?: { message: string; from?: number; to?: number }): void {
+		this.error = error?.message;
+		if (!error) {
+			this.host.diagnostics.delete(this.document.uri);
+		} else {
+			const placed = error.from !== undefined && error.to !== undefined && error.to <= this.document.getText().length;
+			const range = placed
+				? new vscode.Range(this.document.positionAt(error.from!), this.document.positionAt(error.to!))
+				: this.document.lineAt(0).range;
+			const diagnostic = new vscode.Diagnostic(range, error.message, vscode.DiagnosticSeverity.Error);
+			diagnostic.source = 'vstrudel';
+			this.host.diagnostics.set(this.document.uri, [diagnostic]);
+		}
+		this.host.onState(this);
 	}
 
 	/**
@@ -274,7 +345,6 @@ export class Session {
 	.dock-slot { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
 	.dock-slot input[type=range] { flex: 1; max-width: 320px; accent-color: var(--vscode-focusBorder, #3794ff); }
 	.dock-slot output { width: 64px; font-family: var(--vscode-editor-font-family, monospace); opacity: .85; }
-	#status { position: fixed; z-index: 3; right: 8px; bottom: 6px; font: 11px monospace; opacity: 0.6; pointer-events: none; }
 	#unlock { position: fixed; z-index: 4; inset: 0; display: none; align-items: center; justify-content: center;
 		background: rgba(0, 0, 0, 0.7); color: #fff; font: 16px sans-serif; cursor: pointer; }
 	#unlock.visible { display: flex; }
@@ -283,7 +353,6 @@ export class Session {
 <body>
 <div id="editor"></div>
 <div id="dock"></div>
-<div id="status"></div>
 <div id="unlock">Click to enable audio</div>
 <script type="module" src="${script}"></script>
 </body>

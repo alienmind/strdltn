@@ -1,0 +1,22 @@
+// @title vibefm1: firmware and sound as patterns
+// @details In vibefm1:<name> the firmware is a value like any other, so it can change per step or per cycle. The same goes for .progNum(), the firmware's program: here one line walks through four of OBERVAVE's factory sounds, one per cycle. Add your own firmware to firmware({...}) or to the firmware/ folder and put its name in the second pattern. Needs the network for OBERVAVE.
+// @tags firmware, vibefm1
+// @by alienmind
+setcpm(110/4)
+
+firmware({
+  obervave: 'https://raw.githubusercontent.com/Vibe-FM-SDK/vibe-fm-sdk/main/firmwares/obervave.wasm',
+  // mine: 'https://example.com/my-firmware.wasm',
+})
+
+$drums: s("bd*2, ~ sd, hh*8").bank("RolandTR808").gain(.6)
+
+// One sound per cycle: GLASS ARP, NEON PAD, ACID LINE, SYNC LEAD
+$lead: n("0 3 5 7 5 3 0 ~").scale("a2:minor")
+  .s("vibefm1:obervave").progNum("<35 28 53 2>")
+  .velocity(.7)._pianoroll()
+
+// The firmware itself as a pattern. With a second firmware: "vibefm1:<obervave mine>"
+$bass: note("a1 ~ a1 [c2 e2]")
+  .s("vibefm1:<obervave>").progNum(16)
+  .orbit(2).velocity(.8)

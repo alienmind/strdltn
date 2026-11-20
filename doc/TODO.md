@@ -5,20 +5,12 @@ from here.
 
 ## State
 
-**Released:** 0.1.0, tag `v0.1.0` on `main`. The GitHub release has the `.vsix`, the
-maintainer's own VS Code runs that build (`pnpm promote`), and the home page shows it.
-
-**On `main`, not released:** 0.2.0 (pull request #4) and, on top of it, Firmware Hub
-(pull request #3): firmwares from a `firmware/` folder or from an address
-(`firmware(url)`, cached for offline use) play in a song as `vibefm1:<id>`, with
-`.progNum()` for their sounds. `package.json` says 0.2.0. The maintainer tested `main`
-by hand and it works, see "Measured" in `doc/ARCHITECTURE.md`. Open: whether the tag
-`v0.2.0` goes on `main` with Firmware Hub in it, and the rest of "Release" in
-`doc/ARCHITECTURE.md` (tag, `pnpm promote`, home page).
-
-**In flight:** branch `fix/ctrl-enter-audio`, tested by hand, waiting for a pull request:
-Ctrl+Enter starts the audio after a reload, `//` over a selection comments the lines,
-and the stage opens below the code (`vstrudel.stage.position`).
+**This is the branch `experimental`, version 1.0.0-b1.** It holds everything of
+`main` at 1.0.0 and, on top, the features that were taken out of the stable release:
+Firmware Hub (VIBE FM firmwares from a `firmware/` folder or an address, played as
+`vibefm1:<id>`, with `.progNum()` and a cache) and the experimental SHRUB editor panel.
+The maintainer keeps it for a fork. It has no tag and no GitHub release. `main` is the
+stable line, released as 1.0.0 without these two features.
 
 Next in line:
 

@@ -24,7 +24,7 @@ music project as a repository and open it in a browser from any machine, with no
 installed. Fork this repository, open your fork in a Codespace, and start from the
 `template/` folder.
 
-Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.2.0.** See
+Free and open source, AGPL-3.0-or-later like Strudel. **Version 1.0.0-b1 (experimental).** See
 `doc/TODO.md` for what is missing.
 
 ## Install

@@ -5,26 +5,14 @@ from here.
 
 ## State
 
-**Released:** 0.0.3, tag `v0.0.3` on `main`.
+**Released:** 0.1.0, tag `v0.1.0` on `main`. The GitHub release has the `.vsix`, the
+maintainer's own VS Code runs that build (`pnpm promote`), and the home page shows it.
 
-**Next release: 0.1.0.** The maintainer asked for it. The work is on the branch
-`feat/0.0.4` with the version already set to 0.1.0, and a pull request to `main` is
-open. What is left, in order:
+**In flight:** nothing. New work starts on a new feature branch and reaches `main`
+through a pull request. The version stays 0.1.0 until the maintainer asks for a
+release.
 
-1. The maintainer merges the pull request.
-2. Tag `v0.1.0` on `main` and push the tag. The pipeline builds the release.
-3. `pnpm promote` from `main`, and tell the maintainer to run "Developer: Reload
-   Window".
-4. Refresh the home page: the steps are under "Public page" in `doc/ARCHITECTURE.md`.
-   `doc/ABOUT.md` and its screenshots are already written for 0.1.0.
-
-What 0.1.0 adds to 0.0.3: the README, icons and banks in the Sounds view, click to
-insert, the preview button, the Snippets view with cards and headers, the cache for
-remote sample packs, the stage with labels and sliders, and the new template (the
-maintainer's song as the demo, examples, a library of snippets). All of it is covered by
-`pnpm test:vscode`. How it works is in `doc/ARCHITECTURE.md`.
-
-Not in 0.1.0, next in line:
+Next in line:
 
 | # | What | State |
 |---|---|---|

@@ -172,3 +172,30 @@ SHRUB file from our sandbox to look at its bytes; the claim rests on how the oth
 Designed, and wrong. The first hand test said `.midichan("<1 2>")` would switch between OBERVAVE's tracks. Its source
 says otherwise: with its MIDI setting on OMNI, the default, every channel plays the selected track. Separate sounds come
 from separate orbits.
+
+## A panel with the SHRUB editor
+
+Designed, and dropped. The idea was a webview panel that shows `shrub.audio/editor/`, so patches are made beside the
+song. The editor would be a second synth with its own audio: not in our mix, not in time with the song, and with no MIDI
+in or out, because a webview, and any frame inside it, may not use WebMIDI. It would be a browser tab inside VS Code,
+only useful to edit patches for a real FM-1. We do not know if the site allows framing. A VIBE FM build of SHRUB
+would make the panel unnecessary, see "SHRUB" in `doc/TODO.md`.
+
+## Named patches after a second colon
+
+Designed, and dropped. `vibefm1:shrub:lead_saw` was asked for. Strudel reads a second colon as gain, as in `bd:3:0.5`:
+checked, `vibefm1:shrub:lead_saw` gives `{ s: 'vibefm1', n: 'shrub', gain: 'lead_saw' }`. Using gain as a patch name
+would break `.gain()` on the same line. `.progNum(n)` picks a patch by number today. Names need each firmware to say
+which name is which program, and the wasm gives a host no such list.
+
+## Room and delay on a firmware through its orbit
+
+Designed, and wrong. The first plan said a firmware on an orbit would get the orbit's `room` and `delay`. In superdough
+1.3.0 those are sends that each hap sets up in its own chain, and a firmware has no chain per hap. Only what sits on the
+orbit itself reaches it: its filter (`djf`) and ducking. See "Effects on a firmware" in `doc/TODO.md`.
+
+## Starting every firmware of the folder at once
+
+Designed, and dropped. To make a switch of firmware instant, the first plan started every firmware the first time
+`vibefm1` played. A running firmware costs CPU even when silent (1.1% of real time for OBERVAVE with a chord, measured).
+Now every firmware is only compiled then, which is the slow part of a first load, and runs from its first note.

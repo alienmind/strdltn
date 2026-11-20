@@ -8,10 +8,11 @@ from here.
 **Released:** 0.1.0, tag `v0.1.0` on `main`. The GitHub release has the `.vsix`, the
 maintainer's own VS Code runs that build (`pnpm promote`), and the home page shows it.
 
-**In flight:** Firmware Hub, on branch `feat/firmware-hub`, draft pull request #3. A
-firmware in a `firmware/` folder plays in a song. Next: the hand test under "Firmware
-Hub", then downloads from the hub and the Firmware view. The version stays 0.1.0 until
-the maintainer asks for a release.
+**In flight:** Firmware Hub, on branch `feat/firmware-hub`, draft pull request #3.
+Firmwares from a `firmware/` folder or from an address (`firmware(url)`, cached for
+offline use) play in a song as `vibefm1:<id>`, with `.progNum()` for their sounds. Next:
+the hand test under "Firmware Hub", then the hub's catalog and the Firmware view. The
+version stays 0.1.0 until the maintainer asks for a release.
 
 Next in line:
 
@@ -67,7 +68,7 @@ Report the result by check number. When something fails, add the content of Outp
 | 10 | Marketplace: publisher id, token, and an icon without the VS Code logo (see "Publishing") | Waiting |
 | 11 | Should the test screenshots keep the debug text in the corner and the title "[Extension Development Host]"? | Kept |
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
-| 13 | Firmware Hub: write to the hub's author (zvenson@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
+| 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
 | 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
 | 15 | SHRUB: write to Xfer (steve@xferrecords.com) and ask for a VIBE FM build? See "SHRUB" | Nothing sent |
 
@@ -178,9 +179,10 @@ a firmware in `template/firmware/`: `obervave.wasm` and `obervave.json` from the
 | 6 | Change the sound to `vibefm1:nosuch` and play | Output > `vstrudel` says "no such firmware" once and lists `obervave` |
 | 7 | Stop | The firmware is silent at once |
 | 8 | Delete `obervave.wasm` and add it again | The group empties and comes back without a reload |
+| 9 | Play example 07 once, then turn the network off, reload the window and play it again | It still plays. `.vstrudel/cache/firmware/` holds `obervave.wasm` |
 
-Expected still broken: no Firmware view, no catalog of the hub, firmwares from an address
-need the network every time, `.room()` and other effects on the firmware's line do nothing. Report by check number, with Output >
+Expected still broken: no Firmware view, no catalog of the hub, `.room()` and other effects
+on the firmware's line do nothing. Report by check number, with Output >
 `vstrudel` when one fails.
 
 ### What we know about the hub
@@ -203,8 +205,7 @@ Read from the hub's pages on 2026-11-20. Not tested.
 | # | Step | Done when |
 |---|---|---|
 | 1 | Catalog: find a list we may use. Try `play.thefirmwarehub.com/firmware/index.json` from Node, look at the hub's pages, ask the author (decision 13). Write the result in `doc/ARCHITECTURE.md` | We know the URL, the fields and how often it changes |
-| 2 | Cache firmwares from an address like packs: `firmware('https://...')` in a song is found by the host, downloaded into `.vstrudel/cache/firmware/`, and the webview gets the cached copy. Then songs with firmwares play offline, and a server without CORS works | Plays offline after one play online |
-| 2b | `src/extension/firmware.ts`: catalog fetch (cached for a day, works offline from the last copy), zip download and unpack into `.vstrudel/cache/firmware/<id>/<version>/`, SHA-256 check when the catalog has one. Unzip with a small MIT library (`fflate`), pinned. The cache is a second folder that `scanFirmware` reads | `pnpm test:unit` covers the unpack and the cache paths |
+| 2 | The hub's catalog in the host: fetched and kept for a day, works offline from the last copy. A firmware picked from it goes through `firmware(url)` and the cache that exists, with a SHA-256 check when the catalog has one | `pnpm test:unit` covers the unpack and the cache paths |
 | 3 | Check the transport with a firmware that has its own sequencer (SLOOP) | It follows play, stop and `setcps` |
 | 4 | `.vp()` for parameters by their id, through `VIBE_EV_PARAM`. `VibeCore` already reads the list and has the event | A slider moves a firmware parameter |
 | 5 | The Firmware view: groups "In this project" and the hub's list by device; name, version, author, license; a click types `s("vibefm1:<id>")` and starts the download; buttons for the hub page, the cheat sheet, the parameters and a test note; a filter box; "Add firmware..." for a `.zip` or `.wasm` from disk | The hand test of the view passes |

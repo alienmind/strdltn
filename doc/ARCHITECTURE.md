@@ -58,7 +58,8 @@ extension host (Node, may be remote)          webview (browser)
 | `src/shared/packs.ts` | Finds `samples('github:...')` in a song and resolves the name to an address. |
 | `src/shared/protocol.ts` | Message types and `diffText`, used by both sides. |
 | `src/webview/main.ts` | Creates `StrudelMirror`, syncs text, handles play and stop, fills the stage dock. |
-| `src/extension/firmware.ts` | Lists the VIBE FM firmwares in the `firmware/` folder. See "Firmware" |
+| `src/extension/firmware.ts` | Lists the VIBE FM firmwares in the `firmware/` folder, and caches the ones songs load from an address. See "Firmware" |
+| `src/shared/firmware.ts` | Finds the addresses of `firmware(...)` in a song. `firmware.test.ts` holds the cases |
 | `src/webview/vibe/core.ts` | Hosts one firmware `.wasm` and renders its sound. No Web Audio in it, so the tests run it. `core.test.ts` holds the cases |
 | `src/webview/vibe/worklet.ts` | The AudioWorklet processor around `core.ts`. Built as `dist/vibe-worklet.js` |
 | `src/webview/vibe/index.ts` | Registers the instrument `vibefm1`, picks the firmware of each hap, sends it notes, clock and transport |
@@ -411,7 +412,16 @@ fetched by the webview on the first note, so the server must send CORS headers. 
 (`access-control-allow-origin: *`, checked). The first 4 bytes decide what it is: `\0asm` is used as it is, `PK` is a
 package zip from the hub, unpacked with `fflate` 0.8.2 (MIT), first `.wasm` that is not `.aot.wasm`. Anything else
 fails once, with a message, and is not fetched again. A `.fwsc` gets its own message, see "FM-1 update packages" in the
-drawer. Firmwares from an address are not cached for offline use yet.
+drawer.
+
+**The cache of firmwares from an address.** Like the sample packs. After an edit (with the same 1.5 s pause) and when a
+song opens, the host finds the addresses of its `firmware(...)` calls (`findFirmwareUrls`: both forms, over several
+lines, not in `//` comments), downloads each one with Node into
+`.vstrudel/cache/firmware/<first 16 hex digits of the address' SHA-256>/<file name>`, and writes `.complete` with the
+address last. The file is kept as it came, `.wasm` or `.zip`. The host sends the webview a map from address to the
+`asWebviewUri` of each copy (`firmwareCache`). The webview loads a firmware from its copy when the map has one, and from
+the address otherwise, also when the copy is gone. Because the host downloads, a server without CORS headers works
+once the copy is there. A firmware already running keeps its module; the copy is used from the next load.
 
 **Programs.** `.progNum(n)` sends a MIDI program change on the hap's channel before its note, only when the program of
 that channel changes, because a program change reloads a sound. In OBERVAVE (`trk_load`, `prog_get` in its source)
@@ -512,6 +522,8 @@ VIBE FM SDK repo (OBERVAVE 3.4, GPL-3.0), on 2026-11-20:
 | `template/examples/08-vibefm1-patterns.strudel`, `.progNum("<35 28 53 2>")` | The lead's centroid per cycle: 2939, 517, 723, 1406 Hz, then the same shape again. The program changes the sound |
 | A package `.zip` (the wasm and `firmware.json` in a folder) through `firmware()` | Plays |
 | A file named `.fwsc` through `firmware()` | One error that says it is an FM-1 hardware firmware. Not fetched again |
+| `FirmwareCache` in Node with a stand-in for `vscode.workspace.fs`, OBERVAVE from raw.githubusercontent.com | One download for two requests at once, 846,689 bytes, `.complete` holds the address. A 404 is logged, not thrown |
+| A song whose `firmware()` address cannot be reached, with a cached copy in the map | Plays from the copy, peak 0.186. Without the copy: one error, "Failed to fetch" |
 | OBERVAVE's start | Host protocol 7, 236 parameters, logs "OberVave 3.4 (native VIBE)" |
 | A note sent for frame 24000, rendered offline | First sample above 1e-4 at frame 24005 |
 | CPU, rendered offline, each firmware holding a 4-note chord, Xeon at 2.1 GHz | 1 firmware: 1.1% of real time. 4 firmwares: 5.0% |

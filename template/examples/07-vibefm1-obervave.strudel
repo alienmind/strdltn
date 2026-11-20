@@ -1,0 +1,31 @@
+// @title vibefm1: a firmware as a synth
+// @details OBERVAVE, an analog-style poly synth for the VIBE FM (by zvenson, GPL-3.0), plays bass, pads and an arp beside Strudel's own drums. firmware() loads it from the VIBE FM SDK on GitHub, so this needs the network. vibefm1 is the firmware player and the name after the colon picks the firmware. .progNum() picks one of its factory sounds. Each orbit runs its own copy, so each part keeps its own sound, and the kick ducks the bass because ducking works on an orbit.
+// @tags firmware, vibefm1, synth
+// @by alienmind
+setcpm(118/4)
+
+firmware('https://raw.githubusercontent.com/Vibe-FM-SDK/vibe-fm-sdk/main/firmwares/obervave.wasm')
+
+// OBERVAVE's factory sounds, by program number
+const DEEP_BASS = 55, DARK_PAD = 43, SHADOW_ARP = 34
+
+const CHORDS = "<Am Am F G>"
+
+$kick: s("bd*4").bank("RolandTR909")
+  .duck(2).duckattack(.12).duckdepth(.7)
+
+$hats: s("[~ hh]*4, ~ oh").bank("RolandTR909").gain(.35)
+
+$clap: s("~ cp").bank("RolandTR909").room(.3).gain(.5)
+
+$bass: chord(CHORDS).rootNotes(1).struct("x(5,8,2)")
+  .s("vibefm1:obervave").progNum(DEEP_BASS)
+  .velocity(.9).orbit(2)
+
+$pad: chord(CHORDS).voicing().slow(2)
+  .s("vibefm1:obervave").progNum(DARK_PAD)
+  .velocity(.6).orbit(3)
+
+$arp: n("0 2 4 7 4 2").fast(2).chord(CHORDS).voicing()
+  .s("vibefm1:obervave").progNum(SHADOW_ARP)
+  .velocity("<.5 .7>").orbit(4)._pianoroll()

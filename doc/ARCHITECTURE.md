@@ -60,7 +60,13 @@ extension host (Node, may be remote)          webview (browser)
 | `src/shared/diagnostic.ts` | The rules that find the place of an evaluation error in the code. `diagnostic.test.ts` holds the cases. |
 | `src/shared/protocol.ts` | Message types and `diffText`, used by both sides. |
 | `src/webview/main.ts` | Creates `StrudelMirror`, syncs text, handles play and stop, fills the stage dock. |
-| `scripts/build.mjs` | esbuild: `dist/extension.cjs` (Node, CommonJS) and `dist/webview.js` (browser, ESM). |
+| `src/extension/firmware.ts` | Lists the VIBE FM firmwares in the `firmware/` folder, and caches the ones songs load from an address. See "Firmware" |
+| `src/extension/shrub.ts` | Experimental mockup, behind `vstrudel.experimental.shrubEditor`: SHRUB's web editor in a tab. See "SHRUB editor panel" |
+| `src/shared/firmware.ts` | Finds the addresses of `firmware(...)` in a song. `firmware.test.ts` holds the cases |
+| `src/webview/vibe/core.ts` | Hosts one firmware `.wasm` and renders its sound. No Web Audio in it, so the tests run it. `core.test.ts` holds the cases |
+| `src/webview/vibe/worklet.ts` | The AudioWorklet processor around `core.ts`. Built as `dist/vibe-worklet.js` |
+| `src/webview/vibe/index.ts` | Registers the instrument `vibefm1`, picks the firmware of each hap, sends it notes, clock and transport |
+| `scripts/build.mjs` | esbuild: `dist/extension.cjs` (Node, CommonJS), `dist/webview.js` (browser, ESM) and `dist/vibe-worklet.js` (an AudioWorklet script). |
 | `scripts/smoke/` | The webview bundle in a plain browser with a fake `acquireVsCodeApi`. Muted. |
 | `src/test/m0.ts` | Integration test that runs inside VS Code and records what happened. |
 | `scripts/test-vscode.mjs` | Starts VS Code with that test and prints the result. |
@@ -513,6 +519,103 @@ of dashes and a `@field` line are skipped.
 
 To tune a rule, add the code that got a wrong label to `src/shared/context.test.ts`
 first, then change `context.ts`. `pnpm test:unit` runs the cases.
+## Firmware
+
+A VIBE FM firmware from thefirmwarehub.com plays through one instrument, `vibefm1`, with the firmware after the colon:
+`note("c2 eb2").s("vibefm1:obervave")`. A firmware is one
+`.wasm`, built from its own C source with the VIBE FM SDK. The same file runs in the VIBE FM VST plugin, the hub's
+browser Playground and the VIBE FM hardware. We host it ourselves in the webview, so it needs no MIDI and works in
+Codespaces.
+
+**Where firmwares come from.** `scanFirmware` reads the folder named by `vstrudel.firmwareFolder` (default
+`firmware`), found the same way as the samples folder: beside the song or in a parent folder. Two layouts:
+`<id>.wasm` with `<id>.json` beside it (the SDK repo's `firmwares/`), or `<id>/*.wasm` with `firmware.json` (an
+unzipped package from the hub). The json gives name, author, version and license. The `.wasm` goes to the webview
+as an `asWebviewUri` address, like a sample. A watcher sends the list again when the folder changes. Downloading
+from the hub is not built yet, see `doc/TODO.md`.
+
+**The instrument.** superdough knows one sound, `vibefm1`: the firmware host. Mini-notation turns `vibefm1:obervave`
+into `{ s: 'vibefm1', n: 'obervave' }` (checked with `@strudel/mini` 1.2.6, also for ids with `-` and `.`), and the
+trigger picks the firmware from `n` on every hap. So the firmware is a pattern value: `s("vibefm1:<obervave sloop>")`
+changes it per cycle. A number picks by position in the folder and wraps, as `bd:3` does for samples; no `n` is the
+first one. An id that is not in the folder logs one error with the ids there are. The Sounds view shows `vibefm1` with
+its firmwares as named variations (`SoundInfo.variations`), and a click types `vibefm1:<id>`.
+
+The catch: a later `.n()` replaces the firmware. `s("vibefm1:obervave").n("0 2").scale("c2:minor")` ends up with
+`n` gone, and then plays the first firmware. Put `n(...).scale(...)` first, or use `note`. The first time `vibefm1`
+plays, every firmware of the folder is compiled, so a switch does not wait for a download. A firmware starts running
+only with its first note, because a running one costs CPU even when silent.
+
+**The host.** `VibeCore` is written from the SDK's Apache-2.0 headers and `sdk/src/vibe_sdk.c`. The SDK's browser
+emulator (`emulator/`) is closed, all rights reserved, and nothing comes from it. The contract we use:
+
+| Part | What |
+|---|---|
+| Imports, module `env` | `vibe_host_log(ptr, len)`, `vibe_host_request(what)` (ignored), `vibe_host_store(op, name, nameLen, data, len)` |
+| Store ops | 0 read, 1 write, 2 size, 3 delete, 4 list (names, one per line), 5 read at the offset in the first 4 bytes. Kept in memory. 6 and up (media) answer -1 |
+| Start | `vibe_sdk_version()` must be 1 to 8 (it is the host protocol, 7 in SDK 27), then `vibe_wasm_init(sampleRate)` |
+| Audio | `vibe_wasm_io()` points at four float buffers of 256 frames: in, out L, out R, in 2. `vibe_wasm_audio(frames, 0)` fills out L and R. `frames` may be 1 to 256 |
+| Events | `vibe_wasm_event(type, id, down, value, midi)`. We send type 5 (MIDI, the three bytes packed little-endian in `midi`), 8 (transport: id 0 play, id 1 tempo) and 10 (parameter) |
+| Parameters | `vibe_wasm_param_count/info/value/set`. The info is a struct on wasm32: id, name (pointers), min, max, def (floats), unit (pointer), steps |
+| Position | `vibe_wasm_transport()` points at a table we fill before every block: has, playing, bpm, time signature, beat (quarter notes), bar start |
+
+`VibeCore.render` cuts a block at every queued event, so a note starts on its own frame. That is what the SDK asks a
+host to do. It also remembers which notes are on, so that `stop()` can end them: a firmware does not have to know CC
+123.
+
+**In the webview.** One `AudioWorkletNode` runs one firmware on one orbit. superdough's `onTrigger` for a firmware
+returns nothing, and superdough then skips the hap's own effects chain. The hap only sends a note on at
+`round(t * sampleRate)` and a note off at the end of its duration, in context frames. The node is connected to the
+orbit's `summingNode`. So the orbit's filter (`djf`) and ducking apply, a hap's own effects (`room`, `delay`, `lpf`,
+`pan`, `gain`) do not. `note`, `n` with `scale`, `freq`, `velocity` and `midichan` (the track of a firmware with
+tracks) are read. The compiled `WebAssembly.Module` is passed to the worklet in `processorOptions`.
+
+**Firmwares from an address.** `firmware(...)` in a song adds firmwares next to the folder's, the way `samples()` adds
+sounds: `firmware('https://.../obervave.wasm')` (the id is the file name, without a `-vibe` ending) or
+`firmware({ obervave: 'https://...', boom: 'https://...zip' })`. A folder firmware of the same id wins. The file is
+fetched by the webview on the first note, so the server must send CORS headers. `raw.githubusercontent.com` does
+(`access-control-allow-origin: *`, checked). The first 4 bytes decide what it is: `\0asm` is used as it is, `PK` is a
+package zip from the hub, unpacked with `fflate` 0.8.2 (MIT), first `.wasm` that is not `.aot.wasm`. Anything else
+fails once, with a message, and is not fetched again. A `.fwsc` gets its own message, see "FM-1 update packages" in the
+drawer.
+
+**The cache of firmwares from an address.** Like the sample packs. After an edit (with the same 1.5 s pause) and when a
+song opens, the host finds the addresses of its `firmware(...)` calls (`findFirmwareUrls`: both forms, over several
+lines, not in `//` comments), downloads each one with Node into
+`.vstrudel/cache/firmware/<first 16 hex digits of the address' SHA-256>/<file name>`, and writes `.complete` with the
+address last. The file is kept as it came, `.wasm` or `.zip`. The host sends the webview a map from address to the
+`asWebviewUri` of each copy (`firmwareCache`). The webview loads a firmware from its copy when the map has one, and from
+the address otherwise, also when the copy is gone. Because the host downloads, a server without CORS headers works
+once the copy is there. A firmware already running keeps its module; the copy is used from the next load.
+
+**Programs.** `.progNum(n)` sends a MIDI program change on the hap's channel before its note, only when the program of
+that channel changes, because a program change reloads a sound. In OBERVAVE (`trk_load`, `prog_get` in its source)
+programs 0 to 63 are its 64 factory sounds in the order of `FACTORY` in `obv_patches.h`, 64 to 69 drums and keys, the
+rest INIT, unless the user saved over them.
+
+**Channels.** `midichan` reaches the firmware, but what a channel means is the firmware's business. OBERVAVE plays its
+selected track on every channel while its MIDI setting is OMNI, which is its default (`set.midi_ch` 0). Only with a
+channel set on its GLOBAL page do the next three channels play tracks B to D. To get separate sounds from one firmware,
+use another orbit: each orbit runs its own copy.
+
+**Clock.** With each note and on play and stop, the page sends the scheduler's cycle at the current context frame and
+its cps. The worklet turns that into the firmware's position: one cycle is a bar of four quarter notes, so the tempo
+is `cps * 240` BPM. The tempo also goes out as a `VIBE_EV_TRANSPORT` tempo event whenever it changes: OBERVAVE's arp
+and sequencer take their tempo only from that event, and read the position from the table (its `main.c`). On stop the page empties the firmware's queue, ends its notes and sends "play off".
+
+## SHRUB editor panel
+
+An experimental mockup, to see how the SHRUB web editor would look inside VS Code. Off unless the setting
+`vstrudel.experimental.shrubEditor` is on; then the command "vstrudel: Open SHRUB editor (experimental)" shows in the
+palette and in the title bar of the Sounds view. Turning the setting off closes the tab. The tab is a `WebviewPanel` with
+a toolbar and an `iframe` of `https://shrub.audio/editor/`. Its CSP allows frames from that origin only, and scripts only
+with its nonce. `retainContextWhenHidden` keeps the editor's page, and its unsaved patches, while the tab is hidden.
+"Open in browser" goes through `vscode.env.openExternal`. "Use in song" is disabled: it marks where a VIBE FM build of
+SHRUB would connect.
+
+Not measured: whether shrub.audio lets itself be framed (an `X-Frame-Options` or `frame-ancestors` header would show an
+error page in the frame), and whether its sound plays inside a VS Code webview. Our sandbox cannot reach the site. The
+toolbar was looked at in Chrome with VS Code's dark colors. Why it stays a mockup is in the drawer.
 ## Status bar
 
 One item on the right of the status bar says what the song in front does. It replaced a
@@ -712,6 +815,28 @@ the page black, so only the gutter and the font size show the change.
 The test cannot hear or see. "Works" for audio means the `AudioContext` is running, the
 scheduler started and the samples decoded. It does not prove sound came out of the
 speakers, or that a canvas shows the right picture.
+
+In headless Chrome 148 on Linux, with the webview bundle in a page like `pnpm smoke`, and `obervave.wasm` from the
+VIBE FM SDK repo (OBERVAVE 3.4, GPL-3.0), on 2026-11-20:
+
+| What | Result |
+|---|---|
+| A firmware compiled in the page and passed to an AudioWorklet in `processorOptions` | Works |
+| `note("c2 eb2 g2 bb2").s("vibefm1:obervave")` through superdough to the output | Sounds: peak 0.218. Silent after stop |
+| `note("c2*4").s("vibefm1:<obervave second>")`, two firmwares, at cps 0.5 | The first sounds in cycle 0, the second in cycle 1. The first only rings out in cycle 1 |
+| `vibefm1:1`, and a preview of variation 1 from the Sounds view | The second firmware plays |
+| `vibefm1:nosuch` | One error, "no such firmware. There are: obervave, second". Nothing starts |
+| `template/examples/07-vibefm1-obervave.strudel`, OBERVAVE from GitHub through `firmware()` | Plays with no error. Three copies on orbits 2, 3, 4. Spectral centroid: bass about 150 Hz, pad 350 Hz, arp 3.6 kHz |
+| `template/examples/08-vibefm1-patterns.strudel`, `.progNum("<35 28 53 2>")` | The lead's centroid per cycle: 2939, 517, 723, 1406 Hz, then the same shape again. The program changes the sound |
+| A package `.zip` (the wasm and `firmware.json` in a folder) through `firmware()` | Plays |
+| A file named `.fwsc` through `firmware()` | One error that says it is an FM-1 hardware firmware. Not fetched again |
+| `FirmwareCache` in Node with a stand-in for `vscode.workspace.fs`, OBERVAVE from raw.githubusercontent.com | One download for two requests at once, 846,689 bytes, `.complete` holds the address. A 404 is logged, not thrown |
+| A song whose `firmware()` address cannot be reached, with a cached copy in the map | Plays from the copy, peak 0.186. Without the copy: one error, "Failed to fetch" |
+| OBERVAVE's start | Host protocol 7, 236 parameters, logs "OberVave 3.4 (native VIBE)" |
+| A note sent for frame 24000, rendered offline | First sample above 1e-4 at frame 24005 |
+| CPU, rendered offline, each firmware holding a 4-note chord, Xeon at 2.1 GHz | 1 firmware: 1.1% of real time. 4 firmwares: 5.0% |
+
+Not measured yet: inside VS Code, and in Codespaces.
 
 In Chrome, with `pnpm smoke`: the editor, inline widgets, slider, note highlighting,
 text sync in both directions and the stage dock were also checked by looking at the

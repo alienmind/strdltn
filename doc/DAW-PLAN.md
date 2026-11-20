@@ -337,9 +337,11 @@ front.
 **The Mixer is made of the song's sliders.** Every `slider()` that the stage shows today
 becomes a fader in the Mixer instead, and the stage keeps only the visuals. The sliders
 are grouped by the chain they act on, and each group is a channel: a vertical strip with
-the name of the chain on top, as in the Session view of Live. Folded, a channel shows one
-fader, its gain. A click on its name unfolds it, and the strip widens to show every
-slider of that chain side by side, each with its label. A click again folds it.
+the name of the chain on top, as in the Session view of Live. Folded, a channel shows
+only its gain fader. Every other slider of the chain is a sub-control: it shows only
+when the channel is unfolded. A click on its name unfolds it, and the strip widens to
+show the gain and then the other sliders side by side, each with its label. A click
+again folds it.
 
 ```
  folded                 kick unfolded, bass unfolded
@@ -380,24 +382,26 @@ gives "lpf". Under it, smaller, the name of the constant when there is one ("kic
 the label the stage shows today) and the value. A slider whose use is not a call gets
 the label of today's rules. The tooltip says the rule, as the stage does now.
 
-**The gain fader.** The fader a folded channel shows is the slider used in `.gain()`,
-else in `.postgain()`, else in `.velocity()`. A chain with sliders but none of these
-shows its first slider folded, with its label, so a folded strip never lies about what
-it controls.
+**The gain fader.** The fader a folded channel shows is the slider used in `.gain()` of
+that chain, and nothing else. A chain whose sliders are all sub-controls (an `lpf`, no
+`gain`) shows no fader when folded, only its name, mute, solo and a count such as "2
+sliders". A slider in `.postgain()` or `.velocity()` is a sub-control like any other.
+Two sliders in `.gain()` of one chain: the first is the gain fader, the second a
+sub-control.
 
 **What the song in the template gives.** From `template/demo.strudel`, read by hand, as
 the test will check it:
 
-| Channel | Folded fader | Unfolded faders | Ducked by |
+| Channel | Folded: gain | Unfolded: sub-controls | Ducked by |
 |---|---|---|---|
-| vocals | gain (`VOCALS_VOL`) | gain | - |
-| kick | gain (`KICK_VOL`) | gain | - |
-| snare | gain (`SNARE_VOL`) | gain | - |
-| hh | gain (`HH_VOL`) | gain | - |
-| hhr | gain (`HHR_VOL`) | gain | - |
-| bass | gain (`BASS_VOL`) | gain, lpenv (`BASS_ENERGY`) | kick, orbit 2 |
-| lowendbass | gain (`SUB_VOL`) | gain, lpenv (`SUB_ENERGY`) | kick, orbit 3 |
-| riser | none | none | kick, orbit 4 |
+| vocals | gain (`VOCALS_VOL`) | - | - |
+| kick | gain (`KICK_VOL`) | - | - |
+| snare | gain (`SNARE_VOL`) | - | - |
+| hh | gain (`HH_VOL`) | - | - |
+| hhr | gain (`HHR_VOL`) | - | - |
+| bass | gain (`BASS_VOL`) | lpenv (`BASS_ENERGY`) | kick, orbit 2 |
+| lowendbass | gain (`SUB_VOL`) | lpenv (`SUB_ENERGY`) | kick, orbit 3 |
+| riser | none | - | kick, orbit 4 |
 
 **A fader does what a slider row of the stage does today** (see "Sliders" in
 `doc/ARCHITECTURE.md`): the sound changes at once, and the number is written into the
@@ -449,9 +453,34 @@ the colors.
 
 The MIDI strips come with phase 5. Each output device that the song names gets a narrow
 strip with its name and a light that blinks on the notes sent. A drag from a chain's
-"midi" jack onto a device strip adds `.midi("device")`, or replaces the name in the one
-it has. Pulling the cable off removes the call. Before phase 5 there are no MIDI strips
-and no "midi" jack.
+"midi" jack onto a device strip adds `.midi("device")`. Pulling the cable off removes that
+call. Before phase 5 there are no MIDI strips and no "midi" jack.
+
+**One chain, two devices.** Strudel allows it. In `@strudel/core` 1.2.6, which we pin,
+`Pattern.onTrigger` keeps the trigger that was there and adds the new one, and
+`@strudel/midi` 1.2.6 sends each event to the port in the event (`.midiport()`) or else
+to the port given to that `.midi()` call. So `.midi("A").midi("B")` sends every event to
+A and to B. Read in the code, not tested with devices. In the Mixer that is two purple
+cables from one "midi" jack, and a second drag adds a second `.midi()` call instead of
+replacing the first. Our own `.midi()` for the bridge (phase 5) keeps the same rule, so a
+song written for strudel.cc behaves the same. One catch, also upstream's: a `.midiport()`
+in the chain wins over both calls and sends both copies to the same port. The Mixer
+shows that chain's MIDI cables as locked, with the reason in the tooltip.
+
+**Two devices with each other.** A cable from one device strip to another (MIDI thru: a
+keyboard's notes straight to a synth) is not something Strudel does. Notes in Strudel
+always go through a pattern: `midikeys()` gives a pattern of the keys being played, and
+that pattern can be sent with `.midi()`. So the Mixer refuses a drop of a device on a
+device (the cable turns red and goes back), and the tooltip offers the Strudel way: two
+lines, `const kb = await midikeys('A')` and `$thru: kb().midi('B')`, which the user can add
+with a click. The notes then pass through the scheduler, so they arrive with its delay
+(about 100 ms), which is too late to play live; a real MIDI thru stays the job of the
+device or the operating system. Input devices
+get strips only when this is built; in phase 5 the device strips are outputs.
+
+A MIDI cable also changes the sound of the chain: `.midi()` marks its events as
+"dominant", and superdough then does not play them. The chain is heard only from the
+device. The strip shows that with its own sound name greyed out.
 
 **What a cable means in Strudel.** `.duck("2,3,4")` on `$kick:` pulls down the volume of
 the orbits 2, 3 and 4 on each kick. A chain is ducked when it plays on one of those

@@ -147,3 +147,9 @@ permission, so we did not copy those files. We copied what has a license (`coast
 from Strudel's own examples, "Array (Lil Data Edit)" under CC BY-NC-SA) and the
 maintainer's own song. For the rest we wrote our own snippets with the same techniques
 and put the name in `@credits`.
+
+## `vibe:<id>` as the sound name of a firmware
+
+Tried, in Chrome with the webview bundle. The plan said `s("vibe:obervave")`. Mini-notation reads the colon as the
+variation: the sound `vibe`, number `obervave`, and superdough said "sound vibe not found". A firmware's sound name is
+now one word, `vibe_obervave`, the same form as the `gm_` soundfonts.

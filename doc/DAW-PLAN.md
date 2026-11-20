@@ -451,10 +451,49 @@ apart in dark, light and high contrast themes (expected, to check in the screens
 each). The line style differs too, so the kinds stay apart for a reader who does not see
 the colors.
 
-The MIDI strips come with phase 5. Each output device that the song names gets a narrow
-strip with its name and a light that blinks on the notes sent. A drag from a chain's
-"midi" jack onto a device strip adds `.midi("device")`. Pulling the cable off removes that
-call. Before phase 5 there are no MIDI strips and no "midi" jack.
+**MIDI device strips.** They come with phase 5, on the right of the chains, and they
+stand for the real instruments plugged into the computer. A strip is one device on one
+MIDI channel, with a name the user gives it, as a MIDI track of Live is an instrument on
+a port and a channel:
+
+```
++-----------+-----------+
+| Bass synt | Pads      |   name, typed by the user
+| M-Vave    | M-Vave    |   port, picked from the devices the bridge lists
+| ch 2      | ch 3      |   MIDI channel, 1 to 16
+|  o in     |  o in     |   end of purple cables
+|    ||     |    ||     |
+|    ##     |    ||     |   volume: CC 7 on that channel
+|    ||     |    ##     |
+|  vol 100  |  vol 80   |
+|  [*]      |  [ ]      |   light: notes sent
++-----------+-----------+
+```
+
+- "+ device" at the end of the strips adds one: pick the port from the list of the
+  bridge, type a name, pick a channel. The same port can have several strips, one per
+  channel: one synth with four parts is four strips.
+- A drag from a chain's "midi" jack onto a strip writes `.midi("M-Vave", { midichannel:
+  2 })` into the chain. `midichannel` is an option of upstream's `.midi()` (read in
+  `@strudel/midi` 1.2.6), so the song runs the same on strudel.cc. Pulling the cable off
+  removes the call. A chain that already sets `.midichan()` keeps it, and the strip it
+  reaches is the one of that channel; the Mixer shows a cable that does not match any
+  strip as dashed purple to the port, with "channel 5 has no strip" and a button to make
+  one.
+- The volume fader sends CC 7 (channel volume) to that port and channel when it moves,
+  through the bridge at once, not through a pattern. Most synths take CC 7, some do not;
+  the tooltip says so. It is not written into the code, because it is the level of the
+  instrument, not of the song (decision 13). It is sent again when the song starts, so
+  the instrument comes back to it.
+- A port that is not plugged in keeps its strips, greyed out, and the chains still have
+  their cables. Notes to it are dropped with one message in Output > `strdltn`, as
+  upstream does.
+- Where the strips are kept: in `strdltn.index.json` of the project, under
+  `midiDevices`, as `{ name, port, channel, volume }`. The project then opens with its
+  instruments set up, and a song only names the port and the channel, so it still plays
+  in another project or on strudel.cc. A chain cabled to a strip shows the strip's name
+  in its header ("-> Bass synth").
+- Before phase 5 there are no device strips and no "midi" jack.
 
 **One chain, two devices.** Strudel allows it. In `@strudel/core` 1.2.6, which we pin,
 `Pattern.onTrigger` keeps the trigger that was there and adds the new one, and
@@ -824,6 +863,8 @@ Size: 3 to 4 sessions after phase 6, more without it.
 | 9 | Order: Browser first, or Mixer first? | Browser. It has no open technical question, and the index is needed by the MIDI category later |
 | 10 | A knob turned in a firmware panel: change the sound only, or also write `.vp(id, value)` into the code like the Mixer's fader? | Change the sound only, with "Copy as code". A firmware has dozens of parameters, and writing each turn would bury the song in calls |
 | 11 | A firmware panel taken out into a tab: keep the firmware in the engine and relay the display, or move that firmware's copy into the tab? | Relay until phase 6. Decide with the measures of F1 |
+| 12 | A master strip: the sliders in an `all(x => ...)` line of the song, folded to `all(x => x.postgain(...))`? It acts on each note, not on the summed sound, so a reverb tail does not follow it. Or also a real master fader on superdough's final gain node, kept outside the song? | The `all()` strip only. A level that the song does not hold would sound different elsewhere |
+| 13 | The volume fader of a MIDI device strip sends CC 7 and is kept in `strdltn.index.json`, not in the song. Or should it be written into the song, as a `$` line that sends the CC? | Kept in the project. It is the level of the instrument in this studio, not part of the music |
 
 ## Risks
 

@@ -1063,8 +1063,8 @@ the Mixer next, and the engine work last, because it changes the architecture.
 | 9 | Phase 6: one engine, in the Browser, scheduler in a worker | E1, E2, E4, E5 |
 | 10 | Phase 7: the engine as a browser page | E3 |
 
-Decision 14 is still open: the decks and the recording could come right after the
-Mixer, before Devices and MIDI.
+The maintainer settled decision 14 with this order: the decks and the recording come
+after Devices and MIDI.
 
 Each phase ends with a build the maintainer can use, on a feature branch, with a pull
 request. Sizes are guesses in working sessions of an agent, not promises.
@@ -1301,7 +1301,7 @@ Size: 4 to 6 sessions.
 | 10 | A knob turned in a firmware panel: change the sound only, or also write `.vp(id, value)` into the code like the Mixer's fader? | Change the sound only, with "Copy as code". A firmware has dozens of parameters, and writing each turn would bury the song in calls |
 | 11 | A firmware panel taken out into a tab: keep the firmware in the engine and relay the display, or move that firmware's copy into the tab? | Relay until phase 6. Decide with the measures of F1 |
 | 12 | A master strip: the sliders in an `all(x => ...)` line of the song, folded to `all(x => x.postgain(...))`? It acts on each note, not on the summed sound, so a reverb tail does not follow it. Or also a real master fader on superdough's final gain node, kept outside the song? | The `all()` strip only. A level that the song does not hold would sound different elsewhere |
-| 14 | When do the decks and the recording come: right after the Mixer (phase 3), or after MIDI (phase 5)? | After the Mixer. They need its page and its parser, and not MIDI; MIDI learn makes the decks better when it comes |
+| 14 | When do the decks and the recording come: right after the Mixer (phase 3), or after MIDI (phase 5)? | Answered by the maintainer: after MIDI, as in "Order of work" |
 | 15 | The deck strip is the master of a song. Decision 12 put the master in the code (`all()`). For a DJ the master should act on the summed sound, so a reverb tail fades too. Keep both: `all()` sliders in the Mixer, and the deck chain for the performance? | Both. The `all()` strip is part of the song, the deck is the performance |
 | 16 | Deck settings (EQ, filter, fader, tempo) are not written into the song. Remember them per song in `strdltn.index.json`, or start each time at neutral? | Start at neutral, as a DJ mixer does when a track is loaded. A recording keeps them |
 | 17 | EQ: shelving filters (gentle, like most club mixers) or an isolator that can kill a band completely? | Isolator, with a kill at the end of each knob. That is what is used to swap bass lines |

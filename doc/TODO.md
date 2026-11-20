@@ -8,14 +8,12 @@ from here.
 **Released:** 0.1.0, tag `v0.1.0` on `main`. The GitHub release has the `.vsix`, the
 maintainer's own VS Code runs that build (`pnpm promote`), and the home page shows it.
 
-**In flight:** the branch `feat/m1-solid-core`, not merged and not released. It holds:
-errors in the code as problems of the file, a status bar item, settings for theme and
-font, stop for the song in front, the sound list before a file is open, and the cache
-for `https://` packs and for maps with a remote base, with commands to see its size and
-to clear it. The version stays 0.1.0 until the maintainer asks for a release.
+**Being released:** 0.2.0, pull request #4 from `feat/m1-solid-core`. `package.json`,
+`README.md` and `doc/ABOUT.md` say 0.2.0. After the maintainer merges: tag `v0.2.0` on
+`main`, push the tag, `pnpm promote`, refresh the home page (steps 3 to 5 of "Release"
+in `doc/ARCHITECTURE.md`).
 
-`README.md` and `doc/ABOUT.md` still describe 0.1.0. They get these features at the
-release (step 1 of "Release" in `doc/ARCHITECTURE.md`).
+**In flight:** nothing after 0.2.0. New work starts on a new feature branch.
 
 Next in line:
 

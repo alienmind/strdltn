@@ -698,6 +698,11 @@ view:
 
 Not seen: the hover of a snippet. The test cannot hover.
 
+Full `pnpm test:vscode` for the release of 0.2.0, in VS Code 1.147.0 on Windows, build
+`v0.1.0-13-g37b76fc` with the version set to 0.2.0: every step of the test passed, the
+27 template files played with no problem, and the cache held 188,956,347 bytes in 459
+files, as on the disk. The pictures in `doc/` are from this run.
+
 Not measured by the test: what a restart shows in the Sounds view (the test has a new
 profile on every run, it only reads the file back), clearing the cache, and a light
 theme with a song that has no full page visual. The hand test above covers the first

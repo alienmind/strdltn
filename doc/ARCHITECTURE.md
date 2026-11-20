@@ -377,8 +377,15 @@ editor the maintainer is working in.
 
 The installed copy is a copy. VS Code unpacks the `.vsix` into its own extensions
 folder, so later builds in `dist/` do not reach it. A running window keeps the old copy
-until "Developer: Restart Extension Host" (or "Restart Extensions" in the Extensions
-view). Nothing outside VS Code can trigger that restart.
+until "Developer: Reload Window". Nothing outside VS Code can trigger that.
+
+A build that is not exactly a release tag is packaged as `<version>-dev.<time>`, for
+example `0.0.3-dev.20261120051037`. `package.json` in the repo is not changed. We do
+this because of what we saw once: a second install of the same version, 0.0.3 over
+0.0.3, was correct on disk, but after "Restart Extension Host" the window still showed
+the old side panel title and icon. We expect that VS Code treats an extension with the
+same id and version as unchanged. Not proven, and not yet confirmed that the unique
+version cures it.
 
 In a development host the work in progress wins over the installed copy, because VS
 Code prefers the extension under development with the same id.
@@ -401,6 +408,6 @@ without changing the version, without a tag and without `pnpm promote`.
 3. Commit, merge to `main`, tag `v<version>`, push the branch and the tag. The pipeline
    builds the GitHub release.
 4. `pnpm promote`, so the maintainer's own VS Code gets the same build. It warns when
-   the checkout is not exactly the tag. Tell the maintainer to restart the extension
-   host.
+   the checkout is not exactly the tag. Tell the maintainer to run "Developer: Reload
+   Window".
 5. When `doc/ABOUT.md` changed, refresh the home page (see "Public page").

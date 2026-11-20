@@ -194,6 +194,15 @@ export async function run(): Promise<void> {
 			await vscode.commands.executeCommand('strdltn.insertSound', { kind: 'sound', sound: picks.soundfont });
 			steps.insertSoundInStrudelEditor = await until(() => false, 1500).then(async () => (await text(demo)).includes(picks.soundfont!.name));
 			await restore(demo, demoText);
+			// The same through the insert button of a row in the Browser, and the .bank() button of a heading.
+			await api.browserMessage({ type: 'insert', id: `sound:${picks.soundfont.name}` });
+			await sleep(1000);
+			steps.browserInsertSoundAtCursor = (await text(demo)).includes(picks.soundfont.name);
+			await restore(demo, demoText);
+			await api.browserMessage({ type: 'insertText', text: '.bank("RolandTR909")' });
+			await sleep(1000);
+			steps.browserInsertBankAtCursor = (await text(demo)).length === demoText.length + '.bank("RolandTR909")'.length;
+			await restore(demo, demoText);
 		}
 		steps.soundProblems = problems('editor', demo);
 		save();
@@ -292,6 +301,11 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('strdltn.insertSnippet', { uri: snippetUri, name: 'drums/offbeat-hats' });
 		await sleep(700);
 		steps.insertSnippetInNativeEditor = count(await text(demo), snippetBody) === count(nativeBefore, snippetBody) + 1;
+		await restore(demo, nativeBefore);
+		// The insert button of a snippet row in the Browser, into the native editor at its cursor.
+		await api.browserMessage({ type: 'insert', id: 'snippet:drums/offbeat-hats' });
+		await sleep(700);
+		steps.browserInsertSnippetInNativeEditor = count(await text(demo), snippetBody) === count(nativeBefore, snippetBody) + 1;
 		await restore(demo, nativeBefore);
 		await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
 

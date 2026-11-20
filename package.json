@@ -57,62 +57,62 @@
 		"commands": [
 			{
 				"command": "vstrudel.play",
-				"title": "Strudel: Play / Update",
+				"title": "vstrudel: Play / Update",
 				"icon": "$(play)"
 			},
 			{
 				"command": "vstrudel.stop",
-				"title": "Strudel: Stop",
+				"title": "vstrudel: Stop",
 				"icon": "$(debug-stop)"
 			},
 			{
 				"command": "vstrudel.toggleMode",
-				"title": "Strudel: Toggle Strudel editor / native editor",
+				"title": "vstrudel: Toggle Strudel editor / native editor",
 				"icon": "$(arrow-swap)"
 			},
 			{
 				"command": "vstrudel.openStage",
-				"title": "Strudel: Open stage",
+				"title": "vstrudel: Open stage",
 				"icon": "$(open-preview)"
 			},
 			{
 				"command": "vstrudel.previewSound",
-				"title": "Strudel: Preview sound",
+				"title": "vstrudel: Preview sound",
 				"icon": "$(play)"
 			},
 			{
 				"command": "vstrudel.insertSound",
-				"title": "Strudel: Insert sound name at cursor",
+				"title": "vstrudel: Insert sound name at cursor",
 				"icon": "$(insert)"
 			},
 			{
 				"command": "vstrudel.copySoundName",
-				"title": "Strudel: Copy sound name",
+				"title": "vstrudel: Copy sound name",
 				"icon": "$(copy)"
 			},
 			{
 				"command": "vstrudel.refreshSounds",
-				"title": "Strudel: Refresh sounds",
+				"title": "vstrudel: Refresh sounds",
 				"icon": "$(refresh)"
 			},
 			{
 				"command": "vstrudel.insertSnippet",
-				"title": "Strudel: Insert snippet at cursor",
+				"title": "vstrudel: Insert snippet at cursor",
 				"icon": "$(insert)"
 			},
 			{
 				"command": "vstrudel.openSnippet",
-				"title": "Strudel: Open snippet file",
+				"title": "vstrudel: Open snippet file",
 				"icon": "$(go-to-file)"
 			},
 			{
 				"command": "vstrudel.refreshSnippets",
-				"title": "Strudel: Refresh snippets",
+				"title": "vstrudel: Refresh snippets",
 				"icon": "$(refresh)"
 			},
 			{
 				"command": "vstrudel.showVersion",
-				"title": "Strudel: Show version and build"
+				"title": "vstrudel: Show version and build"
 			}
 		],
 		"menus": {
@@ -224,8 +224,8 @@
 			"activitybar": [
 				{
 					"id": "vstrudel",
-					"title": "Strudel",
-					"icon": "media/strudel.svg"
+					"title": "vstrudel",
+					"icon": "media/vstrudel.svg"
 				}
 			]
 		},

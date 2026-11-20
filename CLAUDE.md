@@ -25,6 +25,8 @@ promoted copy the maintainer runs every day, and they must not mix.
 - Never install, replace or reload the maintainer's copy as a side effect of other work.
 - Promote as the last step of a release the maintainer approved: versioned, tagged and
   pushed. Then say that it was promoted and what the maintainer has to restart.
+- The maintainer decides when there is a release. Do not change the version, tag or
+  publish because a piece of work is finished. Collect the work and wait to be told.
 
 The commands and the release steps of this project are under "Release" in
 `doc/ARCHITECTURE.md`.

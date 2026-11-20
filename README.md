@@ -27,7 +27,7 @@ Codespaces. An automated test covers the rest. See `doc/TODO.md` for what is mis
   becomes `s("kick")`. New files work without a reload.
 - The sounds of strudel.cc are there: drum machines, piano, the VCSL instruments, the
   General MIDI soundfonts and the synths.
-- The Strudel icon in the activity bar opens two views. **Sounds** lists everything you
+- The vstrudel icon in the activity bar opens two views. **Sounds** lists everything you
   can play, your own samples first. Click a sound to hear it, press the insert button to
   type its name at the cursor. **Snippets** lists the `.strudel` files in your `lib/`
   folder. Click one to paste it at the cursor.

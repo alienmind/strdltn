@@ -382,13 +382,16 @@ In a development host the work in progress wins over the installed copy, because
 Code prefers the extension under development with the same id.
 
 To see which copy a window runs: the first line of Output > `vstrudel`, or the command
-"Strudel: Show version and build". It shows the version, the `git describe` of the
+"vstrudel: Show version and build". It shows the version, the `git describe` of the
 build, and `production` or `development`.
 
 For fast work on the work in progress: `pnpm watch`, press F5 once, and use "Developer:
 Reload Window" in the development host after a change.
 
 ## Release
+
+The maintainer decides when there is a release. Work between releases is committed
+without changing the version, without a tag and without `pnpm promote`.
 
 1. Set the new version in `package.json`. Update `doc/ABOUT.md` and `README.md` when a
    user can do something new.

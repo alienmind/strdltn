@@ -16,7 +16,7 @@ configuration "vstrudel template (released extension)".
 | # | Do this | Should happen |
 |---|---------|---------------|
 | 1 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Sound, as before |
-| 2 | Click the Strudel icon in the activity bar | A Sounds view with groups and counts, and a Snippets view with `drums` |
+| 2 | Click the vstrudel icon in the activity bar | A Sounds view with groups and counts, and a Snippets view with `drums` |
 | 3 | Open "Drum machines" and click a few sounds | Each one is heard once |
 | 4 | Open "Soundfonts" and click `gm_piano` | A piano note |
 | 5 | Open "Local samples", click `blip` | The blip |

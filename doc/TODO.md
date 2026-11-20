@@ -256,7 +256,10 @@ The ways it could reach a song, best first:
    framing. It would be a second, separate synth: its own audio, not in our mix and not in
    time, and no MIDI (a webview, and a frame inside it, may not use WebMIDI). It would be a
    browser tab inside VS Code, good for editing patches for a real FM-1 and nothing else.
-   Not worth building.
+   Not worth building further. A mockup exists, off by default: the setting
+   `vstrudel.experimental.shrubEditor` and the command "vstrudel: Open SHRUB editor
+   (experimental)". To try by hand: does the site load in the frame, and does it make
+   sound there?
 
 
 ## Sound card

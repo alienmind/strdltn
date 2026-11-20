@@ -59,6 +59,7 @@ extension host (Node, may be remote)          webview (browser)
 | `src/shared/protocol.ts` | Message types and `diffText`, used by both sides. |
 | `src/webview/main.ts` | Creates `StrudelMirror`, syncs text, handles play and stop, fills the stage dock. |
 | `src/extension/firmware.ts` | Lists the VIBE FM firmwares in the `firmware/` folder, and caches the ones songs load from an address. See "Firmware" |
+| `src/extension/shrub.ts` | Experimental mockup, behind `vstrudel.experimental.shrubEditor`: SHRUB's web editor in a tab. See "SHRUB editor panel" |
 | `src/shared/firmware.ts` | Finds the addresses of `firmware(...)` in a song. `firmware.test.ts` holds the cases |
 | `src/webview/vibe/core.ts` | Hosts one firmware `.wasm` and renders its sound. No Web Audio in it, so the tests run it. `core.test.ts` holds the cases |
 | `src/webview/vibe/worklet.ts` | The AudioWorklet processor around `core.ts`. Built as `dist/vibe-worklet.js` |
@@ -437,6 +438,20 @@ use another orbit: each orbit runs its own copy.
 its cps. The worklet turns that into the firmware's position: one cycle is a bar of four quarter notes, so the tempo
 is `cps * 240` BPM. The tempo also goes out as a `VIBE_EV_TRANSPORT` tempo event whenever it changes: OBERVAVE's arp
 and sequencer take their tempo only from that event, and read the position from the table (its `main.c`). On stop the page empties the firmware's queue, ends its notes and sends "play off".
+
+## SHRUB editor panel
+
+An experimental mockup, to see how the SHRUB web editor would look inside VS Code. Off unless the setting
+`vstrudel.experimental.shrubEditor` is on; then the command "vstrudel: Open SHRUB editor (experimental)" shows in the
+palette and in the title bar of the Sounds view. Turning the setting off closes the tab. The tab is a `WebviewPanel` with
+a toolbar and an `iframe` of `https://shrub.audio/editor/`. Its CSP allows frames from that origin only, and scripts only
+with its nonce. `retainContextWhenHidden` keeps the editor's page, and its unsaved patches, while the tab is hidden.
+"Open in browser" goes through `vscode.env.openExternal`. "Use in song" is disabled: it marks where a VIBE FM build of
+SHRUB would connect.
+
+Not measured: whether shrub.audio lets itself be framed (an `X-Frame-Options` or `frame-ancestors` header would show an
+error page in the frame), and whether its sound plays inside a VS Code webview. Our sandbox cannot reach the site. The
+toolbar was looked at in Chrome with VS Code's dark colors. Why it stays a mockup is in the drawer.
 
 ## Content Security Policy
 

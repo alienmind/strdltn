@@ -175,7 +175,8 @@ from separate orbits.
 
 ## A panel with the SHRUB editor
 
-Designed, and dropped. The idea was a webview panel that shows `shrub.audio/editor/`, so patches are made beside the
+Designed, and dropped as a feature. A mockup exists behind the setting `vstrudel.experimental.shrubEditor`, only to see
+how it looks. The idea was a webview panel that shows `shrub.audio/editor/`, so patches are made beside the
 song. The editor would be a second synth with its own audio: not in our mix, not in time with the song, and with no MIDI
 in or out, because a webview, and any frame inside it, may not use WebMIDI. It would be a browser tab inside VS Code,
 only useful to edit patches for a real FM-1. We do not know if the site allows framing. A VIBE FM build of SHRUB

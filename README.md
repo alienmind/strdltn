@@ -86,6 +86,9 @@ browser.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 
+Experimental, off by default: the setting `vstrudel.experimental.shrubEditor` adds a tab
+with Xfer's SHRUB web editor, to see how it would look. It is not connected to your songs.
+
 Not there yet: MIDI, sound across a switch of editor, completion and hover, the
 Marketplace. See `doc/TODO.md`.
 

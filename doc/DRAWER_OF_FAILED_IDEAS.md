@@ -252,5 +252,5 @@ fader had to write a `.postgain()` call into every chain that was mixed, and an 
 fader had no call in Strudel to be saved in at all. Meters needed taps on superdough's
 orbit buses. The maintainer chose a smaller design: the strips are made of the sliders
 the song already has, grouped by chain and folded to their gain, and cables only show
-sidechains. Nothing is added to a song that it did not have, and the orbit buses are not
+sidechains and MIDI, in two colors. Nothing is added to a song that it did not have, and the orbit buses are not
 touched.

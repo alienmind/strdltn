@@ -16,7 +16,7 @@ The screen of Ableton Live, with code where Live has clips:
 | Area of Live | What we build | Today |
 |---|---|---|
 | Browser (left pane) | One Browser view: search box, color tags, categories, places, and the results in the same column | Three tree views: Files, Sounds, Snippets |
-| Session view with the mixer | A Mixer panel: one channel per chain of the song, made of the sliders that act on it, folded to its gain. Cables only for sidechains (`.duck` to `.orbit`) | The sliders are rows in the stage |
+| Session view with the mixer | A Mixer panel: one channel per chain of the song, made of the sliders that act on it, folded to its gain. Cables for sidechains (`.duck` to `.orbit`) and for MIDI (`.midi()` to a device), in two colors | The sliders are rows in the stage |
 | Clip and device view (bottom) | The stage, as now, and a Devices view: one panel per firmware that plays, and the SHRUB window | The stage. Firmwares have no panel. SHRUB is a mockup tab behind a setting |
 | Arrangement | The code editor, as now | The Strudel editor and the native editor |
 | MIDI in and out | Devices in the Browser, `.midi()`, `midin()`, `midikeys()`, MIDI learn on the mixer | Nothing. A webview may not use MIDI (measured) |
@@ -172,7 +172,7 @@ extension host                        webviews (browser side)
 | model     chains, orbits, |         |   search, colors, categories, list   |
 |           routes of a song| <-----> | Mixer panel (bottom panel)           |
 | relay     passes messages |         |   a channel per chain, its sliders,  |
-|                           |         |   cables for sidechains              |
+|                           |         |   cables: sidechain and MIDI         |
 |           between views   | <-----> | Devices view (bottom panel)          |
 |                           |         |   one panel per running firmware,    |
 |                           |         |   the SHRUB window                   |
@@ -433,9 +433,25 @@ inline in the code and as a fader. They are the same slider and move together.
 
 ### Cables
 
-The only cables are sidechains. A cable goes from the chain that ducks to each chain it
-ducks. Everything else is shown by the order and the grouping of the strips, not by
-cables.
+Cables are of two kinds, and each kind has a color of its own, so the two can never be
+taken for each other:
+
+| Kind | From | To | Means in code | Color and line |
+|---|---|---|---|---|
+| Sidechain | The "duck" jack of the chain that ducks | Each chain it ducks | `.duck("n")` and `.orbit(n)` | Orange (`--vscode-charts-orange`), dashed, with the orbit number as its label |
+| MIDI | The "midi" jack of a chain | The strip of a MIDI output device, right of the chains | `.midi("device")` | Purple (`--vscode-charts-purple`), solid, with the MIDI channel as its label when the chain sets `.midichan()` |
+
+Everything else (which sliders belong together) is shown by the order and the grouping
+of the strips, not by cables. The `--vscode-charts-*` colors follow the theme and stay
+apart in dark, light and high contrast themes (expected, to check in the screenshots of
+each). The line style differs too, so the kinds stay apart for a reader who does not see
+the colors.
+
+The MIDI strips come with phase 5. Each output device that the song names gets a narrow
+strip with its name and a light that blinks on the notes sent. A drag from a chain's
+"midi" jack onto a device strip adds `.midi("device")`, or replaces the name in the one
+it has. Pulling the cable off removes the call. Before phase 5 there are no MIDI strips
+and no "midi" jack.
 
 **What a cable means in Strudel.** `.duck("2,3,4")` on `$kick:` pulls down the volume of
 the orbits 2, 3 and 4 on each kick. A chain is ducked when it plays on one of those
@@ -445,7 +461,8 @@ label. Two chains on the same orbit both get a cable, and both are ducked togeth
 because the orbit is one bus. A ducked orbit with no chain on it gets no cable; the
 kick's strip lists it under its jack as "orbit 5 (empty)".
 
-**Editing by cable.** Each gesture is one edit of the document, so undo takes it back.
+**Editing a sidechain by cable.** Each gesture is one edit of the document, so undo
+takes it back.
 
 | Gesture | Edit |
 |---|---|
@@ -461,10 +478,11 @@ cables are drawn from the model.
 **How cables are drawn.** Ported from ableton-rackutils as `src/webview/cables.ts`,
 plain TypeScript and SVG, no framework: the physics, constants, sleeping loop and
 pointer handling listed under "The cables of ableton-rackutils". One fixed SVG layer over
-the Mixer, `pointer-events: none`. A cable leaves the bottom of the ducking strip and ends
-at the bottom of the ducked strip, so it hangs under the faders and does not cross them.
-Its color is the color of the ducking chain, and its label the orbit. Colors come from
-the `--vscode-*` variables. `prefers-reduced-motion` turns the spring off.
+the Mixer, `pointer-events: none`. A cable leaves the bottom of its strip and ends at the
+bottom of the other one, so it hangs under the faders and does not cross them. The color
+and the line come from its kind, as in the table above; the plug at the start has a
+small ring in the color of the chain, to show where it comes from.
+`prefers-reduced-motion` turns the spring off.
 
 ### Engine
 
@@ -619,8 +637,8 @@ under the Mixer, and either can be dragged to another place.
 - Browser, category MIDI: outputs and inputs, as the list in `doc/TODO.md` says. A click
   on an output types `.midi("name")`. A click on an input types
   `const cc = await midin("name")`.
-- Mixer: a chain with `.midi()` shows the device name in the header of its strip, and
-  its activity light blinks on the notes sent. No cable: cables are only for sidechains.
+- Mixer: a chain with `.midi()` gets a purple MIDI cable to the strip of its device, see
+  "Cables". A drag between a chain and a device strip writes or changes the call.
 - MIDI learn: right click on a fader, mute or solo, "Learn", move a knob. The binding is
   kept in `strdltn.index.json` under the name of the controller. The demo song was
   written for an "MPK mini 3" with eight knobs as a mixer, and it is the first test.
@@ -733,8 +751,8 @@ Size: 3 to 4 sessions.
    sending worker thread with the clock of S5, input forwarding.
 3. `src/webview/midi.ts`: our `midi`, `midin`, `midikeys`, `midicmd`, `midimaps`,
    `defaultmidimap`, with the clock offset.
-4. Browser category MIDI. The device name on the Mixer strips. MIDI learn on faders,
-   mute and solo.
+4. Browser category MIDI. The MIDI strips, the "midi" jack and the MIDI cables of the
+   Mixer. MIDI learn on faders, mute and solo.
 5. Notes off on stop, on a closed window and on an error, so no note hangs.
 6. Tests: a unit test for the queue and the clock rule. The integration test sends to
    "Microsoft GS Wavetable Synth" when it exists and records the lateness. A hand test

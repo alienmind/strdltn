@@ -46,6 +46,14 @@ const builds = [
 		format: 'esm',
 		target: 'es2022',
 	},
+	{
+		...shared,
+		entryPoints: ['src/snippets-view/main.ts'],
+		outfile: 'dist/snippets-view.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
 ];
 
 if (process.argv.includes('--test')) {

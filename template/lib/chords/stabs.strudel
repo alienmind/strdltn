@@ -1,0 +1,12 @@
+// @title Chord stabs
+// @category chords
+// @details Short chords on the off beats with a filter that slowly opens and closes, and an echo.
+// @tags house, dub, stabs
+// @by alienmind
+// @credits Art Haus
+chord("<Cm7 Fm7>").voicing()
+  .struct("~ x ~ x ~ x [~ x] ~")
+  .s("sawtooth")
+  .lpf(sine.range(500, 2500).slow(8))
+  .decay(.12).sustain(0)
+  .delay(.4).gain(.5)

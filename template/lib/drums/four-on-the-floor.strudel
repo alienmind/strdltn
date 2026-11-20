@@ -1,0 +1,6 @@
+// @title Four on the floor
+// @category drums
+// @details Kick on every beat, clap on 2 and 4, open hat on the off beat. The usual start for house and techno.
+// @tags house, techno, 909
+// @by alienmind
+s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")

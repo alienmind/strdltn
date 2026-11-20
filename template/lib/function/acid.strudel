@@ -1,0 +1,9 @@
+// @title acid(): a 303 sound as one word
+// @category function
+// @details Defines .acid(amount), which turns any note pattern into an acid line. Higher amounts open the filter further. Paste the register line once, then use .acid() anywhere below it.
+// @tags acid, 303, register
+// @by alienmind
+// @credits Switch Angel
+register('acid', (amount, pat) => pat.s("sawtooth").lpf(180).lpenv(amount).lpd(.14).lpq(11))
+
+$: note("c2*8").acid(slider(4, 0, 8)).gain(.6)

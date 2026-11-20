@@ -1,4 +1,5 @@
 // Messages between the extension host and a webview. Both sides import this file.
+import type { PackInfo } from './packs';
 
 /** 'editor': the webview is the editor of the file. 'stage': code hidden, visuals only. */
 export type Mode = 'editor' | 'stage';
@@ -21,10 +22,13 @@ export type ToWebview =
 	| { type: 'init'; text: string; mode: Mode; samples: SampleMap }
 	| { type: 'update'; text: string }
 	| { type: 'samples'; samples: SampleMap }
+	| { type: 'packs'; packs: PackInfo[] }
 	| { type: 'play' }
 	| { type: 'stop' }
 	| { type: 'preview'; name: string; index: number }
-	| { type: 'insert'; text: string };
+	| { type: 'insert'; text: string }
+	/** Moves a slider of the stage, by its position in the list. The same as dragging it. */
+	| { type: 'slider'; index: number; value: number };
 
 export type FromWebview =
 	| { type: 'ready' }

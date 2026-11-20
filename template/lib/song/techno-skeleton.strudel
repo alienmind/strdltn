@@ -1,0 +1,12 @@
+// @title Techno skeleton
+// @category song
+// @details A whole small track to start from: tempo, kick with sidechain, hats, an acid bass and a pad. Replace one part at a time.
+// @tags techno, template
+// @by alienmind
+// @credits Switch Angel
+setcpm(130/4)
+
+$: s("bd*4").bank("RolandTR909").duck(2).duckattack(.2).duckdepth(.8)
+$: s("[~ hh]*4, ~ cp ~ cp").bank("RolandTR909").gain(.6)
+$: note("c2 c2 c3 c2 eb2 c2 g2 bb1").s("sawtooth").lpf(300).lpenv(4).lpq(10).orbit(2).gain(.6)
+$: chord("<Cm7 Abmaj7>").voicing().s("supersaw").attack(.3).release(1).lpf(900).orbit(2).gain(.3)

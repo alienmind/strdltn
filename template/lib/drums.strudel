@@ -1,2 +1,0 @@
-// Reusable snippets. The snippet palette (not built yet) will list the files in lib/.
-s("bd*2, ~ sd, hh*8")

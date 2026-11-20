@@ -1,0 +1,6 @@
+// @title Off beat hats
+// @category drums
+// @details A closed hat between the kicks. Add it to any four on the floor.
+// @tags house, techno
+// @by alienmind
+s("[~ hh]*4").bank("RolandTR909").gain(.6)

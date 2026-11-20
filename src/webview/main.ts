@@ -12,6 +12,8 @@ import * as strudelSoundfonts from '@strudel/soundfonts';
 import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
+import { sliderLabel, visualLabel } from '../shared/context';
+import { githubBase, type PackInfo } from '../shared/packs';
 import { diffText, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -52,6 +54,9 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 		case 'samples':
 			void loadLocalSamples(message.samples);
 			break;
+		case 'packs':
+			void loadPacks(message.packs);
+			break;
 		case 'play':
 			void play();
 			break;
@@ -63,6 +68,9 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'insert':
 			insert(message.text);
+			break;
+		case 'slider':
+			if (stageSliders[message.index]) moveSlider(stageSliders[message.index], String(message.value));
 			break;
 	}
 });
@@ -97,11 +105,14 @@ function init(text: string, initialMode: Mode, samples: SampleMap): void {
 					strudelCodemirror,
 					strudelHydra,
 					strudelSoundfonts,
+					// Last, so that it replaces the `samples` of @strudel/webaudio in the song's scope.
+					{ samples: taggedSamples },
 				),
 				strudelWebaudio.registerSynthSounds(),
 				strudelWebaudio.registerZZFXSounds(),
 				strudelSoundfonts.registerSoundfonts(),
 			]);
+			strudelWebaudio.registerSamplesPrefix('github:', resolveGithubPack);
 			await loadLocalSamples(samples);
 			log('info', `local samples: ${Object.keys(samples).join(', ') || 'none'}`);
 			// The first play waits for the default packs, or "bd" is not found yet (measured
@@ -129,7 +140,9 @@ function init(text: string, initialMode: Mode, samples: SampleMap): void {
 	mirror.editor.dispatch({
 		effects: StateEffect.appendConfig.of(
 			EditorView.updateListener.of((update) => {
-				if (update.docChanged && !applyingRemote) post({ type: 'edit', text: update.state.doc.toString() });
+				if (!update.docChanged) return;
+				mapStageSliders(update.changes);
+				if (!applyingRemote) post({ type: 'edit', text: update.state.doc.toString() });
 			}),
 		),
 	});
@@ -185,6 +198,54 @@ async function loadDefaultSounds(): Promise<void> {
 async function loadLocalSamples(samples: SampleMap): Promise<void> {
 	if (!Object.keys(samples).length) return;
 	await strudelWebaudio.samples(samples, undefined, { prebake: false, tag: 'local' });
+}
+
+/** The packs the extension host has in its cache: name in the song -> sample map and folder URL. */
+const cachedPacks = new Map<string, { map: Record<string, unknown>; base: string }>();
+/** What was already registered, so that a repeated message does not load a pack again. */
+const registeredPacks = new Set<string>();
+
+/**
+ * `samples()` as the song sees it. A pack loaded by name gets that name as its tag, and
+ * the Sounds view makes a group of it. Nothing else changes.
+ */
+function taggedSamples(map: unknown, base?: string, options: Record<string, unknown> = {}): Promise<void> {
+	return strudelWebaudio.samples(map, base, typeof map === 'string' ? { tag: map, ...options } : options);
+}
+
+/**
+ * Upstream asks this for the map of every `github:` pack (registerSamplesPrefix). A
+ * cached pack is answered from the workspace. Any other is fetched the way upstream
+ * does it.
+ */
+async function resolveGithubPack(source: string): Promise<[Record<string, unknown>, string]> {
+	const cached = cachedPacks.get(source);
+	if (cached) return [structuredClone(cached.map), cached.base];
+	const base = githubBase(source);
+	const map = await fetch(`${base}strudel.json`).then((response) => response.json());
+	return [map, map._base || base];
+}
+
+/**
+ * The remote packs of the open song, from the extension host. They are registered right
+ * away, so their sounds can be browsed before the song has played. When a pack arrives
+ * in the cache it is registered again, and from then on it plays from the workspace.
+ */
+async function loadPacks(packs: PackInfo[]): Promise<void> {
+	await mirror?.prebaked;
+	for (const pack of packs) {
+		if (pack.cached) cachedPacks.set(pack.source, pack.cached);
+		const key = `${pack.source}${pack.cached ? ' (cached)' : ''}`;
+		if (registeredPacks.has(key)) continue;
+		registeredPacks.add(key);
+		try {
+			await taggedSamples(pack.source);
+			log('info', `pack ${key}: registered`);
+		} catch (error) {
+			registeredPacks.delete(key);
+			log('warn', `pack ${pack.source} not loaded: ${(error as Error)?.message}`);
+		}
+	}
 }
 
 let publishTimer: ReturnType<typeof setTimeout> | undefined;
@@ -283,13 +344,53 @@ function report(): void {
 		'info',
 		`report: audio=${context.state} started=${!!mirror.repl.scheduler.started} docLength=${mirror.code.length} canvases=${canvases}`,
 	);
+	if (mode === 'stage') log('info', `dock: ${describeDock()}`);
+}
+
+// ---- the stage ------------------------------------------------------------------------
+//
+// In the stage the code is hidden, so everything the code would show inline is laid out
+// here instead, in two groups: the sliders, then the visuals. Each row has a label on
+// the left that says which part of the song it belongs to. The labels come from the
+// rules in src/shared/context.ts.
+
+interface StageSlider {
+	/** The id upstream gives the slider: `slider_<position at evaluation>`. Its value lives under this id. */
+	id: string;
+	/** Where the number is in the document now. Kept up to date as the text changes. */
+	from: number;
+	to: number;
+	input: HTMLInputElement;
+	output: HTMLElement;
+	writeTimer?: ReturnType<typeof setTimeout>;
+}
+let stageSliders: StageSlider[] = [];
+
+function dockGroup(title: string): HTMLElement {
+	const group = document.createElement('section');
+	group.className = 'dock-group';
+	group.appendChild(document.createElement('h2')).textContent = title;
+	return group;
+}
+
+function dockRow(label: { text: string; rule: string }, kind: string): { row: HTMLElement; slot: HTMLElement } {
+	const row = document.createElement('div');
+	row.className = 'dock-row';
+	const name = row.appendChild(document.createElement('div'));
+	name.className = 'dock-label';
+	name.title = `${label.text}\n(${kind}, named from: ${label.rule})`;
+	name.appendChild(document.createElement('span')).textContent = label.text;
+	name.appendChild(document.createElement('small')).textContent = kind;
+	const slot = row.appendChild(document.createElement('div'));
+	slot.className = 'dock-slot';
+	return { row, slot };
 }
 
 /**
- * Stage layout only. Inline widgets (`._scope()`, `._pianoroll()`) draw on a canvas they
- * look up by id and only create when it is missing. The editor is hidden in the stage,
- * so we create those canvases in the dock before the code runs, and upstream draws
- * on ours. The ids come from the same transpiler call upstream is about to make.
+ * Builds the stage before the code runs. Inline widgets (`._scope()`, `._pianoroll()`)
+ * draw on a canvas they look up by id and only create when it is missing, so we put
+ * those canvases in place first and upstream draws on ours. The ids and the positions
+ * come from the same transpiler call upstream is about to make.
  */
 function prepareDock(code: string): void {
 	let widgets: any[] = [];
@@ -299,30 +400,102 @@ function prepareDock(code: string): void {
 		// A syntax error is reported by the real evaluation that follows.
 		return;
 	}
-	const wanted = new Set(widgets.filter((w) => w.type !== 'slider').map((w) => getWidgetID(w)));
-	for (const child of [...dockElement.children]) if (!wanted.has(child.id)) child.remove();
-	for (const id of wanted) {
-		if (document.getElementById(id)) continue;
-		const canvas = document.createElement('canvas');
-		canvas.id = id;
-		dockElement.appendChild(canvas);
+	// Keep the canvases that are already there. A new canvas would flash on every update.
+	const canvases = new Map<string, HTMLElement>();
+	for (const canvas of dockElement.querySelectorAll('canvas')) canvases.set(canvas.id, canvas);
+	stageSliders.forEach((slider) => clearTimeout(slider.writeTimer));
+	stageSliders = [];
+	dockElement.replaceChildren();
+
+	const sliders = widgets.filter((widget) => widget.type === 'slider');
+	if (sliders.length) {
+		const group = dockElement.appendChild(dockGroup('Sliders'));
+		for (const widget of sliders) group.appendChild(sliderRow(code, widget));
+	}
+	const visuals = widgets.filter((widget) => widget.type !== 'slider');
+	if (visuals.length) {
+		const group = dockElement.appendChild(dockGroup('Visuals'));
+		for (const widget of visuals) {
+			const id = getWidgetID(widget);
+			const { row, slot } = dockRow(visualLabel(code, widget.to), String(widget.type).replace(/^_/, ''));
+			slot.dataset.widget = id;
+			const canvas = canvases.get(id) ?? Object.assign(document.createElement('canvas'), { id });
+			slot.appendChild(canvas);
+			group.appendChild(row);
+		}
+	}
+}
+
+function sliderRow(code: string, widget: any): HTMLElement {
+	const { row, slot } = dockRow(sliderLabel(code, widget.from), 'slider');
+	const input = slot.appendChild(document.createElement('input'));
+	input.type = 'range';
+	input.min = String(widget.min);
+	input.max = String(widget.max);
+	input.step = String(widget.step ?? (widget.max - widget.min) / 1000);
+	input.value = String(widget.value);
+	const output = slot.appendChild(document.createElement('output'));
+	output.textContent = String(widget.value);
+	const slider: StageSlider = { id: `slider_${widget.from}`, from: widget.from, to: widget.to, input, output };
+	stageSliders.push(slider);
+	input.addEventListener('input', () => moveSlider(slider, input.value));
+	return row;
+}
+
+/**
+ * A slider moved. Two things follow, as in the Strudel editor: the sound changes at
+ * once, and the number in the code becomes the new value.
+ *
+ * The sound: upstream keeps slider values by id and listens for this window message.
+ * The code: we change the text of the hidden editor, and the change travels to the VS
+ * Code document like any other edit. That is throttled, because a drag fires an event
+ * per pixel and each one would be an edit in the document.
+ */
+function moveSlider(slider: StageSlider, value: string): void {
+	slider.input.value = value;
+	slider.output.textContent = value;
+	window.postMessage({ type: 'cm-slider', value: Number(value), id: slider.id }, '*');
+	clearTimeout(slider.writeTimer);
+	slider.writeTimer = setTimeout(() => {
+		mirror.editor.dispatch({ changes: { from: slider.from, to: slider.to, insert: value } });
+		// The update listener has moved every position by now, this one to the end of the new number.
+	}, 150);
+}
+
+/** Follows the text. Called for every change of the document, ours or anyone's. */
+function mapStageSliders(changes: { mapPos(position: number, assoc?: number): number }): void {
+	for (const slider of stageSliders) {
+		slider.from = changes.mapPos(slider.from, -1);
+		slider.to = changes.mapPos(slider.to, 1);
 	}
 }
 
 /**
- * By now StrudelMirror has given the widget canvases to CodeMirror, which moved them
- * into the hidden editor. Moving them back is not enough: CodeMirror restores its own
- * DOM. So we first clear its widget decorations, then put the canvases in the dock.
+ * After the code ran. By now StrudelMirror has given the widget canvases to CodeMirror,
+ * which moved them into the hidden editor. Moving them back is not enough: CodeMirror
+ * restores its own DOM. So we first clear its widget decorations, then put each canvas
+ * back in its row.
  */
 function fillDock(widgets: any[]): void {
-	const elements = widgets
+	const placed = widgets
 		.filter((widget) => widget.type !== 'slider')
-		.map((widget) => document.getElementById(getWidgetID(widget)))
-		.filter((element) => element !== null);
+		.map((widget) => getWidgetID(widget))
+		.map((id) => ({ canvas: document.getElementById(id), slot: dockElement.querySelector<HTMLElement>(`[data-widget="${CSS.escape(id)}"]`) }));
 	strudelCodemirror.updateWidgets(mirror.editor, []);
-	for (const element of elements) dockElement.appendChild(element);
+	for (const { canvas, slot } of placed) if (canvas && slot) slot.appendChild(canvas);
 }
 
+/** What the stage shows, for the report line: `Sliders: a(slider)|b(slider) ; Visuals: c(scope)`. */
+function describeDock(): string {
+	return [...dockElement.querySelectorAll('.dock-group')]
+		.map((group) => {
+			const rows = [...group.querySelectorAll('.dock-label')].map(
+				(label) => `${label.querySelector('span')?.textContent}(${label.querySelector('small')?.textContent})`,
+			);
+			return `${group.querySelector('h2')?.textContent}: ${rows.join('|')}`;
+		})
+		.join(' ; ');
+}
 function updateStatus(): void {
 	const context: AudioContext = strudelWebaudio.getAudioContext();
 	statusElement.textContent = `${mode} | audio ${context.state} | ${mirror?.repl?.scheduler?.started ? 'playing' : 'stopped'}`;
@@ -350,4 +523,27 @@ function reportEnvironment(): void {
 		log('info', `AudioContext state -> ${context.state}`);
 		updateStatus();
 	});
+	void probe('midi', async () => {
+		const access = await (navigator as any).requestMIDIAccess();
+		return `outputs=[${[...access.outputs.values()].map((port: any) => port.name).join(', ')}] inputs=[${[...access.inputs.values()].map((port: any) => port.name).join(', ')}]`;
+	});
+	// Which sound cards can the engine send its sound to? Labels are empty until the
+	// page may use a microphone, so the count is the first thing to look at.
+	void probe('audio outputs', async () => {
+		const devices = (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === 'audiooutput');
+		return `${devices.length} [${devices.map((device) => device.label || '(no label)').join(', ')}] setSinkId=${'setSinkId' in AudioContext.prototype}`;
+	});
+	void probe('webgpu', async () => {
+		const adapter = await (navigator as any).gpu.requestAdapter();
+		return adapter ? `adapter ok, fallback=${adapter.isFallbackAdapter ?? adapter.info?.isFallbackAdapter}` : 'no adapter';
+	});
+}
+
+/** Tries one browser capability and logs what happened. A request that never answers is reported too. */
+async function probe(name: string, attempt: () => Promise<string>): Promise<void> {
+	const outcome = await Promise.race([
+		attempt().catch((error: Error) => `refused: ${error?.name}: ${error?.message}`),
+		new Promise<string>((resolve) => setTimeout(() => resolve('no answer after 5 s'), 5000)),
+	]);
+	log('info', `${name}: ${outcome}`);
 }

@@ -1,0 +1,8 @@
+// @title Sidechain pumping
+// @category effect
+// @details The kick turns the pad down every time it hits. Put duck on the kick with the number of an orbit, and orbit with the same number on everything that should pump.
+// @tags sidechain, duck, pump
+// @by alienmind
+// @credits Switch Angel
+$: s("bd*4").bank("RolandTR909").duck(2).duckattack(.2).duckdepth(.8)
+$: chord("<Am7 Dm7>").voicing().s("supersaw").orbit(2).gain(.4)

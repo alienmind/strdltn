@@ -1,0 +1,9 @@
+// @title Pad on a chord progression
+// @category chords
+// @details Four chords, one per bar, on a slow and wide saw pad. Change the chord names to change the song.
+// @tags pad, progression
+// @by alienmind
+chord("<Am7 Cmaj7 G Dm7>").voicing()
+  .s("supersaw")
+  .attack(.3).release(1)
+  .lpf(1200).room(.6).gain(.35)

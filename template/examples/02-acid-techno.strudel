@@ -1,0 +1,34 @@
+// @title Acid techno
+// @details A track to play live. The sliders at the top are the mixer: start with everything down, bring the kick in, then the hats, then open the acid.
+// @by alienmind
+// @credits Switch Angel
+setcpm(132/4)
+
+const KICK = slider(.8, 0, 1)
+const HATS = slider(.5, 0, 1)
+const ACID = slider(.6, 0, 1)
+const SQUELCH = slider(3, 0, 8)
+const PAD = slider(.3, 0, 1)
+
+register('acid', (amount, pat) => pat.s("sawtooth").lpf(180).lpenv(amount).lpd(.14).lpq(11))
+
+// the kick turns orbit 2 down each time it hits, which makes the bass and pad pump
+$kick: s("bd*4").bank("RolandTR909")
+  .duck(2).duckattack(.2).duckdepth(.8)
+  .gain(KICK)._scope()
+
+$hats: s("[~ hh]*4, hh*16").bank("RolandTR909")
+  .gain("[.3 .5 .35 .7]*4").gain(HATS)
+
+$clap: s("~ cp ~ cp").bank("RolandTR909").room(.2).gain(HATS)
+
+// random notes, frozen so the same line repeats every bar
+$acid: n(irand(8).seg(16).rib(7, 1))
+  .scale("c2:phrygian")
+  .acid(SQUELCH)
+  .orbit(2).gain(ACID)._pianoroll()
+
+$pad: note("<c2 c2 ab1 bb1>").s("supersaw")
+  .detune(.6).attack(1).release(2)
+  .lpf(600).room(.8)
+  .orbit(2).gain(PAD)

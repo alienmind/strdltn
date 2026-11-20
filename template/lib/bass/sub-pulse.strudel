@@ -1,0 +1,6 @@
+// @title Sub pulse
+// @category bass
+// @details A sine wave on eighth notes, loud then soft. It sits under a kick without fighting it.
+// @tags sub, minimal
+// @by alienmind
+note("c1*8").s("sine").gain("[.9 .5]*4").clip(.9)

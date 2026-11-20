@@ -1,0 +1,9 @@
+// @title Dark sub pad
+// @category texture
+// @details Low, slow, detuned saws with a lot of room. It fills the bottom of a quiet section.
+// @tags pad, dark, ambient
+// @by alienmind
+note("<a1 f1 c2 g1>").s("supersaw")
+  .detune(.6)
+  .attack(1).release(2)
+  .lpf(500).room(.8).gain(.3)

@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { diffText, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { findPackSources } from '../shared/packs';
+import type { PackCache } from './packs';
 import { scanSamples } from './samples';
 
 /**
@@ -30,6 +32,7 @@ export class Session {
 		readonly mode: Mode,
 		private readonly output: vscode.OutputChannel,
 		private readonly events: { onDispose(session: Session): void; onSounds(sounds: SoundInfo[]): void },
+		private readonly packs: PackCache,
 	) {
 		this.known = document.getText();
 		const workspaceFolders = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
@@ -51,7 +54,10 @@ export class Session {
 				if (text === this.known) return;
 				this.known = text;
 				this.post({ type: 'update', text });
+				this.sendPacksSoon();
 			}),
+			// A pack finished downloading: the webview can now play it from the cache.
+			packs.onDidChange(() => void this.sendPacks()),
 		);
 		this.disposables.push(
 			panel.onDidChangeViewState(() => {
@@ -68,9 +74,35 @@ export class Session {
 		this.post({ type: 'preview', name, index });
 	}
 
+	/** Moves one slider of the stage, as a drag would: the sound changes and the number in the code follows. */
+	setSlider(index: number, value: number): void {
+		this.post({ type: 'slider', index, value });
+	}
+
 	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */
 	insert(text: string): void {
 		this.post({ type: 'insert', text });
+	}
+
+	private packsTimer: ReturnType<typeof setTimeout> | undefined;
+	/** After an edit, wait until the typing stops. A half typed `samples('github:...` is not a pack. */
+	private sendPacksSoon(): void {
+		clearTimeout(this.packsTimer);
+		this.packsTimer = setTimeout(() => void this.sendPacks(), 1500);
+	}
+
+	/**
+	 * Tells the webview which remote packs the song loads, with the cached copy of the
+	 * ones we have, and starts the download of the others. The webview registers them at
+	 * once, so their sounds are in the Sounds view before the song has played.
+	 */
+	private async sendPacks(): Promise<void> {
+		const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
+		if (!this.ready || !folder) return;
+		const sources = findPackSources(this.document.getText());
+		const packs = await Promise.all(sources.map((source) => this.packs.info(source, folder, this.panel.webview)));
+		this.post({ type: 'packs', packs });
+		for (const pack of packs) if (!pack.cached) void this.packs.ensure(pack.source, folder);
 	}
 
 	/** Scans the samples folder again, after files were added or removed. */
@@ -99,6 +131,7 @@ export class Session {
 				this.known = this.document.getText();
 				this.post({ type: 'init', text: this.known, mode: this.mode, samples });
 				this.ready = true;
+				void this.sendPacks();
 				if (this.playWhenReady) {
 					this.playWhenReady = false;
 					this.post({ type: 'play' });
@@ -149,6 +182,7 @@ export class Session {
 	private async applyEdit(text: string): Promise<void> {
 		const change = diffText(this.document.getText(), text);
 		this.known = text;
+		this.sendPacksSoon();
 		if (!change) return;
 		const edit = new vscode.WorkspaceEdit();
 		const range = new vscode.Range(this.document.positionAt(change.from), this.document.positionAt(change.to));
@@ -187,8 +221,20 @@ export class Session {
 	#editor { position: relative; z-index: 1; min-height: 100%; }
 	/* !important because StrudelMirror sets an inline display:block on its root. */
 	body.stage #editor { display: none !important; }
-	#dock { position: relative; z-index: 1; display: none; flex-direction: column; gap: 8px; padding: 8px; }
+	#dock { position: relative; z-index: 1; display: none; flex-direction: column; gap: 14px; padding: 10px 12px; font: 12px var(--vscode-font-family, sans-serif); }
 	body.stage #dock { display: flex; }
+	.dock-group h2 { margin: 0 0 6px; padding-bottom: 3px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+		opacity: .7; border-bottom: 1px solid rgba(128, 128, 128, .35); }
+	/* A song may draw a full page visual behind the stage. The rows keep their own dark ground so they stay readable. */
+	.dock-group { padding: 8px 10px; border-radius: 4px; background: rgba(0, 0, 0, .6); }
+	.dock-row { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 10px; padding: 3px 0; }
+	.dock-slot canvas { max-width: 100%; height: auto !important; }
+	.dock-label { display: flex; flex-direction: column; min-width: 0; }
+	.dock-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+	.dock-label small { opacity: .55; font-size: 10px; }
+	.dock-slot { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
+	.dock-slot input[type=range] { flex: 1; max-width: 320px; accent-color: var(--vscode-focusBorder, #3794ff); }
+	.dock-slot output { width: 64px; font-family: var(--vscode-editor-font-family, monospace); opacity: .85; }
 	#status { position: fixed; z-index: 3; right: 8px; bottom: 6px; font: 11px monospace; opacity: 0.6; pointer-events: none; }
 	#unlock { position: fixed; z-index: 4; inset: 0; display: none; align-items: center; justify-content: center;
 		background: rgba(0, 0, 0, 0.7); color: #fff; font: 16px sans-serif; cursor: pointer; }

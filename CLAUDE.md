@@ -1,9 +1,84 @@
 # CLAUDE.md - working rules for agents in this repo
 
-Start with `README.md` for what the project is, then `doc/ARCHITECTURE.md` for how the
-parts fit, and `doc/TODO.md` for what is in flight and the concrete list of things to
-try next. This file is only the house rules - the things that are not derivable from
-the code. Nothing here is specific to this project; project facts live in `doc/`.
+This file is enough to start work in a new session. The first part, "Handover", is
+about this project and is kept current. Everything after it is house rules that would
+fit any project.
+
+## Handover
+
+### What this is
+
+vstrudel is a VS Code extension that turns the editor into a Strudel IDE for `.strudel`
+files. It hosts the upstream Strudel packages (`@strudel/*` from npm, source at
+`codeberg.org/uzu/strudel`) in a webview and adds a Sounds view, a Snippets view, a
+stage, and a cache for remote sample packs. It runs on desktop VS Code and in GitHub
+Codespaces.
+
+| Where | What |
+|---|---|
+| `github.com/alienmind/vstrudel` | This repo |
+| `../alienmind-www` | The maintainer's home page. It shows `doc/ABOUT.md` of this repo |
+| `README.md` | What a user gets, with the full feature list |
+| `doc/ARCHITECTURE.md` | How every part works, and every fact we measured about VS Code |
+| `doc/TODO.md` | What is left, the decisions waiting for the maintainer, the next hand test |
+| `doc/DRAWER_OF_FAILED_IDEAS.md` | What we tried or designed and dropped, with the reason. Read it before a spike |
+
+### State
+
+Read the top of `doc/TODO.md` for the current state. It says which branch holds the
+work, what is released, and what the next step is.
+
+### How to work here
+
+| Command | Use |
+|---|---|
+| `pnpm build`, `pnpm typecheck` | After every change |
+| `pnpm test:unit` | Fast. The rules that name things in the stage |
+| `pnpm test:vscode` | The real test. It starts a VS Code window, plays every file of `template/`, and prints what happened as JSON. About ten minutes. Set `VSCODE_EXE` to the installed `Code.exe` to skip a download |
+| `pnpm promote` | Installs a build into the maintainer's own VS Code. Only on request |
+
+What to know about the real test:
+
+- It makes sound on the maintainer's speakers. Say so before a run if the maintainer is
+  at the machine.
+- Do not build while it runs. A build empties `dist/`, and the test window loads from
+  there.
+- It writes screenshots to `tmp/shots/`. Look at them: they are how we see the UI.
+- It records, it does not assert. Read the JSON.
+- `template/demo.strudel` is the maintainer's own song and the subject of the test. Do
+  not replace it with another one.
+
+### Standing instructions from the maintainer
+
+- **Releases are the maintainer's call.** Do not change the version, tag, publish or
+  promote unless told to. Collect work on a feature branch.
+- **Commit and push on the feature branch without asking.** `main` gets the work through
+  a pull request that the maintainer merges.
+- **Strudel comes from upstream npm, pinned.** No fork, no submodule, no patches.
+- **Our name is vstrudel.** The side bar, the commands and the icon say vstrudel. "Strudel"
+  is only used for the language and for the upstream editor.
+- **Other people's work.** A file by somebody else goes in only with a license that
+  allows it. A technique learned from somebody is written again as our own code, and the
+  snippet says `// @credits <name>`, the name and nothing else.
+- **Docs are part of the work.** `doc/TODO.md`, `doc/ARCHITECTURE.md` and the drawer are
+  updated in the same change, by the rules below.
+
+### What VS Code does that is easy to forget
+
+These cost time once. The details are in `doc/ARCHITECTURE.md`.
+
+- A webview starts no sound without a click inside it. A command is not a click.
+- A webview may not use MIDI.
+- Installing the same version again leaves the old side bar title and icon in a running
+  window. `pnpm promote` gives a build that is not a release its own version.
+- CodeMirror takes the canvases of inline widgets and puts them back when moved. The
+  stage clears its decorations first.
+- `vsce package` asks a question in a terminal when `package.json` has no `repository`.
+- pnpm 11 reads build permissions from `pnpm-workspace.yaml`, not from `package.json`.
+
+## House rules
+
+The rest of this file is not about this project.
 
 ## Tooling
 

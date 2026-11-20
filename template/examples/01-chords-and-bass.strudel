@@ -1,0 +1,22 @@
+// @title Chords and bass
+// @details One chord progression drives three parts: a pad plays the chords, a bass plays their root notes, an arpeggio walks through them. Change the chord names and all three follow.
+// @by alienmind
+setcpm(100/4)
+
+const CHORDS = "<Am7 Fmaj7 C G>"
+
+$pad: chord(CHORDS).voicing()
+  .s("supersaw").attack(.3).release(1)
+  .lpf(1200).room(.6).gain(.3)
+
+$bass: chord(CHORDS).rootNotes(2)
+  .struct("x ~ x x ~ x ~ x")
+  .s("sawtooth").lpf(500).gain(.6)
+
+$arp: n("0 1 2 3 2 1").fast(2)
+  .chord(CHORDS).voicing()
+  .s("triangle").clip(.6).delay(.3).gain(.45)
+  ._pianoroll()
+
+$drums: s("bd ~ ~ bd ~ ~ bd ~, ~ ~ ~ ~ sd ~ ~ ~, hh*8")
+  .bank("RolandTR808").gain(.7)

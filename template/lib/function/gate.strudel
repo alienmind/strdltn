@@ -1,0 +1,9 @@
+// @title gate(): chop a sound into a rhythm
+// @category function
+// @details A helper that cuts a held sound into a rhythm, like a trance gate. Change the x and ~ steps for another rhythm.
+// @tags gate, trance, helper
+// @by alienmind
+// @credits Switch Angel
+const gate = (pat) => pat.struct("x x ~ x x ~ x ~ x ~ x x ~ x ~ x").clip(.7)
+
+$: gate(chord("<Am7 Fmaj7>").voicing().s("supersaw")).gain(.4)

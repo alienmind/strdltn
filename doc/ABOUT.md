@@ -6,58 +6,85 @@ title: "vstrudel"
 
 ![vstrudel logo](logo.jpg)
 
-**[Strudel](https://strudel.cc) live coding inside VS Code.** Open a `.strudel` file,
-press Ctrl+Enter, and it plays.
+**vstrudel is a VS Code extension. It turns your editor into a Strudel IDE whenever you
+open a `.strudel` file.**
 
-![The Strudel editor inside VS Code, with the Sounds view open](screenshot-sounds.png)
+[Strudel](https://strudel.cc) is a language for making music with code. Its home is a
+web page, and a web page is a hard place to keep a growing pile of songs, samples and
+reusable ideas. vstrudel embeds the real Strudel, the same editor and the same sound
+engine, and adds panels around it: every sound you can play, your own library of
+snippets, and your music as plain files in a project.
 
-Strudel is a great language for making music with code. Its home is a web page, and a
-web page is a hard place to keep a growing pile of songs, samples and reusable ideas.
-vstrudel puts the same editor and the same sound engine inside VS Code, so your music
-lives in a normal project folder: files, folders, git, your own samples, your own
-library of snippets.
+![The Strudel editor in VS Code, with the Sounds and Snippets views](screenshot-sounds.png)
 
 [Download the latest release](https://github.com/alienmind/vstrudel/releases/latest) | [Source on GitHub](https://github.com/alienmind/vstrudel)
 
-It is free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS
-Code and in GitHub Codespaces, so you can also play from a browser with nothing
-installed.
+Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Code and
+in GitHub Codespaces, so you can also keep a music project as a repository and play it
+from a browser on any machine, with nothing installed.
 
-> **Early release, version 0.0.3.** It plays, and the parts below work. It is young:
-> expect rough edges, and see "What is missing" at the end.
+> **Version 0.1.0.** Young, and it plays. See "What is missing" at the end.
 
 ---
 
-## What you get
+## Features
 
-### The real Strudel editor
+**Editor**
 
-![The Strudel editor playing a pattern](screenshot-editor.png)
+- The real Strudel editor for `.strudel` files: the upstream packages, not a copy.
+- Inline scopes, piano rolls and other visuals under the line that makes them.
+- Sliders inside the code that you drag while the song plays.
+- The notes that are sounding are outlined in the code.
+- Hydra visuals behind the code.
+- One button switches a file between the Strudel editor and the native VS Code editor.
+- A stage beside the native editor: sliders and visuals, each with a name taken from
+  your code.
+- Edits from outside (git, another editor, an AI agent) show up at once, while it plays.
+
+**Sounds**
+
+- All the sounds of strudel.cc: drum machines, piano, the VCSL instruments, the General
+  MIDI soundfonts, the synths.
+- A Sounds view that lists everything you can play, with an icon per kind.
+- Drum machines grouped by bank.
+- A click types the name of a sound at the cursor. With preview on, it also plays it.
+- A button on a bank types `.bank("...")`.
+- Your own samples: audio files in a `samples/` folder are sounds, with no setup. New
+  files appear without a reload.
+- Sample packs from GitHub (`samples('github:user/repo')`) are listed before you press
+  play, get their own group, and are copied into your project so they play offline.
+
+**Snippets**
+
+- A Snippets view over the `.strudel` files in your `lib/` folder, grouped by folder.
+- A click opens a card: description, tags, author, and the code in color.
+- "Insert at cursor" pastes the code. A double click opens the file.
+- A filter box that searches titles, descriptions and tags.
+- Snippets describe themselves in comments at the top of the file.
+
+**Projects**
+
+- Songs, samples and snippets are plain files: git, search and folders work as usual.
+- A template to start from, with a demo song, examples and a library of snippets.
+- Runs in GitHub Codespaces: fork, open, play.
+
+---
+
+## A closer look
+
+### The Strudel editor
+
+![The Strudel editor playing a song](screenshot-editor.png)
 
 vstrudel does not imitate Strudel. It hosts the upstream Strudel packages, so you get
-the same editor and engine as on strudel.cc:
+the same editor and engine as on strudel.cc, and new Strudel features arrive with a
+version bump.
 
-- Inline scopes and piano rolls, right under the line that makes them
-  (`._scope()`, `._pianoroll()`).
-- Sliders inside the code (`slider(800, 200, 4000)`) that you drag while it plays.
-- The notes that are sounding are outlined in the code.
-- Synths, samples, effects, mini-notation, `$:` patterns: the whole language.
+### Sounds
 
-Because it is the upstream code, new Strudel features arrive with a version bump.
-
-### Your files are real files
-
-A `.strudel` file is a normal text file in your project. Save, undo, search, rename and
-git work as usual. If something else changes the file while it is open, such as git or
-an AI agent, the editor shows the new text at once, even while the pattern plays.
-
-### All the sounds, and yours too
-
-The sounds of strudel.cc are loaded: the drum machines, piano, the VCSL instruments,
-the General MIDI soundfonts and the synths.
-
-The **Sounds** view lists everything you can play, your own samples first. Click a
-sound to hear it. Press the insert button to type its name at the cursor.
+The **Sounds** view lists what the engine can play, your own samples first. Click a
+sound to type its name where your cursor is. The speaker button at the top decides
+whether the click also plays the sound.
 
 Your own samples need no setup. Put audio files in a `samples/` folder:
 
@@ -70,25 +97,46 @@ samples/
     snare.wav
 ```
 
-Now `s("kick snare")` plays them, and `s("kick:1")` picks the second kick. A new folder
-shows up in the list a few seconds after you copy it in.
+Now `s("kick snare")` plays them, and `s("kick:1")` picks the second kick.
 
-### A library of your own snippets
+A song can also load a pack from GitHub with `samples('github:user/repo')`. vstrudel
+sees that line when you open the file: the pack shows up in the Sounds view at once,
+and it is copied into a `.vstrudel/` folder of your project so it plays without the
+network next time.
 
-Put `.strudel` files in a `lib/` folder. They appear in the **Snippets** view, and a
-click pastes one at the cursor. A drum pattern you like, a bass line, an effect chain:
-write it once, reuse it in every song.
+### Snippets
+
+Put `.strudel` files in a `lib/` folder. The **Snippets** view shows them by folder. A
+click opens a card with what the snippet is and its code, and a button inserts it.
+
+A snippet describes itself in comments at the top of the file:
+
+```
+// @title Four on the floor
+// @category drums
+// @details Kick on every beat, clap on 2 and 4, open hat on the off beat.
+// @tags house, techno, 909
+// @by alienmind
+s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
+```
+
+Only the code is inserted. The template comes with a starting library: drums, bass
+lines, chords, melodies, effects, helper functions and song skeletons.
 
 ### Two ways to edit the same file
 
 One button in the title bar switches a file between two editors:
 
-- The **Strudel editor**, for playing: widgets and sliders inside the code.
+- The **Strudel editor**, for playing: visuals and sliders inside the code.
 - The **native VS Code editor**, for bigger edits: multi-cursor, your keybindings, your
   other extensions, AI completion. Press play there and a **stage** opens beside the
-  code with the scopes and piano rolls.
+  code.
 
 ![The native editor on the left, the stage on the right](screenshot-stage.png)
+
+The stage lists the sliders of the song, then its visuals. Each row is named from your
+code: the name of the pattern (`$kick:`), the name of a variable, the comment above the
+line, or the code itself. Drag a slider in the stage and the number in the code follows.
 
 ### Hydra visuals
 
@@ -134,18 +182,25 @@ On a Mac use Cmd in place of Ctrl.
 - **"Click to enable audio."** A browser does not start sound without a click. When you
   press play from a button or from the native editor, the page may ask for one click
   first. Playing with Ctrl+Enter inside the Strudel editor does not need it.
-- **The network.** The default sound packs and Hydra are downloaded when they are used.
-  Offline, the synths and your own samples still play.
+- **The network.** The default sounds and Hydra are downloaded when they are used.
+  Offline, the synths, your own samples and the packs already copied still play.
+- **Disk space.** A pack from GitHub is copied whole. Some are large. Delete the
+  `.vstrudel/` folder of a project to get the space back.
 
 ## What is missing
 
+- MIDI. VS Code does not let an extension's page use MIDI, so Strudel's `.midi()` and
+  `midin()` do not work yet. A way around it is being built.
 - The sound stops when you switch between the two editors.
-- Sliders do not show in the stage.
 - Playing notes are not outlined in the native editor.
-- There is no completion or documentation on hover yet, and no Strudel reference panel.
+- No completion or documentation on hover yet, and no Strudel reference panel.
 - It is not on the VS Code Marketplace yet. Install it from the `.vsix` file.
 
 ## Thanks
 
 All of the music making is [Strudel](https://codeberg.org/uzu/strudel), by Felix Roos,
 Alex McLean and the Strudel contributors. vstrudel is only the VS Code part around it.
+
+The template includes `coastline` by eddyflux, from Strudel's own examples, and "Array
+(Lil Data Edit)" by DJ_Dave. Several snippets use techniques learned from Switch Angel
+and from the Art Haus live coding workshop.

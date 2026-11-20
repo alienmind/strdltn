@@ -1,0 +1,6 @@
+// @title Rolling hats
+// @category drums
+// @details Sixteenth note hats with an accent pattern, so they roll and do not hammer.
+// @tags techno, trance
+// @by alienmind
+s("hh*16").bank("RolandTR909").gain("[.25 .4 .3 .6]*4")

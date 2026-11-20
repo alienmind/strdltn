@@ -1,0 +1,9 @@
+// @title Arpeggio over a chord progression
+// @category melody
+// @details Steps through the notes of each chord. The numbers are positions in the chord, so the arpeggio follows the progression by itself.
+// @tags arp, trance
+// @by alienmind
+n("0 1 2 3 2 1").fast(2)
+  .chord("<Am7 Cmaj7 G Dm7>").voicing()
+  .s("triangle")
+  .clip(.6).delay(.3).gain(.5)

@@ -412,6 +412,14 @@ on both sides:
 | `.github/instructions/strudel.instructions.md` | Copilot, for files that match `applyTo: "**/*.strudel"` | The same, with an example, and where the guide to the language is |
 | `template/AGENTS.md` | Agents in a music project made from the template | The rules for a song, the folders, and a short guide to Strudel |
 | `template/.github/copilot-instructions.md` | Copilot in a music project | A short version, pointing at `template/AGENTS.md` |
+| `template/.github/instructions/strudel.instructions.md` | Copilot in a music project, for `**/*.strudel` | The same as the root one, with paths from the root of the music project |
+
+The template needs its own copy of the `.strudel` instructions. Seen by the maintainer:
+with `template/` open as its own folder, Copilot's agent asked for permission to read
+`.github/instructions/strudel.instructions.md` of the repo above it, and only answered
+well after it got it. A music project made from the template has no such repo above it,
+so everything an assistant needs has to be inside the project. The two copies say the
+same thing and differ in their paths. Change both together.
 
 `template/AGENTS.md` says what a request about music means (edit the open song, the
 smallest change, keep the rest), how a song is written (one `$name:` pattern per part),

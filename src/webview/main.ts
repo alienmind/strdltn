@@ -16,8 +16,7 @@ import { sliderLabel, visualLabel } from '../shared/context';
 import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
-import { diffText, type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
-import { addFirmware, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
+import { diffText, type EditorSettings, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
@@ -50,7 +49,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 	const message = event.data;
 	switch (message.type) {
 		case 'init':
-			init(message.text, message.mode, message.samples, message.firmware, message.settings);
+			init(message.text, message.mode, message.samples, message.settings);
 			break;
 		case 'settings':
 			applySettings(message.settings);
@@ -60,12 +59,6 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'update':
 			applyRemoteText(message.text);
-			break;
-		case 'firmware':
-			registerFirmware(message.firmware);
-			break;
-		case 'firmwareCache':
-			setFirmwareCache(message.map);
 			break;
 		case 'samples':
 			void loadLocalSamples(message.samples);
@@ -114,19 +107,11 @@ function applySettings(settings: EditorSettings): void {
 	log('info', `settings: theme=${theme} font=${fontFamily} size=${fontSize}`);
 }
 
-function init(text: string, initialMode: Mode, samples: SampleMap, firmware: FirmwareInfo[], settings: EditorSettings): void {
+function init(text: string, initialMode: Mode, samples: SampleMap, settings: EditorSettings): void {
 	mode = initialMode;
 	document.body.classList.toggle('stage', mode === 'stage');
 	reportEnvironment();
 	applySettings(settings);
-
-	initFirmware({
-		log,
-		clock: () => {
-			const scheduler = mirror?.repl?.scheduler;
-			return { cycle: scheduler?.started ? scheduler.now() : 0, cps: scheduler?.cps ?? 0.5, playing: !!scheduler?.started };
-		},
-	});
 
 	mirror = new strudelCodemirror.StrudelMirror({
 		id: REPL_ID,
@@ -152,8 +137,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 					strudelHydra,
 					strudelSoundfonts,
 					// Last, so that it replaces the `samples` of @strudel/webaudio in the song's scope.
-					// `firmware` is ours: VIBE FM firmwares from an address, for `vibefm1`.
-					{ samples: taggedSamples, firmware: addFirmware },
+					{ samples: taggedSamples },
 				),
 				strudelWebaudio.registerSynthSounds(),
 				strudelWebaudio.registerZZFXSounds(),
@@ -161,7 +145,6 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			]);
 			strudelWebaudio.registerSamplesPrefix('github:', resolveGithubPack);
 			await loadLocalSamples(samples);
-			registerFirmware(firmware);
 			log('info', `local samples: ${Object.keys(samples).join(', ') || 'none'}`);
 			// The first play waits for the default packs, or "bd" is not found yet (measured
 			// on a slow network). The wait is capped so that offline use still starts.
@@ -177,11 +160,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
 			post({ type: 'evaluated' });
 		},
-		onToggle: (started: boolean) => {
-			// The firmwares follow the transport of the song.
-			transport(started);
-			postState();
-		},
+		onToggle: () => postState(),
 		onEvalError: (error: Error & { pos?: unknown }) => {
 			log('error', `eval: ${error.message}`);
 			const place = locateError(mirror.code, error);
@@ -368,8 +347,7 @@ function publishSounds(): void {
 			type: String(data.type ?? 'other'),
 			tag: data.tag,
 			// Only a plain list has numbered variations. A pitched map (piano) has one sound.
-			count: Array.isArray(data.variations) ? data.variations.length : Array.isArray(data.samples) ? data.samples.length : 1,
-			variations: Array.isArray(data.variations) ? data.variations : undefined,
+			count: Array.isArray(data.samples) ? data.samples.length : 1,
 		}));
 	post({ type: 'sounds', sounds });
 }

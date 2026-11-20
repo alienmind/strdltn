@@ -77,13 +77,6 @@ browser.
   (`samples('https://.../strudel.json')`) are listed before you press play, get their
   own group, and are copied into your project so they play offline.
 - Commands show how much space the copies take, and delete them.
-- Synths from [The Firmware Hub](https://thefirmwarehub.com): put VIBE FM firmwares
-  (`.wasm`) in a `firmware/` folder, or load one from an address with
-  `firmware('https://.../name.wasm')`, which is kept in your project so it plays
-  offline. Play them through one instrument, `s("vibefm1:<name>")`, in time with the
-  rest of the song. The firmware can change per step (`s("vibefm1:<obervave sloop>")`)
-  and `.progNum()` picks its sound. Two examples show how. Effects on its line, such as
-  `.room()`, do not reach it yet.
 
 **Snippets**
 
@@ -102,9 +95,6 @@ browser.
   tutorial to look things up.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
-
-Experimental, off by default: the setting `vstrudel.experimental.shrubEditor` adds a tab
-with Xfer's SHRUB web editor, to see how it would look. It is not connected to your songs.
 
 Not there yet: MIDI, sound across a switch of editor, completion and hover in the code,
 the Marketplace. See `doc/TODO.md`.

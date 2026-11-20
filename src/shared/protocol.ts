@@ -1,5 +1,4 @@
 // Messages between the extension host and a webview. Both sides import this file.
-import type { FirmwareCacheMap } from './firmware';
 import type { PackInfo } from './packs';
 
 /** 'editor': the webview is the editor of the file. 'stage': code hidden, visuals only. */
@@ -17,21 +16,6 @@ export interface SoundInfo {
 	tag?: string;
 	/** Number of variations (`name:0`, `name:1`...). 1 for a synth. */
 	count: number;
-	/** Names for the variations, when they have names: the firmwares of `vibefm1`. Then `name:<variation>` is typed. */
-	variations?: string[];
-}
-
-/** A VIBE FM firmware the song can play as `s("vibefm1:<id>")`. */
-export interface FirmwareInfo {
-	/** The firmware's own id, lower case. It is what follows `vibefm1:` in a song. */
-	id: string;
-	name: string;
-	author?: string;
-	version?: string;
-	license?: string;
-	description?: string;
-	/** The .wasm, as a webview URL. */
-	url: string;
 }
 
 /** How the Strudel editor looks. From the settings `vstrudel.editor.*`, resolved by the host. */
@@ -54,13 +38,10 @@ export interface EngineState {
 }
 
 export type ToWebview =
-	| { type: 'init'; text: string; mode: Mode; samples: SampleMap; firmware: FirmwareInfo[]; settings: EditorSettings }
+	| { type: 'init'; text: string; mode: Mode; samples: SampleMap; settings: EditorSettings }
 	| { type: 'settings'; settings: EditorSettings }
 	| { type: 'update'; text: string }
 	| { type: 'samples'; samples: SampleMap }
-	| { type: 'firmware'; firmware: FirmwareInfo[] }
-	/** Which `firmware('https://...')` addresses of the song have a cached copy, and its URL. */
-	| { type: 'firmwareCache'; map: FirmwareCacheMap }
 	| { type: 'packs'; packs: PackInfo[] }
 	| { type: 'play' }
 	| { type: 'stop' }

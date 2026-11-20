@@ -1,9 +1,7 @@
 import * as vscode from 'vscode';
 import type { SoundInfo } from '../shared/protocol';
-import { FirmwareCache } from './firmware';
 import { FilesProvider } from './files';
 import { formatBytes, PackCache, type CacheUsage } from './packs';
-import { ShrubPanel } from './shrub';
 import { Session, type SessionHost } from './session';
 import { SnippetsView, type Snippet } from './snippets';
 import { SoundsProvider, soundText, type SoundNode } from './sounds';
@@ -55,7 +53,6 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	output.appendLine(identity);
 	const sessions = new Set<Session>();
 	const packs = new PackCache(output);
-	const firmwareCache = new FirmwareCache(output);
 	const sounds = new SoundsProvider(context.extensionUri);
 	const snippets = new SnippetsView();
 	// Whether a click on a sound also plays it. A button at the top of the Sounds view
@@ -84,7 +81,6 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	const host: SessionHost = {
 		output,
 		packs,
-		firmwareCache,
 		diagnostics,
 		onDispose: (session) => {
 			sessions.delete(session);
@@ -204,7 +200,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			const text = soundText(node);
 			if (text) return vscode.env.clipboard.writeText(text);
 		}),
-		vscode.commands.registerCommand('vstrudel.refreshSounds', () => Promise.all([...sessions].flatMap((s) => [s.refreshSamples(), s.refreshFirmware()]))),
+		vscode.commands.registerCommand('vstrudel.refreshSounds', () => Promise.all([...sessions].map((s) => s.refreshSamples()))),
 		// The header of a snippet describes it. Only the code goes into the song.
 		vscode.commands.registerCommand('vstrudel.insertSnippet', (snippet: Pick<Snippet, 'name'>) => {
 			const found = snippets.find(snippet.name);
@@ -216,10 +212,6 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			if (found) return vscode.commands.executeCommand('vscode.openWith', found.uri, 'default');
 		}),
 		vscode.commands.registerCommand('vstrudel.refreshSnippets', () => snippets.refresh()),
-		vscode.commands.registerCommand('vstrudel.openShrubEditor', () => ShrubPanel.show(context)),
-		vscode.workspace.onDidChangeConfiguration((event) => {
-			if (event.affectsConfiguration('vstrudel.experimental.shrubEditor')) ShrubPanel.settingChanged();
-		}),
 		vscode.commands.registerCommand('vstrudel.showVersion', () => vscode.window.showInformationMessage(identity)),
 	);
 
@@ -385,24 +377,14 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			clearTimeout(samplesTimer);
 			samplesTimer = setTimeout(() => sessions.forEach((s) => void s.refreshSamples()), 500);
 		};
-		let firmwareTimer: ReturnType<typeof setTimeout> | undefined;
-		const firmwareChanged = () => {
-			clearTimeout(firmwareTimer);
-			firmwareTimer = setTimeout(() => sessions.forEach((s) => void s.refreshFirmware()), 500);
-		};
 		const create = () => {
 			watchers.forEach((w) => w.dispose());
 			const configuration = vscode.workspace.getConfiguration('vstrudel');
 			const samplesWatcher = vscode.workspace.createFileSystemWatcher(`**/${configuration.get('samplesFolder', 'samples')}/**`);
 			const libWatcher = vscode.workspace.createFileSystemWatcher(`**/${SnippetsView.folderName()}/**/*.strudel`);
-			const firmwareWatcher = vscode.workspace.createFileSystemWatcher(`**/${configuration.get('firmwareFolder', 'firmware')}/**`);
 			watchers = [
 				samplesWatcher,
 				libWatcher,
-				firmwareWatcher,
-				firmwareWatcher.onDidCreate(firmwareChanged),
-				firmwareWatcher.onDidDelete(firmwareChanged),
-				firmwareWatcher.onDidChange(firmwareChanged),
 				samplesWatcher.onDidCreate(samplesChanged),
 				samplesWatcher.onDidDelete(samplesChanged),
 				libWatcher.onDidCreate(() => snippets.refresh()),

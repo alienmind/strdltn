@@ -2,15 +2,12 @@ import * as vscode from 'vscode';
 import { diffText, type EditorSettings, type EngineState, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { findPackSources } from '../shared/packs';
 import type { PackCache } from './packs';
-import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
-import { type FirmwareCache, scanFirmware } from './firmware';
 import { scanSamples } from './samples';
 
 /** What a session needs from the extension, and what it tells it. */
 export interface SessionHost {
 	output: vscode.OutputChannel;
 	packs: PackCache;
-	firmwareCache: FirmwareCache;
 	/** Evaluation errors go here, so they show in the Problems view and as squiggles in the native editor. */
 	diagnostics: vscode.DiagnosticCollection;
 	onDispose(session: Session): void;
@@ -95,7 +92,6 @@ export class Session {
 			// The cache was emptied: the webview goes back to the network, and nothing
 			// is downloaded again until the song is opened or edited.
 			host.packs.onDidChange((what) => void this.sendPacks(what === 'cached')),
-			host.firmwareCache.onDidChange(() => void this.sendFirmwareCache()),
 			vscode.workspace.onDidChangeConfiguration((event) => {
 				if (!event.affectsConfiguration('vstrudel.editor') && !event.affectsConfiguration('editor.fontFamily') && !event.affectsConfiguration('editor.fontSize')) return;
 				this.post({ type: 'settings', settings: editorSettings() });
@@ -131,10 +127,7 @@ export class Session {
 	/** After an edit, wait until the typing stops. A half typed `samples('github:...` is not a pack. */
 	private sendPacksSoon(): void {
 		clearTimeout(this.packsTimer);
-		this.packsTimer = setTimeout(() => {
-			void this.sendPacks();
-			void this.sendFirmwareCache();
-		}, 1500);
+		this.packsTimer = setTimeout(() => void this.sendPacks(), 1500);
 	}
 
 	/**
@@ -151,32 +144,10 @@ export class Session {
 		if (download) for (const pack of packs) if (!pack.cached) void this.host.packs.ensure(pack.source, folder);
 	}
 
-	/**
-	 * Tells the webview which firmware addresses of the song are cached, with the URL of each copy, and starts the
-	 * download of the others. The webview loads a cached one from the copy and the rest from the network.
-	 */
-	private async sendFirmwareCache(): Promise<void> {
-		const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
-		if (!this.ready || !folder) return;
-		const map: FirmwareCacheMap = {};
-		for (const url of findFirmwareUrls(this.document.getText())) {
-			const cached = await this.host.firmwareCache.cached(url, folder, this.panel.webview);
-			if (cached) map[url] = cached;
-			else void this.host.firmwareCache.ensure(url, folder);
-		}
-		this.post({ type: 'firmwareCache', map });
-	}
-
 	/** Scans the samples folder again, after files were added or removed. */
 	async refreshSamples(): Promise<void> {
 		if (!this.ready) return;
 		this.post({ type: 'samples', samples: await scanSamples(await this.samplesFolder(), this.panel.webview) });
-	}
-
-	/** Scans the firmware folder again, after files were added or removed. */
-	async refreshFirmware(): Promise<void> {
-		if (!this.ready) return;
-		this.post({ type: 'firmware', firmware: await scanFirmware(await this.firmwareFolder(), this.panel.webview) });
 	}
 
 	play(): void {
@@ -196,13 +167,11 @@ export class Session {
 		switch (message.type) {
 			case 'ready': {
 				const samples = await scanSamples(await this.samplesFolder(), this.panel.webview);
-				const firmware = await scanFirmware(await this.firmwareFolder(), this.panel.webview);
 				this.known = this.document.getText();
-				this.post({ type: 'init', text: this.known, mode: this.mode, samples, firmware, settings: editorSettings() });
+				this.post({ type: 'init', text: this.known, mode: this.mode, samples, settings: editorSettings() });
 				this.ready = true;
 				this.host.onState(this);
 				void this.sendPacks();
-				void this.sendFirmwareCache();
 				if (this.playWhenReady) {
 					this.playWhenReady = false;
 					this.post({ type: 'play' });
@@ -263,16 +232,8 @@ export class Session {
 	 * the workspace root. A song in a subfolder of a bigger repo then still finds the
 	 * samples that belong to it.
 	 */
-	private samplesFolder(): Promise<vscode.Uri> {
-		return this.nearestFolder(vscode.workspace.getConfiguration('vstrudel').get<string>('samplesFolder', 'samples'));
-	}
-
-	/** The firmware folder nearest to the file, found the same way as the samples. */
-	private firmwareFolder(): Promise<vscode.Uri> {
-		return this.nearestFolder(vscode.workspace.getConfiguration('vstrudel').get<string>('firmwareFolder', 'firmware'));
-	}
-
-	private async nearestFolder(name: string): Promise<vscode.Uri> {
+	private async samplesFolder(): Promise<vscode.Uri> {
+		const name = vscode.workspace.getConfiguration('vstrudel').get<string>('samplesFolder', 'samples');
 		const root = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
 		let folder = vscode.Uri.joinPath(this.document.uri, '..');
 		for (;;) {

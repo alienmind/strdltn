@@ -2,7 +2,7 @@
 <style>html,body{height:100%;margin:0;background:#222;color:#fff}#editor{position:relative;z-index:1;min-height:100%}
 body.stage #editor{display:none !important}#dock{display:none}body.stage #dock{display:flex;flex-direction:column}
 #unlock{display:none}#unlock.visible{display:flex;position:fixed;inset:0;z-index:4;background:rgba(0,0,0,.7);align-items:center;justify-content:center}</style></head>
-<body><div id="editor"></div><div id="dock"></div><div id="status"></div><div id="unlock">Click to enable audio</div>
+<body><div id="editor"></div><div id="dock"></div><div id="unlock">Click to enable audio</div>
 <script>
 // Silent smoke test: anything connected to the speakers goes through a gain of 0.
 const connect = AudioNode.prototype.connect;
@@ -21,7 +21,8 @@ window.__messages = [];
 window.acquireVsCodeApi = () => ({ postMessage(m) {
   window.__messages.push(m); console.log('[smoke]', JSON.stringify(m));
   if (m.type === 'ready') fetch('/template/demo.strudel').then(r => r.text()).then(text =>
-    window.postMessage({ type: 'init', text, mode, samples: { blip: [location.origin + '/template/samples/blip/blip.wav'] } }, '*'));
+    window.postMessage({ type: 'init', text, mode, samples: { blip: [location.origin + '/template/samples/blip/blip.wav'] },
+      settings: { theme: 'strudelTheme', fontFamily: 'monospace', fontSize: 14 } }, '*'));
 }});
 </script>
 <script type="module" src="/dist/webview.js"></script></body></html>

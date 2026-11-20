@@ -122,3 +122,12 @@ picks up a changed copy.
 Designed. A link from `~/.vscode/extensions/` to this checkout makes every build live
 in the maintainer's editor. That is the opposite of what we want: an agent's half
 finished build would break the editor the maintainer is working in.
+
+## WebMIDI in the webview
+
+Tried, in VS Code 1.130 with `pnpm test:vscode`. `navigator.requestMIDIAccess()` in
+the webview fails with `SecurityError: Midi has been disabled in this document by
+permissions policy`. VS Code builds the frame of a webview and does not allow `midi` in
+it. An extension cannot change that. So upstream `.midi()` cannot work inside our
+webview, and MIDI devices cannot be listed from there. MIDI needs a bridge outside the
+webview, see `doc/TODO.md`.

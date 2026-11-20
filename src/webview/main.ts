@@ -350,4 +350,21 @@ function reportEnvironment(): void {
 		log('info', `AudioContext state -> ${context.state}`);
 		updateStatus();
 	});
+	void probe('midi', async () => {
+		const access = await (navigator as any).requestMIDIAccess();
+		return `outputs=[${[...access.outputs.values()].map((port: any) => port.name).join(', ')}] inputs=[${[...access.inputs.values()].map((port: any) => port.name).join(', ')}]`;
+	});
+	void probe('webgpu', async () => {
+		const adapter = await (navigator as any).gpu.requestAdapter();
+		return adapter ? `adapter ok, fallback=${adapter.isFallbackAdapter ?? adapter.info?.isFallbackAdapter}` : 'no adapter';
+	});
+}
+
+/** Tries one browser capability and logs what happened. A request that never answers is reported too. */
+async function probe(name: string, attempt: () => Promise<string>): Promise<void> {
+	const outcome = await Promise.race([
+		attempt().catch((error: Error) => `refused: ${error?.name}: ${error?.message}`),
+		new Promise<string>((resolve) => setTimeout(() => resolve('no answer after 5 s'), 5000)),
+	]);
+	log('info', `${name}: ${outcome}`);
 }

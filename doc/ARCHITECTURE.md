@@ -250,6 +250,8 @@ In VS Code 1.130.0 on Windows (Electron 42, Chrome 148), with `pnpm test:vscode`
 | Hydra: `hydra-synth` loads from unpkg.com and creates its canvas | Works |
 | `canPlayType` for wav, mp3, ogg, opus, flac, aac | All supported |
 | `crossOriginIsolated` | false. `SharedArrayBuffer` is not available |
+| WebMIDI (`navigator.requestMIDIAccess`) in the webview | Refused: "Midi has been disabled in this document by permissions policy" |
+| WebGPU (`navigator.gpu.requestAdapter`) in the webview | Works, with a hardware adapter |
 | The Sounds view lists the default packs and the local samples | Works |
 | Preview of a local sample, a sample, a drum machine sound, a synth and a soundfont | Works |
 | A new folder under `samples/` appears in the list without a reload | Works |

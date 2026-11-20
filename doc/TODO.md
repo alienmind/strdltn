@@ -3,6 +3,83 @@
 What is in flight, what is undecided, and what to try next. Finished work is deleted
 from here.
 
+## In flight: 0.0.4
+
+Work for the next release collects on the branch `feat/0.0.4`. The version stays 0.0.3
+until the maintainer asks for the release.
+
+| # | Feature | Size | State |
+|---|---|---|---|
+| 1 | README rewrite: say first that vstrudel is a VS Code extension that turns the editor into a Strudel IDE for `.strudel` files. Then the panels, then Codespaces as a way to keep music projects (fork the repo, open it in a Codespace) | Small | Not started |
+| 2 | Icons in the Sounds view: a drum for drum machines, a keyboard for synths, and one each for samples, soundfonts and MIDI. Our own SVG files, because the VS Code icon set has no drum | Small | Not started |
+| 3 | Drum machines grouped by bank: Drum machines -> RolandTR909 -> bd, cb, cr. The bank is the part of the name before the last `_` | Small | Not started |
+| 4 | A click on a sound types its name at the cursor, and also plays it when preview is on | Small | Not started |
+| 5 | Preview toggle: a button at the top right of the Sounds view, tooltip "Preview sound on click". The choice is remembered | Small | Not started |
+| 6 | Snippets as a rich view: a click opens a card in place with a table of the header fields, the code with syntax colors, and an "Insert at cursor" button. A double click opens the file. This needs a webview view, a tree cannot show colored code or a table | Medium | Not started |
+| 7 | Snippet headers: comment lines at the top of the file that the view reads and hides from the code preview. See "Snippet header" below | Small | Not started |
+| 8 | MIDI devices as a group in the Sounds view, a click types the device name | Large | Blocked, see "MIDI" below |
+
+### Snippet header
+
+Proposed, not decided. Strudel already has a convention for metadata in comments
+(`// @title`, `// @by`, `// @details`, `// @genre`). We use the same form, so a snippet
+is still a normal Strudel file, and add two fields of our own. To check against the
+upstream documentation before building.
+
+```
+// @title Four on the floor
+// @category drums
+// @details House beat with an open hat on the off beat.
+// @tags house, 909
+// @by alienmind
+s("bd*4, ~ cp, [~ oh]*4").bank("RolandTR909")
+```
+
+Categories, a fixed list so the view can group and color them: `drums`, `bass`,
+`melody`, `chords`, `texture`, `effect` (a chain to put on a pattern), `function` (a
+helper to call), `song` (a starting point for a whole piece), `visual`.
+
+### MIDI
+
+Measured: a webview may not use WebMIDI. So neither a device list nor Strudel's own
+`.midi()` works from our webview, on desktop or in Codespaces.
+
+What could work, to try as a spike before promising the feature:
+- Desktop: a native MIDI module in the extension host lists the devices and sends the
+  notes. The webview gets a `.midi()` output that posts each note with its time to the
+  host. Needs prebuilt binaries for every platform inside the `.vsix`.
+- Codespaces: the extension host is remote and cannot see a device on the user's
+  machine. The only route is a page outside the webview, in the user's browser, that
+  owns WebMIDI. No design yet.
+
+Listing devices without being able to play them is of little use, so the list and the
+bridge are one piece of work.
+
+## Noted for later, not planned
+
+**Help and tutorials inside VS Code.** A structured manual beside the code: every
+function with its parameters and examples, and the Strudel tutorial. The function
+reference can come from `@strudel/reference` (the data behind the reference on
+strudel.cc). The tutorial is harder: upstream writes it as web pages with live
+examples, so it has to be converted, with each example as a snippet that can be played.
+
+**Smart insert with a local model.** A key opens a small prompt. You type free text and
+it offers the best matches from everything the panels know: sound names, drum machine
+banks, snippets (matched on their description), MIDI devices, functions. A model that
+runs in the webview ranks the matches, with the GPU when there is one (WebGPU works in
+the webview, measured) and without it otherwise.
+
+A first version needs no model: a VS Code quick pick with fuzzy search over the same
+lists gives most of the value, works the same in both editors, and costs no download.
+Then a small embedding model for matching by meaning, then a generative model such as
+Gemma for writing code. A generative model is a download of several hundred megabytes
+and is slow without a GPU.
+
+Proposed key: **Alt+I** ("insert"). It is free in VS Code, it does not depend on the
+keyboard layout, and it is not a character of the language. `/` is the divide sign and
+is used in mini-notation, Ctrl+Space is VS Code's own completion, Ctrl+I is its inline
+chat. A typed trigger as a second way in: `,,` followed by the text. Two commas in a
+row mean nothing in Strudel code and are easy to type on every layout.
 ## Next: test by hand
 
 `pnpm test:vscode` passes in VS Code 1.130 and we looked at its screenshots (see

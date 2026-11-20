@@ -14,6 +14,10 @@ without these two features. The extension is renamed to [str]dltn Live[code]: id
 installs beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry
 over.
 
+The plan to make this a DAW (one Browser view with tags and search, a Mixer panel with
+cables, MIDI, one engine) is in `doc/DAW-PLAN.md`. It waits for the maintainer's answers
+to its "Decisions for the maintainer". Nothing of it is built.
+
 Next in line:
 
 | # | What | State |

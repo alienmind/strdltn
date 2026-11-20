@@ -14,6 +14,9 @@ files. It hosts the upstream Strudel packages (`@strudel/*` from npm, source at
 stage, and a cache for remote sample packs. It runs on desktop VS Code and in GitHub
 Codespaces.
 
+This repo is a fork of `github.com/alienmind/vstrudel`. We forked it because the scope
+grew beyond a VS Code extension.
+
 | Where | What |
 |---|---|
 | `github.com/alienmind/vstrudel` | This repo |

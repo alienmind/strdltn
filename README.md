@@ -27,6 +27,9 @@ installed. Fork this repository, open your fork in a Codespace, and start from t
 Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.0.1.** See
 `doc/TODO.md` for what is missing.
 
+This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
+it because the scope grew beyond a VS Code extension.
+
 ## Install
 
 **In VS Code:** download `vstrudel.vsix` from the

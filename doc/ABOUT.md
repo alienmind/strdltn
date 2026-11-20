@@ -27,6 +27,9 @@ from a browser on any machine, with nothing installed.
 > what plays, the side bar has a Files view and new Snippets, and AI assistants know how
 > to edit a song. See "What is missing" at the end.
 
+This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
+it because the scope grew beyond a VS Code extension.
+
 ---
 
 ## Features

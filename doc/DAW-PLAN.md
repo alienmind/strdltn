@@ -305,6 +305,14 @@ messages `newTrack`, `rename {id, name}`, `remove {id}`, `reveal {id, where}` in
 `src/shared/browser.ts`; the handlers in `src/extension/browser.ts`; a case in the
 integration test that creates, renames and removes a track in `tmp/`; README.
 
+**Insert an example.** Asked by the maintainer on 2026-11-20, noted, not built. Every
+function of the Functions category has an example (`example` of `dist/functions.json`,
+the first of `@strudel/reference`). A function row gets a second button "Insert an
+example" right beside "Insert at the cursor", and the context menu and the details pane
+get the same entry. It types the example as it is, through the `insertText` message that
+exists, so it lands at the cursor of either editor. "Insert at the cursor" keeps typing
+the name.
+
 ### Index and tags
 
 Every item of the browser has an id and a record in an index. The index is JSON.

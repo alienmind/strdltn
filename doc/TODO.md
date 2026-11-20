@@ -32,6 +32,7 @@ Next in line:
 | 3 | The hand test below | Waiting for the maintainer |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
+| 6 | Functions in the Browser: an "Insert an example" button beside "Insert at the cursor" | Noted, not built. See "Insert an example" in `doc/DAW-PLAN.md` |
 
 ## Next: test by hand
 

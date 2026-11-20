@@ -5,6 +5,7 @@ import {
 	type FunctionDoc,
 	functionItem,
 	readUserIndex,
+	soundCode,
 	snippetItem,
 	songItem,
 	soundItems,
@@ -23,7 +24,8 @@ const PREVIEW_KEY = 'strdltn.previewSounds';
 
 export interface BrowserActions {
 	preview(name: string, index: number): void;
-	insert(text: string): Promise<void>;
+	/** `bare` goes in instead when the cursor is inside a string. */
+	insert(text: string, bare?: string): Promise<void>;
 }
 
 /**
@@ -142,12 +144,6 @@ export class BrowserView implements vscode.WebviewViewProvider {
 		return this.items.find((item) => item.id === id);
 	}
 
-	/** `bd`, `bd:3`, or `vibefm1:obervave`: always the full name, which is valid anywhere. */
-	private soundText(item: CatalogItem, index?: number): string | undefined {
-		if (index === undefined) return item.insert;
-		return `${item.sound}:${item.variations?.[index] ?? index}`;
-	}
-
 	/** What a message of the webview asks. Public for the integration test, which cannot click in a webview. */
 	async handle(message: FromBrowser): Promise<void> {
 		switch (message.type) {
@@ -164,15 +160,19 @@ export class BrowserView implements vscode.WebviewViewProvider {
 				const item = this.item(message.id);
 				if (!item) return;
 				if (item.kind === 'song') return this.open(item);
-				const text = item.kind === 'sound' ? this.soundText(item, message.index) : item.insert;
-				if (text) return this.actions.insert(text);
+				if (item.kind === 'sound') {
+					const sound = soundCode(item, message.index);
+					if (sound) return this.actions.insert(sound.code, sound.name);
+					return;
+				}
+				if (item.insert) return this.actions.insert(item.insert);
 				return;
 			}
 			case 'insertText':
 				return this.actions.insert(message.text);
 			case 'copy': {
 				const item = this.item(message.id);
-				const text = item && (item.kind === 'sound' ? this.soundText(item, message.index) : item.kind === 'song' ? item.path : item.insert);
+				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'song' ? item.path : item.insert);
 				if (text) await vscode.env.clipboard.writeText(text);
 				return;
 			}

@@ -65,7 +65,8 @@ export type ToWebview =
 	| { type: 'play' }
 	| { type: 'stop' }
 	| { type: 'preview'; name: string; index: number }
-	| { type: 'insert'; text: string }
+	/** `bare` replaces `text` when the cursor is inside a string: the name alone, not a call. */
+	| { type: 'insert'; text: string; bare?: string }
 	/** Moves a slider of the stage, by its position in the list. The same as dragging it. */
 	| { type: 'slider'; index: number; value: number }
 	/** The answer to `cacheFiles`. `base` is the address of the cached folder when every file is in it. */

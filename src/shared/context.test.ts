@@ -2,7 +2,7 @@
 // When a label in the stage is wrong, add the code that produced it here first.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { sliderLabel, visualLabel } from './context.ts';
+import { insideString, sliderLabel, visualLabel } from './context.ts';
 
 // `<>` marks the position in the examples. It is not valid in the places we put it, so it cannot be confused with code.
 /** The label of the visual whose call ends at the mark. */
@@ -81,4 +81,15 @@ test('slider: a property', () => {
 
 test('slider: a comment at the end of the line', () => {
 	assert.deepEqual(slider('x = [slider(<>.5)] // master volume'), { text: 'master volume', rule: 'comment' });
+});
+
+test('insert: inside a string or not', () => {
+	const at = (code: string) => insideString(code.replace('<>', ''), code.indexOf('<>'));
+	assert.equal(at('s("bd hh <>")'), true);
+	assert.equal(at('s("bd")<>'), false);
+	assert.equal(at('note("c3").s(<>)'), false);
+	assert.equal(at('s("bd \\" <>")'), true);
+	assert.equal(at('s("a").bank("<>")'), true);
+	assert.equal(at('// s("bd <>'), false);
+	assert.equal(at('s("a")\n.lpf(<>)'), false);
 });

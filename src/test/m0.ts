@@ -209,6 +209,8 @@ export async function run(): Promise<void> {
 			await api.browserMessage({ type: 'insert', id: `sound:${picks.soundfont.name}` });
 			await sleep(1000);
 			steps.browserInsertSoundAtCursor = (await text(demo)).includes(picks.soundfont.name);
+			// A soundfont needs a note: insert types the code that plays it.
+			steps.browserInsertSoundAsCode = (await text(demo)).includes(`note("c3").s("${picks.soundfont.name}")`);
 			await restore(demo, demoText);
 			await api.browserMessage({ type: 'insertText', text: '.bank("RolandTR909")' });
 			await sleep(1000);

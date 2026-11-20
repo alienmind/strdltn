@@ -123,8 +123,8 @@ export class Session {
 	}
 
 	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */
-	insert(text: string): void {
-		this.post({ type: 'insert', text });
+	insert(text: string, bare?: string): void {
+		this.post({ type: 'insert', text, bare });
 	}
 
 	private packsTimer: ReturnType<typeof setTimeout> | undefined;

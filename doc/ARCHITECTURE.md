@@ -255,6 +255,15 @@ works out the audio time of a cycle with the formula of upstream's Cyclist
 test: "preview: bd:0 on beat 2" while the stage played. Whether it is heard on the beat
 is for the hand test.
 
+**Insert as code.** A sound is inserted as the code that plays it (`soundCode` in
+`src/shared/catalog.ts`): `s("bd")`, `s("bd:3")`, `s("bd").bank("rolandtr909")` for a
+drum machine sound, `note("c3").s("sawtooth")` for a synth, a soundfont or a wavetable,
+which make no sound without a note, and `note("c3").s("vibefm1:obervave")` for a firmware.
+When the cursor is inside a string of its line (`insideString` in
+`src/shared/context.ts`), only the name goes in: `s("bd hh <>")` gets `sd`, not a call.
+The host decides that for the native editor, the webview for the Strudel editor, from
+the same function. Copy gives the name.
+
 **Inserting** goes to the Strudel editor when it is the active tab, and to the native
 editor when that shows a Strudel file. `window.activeTextEditor` is undefined while the
 Strudel editor is active, because it is a webview. Nothing is inserted into a file of

@@ -57,6 +57,10 @@ export interface CatalogItem {
 	/** The sound name to preview, and which variation: a firmware of `vibefm1` is picked by its position. */
 	sound?: string;
 	index?: number;
+	/** superdough's type of the sound: a pitched one needs a note to be heard. */
+	soundType?: string;
+	/** The bank of a drum machine sound, for `.bank("...")`. */
+	bank?: string;
 	/** For the details pane. */
 	description?: string;
 	code?: string;
@@ -145,6 +149,7 @@ export function soundItems(sounds: SoundInfo[]): CatalogItem[] {
 					insert: `${sound.name}:${id}`,
 					sound: sound.name,
 					index,
+					soundType: sound.type,
 				});
 			}
 			continue;
@@ -178,6 +183,8 @@ export function soundItems(sounds: SoundInfo[]): CatalogItem[] {
 			count: sound.count > 1 ? sound.count : undefined,
 			variations: sound.variations,
 			sound: sound.name,
+			soundType: sound.type,
+			bank: inBank ? split.bank : undefined,
 		});
 	}
 	return items;
@@ -260,4 +267,28 @@ export function tagsOf(item: CatalogItem, user: UserIndex): string[] {
 
 export function colorsOf(item: CatalogItem, user: UserIndex): number[] {
 	return user.items[item.id]?.colors ?? [];
+}
+
+/** Sounds that need a note to make a sound: synths, soundfonts, wavetables, firmwares. */
+const PITCHED = new Set(['synth', 'soundfont', 'wavetable', 'firmware']);
+
+/**
+ * What insert at the cursor types for a sound: the code that plays it, so a click on
+ * insert gives a line that works. `name` is the bare name, which copy gives and which goes
+ * in when the cursor is already inside a string.
+ *   sample            s("bd"), s("bd:3")
+ *   drum machine      s("bd").bank("RolandTR909")
+ *   synth, soundfont  note("c3").s("sawtooth")
+ *   firmware          note("c3").s("vibefm1:obervave")
+ */
+export function soundCode(item: CatalogItem, index?: number): { code: string; name: string } | undefined {
+	if (item.kind !== 'sound' || !item.sound) return undefined;
+	const variation = index === undefined ? undefined : (item.variations?.[index] ?? String(index));
+	const name = item.index !== undefined ? (item.insert ?? item.sound) : variation === undefined ? item.sound : `${item.sound}:${variation}`;
+	if (item.bank) {
+		const short = variation === undefined ? item.label : `${item.label}:${variation}`;
+		return { code: `s("${short}").bank("${item.bank}")`, name };
+	}
+	if (PITCHED.has(item.soundType ?? '')) return { code: `note("c3").s("${name}")`, name };
+	return { code: `s("${name}")`, name };
 }

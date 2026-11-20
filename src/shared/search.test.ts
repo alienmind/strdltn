@@ -1,7 +1,7 @@
 // Cases for the search and the chips of the Browser, in search.ts. Run with `pnpm test:unit`.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { emptyUserIndex, readUserIndex, snippetItem, songItem, soundItems, writeUserIndex } from './catalog.ts';
+import { emptyUserIndex, readUserIndex, snippetItem, songItem, soundCode, soundItems, writeUserIndex } from './catalog.ts';
 import { chipGroups, filterItems, groupItems, parseQuery } from './search.ts';
 
 const items = [
@@ -73,4 +73,14 @@ test('results under their headings: the bank, with its .bank() button', () => {
 		['linndrum', '.bank("linndrum")', ['bd']],
 		['rolandtr909', '.bank("rolandtr909")', ['bd', 'sd']],
 	]);
+});
+
+test('insert as code: s() with .bank(), a note for pitched sounds', () => {
+	const code = (id: string, index?: number) => soundCode(items.find((item) => item.id === id)!, index);
+	assert.deepEqual(code('sound:rolandtr909_bd'), { code: 's("bd").bank("rolandtr909")', name: 'rolandtr909_bd' });
+	assert.deepEqual(code('sound:rolandtr909_bd', 2), { code: 's("bd:2").bank("rolandtr909")', name: 'rolandtr909_bd:2' });
+	assert.deepEqual(code('sound:kick'), { code: 's("kick")', name: 'kick' });
+	assert.deepEqual(code('sound:sawtooth'), { code: 'note("c3").s("sawtooth")', name: 'sawtooth' });
+	assert.deepEqual(code('sound:gm_acoustic_bass', 1), { code: 'note("c3").s("gm_acoustic_bass:1")', name: 'gm_acoustic_bass:1' });
+	assert.deepEqual(code('sound:vibefm1:sloop'), { code: 'note("c3").s("vibefm1:sloop")', name: 'vibefm1:sloop' });
 });

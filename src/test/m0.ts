@@ -1,10 +1,11 @@
 // Integration test that runs inside a real VS Code (see scripts/test-vscode.mjs).
 // It drives the extension through its commands and reads what the webviews logged.
 // It records facts rather than asserting them: the result file is the M0 report.
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as vscode from 'vscode';
 import type { StrdltnApi } from '../extension/extension';
+import { diffText } from '../shared/protocol';
 
 const EDITOR = 'strdltn.editor';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -54,6 +55,164 @@ export async function run(): Promise<void> {
 			await vscode.workspace.applyEdit(edit);
 			await sleep(300);
 		};
+		/**
+		 * Real clicks and keys, sent by the runner through the DevTools protocol (see
+		 * "real input" in scripts/test-vscode.mjs). Resolves to what the editor holds after.
+		 */
+		let inputCount = 0;
+		const input = async (match: string, actions: unknown[]): Promise<{ log?: { click: number; head?: number; focused?: boolean; error?: string }[]; text?: string; head?: number; error?: string }> => {
+			if (!shots) return { error: 'no runner' };
+			const name = `input-${++inputCount}`;
+			writeFileSync(join(shots, `${name}.input`), JSON.stringify({ match, actions }));
+			const done = join(shots, `${name}.done`);
+			if (!(await until(() => existsSync(done), 60000))) return { error: 'the runner did not answer' };
+			await sleep(100);
+			return JSON.parse(readFileSync(done, 'utf8'));
+		};
+
+		/**
+		 * One case: real input, then the facts. `expect` gets the text before and gives the
+		 * text that should result. `during` runs on the host while the keys are typed.
+		 */
+		/** Text with every line ending as `\n`, as the Strudel editor holds it. Offsets of a click are in it. */
+		const lf = (value: string) => value.replace(/\r\n/g, '\n');
+		const textLf = async (uri: vscode.Uri) => lf(await text(uri));
+		const typingCase = async (uri: vscode.Uri, actions: unknown[], expect: (before: string) => string, during?: () => Promise<void>) => {
+			const before = await textLf(uri);
+			const eol = (await text(uri)).includes('\r\n');
+			const running = input('written by the integration test', actions);
+			if (during) {
+				// Starts once the first typed key has reached the document.
+				await until(() => vscode.workspace.textDocuments.some((d) => d.uri.toString() === uri.toString() && lf(d.getText()) !== before), 20000);
+				await during();
+			}
+			const done = await running;
+			// The last edit travels from the editor to the host after the runner has read it.
+			await sleep(800);
+			const after = await textLf(uri);
+			// The editor read again now, when everything in flight has arrived.
+			const editor = (await input('written by the integration test', [])).text;
+			const wanted = expect(before);
+			const clicks = (done.log ?? []).map((c) => ({ ...c, landed: c.head === c.click }));
+			const difference = (a: string, b: string) => {
+				const change = diffText(a, b);
+				return change && { at: change.from, expected: a.slice(change.from, change.to).slice(0, 60), got: change.insert.slice(0, 60) };
+			};
+			return {
+				clicks,
+				documentAsExpected: after === wanted,
+				editorSameAsDocument: editor === after,
+				lineEndingsKept: (await text(uri)).includes('\r\n') === eol,
+				...(after !== wanted ? { documentDiff: difference(wanted, after) } : {}),
+				...(editor !== undefined && editor !== after ? { editorDiff: difference(after, editor) } : {}),
+				...(done.error ? { error: done.error } : {}),
+			};
+		};
+
+		/** The cases on a song with `eol` as its line ending. A file checked out on Windows can have `\r\n`. */
+		async function typingCases(eol: '\n' | '\r\n'): Promise<Record<string, unknown>> {
+			const song = [
+				'// typing test, written by the integration test and deleted after it',
+				'const VOL = slider(0.5, 0, 1)',
+				'$drums: s("bd sd [~ bd] sd").gain(VOL)',
+				'  .room(.2)._scope()',
+				'$hats: s("hh*8").gain(.4)',
+				'',
+			].join('\n');
+			const uri = vscode.Uri.joinPath(folder, eol === '\n' ? 'zz-typing-test.strudel' : 'zz-typing-test-crlf.strudel');
+			await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(song.replace(/\n/g, eol)));
+			const cases: Record<string, unknown> = {};
+			try {
+				await vscode.commands.executeCommand('vscode.openWith', uri, EDITOR);
+				await until(() => has('editor', uri, 'local samples'), 30000);
+				await vscode.commands.executeCommand('strdltn.play');
+				await until(() => has('editor', uri, 'report:'), 30000);
+				await sleep(1000);
+				const at = (needle: string, after = 0) => song.indexOf(needle) + after;
+				const insertAt = (offset: number, what: string) => (before: string) => before.slice(0, offset) + what + before.slice(offset);
+
+				// Into a string, while the mini-notation there is highlighted on every beat.
+				const sd = at('sd [');
+				cases.clickIntoString = await typingCase(uri, [{ click: sd }, { type: 'hh ' }], insertAt(sd, 'hh '));
+				// At the end of a line, right after an inline scope (a widget the editor draws there).
+				const scopeEnd = (await textLf(uri)).indexOf('._scope()') + '._scope()'.length;
+				cases.afterInlineScope = await typingCase(uri, [{ click: scopeEnd }, { type: '.lpf(800)' }], insertAt(scopeEnd, '.lpf(800)'));
+				// Fast, as a person types: no pause between keys.
+				const end = (await textLf(uri)).length;
+				const fast = '$extra: s("cp*2").gain(.3) // fast typing check 0123456789';
+				cases.fastTyping = await typingCase(uri, [{ click: end }, { type: fast }], insertAt(end, fast));
+				// Typing while the host changes the file somewhere else: an agent, a save that
+				// trims spaces, an insert from the Browser into the native editor.
+				const firstLineEnd = (await textLf(uri)).indexOf('\n');
+				const typed = ' and more words typed slowly here';
+				const fromHost = '// a line from the host\n';
+				cases.typingWhileTheHostEdits = await typingCase(
+					uri,
+					[{ click: firstLineEnd }, { type: typed, delay: 30 }],
+					(before) => fromHost + insertAt(firstLineEnd, typed)(before),
+					async () => {
+						const edit = new vscode.WorkspaceEdit();
+						edit.insert(uri, new vscode.Position(0, 0), fromHost);
+						await vscode.workspace.applyEdit(edit);
+					},
+				);
+				// Typing while a fader of the Mixer writes its number.
+				const hats = (await textLf(uri)).indexOf('$hats');
+				cases.typingWhileAFaderMoves = await typingCase(
+					uri,
+					[{ click: hats }, { type: '// ', delay: 60 }],
+					(before) => insertAt(hats, '// ')(before).replace('slider(0.5,', 'slider(0.75,'),
+					async () => api.mixerSlider(0, '0.75'),
+				);
+				// Harder: ten host edits 20 ms apart while keys come with no pause.
+				const lastLine = (await textLf(uri)).lastIndexOf('\n');
+				const burst = 'abcdefghijklmnopqrstuvwxyz0123456789';
+				// VS Code refuses an edit made for a version of the document that has moved on
+				// (`applyEdit` gives false), so only the edits it took are expected.
+				let hostEditsTaken = 0;
+				cases.typingWhileTheHostEditsOften = await typingCase(
+					uri,
+					[{ click: lastLine }, { type: burst }],
+					(before) => '// host\n'.repeat(hostEditsTaken) + insertAt(lastLine, burst)(before),
+					async () => {
+						for (let i = 0; i < 10; i++) {
+							const edit = new vscode.WorkspaceEdit();
+							edit.insert(uri, new vscode.Position(0, 0), '// host\n');
+							if (await vscode.workspace.applyEdit(edit)) hostEditsTaken++;
+							await sleep(20);
+						}
+					},
+				);
+				(cases.typingWhileTheHostEditsOften as Record<string, unknown>).hostEditsTaken = hostEditsTaken;
+				// Undo takes back what was typed.
+				const vol = (await textLf(uri)).indexOf('VOL =');
+				cases.undo = await typingCase(uri, [{ click: vol }, { type: 'zz' }, { wait: 300 }, { key: 'z', ctrl: true }], (before) => before);
+				// Clicks in demo.strudel while it plays with its full page visuals (Hydra, scopes,
+				// the piano roll), the closest to how the maintainer works. Nothing is typed: only
+				// where the cursor goes.
+				if (eol !== '\n') return cases;
+				const demoNow = await text(demo);
+				await vscode.commands.executeCommand('vscode.openWith', demo, EDITOR);
+				await vscode.commands.executeCommand('strdltn.play');
+				await sleep(3000);
+				const spots = ['$kick:', 'bank("tr909")', '.gain(BASS_VOL)', 'lpenv(SUB_ENERGY)', '$riser:', '.kaleid('].map((needle) => demoNow.indexOf(needle) + 2);
+				const clicks = await input('@title Sea of Souls', spots.map((click) => ({ click })));
+				cases.clicksInPlayingDemo = {
+					landed: (clicks.log ?? []).map((c) => `${c.click}->${c.head}${c.head === c.click ? '' : ' MISSED'}${c.focused ? '' : ' unfocused'} ${JSON.stringify(c).slice(0, 300)}`),
+					untouched: (await text(demo)) === demoNow,
+					error: clicks.error,
+				};
+			} finally {
+				await vscode.commands.executeCommand('strdltn.stop');
+				// Saved first: closing a changed file asks "Save?" in a dialog nobody answers.
+				await (await vscode.workspace.openTextDocument(uri)).save();
+				const open = vscode.window.tabGroups.all.flatMap((group) => group.tabs).filter((tab) => (tab.input as { uri?: vscode.Uri })?.uri?.toString() === uri.toString());
+				await vscode.window.tabGroups.close(open, true);
+				await vscode.workspace.fs.delete(uri);
+			}
+			return cases;
+		}
+
 		const tabs = (uri: vscode.Uri) =>
 			vscode.window.tabGroups.all.flatMap((group) =>
 				group.tabs
@@ -132,6 +291,14 @@ export async function run(): Promise<void> {
 		steps.mixerBass = await api.mixerShow(['bass']);
 		await sleep(800);
 		await shot('mixer-bass');
+		save();
+
+		// 2a4. Clicking and typing in the Strudel editor with real input, while a song plays.
+		// Each case says where the click put the cursor, whether the document is the text
+		// we expected, and whether the editor holds the same text as the document. The
+		// maintainer saw text corrupted and clicks that did not move the cursor.
+		steps.typing = await typingCases('\n');
+		steps.typingCrlf = await typingCases('\r\n');
 		save();
 
 		// 2b. The Browser: the engine's own list, preview and insert.
@@ -357,9 +524,9 @@ export async function run(): Promise<void> {
 			// The song plays, so the preview waits for the next beat and says which.
 			steps.previewOnBeat = last('stage', demo, 'preview: bd:0');
 		}
-		// Move the first slider of the stage. The number in the code has to follow.
+		// Move the first fader of the Mixer while the stage plays. The number in the code has to follow.
 		const beforeSlider = await text(demo);
-		api.setStageSlider(0, 0.123);
+		api.mixerSlider(0, '0.123');
 		steps.sliderWroteCode = await until(() => vscode.workspace.textDocuments.some((d) => d.uri.toString() === demo.toString() && d.getText().includes('slider(0.123,')), 5000);
 		const afterSlider = await text(demo);
 		steps.sliderChangedOnlyTheNumber = afterSlider.length - beforeSlider.length === '0.123'.length - (/slider\(([\d.]+),/.exec(beforeSlider)?.[1].length ?? 0);

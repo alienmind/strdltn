@@ -113,12 +113,163 @@ async function takeRequestedShots(targets) {
 	}
 }
 
+/** A DevTools connection kept open for a run of calls, so typing does not open a socket per key. */
+async function cdpSession(webSocketUrl) {
+	const socket = new WebSocket(webSocketUrl);
+	await new Promise((resolve, reject) => {
+		socket.onopen = resolve;
+		socket.onerror = reject;
+	});
+	let next = 1;
+	const waiting = new Map();
+	socket.onmessage = (event) => {
+		const reply = JSON.parse(event.data);
+		waiting.get(reply.id)?.(reply.result);
+		waiting.delete(reply.id);
+	};
+	return {
+		send: (method, params) =>
+			new Promise((resolve) => {
+				const id = next++;
+				waiting.set(id, resolve);
+				socket.send(JSON.stringify({ id, method, params }));
+				setTimeout(() => waiting.has(id) && (waiting.delete(id), resolve(undefined)), 5000);
+			}),
+		close: () => socket.close(),
+	};
+}
+
+// ---- real input for the test ----------------------------------------------------------
+//
+// The test drops `<name>.input` (a list of actions, JSON) next to the screenshot requests.
+// The actions are sent to the VS Code window as real mouse and key events through the
+// DevTools protocol (`Input.dispatchMouseEvent`, `Input.dispatchKeyEvent`): the browser
+// treats them as a person's input, routes them to the frame under the pointer or with the
+// focus, and the editor in the webview gets them the way it gets a click and a key. The
+// result goes to `<name>.done`.
+//
+// Actions: { click: offset } puts the pointer on that character of the Strudel editor in
+// front and clicks; { type: "text" } presses a key per character; { key: "Enter" } and
+// { key: "z", ctrl: true }; { wait: ms }.
+
+const KEYS = {
+	Enter: { code: 'Enter', keyCode: 13, text: '\r' },
+	Backspace: { code: 'Backspace', keyCode: 8 },
+	ArrowLeft: { code: 'ArrowLeft', keyCode: 37 },
+	ArrowRight: { code: 'ArrowRight', keyCode: 39 },
+	ArrowUp: { code: 'ArrowUp', keyCode: 38 },
+	ArrowDown: { code: 'ArrowDown', keyCode: 40 },
+	Home: { code: 'Home', keyCode: 36 },
+	End: { code: 'End', keyCode: 35 },
+};
+
+/**
+ * The test hook of our page. The DevTools target of a webview is VS Code's outer page; ours
+ * is the frame inside it (same origin, so not a target of its own).
+ */
+const HOOK = `(() => { for (const w of [window, ...[...document.querySelectorAll('iframe')].map((f) => { try { return f.contentWindow } catch { return null } })]) if (w && w.__strdltnTest) return w.__strdltnTest; })()`;
+/** Where that frame sits in the outer page. */
+const HOOK_FRAME = `(() => { const f = [...document.querySelectorAll('iframe')].find((f) => { try { return f.contentWindow.__strdltnTest } catch { return false } }); const r = f ? f.getBoundingClientRect() : { left: 0, top: 0 }; return { left: r.left, top: r.top } })()`;
+
+const evaluate = async (session, expression) => (await session.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }))?.result?.value;
+
+/** The webview of the Strudel editor that is shown, and where its frame sits in the window. */
+async function strudelEditorFrame(targets, workbench, match) {
+	for (const target of targets) {
+		if (!target.url.startsWith('vscode-webview://') || !target.webSocketDebuggerUrl) continue;
+		const session = await cdpSession(target.webSocketDebuggerUrl).catch(() => undefined);
+		if (!session) continue;
+		const facts = await evaluate(
+			session,
+			`(() => { const t = ${HOOK}; return t && t.mode() === 'editor' && t.text().includes(${JSON.stringify(match)}) ? { width: innerWidth, height: innerHeight, inner: ${HOOK_FRAME} } : null })()`,
+		);
+		if (!facts) {
+			session.close();
+			continue;
+		}
+		// The frame in the window with the same size as this page. A webview is an iframe
+		// over the editor area, and the page inside fills it.
+		const box = await evaluate(
+			workbench,
+			`(() => { const f = [...document.querySelectorAll('iframe')].map((i) => i.getBoundingClientRect()).find((r) => Math.abs(r.width - ${facts.width}) < 2 && Math.abs(r.height - ${facts.height}) < 2); return f && { left: f.left, top: f.top } })()`,
+		);
+		if (box) return { session, box: { left: box.left + facts.inner.left, top: box.top + facts.inner.top } };
+		session.close();
+	}
+	return undefined;
+}
+
+async function runInputs(targets) {
+	const requests = readdirSync(shots).filter((file) => file.endsWith('.input'));
+	if (!requests.length) return;
+	const page = targets.find((target) => target.type === 'page' && target.url.startsWith('vscode-file://'));
+	if (!page?.webSocketDebuggerUrl) return;
+	const workbench = await cdpSession(page.webSocketDebuggerUrl);
+	for (const request of requests) {
+		const file = join(shots, request);
+		// `match`: text the editor holds. Every open Strudel editor is a webview, and one kept in
+		// the background still says it is visible, so the text tells them apart.
+		const { match, actions } = JSON.parse(readFileSync(file, 'utf8'));
+		rmSync(file, { force: true });
+		const log = [];
+		const frame = await strudelEditorFrame(targets, workbench, match);
+		if (!frame) {
+			writeFileSync(file.replace(/\.input$/, '.done'), JSON.stringify({ error: 'no Strudel editor in front' }));
+			continue;
+		}
+		const key = async (name, ctrl = false) => {
+			const known = KEYS[name] ?? { code: `Key${name.toUpperCase()}`, keyCode: name.toUpperCase().charCodeAt(0) };
+			const base = { key: name, code: known.code, windowsVirtualKeyCode: known.keyCode, modifiers: ctrl ? 2 : 0 };
+			await workbench.send('Input.dispatchKeyEvent', { type: known.text && !ctrl ? 'keyDown' : 'rawKeyDown', ...base, ...(known.text && !ctrl ? { text: known.text } : {}) });
+			await workbench.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
+		};
+		for (const action of actions) {
+			if ('click' in action) {
+				await evaluate(frame.session, `${HOOK}.reveal(${action.click})`);
+				await new Promise((done) => setTimeout(done, 150));
+				const at = await evaluate(frame.session, `${HOOK}.coords(${action.click})`);
+				if (!at) {
+					log.push({ click: action.click, error: 'not on screen' });
+					continue;
+				}
+				const before = await evaluate(frame.session, `${HOOK}.posAt(${at.x}, ${at.y})`);
+				await evaluate(frame.session, `${HOOK}.measure()`);
+				const measured = await evaluate(frame.session, `(() => { const t = ${HOOK}; const c = t.coords(${action.click}); return { coords: c, pos: c && t.posAt(c.x, c.y).pos, geometry: t.geometry(${action.click}) } })()`);
+				const x = frame.box.left + at.x;
+				const y = frame.box.top + at.y;
+				await workbench.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+				await workbench.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+				await workbench.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+				await new Promise((done) => setTimeout(done, 100));
+				log.push({ click: action.click, measured, geometry: await evaluate(frame.session, `${HOOK}.geometry(${action.click})`), at, before, after: await evaluate(frame.session, `${HOOK}.coords(${action.click})`), head: await evaluate(frame.session, `${HOOK}.head()`), focused: await evaluate(frame.session, `${HOOK}.focused()`) });
+			} else if ('type' in action) {
+				for (const char of action.type) {
+					await workbench.send('Input.dispatchKeyEvent', { type: 'keyDown', key: char, text: char, unmodifiedText: char });
+					await workbench.send('Input.dispatchKeyEvent', { type: 'keyUp', key: char });
+					if (action.delay) await new Promise((done) => setTimeout(done, action.delay));
+				}
+			} else if ('key' in action) {
+				await key(action.key, action.ctrl);
+			} else if ('wait' in action) {
+				await new Promise((done) => setTimeout(done, action.wait));
+			}
+		}
+		await new Promise((done) => setTimeout(done, 300));
+		const text = await evaluate(frame.session, `${HOOK}.text()`);
+		const head = await evaluate(frame.session, `${HOOK}.head()`);
+		frame.session.close();
+		writeFileSync(file.replace(/\.input$/, '.done'), JSON.stringify({ log, text, head }));
+	}
+	workbench.close();
+}
+
 let running = true;
 (async () => {
 	while (running) {
 		try {
 			const targets = await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`)).json();
 			await takeRequestedShots(targets);
+			await runInputs(targets);
 			for (const target of targets) {
 				if (!target.url.startsWith('vscode-webview://') || !target.webSocketDebuggerUrl) continue;
 				// Look first without a gesture. An evaluation with userGesture gives the

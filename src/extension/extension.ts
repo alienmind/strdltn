@@ -7,6 +7,7 @@ import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
 import { FirmwareCache } from './firmware';
 import { MixerView } from './mixer';
+import { lf, lineColumn } from '../shared/sync';
 import { formatBytes, PackCache, type CacheUsage } from './packs';
 import { ShrubPanel } from './shrub';
 import { Session, type SessionHost } from './session';
@@ -46,8 +47,8 @@ export interface StrdltnApi {
 	mixer(): ReturnType<MixerView['current']>;
 	/** Unfolds the named strips of the Mixer, folds the others, and returns what it reports. */
 	mixerShow(unfold: string[]): ReturnType<MixerView['show']>;
-	/** Moves a slider of the stage of the active text editor. For the test. */
-	setStageSlider(index: number, value: number): void;
+	/** Moves a fader of the Mixer, as a drag would. For the test. */
+	mixerSlider(index: number, value: string): void;
 	/** The remote sample packs seen so far and whether they are in the cache. */
 	packs(): { source: string; files: number; complete: boolean; note?: string }[];
 	previewSounds(): boolean;
@@ -71,6 +72,11 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	});
 	const mixer = new MixerView(context, output, {
 		reveal: (document, offset) => void revealOffset(document, offset),
+		moveSlider: (document, index, from, value) => {
+			const session = [...sessions].find((s) => s.document === document && s.ready);
+			session?.moveSlider(index, from, value);
+			return !!session;
+		},
 	});
 	const diagnostics = vscode.languages.createDiagnosticCollection('strdltn');
 	// Right side, beside the language of the file: it is about the file in front.
@@ -347,7 +353,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			return strudel.select(offset);
 		}
 		const shown = vscode.window.visibleTextEditors.find((e) => e.document === document);
-		const position = document.positionAt(offset);
+		const at = lineColumn(lf(document.getText()), offset);
+		const position = new vscode.Position(at.line, at.character);
 		await vscode.window.showTextDocument(document, { viewColumn: shown?.viewColumn, selection: new vscode.Range(position, position) });
 	}
 
@@ -528,7 +535,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			await vscode.commands.executeCommand('strdltn.mixer.focus');
 			return mixer.show(unfold);
 		},
-		setStageSlider: (index, value) => lastSession('stage')?.setSlider(index, value),
+		mixerSlider: (index, value) => mixer.moveSlider(index, value),
 		packs: () => packs.list(),
 		previewSounds: () => context.globalState.get('strdltn.previewSounds', true),
 	};

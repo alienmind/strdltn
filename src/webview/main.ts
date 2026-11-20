@@ -1,7 +1,7 @@
 // The webview: upstream StrudelMirror (editor, engine and visuals in one page) bound to
 // a VS Code text document. We host upstream and add nothing to it, so that a new visual
 // or widget in a later @strudel release arrives with a version bump.
-import { Prec, StateEffect, type EditorSelection } from '@codemirror/state';
+import { Annotation, Prec, StateEffect, Transaction, type EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import * as strudelCodemirror from '@strudel/codemirror';
 import * as strudelCore from '@strudel/core';
@@ -12,11 +12,12 @@ import * as strudelSoundfonts from '@strudel/soundfonts';
 import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
-import { insideString, sliderLabel, visualLabel } from '../shared/context';
+import { insideString, visualLabel } from '../shared/context';
 import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
-import { diffText, type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { SyncClient, type SyncUpdate } from '../shared/sync';
+import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { addFirmware, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -33,8 +34,14 @@ let mirror: any;
 /** Upstream's own `mirror.evaluate`, before init() routes the method through play(). */
 let evaluateUpstream: () => Promise<void> = async () => undefined;
 let mode: Mode = 'editor';
-/** True while a change from the extension host is being applied, so it is not sent back. */
-let applyingRemote = false;
+/** The text sync with the host, see src/shared/sync.ts. Set by init. */
+let sync: SyncClient;
+/** Marks a change that came from the host, so it is not sent back as ours. */
+const fromHost = Annotation.define<boolean>();
+/** A push waits for the host's answer before the next one. */
+let pushing = false;
+let pushTimer: ReturnType<typeof setTimeout> | undefined;
+const syncId = Math.random().toString(36).slice(2);
 /** What to do once the user has clicked the "enable audio" overlay. */
 let afterUnlock: (() => unknown) | undefined;
 
@@ -50,6 +57,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 	const message = event.data;
 	switch (message.type) {
 		case 'init':
+			sync = new SyncClient(message.version, syncId);
 			init(message.text, message.mode, message.samples, message.firmware, message.settings);
 			break;
 		case 'settings':
@@ -58,8 +66,13 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 		case 'cachedFiles':
 			fileQuestions.get(message.id)?.(message.base);
 			break;
-		case 'update':
-			applyRemoteText(message.text);
+		case 'changes':
+			receiveChanges(message.updates);
+			break;
+		case 'reset':
+			sync = new SyncClient(message.version, syncId);
+			pushing = false;
+			applyFromHost({ from: 0, to: mirror.editor.state.doc.length, insert: message.text });
 			break;
 		case 'firmware':
 			registerFirmware(message.firmware);
@@ -91,8 +104,8 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 				mirror.editor.focus();
 			}
 			break;
-		case 'slider':
-			if (stageSliders[message.index]) moveSlider(stageSliders[message.index], String(message.value));
+		case 'sliderValue':
+			moveSlider(message.index, message.from, message.value);
 			break;
 	}
 });
@@ -180,6 +193,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			if (mode === 'stage') prepareDock(mirror.code);
 		},
 		afterEval: ({ meta }: { meta: { widgets?: unknown[] } }) => {
+			rememberSliders(meta?.widgets ?? []);
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
 			post({ type: 'evaluated' });
 		},
@@ -201,12 +215,42 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		effects: StateEffect.appendConfig.of(
 			EditorView.updateListener.of((update) => {
 				if (!update.docChanged) return;
-				mapStageSliders(update.changes);
-				if (!applyingRemote) post({ type: 'edit', text: update.state.doc.toString() });
+				mapSliders(update.changes);
+				for (const transaction of update.transactions) {
+					if (transaction.docChanged && !transaction.annotation(fromHost)) sync.local(transaction.changes);
+				}
+				pushChanges();
 			}),
 		),
 	});
 	mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(slashComment()) });
+
+	// For the integration test, which clicks and types with real input through the DevTools
+	// protocol: where a character is on screen, and what the editor holds. Read only.
+	(window as unknown as { __strdltnTest: unknown }).__strdltnTest = {
+		mode: () => mode,
+		reveal: (position: number) => mirror.editor.dispatch({ effects: EditorView.scrollIntoView(position, { y: 'center' }) }),
+		coords: (position: number) => {
+			const box = mirror.editor.coordsAtPos(position);
+			return box && { x: box.left + 1, y: (box.top + box.bottom) / 2 };
+		},
+		/** Where CodeMirror itself places a point, and what element is under it. */
+		posAt: (x: number, y: number) => ({ pos: mirror.editor.posAtCoords({ x, y }), under: (document.elementFromPoint(x, y) as HTMLElement | null)?.className || document.elementFromPoint(x, y)?.tagName }),
+		/** CodeMirror's stored top of the line of a position, against the line on screen. */
+		geometry: (position: number) => {
+			const view = mirror.editor;
+			const block = view.lineBlockAt(position);
+			const node = view.domAtPos(position).node;
+			const line = (node.nodeType === 1 ? (node as HTMLElement) : node.parentElement)?.closest('.cm-line');
+			const canvases = [...view.contentDOM.querySelectorAll('canvas')].map((c) => `${c.id}:${Math.round(c.getBoundingClientRect().height)}@${c.parentElement?.className}`);
+			return { stored: Math.round(block.top), real: line ? Math.round(line.getBoundingClientRect().top - view.documentTop) : null, canvases };
+		},
+		/** Asks CodeMirror to measure, and resolves two frames later when it has. */
+		measure: () => new Promise((done) => { mirror.editor.requestMeasure(); requestAnimationFrame(() => requestAnimationFrame(done)); }),
+		text: () => mirror.editor.state.doc.toString(),
+		head: () => mirror.editor.state.selection.main.head,
+		focused: () => mirror.editor.hasFocus,
+	};
 
 	// Ctrl+Enter and Alt+Enter in the editor are upstream's keymap, which calls
 	// mirror.evaluate() directly. That path never resumed the AudioContext: upstream only
@@ -380,16 +424,33 @@ function publishSounds(): void {
 	post({ type: 'sounds', sounds });
 }
 
-function applyRemoteText(text: string): void {
+/** Sends this editor's unconfirmed changes to the host, one push at a time. */
+function pushChanges(): void {
+	if (pushing || !mirror) return;
+	const sendable = sync.sendable();
+	if (!sendable) return;
+	pushing = true;
+	post({ type: 'push', ...sendable });
+	// A lost answer must not stop the sync. A push sent twice is refused by its version.
+	clearTimeout(pushTimer);
+	pushTimer = setTimeout(() => {
+		pushing = false;
+		pushChanges();
+	}, 3000);
+}
+
+/** Changes the host accepted: ours are confirmed, the others applied here over what we still have unconfirmed. */
+function receiveChanges(updates: SyncUpdate[]): void {
 	if (!mirror) return;
-	const change = diffText(mirror.editor.state.doc.toString(), text);
-	if (!change) return;
-	applyingRemote = true;
-	try {
-		mirror.editor.dispatch({ changes: change });
-	} finally {
-		applyingRemote = false;
-	}
+	pushing = false;
+	const changes = sync.receive(updates);
+	if (changes) applyFromHost(changes);
+	pushChanges();
+}
+
+/** A change from the host. Not ours to undo, so not in this editor's history. */
+function applyFromHost(changes: unknown): void {
+	mirror.editor.dispatch({ changes, annotations: [fromHost.of(true), Transaction.addToHistory.of(false)] });
 }
 
 function insert(text: string, bare?: string): void {
@@ -531,22 +592,76 @@ function report(): void {
 
 // ---- the stage ------------------------------------------------------------------------
 //
-// In the stage the code is hidden, so everything the code would show inline is laid out
-// here instead, in two groups: the sliders, then the visuals. Each row has a label on
-// the left that says which part of the song it belongs to. The labels come from the
-// rules in src/shared/context.ts.
+// In the stage the code is hidden, so the visuals the code would show inline are laid
+// out here instead. Each row has a label on the left that says which part of the song it
+// belongs to. The labels come from the rules in src/shared/context.ts. The sliders are
+// not here: they are the faders of the Mixer.
 
-interface StageSlider {
+// ---- sliders moved from the Mixer -----------------------------------------------------
+
+interface LiveSlider {
 	/** The id upstream gives the slider: `slider_<position at evaluation>`. Its value lives under this id. */
 	id: string;
 	/** Where the number is in the document now. Kept up to date as the text changes. */
 	from: number;
-	to: number;
-	input: HTMLInputElement;
-	output: HTMLElement;
 	writeTimer?: ReturnType<typeof setTimeout>;
 }
-let stageSliders: StageSlider[] = [];
+/** The sliders of the last evaluation, in both modes. */
+let liveSliders: LiveSlider[] = [];
+
+function rememberSliders(widgets: any[]): void {
+	liveSliders.forEach((slider) => clearTimeout(slider.writeTimer));
+	liveSliders = widgets.filter((widget) => widget.type === 'slider').map((widget) => ({ id: `slider_${widget.from}`, from: widget.from }));
+}
+
+/**
+ * A fader of the Mixer moved. Two things follow, as when a slider in the code is dragged:
+ * the sound changes at once, and the number in the code becomes the new value.
+ *
+ * The sound: upstream keeps slider values by id and listens for this window message. A
+ * slider typed since the last evaluation has no id yet; then only the code changes.
+ *
+ * The code: this page writes it, not the host, because upstream's inline slider in the
+ * Strudel editor keeps the text of its number and replaces that many characters on its
+ * next drag. A number changed behind its back would be cut wrong. So the widget is told
+ * the new text in the same step. The write waits 150 ms after the last move: a drag
+ * fires an event per pixel, and each one would be an edit of the document.
+ */
+function moveSlider(index: number, from: number | undefined, value: string): void {
+	// By position when the host could read it, else by index: half typed code does not
+	// parse on the host, and this list follows every edit since the last evaluation.
+	const slider = from !== undefined ? liveSliders.find((s) => s.from === from) : liveSliders[index];
+	if (slider) window.postMessage({ type: 'cm-slider', value: Number(value), id: slider.id }, '*');
+	if (!slider && from === undefined) return;
+	let key = slider ?? pendingWrites.find((p) => p.from === from);
+	if (!key) pendingWrites.push((key = { id: '', from: from! }));
+	const target = key;
+	clearTimeout(target.writeTimer);
+	target.writeTimer = setTimeout(() => {
+		pendingWrites = pendingWrites.filter((p) => p !== target);
+		const key = target;
+		const doc = mirror.editor.state.doc.toString();
+		const number = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(doc.slice(key.from))?.[0];
+		if (!number || number === value) return;
+		const start = key.from;
+		mirror.editor.dispatch({ changes: { from: start, to: start + number.length, insert: value } });
+		// Upstream's widget of this slider, if the editor shows one: its position is kept
+		// by upstream, the text of its number we set.
+		for (const input of (mirror.editor.dom as HTMLElement).querySelectorAll<HTMLInputElement & { from?: number; originalValue?: string }>('.cm-slider input')) {
+			if (input.from === start) {
+				input.originalValue = value;
+				input.value = value;
+			}
+		}
+	}, 150);
+}
+/** Writes for sliders typed since the last evaluation, which have no id yet. */
+let pendingWrites: LiveSlider[] = [];
+
+/** Follows the text. Called for every change of the document, ours or anyone's. */
+function mapSliders(changes: { mapPos(position: number, assoc?: number): number }): void {
+	for (const slider of [...liveSliders, ...pendingWrites]) slider.from = changes.mapPos(slider.from, -1);
+}
 
 function dockGroup(title: string): HTMLElement {
 	const group = document.createElement('section');
@@ -585,15 +700,8 @@ function prepareDock(code: string): void {
 	// Keep the canvases that are already there. A new canvas would flash on every update.
 	const canvases = new Map<string, HTMLElement>();
 	for (const canvas of dockElement.querySelectorAll('canvas')) canvases.set(canvas.id, canvas);
-	stageSliders.forEach((slider) => clearTimeout(slider.writeTimer));
-	stageSliders = [];
 	dockElement.replaceChildren();
 
-	const sliders = widgets.filter((widget) => widget.type === 'slider');
-	if (sliders.length) {
-		const group = dockElement.appendChild(dockGroup('Sliders'));
-		for (const widget of sliders) group.appendChild(sliderRow(code, widget));
-	}
 	const visuals = widgets.filter((widget) => widget.type !== 'slider');
 	if (visuals.length) {
 		const group = dockElement.appendChild(dockGroup('Visuals'));
@@ -608,49 +716,6 @@ function prepareDock(code: string): void {
 	}
 }
 
-function sliderRow(code: string, widget: any): HTMLElement {
-	const { row, slot } = dockRow(sliderLabel(code, widget.from), 'slider');
-	const input = slot.appendChild(document.createElement('input'));
-	input.type = 'range';
-	input.min = String(widget.min);
-	input.max = String(widget.max);
-	input.step = String(widget.step ?? (widget.max - widget.min) / 1000);
-	input.value = String(widget.value);
-	const output = slot.appendChild(document.createElement('output'));
-	output.textContent = String(widget.value);
-	const slider: StageSlider = { id: `slider_${widget.from}`, from: widget.from, to: widget.to, input, output };
-	stageSliders.push(slider);
-	input.addEventListener('input', () => moveSlider(slider, input.value));
-	return row;
-}
-
-/**
- * A slider moved. Two things follow, as in the Strudel editor: the sound changes at
- * once, and the number in the code becomes the new value.
- *
- * The sound: upstream keeps slider values by id and listens for this window message.
- * The code: we change the text of the hidden editor, and the change travels to the VS
- * Code document like any other edit. That is throttled, because a drag fires an event
- * per pixel and each one would be an edit in the document.
- */
-function moveSlider(slider: StageSlider, value: string): void {
-	slider.input.value = value;
-	slider.output.textContent = value;
-	window.postMessage({ type: 'cm-slider', value: Number(value), id: slider.id }, '*');
-	clearTimeout(slider.writeTimer);
-	slider.writeTimer = setTimeout(() => {
-		mirror.editor.dispatch({ changes: { from: slider.from, to: slider.to, insert: value } });
-		// The update listener has moved every position by now, this one to the end of the new number.
-	}, 150);
-}
-
-/** Follows the text. Called for every change of the document, ours or anyone's. */
-function mapStageSliders(changes: { mapPos(position: number, assoc?: number): number }): void {
-	for (const slider of stageSliders) {
-		slider.from = changes.mapPos(slider.from, -1);
-		slider.to = changes.mapPos(slider.to, 1);
-	}
-}
 
 /**
  * After the code ran. By now StrudelMirror has given the widget canvases to CodeMirror,

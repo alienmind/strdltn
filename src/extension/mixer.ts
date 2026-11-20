@@ -1,11 +1,20 @@
 import * as vscode from 'vscode';
 import { type MixerModel, readChains } from '../shared/chains';
 import type { FromMixer, ToMixer } from '../shared/mixer';
+import { lf, lineColumn } from '../shared/sync';
 
 export interface MixerActions {
 	/** Puts the cursor at an offset of a song, in whichever editor shows it. */
 	reveal(document: vscode.TextDocument, offset: number): void;
+	/**
+	 * Gives a slider move to the engine that has the song open, which changes the sound
+	 * and writes the number. False when no engine has it: then the Mixer writes the code.
+	 */
+	moveSlider(document: vscode.TextDocument, index: number, from: number | undefined, value: string): boolean;
 }
+
+/** How long a fader waits after its last move before it writes the code, when no engine has the song. As the stage's sliders did. */
+const WRITE_PAUSE = 150;
 
 /** A pause after typing before the model is read again. Long enough to skip a half typed word, short enough to feel live. */
 const PAUSE = 300;
@@ -98,6 +107,8 @@ export class MixerView implements vscode.WebviewViewProvider {
 				if (chain && this.document) this.actions.reveal(this.document, chain.from);
 				return;
 			}
+			case 'slider':
+				return this.moveSlider(message.index, message.value);
 			case 'state':
 				this.lastState = message;
 				return;
@@ -106,6 +117,37 @@ export class MixerView implements vscode.WebviewViewProvider {
 				return;
 		}
 	}
+
+	/**
+	 * A fader moved. Its place in the code is read from the text as it is now, not from the
+	 * model, which can be 300 ms old. The index of a slider does not change while only its
+	 * number does, so it finds the same slider.
+	 *
+	 * Half typed code does not parse (a lone `/` while `//` is typed). Then the engine finds
+	 * the slider by its index alone: it follows its sliders through every edit since the
+	 * last evaluation. Seen in the integration test: the move was dropped before this.
+	 */
+	moveSlider(index: number, value: string): void {
+		const document = this.document;
+		if (!document) return;
+		const now = readChains(lf(document.getText()));
+		const slider = 'error' in now ? undefined : now.sliders[index];
+		if (this.actions.moveSlider(document, index, slider?.from, value)) return;
+		if (!slider) return;
+		clearTimeout(this.writeTimer);
+		this.writeTimer = setTimeout(() => {
+			const text = lf(document.getText());
+			const fresh = readChains(text);
+			const target = 'error' in fresh ? undefined : fresh.sliders[index];
+			if (!target || text.slice(target.from, target.to) === value) return;
+			const from = lineColumn(text, target.from);
+			const to = lineColumn(text, target.to);
+			const edit = new vscode.WorkspaceEdit();
+			edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), value);
+			void vscode.workspace.applyEdit(edit);
+		}, WRITE_PAUSE);
+	}
+	private writeTimer?: ReturnType<typeof setTimeout>;
 
 	/** Finds the song of the active tab. Anything that is not a song keeps the last one. */
 	private follow(): void {
@@ -129,7 +171,8 @@ export class MixerView implements vscode.WebviewViewProvider {
 
 	private read(): void {
 		if (!this.document) return;
-		const result = readChains(this.document.getText());
+		// Read with `\n` line endings, as the editors' offsets are, whatever the file has.
+		const result = readChains(lf(this.document.getText()));
 		if ('error' in result) {
 			// Half typed code. The strips stay as they were, marked as old.
 			this.error = result.error;

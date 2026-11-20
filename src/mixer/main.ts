@@ -3,8 +3,8 @@
 // sends the model it read from the code; this page draws it and keeps which strips are
 // unfolded. See "Mixer panel" in doc/DAW-PLAN.md.
 //
-// Read only for now: the faders show the value in the code and do not move. Moving them,
-// mute, solo and cable drags are the editing phase of the plan.
+// A fader changes the sound at once and the number in the code after a moment. Mute,
+// solo and cable drags are still to come (phase 3 of the plan).
 import './mixer.css';
 import type { MixerChain, MixerModel, MixerSlider } from '../shared/chains.ts';
 import type { FromMixer, ToMixer } from '../shared/mixer.ts';
@@ -38,6 +38,32 @@ const cables = new CableLayer(strips);
 let song: string | undefined;
 let model: MixerModel | undefined;
 let error: string | undefined;
+/**
+ * A fader is held. The model that comes back after each write would redraw the strips
+ * and pull the fader out from under the pointer, so it waits until the fader is let go.
+ */
+let dragging = false;
+let drawLater = false;
+const release = () => {
+	dragging = false;
+	if (drawLater) {
+		drawLater = false;
+		draw();
+	}
+};
+window.addEventListener('pointerup', release);
+window.addEventListener('pointercancel', release);
+
+/**
+ * The number as it goes into the code: rounded to the step, so a drag writes `0.607` and
+ * not `0.6070000000000001`. The step is the slider's own, or a thousandth of its range,
+ * which is what upstream's slider uses.
+ */
+function formatValue(value: number, slider: MixerSlider): string {
+	const step = slider.step ?? (slider.max - slider.min) / 1000;
+	const decimals = step > 0 ? Math.max(0, Math.min(6, Math.ceil(-Math.log10(step)))) : 3;
+	return String(Number(value.toFixed(decimals)));
+}
 
 window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 	const message = event.data;
@@ -46,7 +72,8 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 			song = message.song;
 			model = message.model;
 			error = message.error;
-			draw();
+			if (dragging) drawLater = true;
+			else draw();
 			break;
 		case 'show':
 			unfolded.clear();
@@ -163,11 +190,20 @@ function fader(slider: MixerSlider): HTMLElement {
 	input.max = String(slider.max);
 	input.step = String(slider.step ?? (slider.max - slider.min) / 1000);
 	input.value = String(slider.value);
-	input.disabled = true;
-	box.title = `${slider.label}${slider.constant ? ` (${slider.constant})` : ''}: ${slider.value}, from ${slider.min} to ${slider.max}\nRead only for now. Drag the slider in the code or in the stage.`;
+	input.dataset.slider = String(slider.index);
+	box.title = `${slider.label}${slider.constant ? ` (${slider.constant})` : ''}: from ${slider.min} to ${slider.max}. Changes the sound at once and the number in the code after a moment.`;
 	box.appendChild(el('span', 'label', slider.label));
 	if (slider.constant || slider.detail !== slider.label) box.appendChild(el('span', 'detail', slider.detail));
-	box.appendChild(el('output', 'value', String(slider.value)));
+	const output = box.appendChild(el('output', 'value', String(slider.value)));
+	output.dataset.slider = String(slider.index);
+	input.addEventListener('pointerdown', () => (dragging = true));
+	input.addEventListener('input', () => {
+		const value = formatValue(Number(input.value), slider);
+		// A slider used by two chains has a fader in each strip. They are one slider.
+		for (const other of strips.querySelectorAll<HTMLInputElement>(`input[data-slider="${slider.index}"]`)) if (other !== input) other.value = input.value;
+		for (const out of strips.querySelectorAll(`output[data-slider="${slider.index}"]`)) out.textContent = value;
+		post({ type: 'slider', index: slider.index, value });
+	});
 	return box;
 }
 

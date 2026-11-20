@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { diffText, type EditorSettings, type EngineState, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { DocumentWrites, lf, lineColumn, SyncHost, type SyncUpdate } from '../shared/sync';
+import { type EditorSettings, type EngineState, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { findPackSources } from '../shared/packs';
 import type { PackCache } from './packs';
 import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
@@ -37,11 +38,12 @@ export function editorSettings(): EditorSettings {
  * disk and edits by agents without any code here.
  */
 export class Session {
-	/** The text the webview is known to hold. Used to tell our own echo from a real outside change. */
-	private known: string;
-	/** Edits from the webview are applied one at a time. Each one is a diff against the
-	 * document, so a second diff computed before the first has landed would corrupt the text. */
-	private queue: Promise<unknown> = Promise.resolve();
+	/** The version and the text (with `\n` line endings) both sides agree on. See src/shared/sync.ts. */
+	private sync: SyncHost;
+	/** Our writes into the document, which can lag behind `sync`. */
+	private writes: DocumentWrites;
+	/** True while a write is on its way into the document. */
+	private writing = false;
 	private playWhenReady = false;
 	private readonly disposables: vscode.Disposable[] = [];
 	/** False until the webview has its content. */
@@ -64,7 +66,8 @@ export class Session {
 		readonly mode: Mode,
 		private readonly host: SessionHost,
 	) {
-		this.known = document.getText();
+		this.sync = new SyncHost(lf(document.getText()));
+		this.writes = new DocumentWrites(this.sync.text);
 		const workspaceFolders = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
 		panel.webview.options = {
 			enableScripts: true,
@@ -80,11 +83,7 @@ export class Session {
 			panel.webview.onDidReceiveMessage((message: FromWebview) => this.receive(message)),
 			vscode.workspace.onDidChangeTextDocument((event) => {
 				if (event.document !== document) return;
-				const text = document.getText();
-				if (text === this.known) return;
-				this.known = text;
-				this.post({ type: 'update', text });
-				this.sendPacksSoon();
+				this.documentChanged(event);
 			}),
 			vscode.workspace.onDidChangeTextDocument((event) => {
 				// The squiggle marks a place in the text that was evaluated. After an edit
@@ -117,9 +116,9 @@ export class Session {
 		this.post({ type: 'preview', name, index });
 	}
 
-	/** Moves one slider of the stage, as a drag would: the sound changes and the number in the code follows. */
-	setSlider(index: number, value: number): void {
-		this.post({ type: 'slider', index, value });
+	/** Moves the slider whose number starts at `from`, as a drag would: the sound changes and the number in the code follows. */
+	moveSlider(index: number, from: number | undefined, value: string): void {
+		this.post({ type: 'sliderValue', index, from, value });
 	}
 
 	/** Puts the cursor of the Strudel editor at an offset and scrolls to it. */
@@ -202,8 +201,9 @@ export class Session {
 			case 'ready': {
 				const samples = await scanSamples(await this.samplesFolder(), this.panel.webview);
 				const firmware = await scanFirmware(await this.firmwareFolder(), this.panel.webview);
-				this.known = this.document.getText();
-				this.post({ type: 'init', text: this.known, mode: this.mode, samples, firmware, settings: editorSettings() });
+				this.sync = new SyncHost(lf(this.document.getText()), this.sync.version + 1);
+				this.writes = new DocumentWrites(this.sync.text);
+				this.post({ type: 'init', text: this.sync.text, version: this.sync.version, mode: this.mode, samples, firmware, settings: editorSettings() });
 				this.ready = true;
 				this.host.onState(this);
 				void this.sendPacks();
@@ -214,8 +214,8 @@ export class Session {
 				}
 				break;
 			}
-			case 'edit':
-				this.queue = this.queue.then(() => this.applyEdit(message.text));
+			case 'push':
+				this.applyPush(message.version, message.updates);
 				break;
 			case 'state':
 				this.state = message.state;
@@ -254,7 +254,13 @@ export class Session {
 		} else {
 			const placed = error.from !== undefined && error.to !== undefined && error.to <= this.document.getText().length;
 			const range = placed
-				? new vscode.Range(this.document.positionAt(error.from!), this.document.positionAt(error.to!))
+				? (() => {
+						// The offsets are in the webview's text with `\n` line endings. Line and column fit the document whatever its line endings.
+						const text = lf(this.document.getText());
+						const from = lineColumn(text, error.from!);
+						const to = lineColumn(text, error.to!);
+						return new vscode.Range(from.line, from.character, to.line, to.character);
+					})()
 				: this.document.lineAt(0).range;
 			const diagnostic = new vscode.Diagnostic(range, error.message, vscode.DiagnosticSeverity.Error);
 			diagnostic.source = 'strdltn';
@@ -294,15 +300,57 @@ export class Session {
 		}
 	}
 
-	private async applyEdit(text: string): Promise<void> {
-		const change = diffText(this.document.getText(), text);
-		this.known = text;
+	/**
+	 * Changes typed in the webview. Taken when they start from the version the host is at;
+	 * otherwise dropped, and the webview sends them again after it has received what it
+	 * missed. Each one is confirmed to the webview at once and written into the document
+	 * after, by line and column, so the file keeps its own line endings.
+	 */
+	private applyPush(version: number, updates: SyncUpdate[]): void {
+		const accepted = this.sync.push(version, updates);
+		if (!accepted?.length) return;
+		this.post({ type: 'changes', updates: accepted.map((a) => a.update) });
+		for (const { changes } of accepted) this.writes.add(changes);
+		void this.write();
 		this.sendPacksSoon();
-		if (!change) return;
+	}
+
+	/** Writes what is queued into the document, one write at a time. A refused write is queued again. */
+	private async write(attempt = 0): Promise<void> {
+		if (this.writing) return;
+		const edits = this.writes.take();
+		if (!edits) return;
 		const edit = new vscode.WorkspaceEdit();
-		const range = new vscode.Range(this.document.positionAt(change.from), this.document.positionAt(change.to));
-		edit.replace(this.document.uri, range, change.insert);
-		await vscode.workspace.applyEdit(edit);
+		for (const e of edits) edit.replace(this.document.uri, new vscode.Range(e.start.line, e.start.character, e.end.line, e.end.character), e.text);
+		this.writing = true;
+		const landed = await vscode.workspace.applyEdit(edit);
+		this.writing = false;
+		if (landed) return this.write();
+		this.writes.failed();
+		// Refused because the document moved in the meantime: its change has been taken in by now, so try again.
+		if (attempt < 20) return this.write(attempt + 1);
+		this.resync();
+	}
+
+	/** A change of the document. Our own writes come back here too, and are recognized. */
+	private documentChanged(event: vscode.TextDocumentChangeEvent): void {
+		const text = lf(this.document.getText());
+		if (text === this.writes.document) return;
+		const edits = event.contentChanges.map((c) => ({ start: c.range.start, end: c.range.end, text: c.text }));
+		const outside = this.writes.changed(text, edits);
+		if (outside) {
+			this.post({ type: 'changes', updates: [this.sync.change(outside)] });
+			this.sendPacksSoon();
+		}
+		void this.write();
+	}
+
+	/** The two sides could not be kept in step: the webview takes the document as it is. */
+	private resync(): void {
+		this.sync = new SyncHost(lf(this.document.getText()), this.sync.version + 1);
+		this.writes = new DocumentWrites(this.sync.text);
+		this.host.output.appendLine(`[${this.mode}] text sync started over at version ${this.sync.version}`);
+		this.post({ type: 'reset', text: this.sync.text, version: this.sync.version });
 	}
 
 	private html(): string {
@@ -334,6 +382,11 @@ export class Session {
 	html, body { height: 100%; margin: 0; padding: 0; background: var(--background, #222); color: var(--foreground, #fff); }
 	/* Above the fullscreen canvas that upstream getDrawContext() appends to the body. */
 	#editor { position: relative; z-index: 1; min-height: 100%; }
+	/* The canvases of ._scope() and ._pianoroll() are block widgets of CodeMirror. A canvas is
+	   inline by default, so it sat on a line box a few pixels taller than itself, and
+	   CodeMirror, which measures the canvas, did not count them: every widget above a line
+	   moved the clicks there further down (measured in the integration test). */
+	#editor .cm-content > canvas { display: block; }
 	/* !important because StrudelMirror sets an inline display:block on its root. */
 	body.stage #editor { display: none !important; }
 	#dock { position: relative; z-index: 1; display: none; flex-direction: column; gap: 14px; padding: 10px 12px; font: 12px var(--vscode-font-family, sans-serif); }

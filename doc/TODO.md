@@ -16,23 +16,44 @@ over.
 
 The plan to make this a DAW (one Browser view with tags and search, a Mixer panel with
 sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRUB window, MIDI, one engine)
-is in `doc/DAW-PLAN.md`. It waits for the maintainer's answers
-to its "Decisions for the maintainer". Nothing of it is built.
+is in `doc/DAW-PLAN.md`. The maintainer chose to start with the Browser and took the
+plan's recommendation for every other decision. Phase 1, the Browser, is built on the
+branch `feat/browser` and waits for the hand test below. A synth or sample preview starts
+on the next beat while a song plays (asked by the maintainer during phase 1).
 
 Next in line:
 
 | # | What | State |
 |---|---|---|
-| 1 | MIDI: devices in the Sounds view, playing through them, mappings | Spike done, not built. See "MIDI" |
+| 1 | MIDI: devices in the Browser, playing through them, mappings | Spike done, not built. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 3 | The hand test below | Waiting for the maintainer |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 
 ## Next: test by hand
 
-Nothing waits for a hand test. The checks of `fix/ctrl-enter-audio` passed (Ctrl+Enter
-after a reload, `//` over a selection, the stage below the code, coastline and OBERVAVE
-offline, the silent quick test, Copilot with the instructions).
+The Browser, on the branch `feat/browser`. Test on **desktop, launched with F5** on
+`template/` (or `pnpm promote` if the maintainer asks for it).
+
+| # | Do this | Should happen |
+|---|---------|---------------|
+| 1 | Open the side bar of [str]dltn Live[code] | One Browser: logo, search, Collections, Library with counts, Places, chips, results. No Files, Sounds or Snippets views |
+| 2 | Library > Drums, open the heading `rolandtr909`, click `bd` | It plays. Nothing is typed. The details pane shows Drums/Kick, Maker/Roland |
+| 3 | Type `909 bd` in the search | About 6 results, under their categories |
+| 4 | Clear the search. In Drums, click the chip Kick, then Ctrl+click Snare, then click Roland | Kicks, then kicks and snares, then only the Roland ones |
+| 5 | Select a row, press 1, then 3 | Two color squares on the row. `strdltn.index.json` appears in the project with the id and `[1, 3]` |
+| 6 | Click the red dot under Collections | Only the rows colored red |
+| 7 | Right click a snippet > Edit tags..., add `test` | The snippet's file gets `// @tags ..., test`. The chip Tag > test exists |
+| 8 | With a filter set, press the save button in the bar above the results, name it | A row with that name under Collections. A click on it brings the filter back |
+| 9 | Play `demo.strudel`, then click a synth in Sounds (`sawtooth`) a few times | Each preview lands on a beat of the song |
+| 10 | Put the cursor in the code, select a sound, press Enter | Its name is typed at the cursor |
+| 11 | Songs: click a song | It opens |
+| 12 | Functions: search `lpf`, select it | The details pane shows its description, parameters and an example |
+| 13 | Press Ctrl+Alt+F in the editor | The search field of the Browser gets the cursor |
+| 14 | Switch to a light theme | The Browser follows the theme |
+
+Expected still broken: a row cannot be dragged into the editor; the side bar title shows
+as "[Str]Dltn Live[Code]".
 
 ## Decisions waiting for the maintainer
 
@@ -40,7 +61,6 @@ offline, the silent quick test, Copilot with the instructions).
 |---|---|---|
 | 1 | Snippet header: is the form `// @title`, `@category`, `@details`, `@tags`, `@by`, `@credits` right, and the nine categories? | Built it this way |
 | 3 | A sound in a bank types its full name (`RolandTR909_bd`). Or should it type the short name (`bd`) and leave the bank to the button? | Full name |
-| 4 | Where the Snippets view lives: in the [str]dltn Live[code] side bar, or behind its own icon? | In the [str]dltn Live[code] side bar. Any view can be dragged elsewhere |
 | 5 | The cache for remote packs is `.strdltn/cache/` in the workspace, not `tmp/`. A dot folder that ignores itself for git seemed safer than a folder a project may already use. OK? | `.strdltn/cache/` |
 | 6 | A pack is copied whole. `github:eddyflux/crate` is 367 files and 175 MB. Copy everything, or only the files a song has played? | Everything, up to 600 files |
 | 7 | MIDI: build the desktop bridge now, knowing it cannot work in Codespaces? | Not built |
@@ -82,7 +102,7 @@ offline, the silent quick test, Copilot with the instructions).
 
 ### What to build
 
-1. A "MIDI devices" group in the Sounds view with two folders, outputs (instruments)
+1. A MIDI category in the Browser with two headings, outputs (instruments)
    and inputs (controllers). A click types the device name.
 2. `.midi()` for outputs through the bridge.
 3. `midin()` and `midikeys()` for inputs through the bridge, in the other direction.
@@ -298,8 +318,8 @@ planned yet.
   so there is one history across both modes.
 - Cursor and scroll position are not carried across a mode switch.
 - Notes that are playing are not highlighted in the native editor.
-- A sample that was deleted stays in the Sounds view until the editor is reloaded.
-- Before a `.strudel` file is open, the Sounds view shows the list the last engine
+- A sample that was deleted stays in the Browser until the editor is reloaded.
+- Before a `.strudel` file is open, the Browser shows the sound list the last engine
   reported. It can name a sample that was deleted since, and preview needs an open
   file.
 - An error in the code shows no squiggle in the Strudel editor, only in the Problems
@@ -312,19 +332,16 @@ planned yet.
 - The list of themes in `package.json` is a copy of upstream's. Nothing checks it when
   `@strudel/codemirror` is updated.
 - A sound with more than 64 variations only shows the first 64.
-- The Sounds view has no search box of its own. The tree filter of VS Code (Ctrl+F in
-  the view) works.
 - A snippet is a whole file. Several snippets in one file are not possible.
-- The Snippets view lost its filter box when it became a tree. The tree filter of VS
-  Code (Ctrl+F in the view) works on what a row shows. Expected to cover title and
-  tags, not tested. It does not search the description.
-- The logo view has an empty strip under the picture, and its own title row that says
-  "strdltn" again under the title of the side bar. VS Code gives a view no way to fit
-  its content or to hide its title.
 - Inline completion of Copilot does not read the instruction files. Only Chat and agents
   do.
-- The Files view shows `.strudel` files only by name. It has no button to play a file
-  and none to create one.
+- The Songs of the Browser have no button to play a song and none to create one.
+- The Browser is a webview: a screen reader gets no list roles from it yet, and its
+  keyboard handling is our own (arrows, Enter, Space, 1 to 7). Not tested with a reader.
+- The tags of samples come from their names. 20 of the 1649 sounds on the maintainer's
+  list get no Drums or Sounds tag (the tabla syllables `ka`, `dhin`, and `jazz`, `metal`).
+- In the Browser a row cannot be dragged into the editor yet (spike D4 of
+  `doc/DAW-PLAN.md`). Enter, a double click or the insert button types it.
 - The samples of a map written in the song (`samples({...}, 'github:...')`) are not
   listed and not cached before the song has played once.
 - Not cached: a map where a sound has its own `_base`, an address with a query (what
@@ -542,8 +559,7 @@ outside the container, on the real GPU. Docker is installed here. Ollama is not.
 
 **Pictures of the drum machines.** The maintainer asked for a hover on each drum machine
 bank that shows the real instrument: a diagram of the device from above, all devices at
-one size. The hover is the same mechanism the Snippets view uses, and a `MarkdownString`
-can show an image that ships with the extension. The work is the pictures. There are 134
+one size. The details pane of the Browser can show an image that ships with the extension. The work is the pictures. There are 134
 banks. A photo by somebody else needs a license that allows it, so the plan is our own
 drawings (SVG), one per device. Open: who draws them, how true to the device they must
 be, and whether a drawing of a commercial product needs anything from its maker. A first

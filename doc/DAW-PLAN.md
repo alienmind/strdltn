@@ -774,6 +774,25 @@ E1 to E3 gate phases 6 and 7 and can wait.
 
 ### Phase 1: index and Browser
 
+Built on the branch `feat/browser`, waiting for the maintainer's hand test (the table in
+`doc/TODO.md`). What was built differs from the steps below in three places, each for a
+reason:
+
+- There is no `media/index.json` with every default sound. The default sounds are only
+  known once an engine has loaded their maps from the network, and the host already keeps
+  the last list in `sounds.json` for the next start, which fills the Browser before a song
+  is open. The functions come from `@strudel/reference` at build time instead, as
+  `dist/functions.json`.
+- There is no `src/extension/index.ts`. `BrowserView` in `src/extension/browser.ts` builds
+  the items and keeps the project file; the item model is `src/shared/catalog.ts`.
+- The free tags of all items are one group, `Tag`. The plan had a `User` group beside the
+  snippet tags, and two groups for the same kind of word only split the chips.
+
+Decisions taken by the plan's recommendation: the old views are removed (decision 2), the
+user data is in the project (decision 4). Spike D4 (drag from the Browser into the editor)
+is not run; a row is typed with Enter, a double click or the insert button. Hot-swap and
+folders of the user's own as Places are not built.
+
 1. `src/shared/tags.ts` and its test: the rules that tag a sound from its name, bank and
    type.
 2. `scripts/build-index.mjs` and `pnpm index`: writes `media/index.json` from the

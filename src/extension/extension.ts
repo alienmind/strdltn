@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
+import type { BrowserFilterState, FromBrowser } from '../shared/browser';
+import { CATEGORIES } from '../shared/catalog';
 import type { SoundInfo } from '../shared/protocol';
+import { BrowserView, INDEX_FILE } from './browser';
+import { SongList } from './files';
 import { FirmwareCache } from './firmware';
-import { FilesProvider } from './files';
 import { formatBytes, PackCache, type CacheUsage } from './packs';
 import { ShrubPanel } from './shrub';
 import { Session, type SessionHost } from './session';
-import { SnippetsView, type Snippet } from './snippets';
-import { SoundsProvider, soundText, type SoundNode } from './sounds';
+import { SnippetLibrary } from './snippets';
 
 /** `git describe` of the checkout this bundle was built from. Set by scripts/build.mjs. */
 declare const __BUILD__: string;
@@ -24,21 +26,20 @@ export interface StrdltnApi {
 	/** How many sounds the list holds that is kept for the next start. */
 	rememberedSounds(): Promise<number>;
 	sounds(): SoundInfo[];
-	soundGroups(): { label: string; count: number }[];
 	snippets(): string[];
-	/** The files of the Files view, as paths from the workspace folder. */
+	/** The songs of the workspace, as paths from the workspace folder. */
 	files(): string[];
-	/** Opens one top folder of the Files view. */
-	expandFilesFolder(name: string): Promise<void>;
-	/** The rows at the top of the Files view. */
-	filesTopLevel(): string[];
 	snippetDetails(): { name: string; folder: string; title: string; category?: string; fields: number; codeStartsWith: string }[];
-	/** Opens one group of the Sounds view, or one drum machine bank. */
-	expandSoundGroup(label: string): Promise<void>;
-	expandSoundBank(name: string): Promise<void>;
-	soundBanks(group?: string): string[];
-	/** Shows the row of one snippet in the Snippets view. */
-	expandSnippet(name: string): Promise<void>;
+	/** How many items each category of the Browser holds. */
+	browserCounts(): Record<string, number>;
+	/** The ids of the items a filter gives, worked out in the host. */
+	browserFind(filter: Partial<BrowserFilterState>): string[];
+	/** The headings of a category in the Browser: the banks of Drums, the folders of Songs. */
+	browserGroups(category: BrowserFilterState['category']): string[];
+	/** Sets what the Browser shows, and returns what it reports back. */
+	browserShow(filter: Partial<BrowserFilterState>, open?: string[]): Promise<unknown>;
+	/** Handles a message as if the Browser had sent it: a click on a row, a color. */
+	browserMessage(message: FromBrowser): Promise<void>;
 	/** Moves a slider of the stage of the active text editor. For the test. */
 	setStageSlider(index: number, value: number): void;
 	/** The remote sample packs seen so far and whether they are in the cache. */
@@ -56,19 +57,12 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const sessions = new Set<Session>();
 	const packs = new PackCache(output);
 	const firmwareCache = new FirmwareCache(output);
-	const sounds = new SoundsProvider(context.extensionUri);
-	const snippets = new SnippetsView();
-	// Whether a click on a sound also plays it. A button at the top of the Sounds view
-	// flips it, and the choice is kept between sessions.
-	const PREVIEW_KEY = 'strdltn.previewSounds';
-	let previewSounds = context.globalState.get(PREVIEW_KEY, true);
-	const setPreview = (on: boolean) => {
-		previewSounds = on;
-		void context.globalState.update(PREVIEW_KEY, on);
-		void vscode.commands.executeCommand('setContext', PREVIEW_KEY, on);
-		// In words beside the title of the view. The icon alone was read both ways.
-		soundsView.description = on ? 'preview on' : 'preview off';
-	};
+	const snippets = new SnippetLibrary();
+	const songs = new SongList();
+	const browser = new BrowserView(context, snippets, songs, output, {
+		preview: (name, index) => previewSound(name, index),
+		insert: (text) => insertText(text),
+	});
 	const diagnostics = vscode.languages.createDiagnosticCollection('strdltn');
 	// Right side, beside the language of the file: it is about the file in front.
 	const status = vscode.window.createStatusBarItem('strdltn.status', vscode.StatusBarAlignment.Right, 101);
@@ -92,7 +86,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		},
 		// Every engine loads the same packs, so the list of the engine that spoke last is the list.
 		onSounds: (list) => {
-			sounds.setSounds(list);
+			browser.setSounds(list);
 			rememberSoundsSoon(list);
 		},
 		onState: () => updateStatus(),
@@ -117,12 +111,6 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const playingElsewhere = () =>
 		[...sessions].filter((s) => s.started).sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
 
-	const soundsView = vscode.window.createTreeView('strdltn.sounds', { treeDataProvider: sounds, showCollapseAll: true });
-	setPreview(previewSounds);
-	const snippetsView = vscode.window.createTreeView('strdltn.snippets', { treeDataProvider: snippets, showCollapseAll: true });
-	const files = new FilesProvider();
-	const filesView = vscode.window.createTreeView('strdltn.files', { treeDataProvider: files, showCollapseAll: true });
-
 	context.subscriptions.push(
 		output,
 		vscode.window.registerCustomEditorProvider(
@@ -140,28 +128,17 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			// hidden, and the sound stops with it.
 			{ webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false },
 		),
-		soundsView,
+		// The Browser keeps its page while hidden, so its filters and open headings survive a
+		// switch to another side bar.
+		vscode.window.registerWebviewViewProvider('strdltn.browser', browser, { webviewOptions: { retainContextWhenHidden: true } }),
 		diagnostics,
 		status,
 		vscode.window.onDidChangeActiveTextEditor(() => updateStatus()),
-		// The view keeps its page while hidden, so open cards and the filter survive a
-		// switch to another side bar view.
-		snippetsView,
-		// The logo at the top of the side bar. The header of a side bar takes text only,
-		// so the picture is a view of its own: a page with one image and no script.
-		vscode.window.registerWebviewViewProvider('strdltn.logo', {
-			resolveWebviewView(view) {
-				view.webview.options = { localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')] };
-				const logo = view.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'logo.jpg'));
-				view.webview.html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${view.webview.cspSource}; style-src 'unsafe-inline'">
-<style>html, body { margin: 0; padding: 0; overflow: hidden; } img { display: block; width: 100%; height: auto; }</style></head>
-<body><img src="${logo}" alt="[str]dltn Live[code] - your IDE is your DAW"></body></html>`;
-			},
-		}),
-		filesView,
-		vscode.commands.registerCommand('strdltn.refreshFiles', () => files.refresh()),
-		vscode.workspace.onDidChangeWorkspaceFolders(() => files.refresh()),
+		vscode.commands.registerCommand('strdltn.focusSearch', () => browser.focusSearch()),
+		vscode.commands.registerCommand('strdltn.refreshBrowser', () =>
+			Promise.all([browser.refresh(), ...[...sessions].flatMap((s) => [s.refreshSamples(), s.refreshFirmware()])]),
+		),
+		vscode.workspace.onDidChangeWorkspaceFolders(() => browser.refresh()),
 
 		vscode.commands.registerCommand('strdltn.play', async () => {
 			const session = activeEditorSession() ?? (await stageForActiveTextEditor()) ?? onlySession();
@@ -185,37 +162,15 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.commands.registerCommand('strdltn.openStage', () => stageForActiveTextEditor()),
 		vscode.commands.registerCommand('strdltn.toggleMode', toggleMode),
 
-		vscode.commands.registerCommand('strdltn.previewSound', previewSound),
-		// A click on a sound selects it, and plays it when preview is on. It never types:
-		// text goes into the code only through the insert button of the row.
-		vscode.commands.registerCommand('strdltn.clickSound', (node: SoundNode) => {
-			if (previewSounds) previewSound(node);
-		}),
-		vscode.commands.registerCommand('strdltn.insertSound', (node: SoundNode) => {
-			const text = soundText(node);
-			if (text) return insertText(text);
-		}),
-		vscode.commands.registerCommand('strdltn.insertBank', (node: SoundNode) => {
-			if (node.kind === 'bank') return insertText(`.bank("${node.name}")`);
-		}),
-		vscode.commands.registerCommand('strdltn.enablePreview', () => setPreview(true)),
-		vscode.commands.registerCommand('strdltn.disablePreview', () => setPreview(false)),
-		vscode.commands.registerCommand('strdltn.copySoundName', (node: SoundNode) => {
-			const text = soundText(node);
-			if (text) return vscode.env.clipboard.writeText(text);
-		}),
-		vscode.commands.registerCommand('strdltn.refreshSounds', () => Promise.all([...sessions].flatMap((s) => [s.refreshSamples(), s.refreshFirmware()]))),
+		// The Browser calls these itself. They stay commands for keybindings and for the test,
+		// with a sound or a snippet given by name.
+		vscode.commands.registerCommand('strdltn.previewSound', (arg: { sound: { name: string }; index?: number }) => previewSound(arg.sound.name, arg.index ?? 0)),
+		vscode.commands.registerCommand('strdltn.insertSound', (arg: { sound: { name: string } }) => insertText(arg.sound.name)),
 		// The header of a snippet describes it. Only the code goes into the song.
-		vscode.commands.registerCommand('strdltn.insertSnippet', (snippet: Pick<Snippet, 'name'>) => {
+		vscode.commands.registerCommand('strdltn.insertSnippet', (snippet: { name: string }) => {
 			const found = snippets.find(snippet.name);
 			if (found) return insertText(found.code);
 		}),
-		vscode.commands.registerCommand('strdltn.openSnippet', (snippet: Pick<Snippet, 'name'>) => {
-			const found = snippets.find(snippet.name);
-			// The native editor: a snippet is edited as text, header included.
-			if (found) return vscode.commands.executeCommand('vscode.openWith', found.uri, 'default');
-		}),
-		vscode.commands.registerCommand('strdltn.refreshSnippets', () => snippets.refresh()),
 		vscode.commands.registerCommand('strdltn.openShrubEditor', () => ShrubPanel.show(context)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('strdltn.experimental.shrubEditor')) ShrubPanel.settingChanged();
@@ -224,7 +179,6 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	);
 
 	watchFolders();
-	void snippets.refresh();
 
 	/**
 	 * The status bar item says what the song in front does: loading, stopped, playing,
@@ -307,7 +261,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	async function recallSounds(): Promise<void> {
 		const list = await readSounds();
 		// An engine may have answered while the file was read. Its list is the newer one.
-		if (list.length && !sounds.all().length) sounds.setSounds(list);
+		if (list.length && !browser.allSounds().length) browser.setSounds(list);
 	}
 
 	// ---- the cache of remote samples ------------------------------------------------
@@ -340,11 +294,10 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		void vscode.window.showInformationMessage(`Sample pack cache deleted: ${formatBytes(usage.bytes)}.`);
 	}
 
-	function previewSound(node: SoundNode): void {
-		if (node.kind === 'group' || node.kind === 'bank') return;
+	function previewSound(name: string, index: number): void {
 		const session = activeEditorSession() ?? lastSession();
 		if (!session) return void vscode.window.showInformationMessage('Open a .strudel file to hear sounds.');
-		session.preview(node.sound.name, node.kind === 'variation' ? node.index : 0);
+		session.preview(name, index);
 	}
 
 	/**
@@ -355,8 +308,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		const strudel = activeEditorSession();
 		const native = vscode.window.activeTextEditor;
 		if (strudel) return strudel.insert(text);
-		// Only into a Strudel file. A click in the Sounds view while a markdown file had
-		// the focus typed sound names into it, and nobody saw it happen.
+		// Only into a Strudel file. A click in the Sounds view (before the Browser) while a
+		// markdown file had the focus typed sound names into it, and nobody saw it happen.
 		if (isStrudel(native)) {
 			await native.edit((builder) => native.selections.forEach((selection) => builder.replace(selection, text)));
 			return;
@@ -366,18 +319,32 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		void vscode.window.showInformationMessage('Open a .strudel file to insert into.');
 	}
 
-	/** New samples and new snippets show up without a reload. */
+	/** New samples, snippets and songs show up without a reload. */
 	function watchFolders(): void {
-		// The Files view lists every .strudel file of the workspace, so it follows all of
-		// them. Not changes: the view shows names, and a save does not change a name.
-		const songs = vscode.workspace.createFileSystemWatcher('**/*.strudel', false, true, false);
+		// The Songs of the Browser are every .strudel file of the workspace, so it follows all
+		// of them. Not changes: it shows names, and a save does not change a name.
+		const songFiles = vscode.workspace.createFileSystemWatcher('**/*.strudel', false, true, false);
 		let filesTimer: ReturnType<typeof setTimeout> | undefined;
 		const filesChanged = () => {
 			// A checkout or a copied folder fires one event per file.
 			clearTimeout(filesTimer);
-			filesTimer = setTimeout(() => void files.refresh(), 300);
+			filesTimer = setTimeout(() => void songs.refresh(), 300);
 		};
-		context.subscriptions.push(songs, songs.onDidCreate(filesChanged), songs.onDidDelete(filesChanged));
+		// The colors and tags of the project, when git or a hand edit changes the file.
+		const indexFile = vscode.workspace.createFileSystemWatcher(`**/${INDEX_FILE}`);
+		let indexTimer: ReturnType<typeof setTimeout> | undefined;
+		const indexChanged = () => {
+			clearTimeout(indexTimer);
+			indexTimer = setTimeout(() => void browser.refresh(), 300);
+		};
+		context.subscriptions.push(
+			songFiles,
+			songFiles.onDidCreate(filesChanged),
+			songFiles.onDidDelete(filesChanged),
+			indexFile,
+			indexFile.onDidCreate(indexChanged),
+			indexFile.onDidChange(indexChanged),
+		);
 		let watchers: vscode.Disposable[] = [];
 		let samplesTimer: ReturnType<typeof setTimeout> | undefined;
 		const samplesChanged = () => {
@@ -394,7 +361,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			watchers.forEach((w) => w.dispose());
 			const configuration = vscode.workspace.getConfiguration('strdltn');
 			const samplesWatcher = vscode.workspace.createFileSystemWatcher(`**/${configuration.get('samplesFolder', 'samples')}/**`);
-			const libWatcher = vscode.workspace.createFileSystemWatcher(`**/${SnippetsView.folderName()}/**/*.strudel`);
+			const libWatcher = vscode.workspace.createFileSystemWatcher(`**/${SnippetLibrary.folderName()}/**/*.strudel`);
 			const firmwareWatcher = vscode.workspace.createFileSystemWatcher(`**/${configuration.get('firmwareFolder', 'firmware')}/**`);
 			watchers = [
 				samplesWatcher,
@@ -407,7 +374,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 				samplesWatcher.onDidDelete(samplesChanged),
 				libWatcher.onDidCreate(() => snippets.refresh()),
 				libWatcher.onDidDelete(() => snippets.refresh()),
-				// A saved edit can change the header, which the view shows.
+				// A saved edit can change the header, which the Browser shows.
 				libWatcher.onDidChange(() => snippets.refresh()),
 			];
 		};
@@ -493,8 +460,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		}
 	}
 
-	void files.refresh();
 	// Last, when everything they use exists.
+	void Promise.all([snippets.refresh(), songs.refresh()]).then(() => browser.start());
 	void recallSounds();
 	updateStatus();
 
@@ -507,34 +474,26 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			await remembering;
 			return (await readSounds()).length;
 		},
-		sounds: () => sounds.all(),
-		soundGroups: () => sounds.groups().map((group) => ({ label: group.label, count: group.sounds.length })),
+		sounds: () => browser.allSounds(),
 		snippets: () => snippets.all().map((snippet) => snippet.name),
-		files: () => files.all(),
-		filesTopLevel: () => files.getChildren().map((node) => node.item.name),
-		expandFilesFolder: async (name) => {
-			const node = files.getChildren().find((child) => child.item.kind === 'folder' && child.item.name === name);
-			if (node) await filesView.reveal(node, { expand: true, focus: false, select: false });
-		},
+		files: () => songs.all(),
 		identity,
 		snippetDetails: () =>
 			snippets.all().map((s) => ({ name: s.name, folder: s.folder, title: s.title, category: s.category, fields: s.fields.length, codeStartsWith: s.code.slice(0, 40) })),
-		expandSoundGroup: async (label) => {
-			const node = sounds.group(label);
-			if (node) await soundsView.reveal(node, { expand: true, focus: false, select: false });
+		browserCounts: () => Object.fromEntries(CATEGORIES.map(({ id }) => [id, browser.find({ category: id }).length])),
+		browserFind: (filter) => browser.find(filter).map((item) => item.id),
+		browserGroups: (category) => [...new Set(browser.find({ category }).map((item) => item.group))].sort(),
+		browserShow: async (filter, open) => {
+			await vscode.commands.executeCommand('strdltn.browser.focus');
+			browser.show(filter, open);
+			// The webview reports what it shows after it has drawn.
+			await new Promise((resolve) => setTimeout(resolve, 600));
+			return browser.state();
 		},
-		expandSoundBank: async (name) => {
-			const node = sounds.bank(name);
-			if (node) await soundsView.reveal(node, { expand: true, focus: false, select: false });
-		},
-		soundBanks: (label = 'Drum machines') => sounds.banksOf(label),
-		expandSnippet: async (name) => {
-			const node = snippets.node(name);
-			if (node) await snippetsView.reveal(node, { expand: true, focus: false, select: true });
-		},
+		browserMessage: (message) => browser.handle(message),
 		setStageSlider: (index, value) => lastSession('stage')?.setSlider(index, value),
 		packs: () => packs.list(),
-		previewSounds: () => previewSounds,
+		previewSounds: () => context.globalState.get('strdltn.previewSounds', true),
 	};
 }
 

@@ -80,3 +80,31 @@ export function parseSnippet(name: string, text: string): SnippetInfo {
 		code,
 	};
 }
+
+/**
+ * The text of a snippet file with its `@tags` line set to `tags`. The Browser writes tags
+ * of a snippet here, in its own header, so they travel with the file. An existing line is
+ * replaced in place; a new one goes after the last header line, or starts a header.
+ * An empty list removes the line.
+ */
+export function setSnippetTags(text: string, tags: string[]): string {
+	const eol = text.includes('\r\n') ? '\r\n' : '\n';
+	const lines = text.split(/\r?\n/);
+	const value = tags.join(', ');
+	const tagLine = lines.findIndex((line) => /^\s*\/\/\s*@tags\b/.test(line));
+	if (tagLine >= 0) {
+		if (value) lines[tagLine] = lines[tagLine].replace(/@tags\b.*$/, `@tags ${value}`);
+		else lines.splice(tagLine, 1);
+		return lines.join(eol);
+	}
+	if (!value) return text;
+	let last = -1;
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i].trim();
+		if (/^\/\/\s*@\w+/.test(line)) last = i;
+		else if (line === '' || line.startsWith('//')) continue;
+		else break;
+	}
+	lines.splice(last + 1, 0, `// @tags ${value}`);
+	return lines.join(eol);
+}

@@ -1,0 +1,263 @@
+// The items of the Browser, and the file `strdltn.index.json` that keeps what the user
+// gave them. Both sides import this file: the host builds the items, the webview shows
+// them, and `search.ts` filters them on either side.
+import type { SoundInfo } from './protocol.ts';
+import type { SnippetInfo } from './snippet.ts';
+import { functionGroup, isPackTag, snippetTags, soundTags, splitBank, splitWords } from './tags.ts';
+
+export type ItemKind = 'sound' | 'snippet' | 'song' | 'function';
+
+/** The rows of "Library" in the Browser. */
+export const CATEGORIES = [
+	{ id: 'all', label: 'All', icon: 'all' },
+	{ id: 'sounds', label: 'Sounds', icon: 'keyboard' },
+	{ id: 'drums', label: 'Drums', icon: 'drum' },
+	{ id: 'samples', label: 'Samples', icon: 'sample' },
+	{ id: 'instruments', label: 'Instruments', icon: 'midi' },
+	{ id: 'snippets', label: 'Snippets', icon: 'snippet' },
+	{ id: 'songs', label: 'Songs', icon: 'song' },
+	{ id: 'functions', label: 'Functions', icon: 'function' },
+] as const;
+export type CategoryId = (typeof CATEGORIES)[number]['id'];
+
+/** The rows of "Places": where an item comes from. */
+export const PLACES = [
+	{ id: 'project', label: 'Current project', icon: 'folder' },
+	{ id: 'packs', label: 'Packs', icon: 'pack' },
+	{ id: 'builtin', label: 'Built in', icon: 'all' },
+] as const;
+export type PlaceId = (typeof PLACES)[number]['id'];
+
+/** Seven colors, in the order of Live's collections. The names can be changed by the user. */
+export const COLOR_COUNT = 7;
+export const DEFAULT_COLOR_NAMES = ['Favorites', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Gray'];
+
+export interface CatalogItem {
+	/** `sound:bd`, `snippet:drums/four`, `song:examples/01.strudel`, `fn:lpf`. Stable across starts: user data hangs on it. */
+	id: string;
+	kind: ItemKind;
+	/** What the row shows. */
+	label: string;
+	/** Dim text after the label: the bank, the folder, the tags of a snippet. */
+	detail?: string;
+	category: Exclude<CategoryId, 'all'>;
+	place: PlaceId;
+	/** The heading the row sits under in the results: a bank, a folder, a type. */
+	group: string;
+	/** For a bank heading: what its button types. */
+	groupInsert?: string;
+	tags: string[];
+	/** Lower case, everything a search term may match besides name and tags. */
+	text: string;
+	/** What Enter or the insert button types. Songs have none: they open. */
+	insert?: string;
+	/** A sound with numbered variations. */
+	count?: number;
+	variations?: string[];
+	/** The sound name to preview, and which variation: a firmware of `vibefm1` is picked by its position. */
+	sound?: string;
+	index?: number;
+	/** For the details pane. */
+	description?: string;
+	code?: string;
+	fields?: { name: string; value: string }[];
+	/** A file to open: a snippet or a song, relative to its workspace folder. */
+	path?: string;
+}
+
+/** What the user gave the items, kept in `strdltn.index.json` of the project. */
+export interface UserIndex {
+	version: 1;
+	colorNames: string[];
+	/** Per item id. Colors are 1 to 7. Tags are `Group/Tag`. */
+	items: Record<string, { colors?: number[]; tags?: string[] }>;
+	searches: SavedSearch[];
+}
+
+/** A search kept as a row under Collections, like "Add Label" in Live. */
+export interface SavedSearch {
+	name: string;
+	query: string;
+	category: CategoryId;
+	place?: PlaceId;
+	color?: number;
+	chips: string[];
+}
+
+export function emptyUserIndex(): UserIndex {
+	return { version: 1, colorNames: [...DEFAULT_COLOR_NAMES], items: {}, searches: [] };
+}
+
+/** Reads the file leniently: a hand-edited file with a missing part still works. */
+export function readUserIndex(json: unknown): UserIndex {
+	const base = emptyUserIndex();
+	if (!json || typeof json !== 'object') return base;
+	const data = json as Partial<UserIndex>;
+	const names = Array.isArray(data.colorNames) ? data.colorNames : [];
+	return {
+		version: 1,
+		colorNames: base.colorNames.map((name, i) => (typeof names[i] === 'string' && names[i] ? names[i] : name)),
+		items: data.items && typeof data.items === 'object' ? data.items : {},
+		searches: Array.isArray(data.searches) ? data.searches.filter((s) => s && typeof s.name === 'string') : [],
+	};
+}
+
+/** The file as it is written: items without colors or tags are left out, so it stays small and diffs well. */
+export function writeUserIndex(index: UserIndex): string {
+	const items = Object.fromEntries(
+		Object.entries(index.items)
+			.filter(([, value]) => value.colors?.length || value.tags?.length)
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([id, value]) => [id, { ...(value.colors?.length ? { colors: [...value.colors].sort() } : {}), ...(value.tags?.length ? { tags: [...value.tags].sort() } : {}) }]),
+	);
+	return `${JSON.stringify({ version: 1, colorNames: index.colorNames, items, searches: index.searches }, null, '\t')}\n`;
+}
+
+/** Which Library category a sound belongs to. */
+function soundCategory(sound: SoundInfo): CatalogItem['category'] {
+	if (sound.type === 'firmware') return 'instruments';
+	if (sound.tag === 'drum-machines') return 'drums';
+	if (sound.type === 'sample') return isPackTag(sound.tag) && splitBank(sound.name) ? 'drums' : 'samples';
+	return 'sounds';
+}
+
+const TYPE_GROUPS: Record<string, string> = { synth: 'Synths', soundfont: 'Soundfonts', wavetable: 'Wavetables' };
+
+/** One row per sound of the engine's list. A firmware host (`vibefm1`) becomes one row per firmware. */
+export function soundItems(sounds: SoundInfo[]): CatalogItem[] {
+	const items: CatalogItem[] = [];
+	for (const sound of sounds) {
+		const category = soundCategory(sound);
+		const place: PlaceId = sound.tag === 'local' ? 'project' : isPackTag(sound.tag) ? 'packs' : 'builtin';
+		const tags = soundTags(sound);
+		if (sound.type === 'firmware' && sound.variations?.length) {
+			for (const [index, id] of sound.variations.entries()) {
+				items.push({
+					id: `sound:${sound.name}:${id}`,
+					kind: 'sound',
+					label: id,
+					detail: sound.name,
+					category,
+					place: 'project',
+					group: 'VIBE FM firmwares',
+					tags,
+					text: `${sound.name} firmware`,
+					insert: `${sound.name}:${id}`,
+					sound: sound.name,
+					index,
+				});
+			}
+			continue;
+		}
+		const split = splitBank(sound.name);
+		const inBank = category === 'drums' && split;
+		const group =
+			category === 'drums'
+				? split
+					? split.bank
+					: 'Other'
+				: category === 'samples'
+					? sound.tag === 'local'
+						? 'Local samples'
+						: isPackTag(sound.tag)
+							? sound.tag
+							: 'Default samples'
+					: (TYPE_GROUPS[sound.type] ?? 'Other');
+		items.push({
+			id: `sound:${sound.name}`,
+			kind: 'sound',
+			label: inBank ? split.sound : sound.name,
+			detail: inBank ? split.bank : undefined,
+			category,
+			place,
+			group,
+			groupInsert: inBank ? `.bank("${split.bank}")` : undefined,
+			tags,
+			text: [sound.name, sound.type, sound.tag ?? ''].join(' ').toLowerCase(),
+			insert: sound.name,
+			count: sound.count > 1 ? sound.count : undefined,
+			variations: sound.variations,
+			sound: sound.name,
+		});
+	}
+	return items;
+}
+
+export function snippetItem(snippet: SnippetInfo, path: string): CatalogItem {
+	const field = (name: string) => snippet.fields.find((entry) => entry.name === name)?.value;
+	const details = field('details') ?? '';
+	return {
+		id: `snippet:${snippet.name}`,
+		kind: 'snippet',
+		label: snippet.title,
+		detail: splitWords(field('tags')).join(', ') || undefined,
+		category: 'snippets',
+		place: 'project',
+		group: snippet.category ?? (snippet.folder || 'Other'),
+		tags: snippetTags(snippet.fields, snippet.category),
+		text: [snippet.name, details, snippet.code.slice(0, 400)].join(' ').toLowerCase(),
+		insert: snippet.code,
+		description: details,
+		code: snippet.code,
+		fields: snippet.fields,
+		path,
+	};
+}
+
+/** A `.strudel` file of the workspace. `path` is relative to the workspace, with `/`. */
+export function songItem(path: string): CatalogItem {
+	const cut = path.lastIndexOf('/');
+	const name = path.slice(cut + 1).replace(/\.strudel$/, '');
+	return {
+		id: `song:${path}`,
+		kind: 'song',
+		label: name,
+		detail: cut >= 0 ? path.slice(0, cut) : undefined,
+		category: 'songs',
+		place: 'project',
+		group: cut >= 0 ? path.slice(0, cut) : '.',
+		tags: [],
+		text: path.toLowerCase(),
+		path,
+	};
+}
+
+/** What the build keeps of `@strudel/reference` for a function. See scripts/build.mjs. */
+export interface FunctionDoc {
+	name: string;
+	synonyms?: string[];
+	/** Plain text, the HTML of the reference taken out. */
+	description: string;
+	params?: { name: string; type: string; description: string }[];
+	example?: string;
+	file?: string;
+}
+
+export function functionItem(doc: FunctionDoc): CatalogItem {
+	const group = functionGroup(doc.file);
+	return {
+		id: `fn:${doc.name}`,
+		kind: 'function',
+		label: doc.name,
+		detail: doc.synonyms?.length ? doc.synonyms.join(', ') : undefined,
+		category: 'functions',
+		place: 'builtin',
+		group,
+		tags: [`Function/${group}`],
+		text: [doc.name, ...(doc.synonyms ?? []), doc.description].join(' ').toLowerCase(),
+		insert: doc.name,
+		description: doc.description,
+		code: doc.example,
+		fields: doc.params?.map((param) => ({ name: param.name, value: [param.type, param.description].filter(Boolean).join(': ') })),
+	};
+}
+
+/** The tags of an item with the ones the user added. */
+export function tagsOf(item: CatalogItem, user: UserIndex): string[] {
+	const extra = user.items[item.id]?.tags ?? [];
+	return extra.length ? [...new Set([...item.tags, ...extra])] : item.tags;
+}
+
+export function colorsOf(item: CatalogItem, user: UserIndex): number[] {
+	return user.items[item.id]?.colors ?? [];
+}

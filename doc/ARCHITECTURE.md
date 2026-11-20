@@ -49,10 +49,11 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/extension.ts` | Registers the custom editor `strdltn.editor` and the commands. Owns the list of sessions, the status bar item and the kept sound list. |
 | `src/extension/session.ts` | Binds one webview to one document. Text sync, sample scan, problems, HTML and CSP. |
 | `src/extension/samples.ts` | Turns the samples folder into the map upstream `samples()` accepts. |
-| `src/extension/sounds.ts` | The Sounds view: groups the sound list that the engine reports. |
-| `src/extension/snippets.ts` | The Snippets view: reads the `.strudel` files under `lib/` and shows them as a tree with a hover. |
-| `src/extension/files.ts` | The Files view: the folders of the workspace that hold `.strudel` files. |
-| `src/shared/filetree.ts` | Builds the tree of the Files view from a list of paths. `filetree.test.ts` holds the cases. |
+| `src/extension/browser.ts` | The Browser in the side bar: sounds, snippets, songs and functions, with search, colors and tags. See "Browser" |
+| `src/extension/snippets.ts` | Reads the `.strudel` files under `lib/`, the snippets of the Browser. |
+| `src/extension/files.ts` | Lists every `.strudel` file of the workspace, the songs of the Browser. |
+| `src/shared/catalog.ts`, `tags.ts`, `search.ts`, `browser.ts` | The items of the Browser, their tags, the search, the messages. Tests beside them |
+| `src/browser/main.ts` | The page of the Browser. Built as `dist/browser.js` |
 | `src/shared/snippet.ts` | Splits a snippet file into header fields and code. |
 | `src/shared/context.ts` | The rules that name a slider or a visual from the code around it. `context.test.ts` holds the cases. |
 | `src/extension/packs.ts` | Downloads the remote samples a song loads into `.strdltn/cache/`, measures the cache and empties it. |
@@ -154,63 +155,125 @@ on a slow network said `sound bd not found`. With the cap, offline use still sta
 Each pack gets three tries, and a try that has no answer after 15 seconds is given up.
 One run without retries lost every pack until the window was closed.
 
-## Sounds view
+## Browser
 
-superdough keeps every sound it can play in `soundMap`. The webview sends that list to
-the host after loading and again whenever it changes (300 ms after the last change,
-because a pack registers hundreds of sounds one by one). The view never has a list of
-its own, so it shows exactly what can be played, including the workspace samples.
+The side bar is one webview view, `strdltn.browser`, laid out like the browser of Ableton
+Live in one column: the logo, a search field, Collections (seven colors and saved
+searches), Library (categories), Places, tag chips, the results, and a details pane for
+the selected row. It replaced four views: the logo, Files, Sounds and Snippets. A tree
+cannot draw color squares, chips or a search field, and a webview between trees looked
+out of place (see "Snippet cards in a webview" in the drawer), so the whole side bar is
+one webview now. The plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
 
-`SoundsProvider` sorts the list into groups: local samples, one group per remote pack,
-samples, drum machines, synths, soundfonts, wavetables, other. A sound with numbered
-variations opens into `name:0`, `name:1` and so on, up to 64.
+**Parts.**
 
-Drum machines and remote packs have one more level, the bank. Such a sound is named
-`<bank>_<sound>`, for example `RolandTR909_bd` or `crate_bd`, and the bank is everything
-before the last underscore. Under a bank the row shows the short name `bd`. A prefix
-that only one sound has is not a bank, and that sound stays a plain row.
+| File | Job |
+|---|---|
+| `src/shared/catalog.ts` | The item of the Browser (`CatalogItem`), the categories and places, how sounds, snippets, songs and functions become items, and the project file `strdltn.index.json` |
+| `src/shared/tags.ts` | The rules that tag an item from its name. `tags.test.ts` holds the cases |
+| `src/shared/search.ts` | Search, chips, the grouping under headings. Used by the webview and by the host for the test. `search.test.ts` holds the cases |
+| `src/shared/browser.ts` | The messages between the host and the Browser |
+| `src/extension/browser.ts` | `BrowserView`: builds the items, keeps the project file, does what a row asks |
+| `src/extension/snippets.ts`, `src/extension/files.ts` | `SnippetLibrary` and `SongList`: the files under `lib/` and every `.strudel` file |
+| `src/browser/main.ts`, `browser.css`, `icons.ts` | The page: plain DOM and CSS with the `--vscode-*` theme variables, no framework. Built to `dist/browser.js` and `dist/browser.css` |
 
-A click on a row never types. The maintainer's rule for every view of the side bar: a
-click selects, or selects and previews, and putting text into the code is a deliberate
-press on the insert button of the row. Until then a click on a sound typed its name, and
-it did so into any file that had the focus.
+**Items.** The host builds them from four sources and sends them all at once, 150 ms
+after the last change (a pack registers hundreds of sounds one by one): the engine's
+sound list (see below), the snippets under `lib/`, the songs, and the functions of
+`@strudel/reference`. The build writes `dist/functions.json` from the reference: name,
+synonyms, description as text, parameters, the first example and the source file, 518
+functions after doubles and inner names (`_fast`) are left out, 166 KB. An item has a
+stable id that the user data hangs on: `sound:bd`, `sound:vibefm1:obervave`,
+`snippet:drums/four-on-the-floor`, `song:examples/01-chords.strudel`, `fn:lpf`.
 
-When preview is on, a click on a sound plays it once through `superdough()`, with the
-note `a3` for anything that is not a plain sample list, as the sounds tab of strudel.cc
-does. The insert button types the full name at the cursor (`RolandTR909_bd`, which is
-valid anywhere). The speaker button at the top of the view turns preview
-on and off. It is two commands that swap on the context key `strdltn.previewSounds`,
-and the choice is kept in `globalState`. The view also says "preview on" or "preview
-off" in words beside its title, because the icon alone was read both ways. A row has two
-buttons: insert types the name without playing, play plays without typing.
-The button on a bank types `.bank("RolandTR909")`.
+| Category | Holds | Headings |
+|---|---|---|
+| Sounds | Synths, soundfonts, wavetables, ZZFX | Synths, Soundfonts, Wavetables |
+| Drums | Drum machine sounds, and pack sounds named `<bank>_<sound>` | The bank. Its button types `.bank("...")` |
+| Samples | Local samples, the default samples, other pack sounds | Local samples, Default samples, each pack |
+| Instruments | The VIBE FM firmwares, one row each | - |
+| Snippets | The files under `lib/` | The `@category` |
+| Songs | Every `.strudel` file | The folder |
+| Functions | The functions of Strudel | The group from the source file: Effect, Pattern, Signal, Tonal... |
 
-The icons are our own files in `media/icons/`: a drum, a keyboard, a wave for samples,
-a note for soundfonts. VS Code's icon set has no drum. A tree draws an icon as an image,
-so it cannot take the color of the theme, and each icon exists as a light and a dark
-file.
+Places say where an item comes from: Current project (local samples, firmwares,
+snippets, songs), Packs (a pack a song loads by name), Built in. In "All" the headings are
+the categories.
 
-The list lives in an engine, and an engine exists only while a `.strudel` file is open.
-So the host writes the last list to a file, 2 seconds after it settles, and shows it at
-the next start before any file is open. There are two files, both named `sounds.json`.
-The one in the workspace storage of the extension (`context.storageUri`) holds the whole
-list. The one in the global storage (`context.globalStorageUri`) leaves out the sounds
-that belong to one workspace, its own samples and the packs of its songs, and is for a
-workspace that has no list yet. The list of a running engine always replaces the kept
-one. A kept list can name a sample that was deleted since. A click on a sound types its
-name as always. Preview needs an engine and says so.
+**Tags.** `Group/Tag`, as Live's filter groups. The rules read names only: the part after
+the bank (`bd` is Drums/Kick, `oh` Drums/Hihat), the maker at the start of a bank
+(`rolandtr909` is Maker/Roland, the short alias `tr909` has none), words in a sample or
+soundfont name (`gm_acoustic_bass` is Sounds/Bass, `conga` Drums/Percussion), the kind of
+synth, Source/Default, Local, Pack or Firmware. A snippet gets Category, its `@tags` as
+Tag, and `@by` and `@credits` as Creator. Measured on the maintainer's list of 1649
+sounds: every drum machine sound has a Drums tag, and 20 other sounds have neither a
+Drums nor a Sounds tag (`ka`, `dhin` and the other tabla syllables, `jazz`, `metal`).
 
-We chose a kept list over an engine of its own for the view, see the drawer.
+**Search and chips.** The search is split into words, and every word must match the
+name, the item's text (bank, folder, description, the start of a snippet's code) or a
+tag. `#kick` matches only tags. Chips: any chip of a group, and every group with a chosen
+chip, which is what we expect Live to do (its manual does not say). A click on a chip
+takes it alone in its group, Ctrl+click adds it. The chips shown are the tags of the
+items the other filters leave, so a chip never leads to nothing, and a group with one
+chip that every item has is left out. The scan is plain: about 2200 items.
 
-Measured in VS Code 1.130: 151 samples, 1347 drum machine sounds in 138 banks, 25
-synths and 125 soundfonts are listed, and one sound of each group plays.
+**User data.** `strdltn.index.json` in the first workspace folder: the names of the seven
+colors, colors and extra tags per item id, the saved searches. It is written sorted and
+without empty entries, so it diffs well in git. A watcher reads it again when git or a
+hand edit changes it. Without a workspace folder it is kept in `workspaceState`. Tags of a
+snippet go into its own header instead (`setSnippetTags` in `src/shared/snippet.ts`
+replaces or adds the `// @tags` line), so they travel with the file; only free tags
+(`Tag/...`) go there.
 
-## Logo in the side bar
+**The page.** Results are a virtual list: only the rows in sight exist, 22 pixels each,
+because 2000 rows made every keystroke slow. A heading opens by itself when it is the
+only one, or when there are at most 600 results and at most 24 headings or a filter is
+set; Drums with its 139 banks starts closed. What the user opened or closed is kept until
+the search changes. Filters, open sections and headings are kept in the webview state, so
+they survive a reload of the window. `retainContextWhenHidden` keeps the page while
+another side bar is shown.
 
-The side bar starts with the logo. The header of a side bar takes text only, so the
-picture is a view of its own, `strdltn.logo`: a webview with one image and no script.
-The image is `media/logo.jpg`, the middle band of `doc/logo.jpg` at 640 by 149 pixels
-(16 KB). `doc/` is not in the `.vsix`, `media/` is. When `doc/logo.jpg` changes, cut it again.
+**Keys and mouse.** In the results: arrows move, Right and Left open and close, Enter or a
+double click inserts (a song opens), Space plays, 1 to 7 toggle a color on the selected
+rows and 0 clears them, Ctrl+click and Shift+click select several. Ctrl+F in the page and
+`strdltn.focusSearch` (Ctrl+Alt+F) put the cursor in the search field. A right click
+gives colors, play, insert, copy, open and "Edit tags...". A click on a row never types:
+a click selects, or selects and previews, and putting text into the code is Enter, a
+double click or the insert button. Until the Sounds view had that rule, a click on a
+sound typed its name, and it did so into any file that had the focus.
+
+**Preview.** With preview on (the speaker beside the search, kept in `globalState`), a
+click on a sound plays it once through `superdough()`, with the note `a3` for anything
+that is not a plain sample list, as the sounds tab of strudel.cc does. While the song
+plays, the preview starts on the next beat of the song and lasts one beat: the webview
+works out the audio time of a cycle with the formula of upstream's Cyclist
+(`(cycle - num_cycles_at_cps_change) / cps + seconds_at_cps_change + latency`,
+`cyclist.mjs` of `@strudel/core` 1.2.6), one cycle being four beats. Measured in the quick
+test: "preview: bd:0 on beat 2" while the stage played. Whether it is heard on the beat
+is for the hand test.
+
+**Inserting** goes to the Strudel editor when it is the active tab, and to the native
+editor when that shows a Strudel file. `window.activeTextEditor` is undefined while the
+Strudel editor is active, because it is a webview. Nothing is inserted into a file of
+another language. A sound is always typed by its full name (`RolandTR909_bd`), which is
+valid anywhere.
+
+**The sound list.** superdough keeps every sound it can play in `soundMap`. The webview
+sends that list to the host after loading and again whenever it changes (300 ms after
+the last change). The Browser never has a list of its own, so it shows exactly what can
+be played, including the workspace samples. The list lives in an engine, and an engine
+exists only while a `.strudel` file is open. So the host writes the last list to a file,
+2 seconds after it settles, and shows it at the next start before any file is open.
+There are two files, both named `sounds.json`. The one in the workspace storage of the
+extension (`context.storageUri`) holds the whole list. The one in the global storage
+(`context.globalStorageUri`) leaves out the sounds that belong to one workspace, its own
+samples and the packs of its songs, and is for a workspace that has no list yet. The list
+of a running engine always replaces the kept one. Preview needs an engine and says so.
+We chose a kept list over an engine of its own, see the drawer.
+
+**Logo and icons.** The logo at the top of the Browser is `media/logo.jpg`, the middle
+band of `doc/logo.jpg` at 640 by 149 pixels (16 KB). `doc/` is not in the `.vsix`,
+`media/` is. When `doc/logo.jpg` changes, cut it again.
 
 The extension has two icons, both two lines of the logo: `[str]` and `[code]` in
 Consolas Bold, stretched tall to fill the square (the width is set by `[code]`, so the
@@ -220,58 +283,25 @@ is the `icon` of `package.json`, shown in the Extensions view and the Marketplac
 blue of the logo (`#40A9C6`) on black. `media/strdltn.svg` is the activity bar icon. VS
 Code paints that one in one color of the theme, so it is the same layout as plain paths
 with `fill="currentColor"`: the glyphs turned into outlines, so it does not depend on the
-fonts of the machine.
+fonts of the machine. The icons inside the Browser are inline SVG in `src/browser/icons.ts`
+that take the text color; `media/icons/` holds the older files the trees used.
 
-A webview view cannot take the height of its content. The four views share the height
-by the weights in `package.json` (`initialSize`: logo 1, Files 3, Sounds 4, Snippets 4).
-Seen in the screenshot of the test at 1250 pixels of window height: the logo shows whole,
-with an empty strip under it. A user who drags the borders keeps their own sizes.
+**Title.** VS Code capitalizes the title of the side bar: "[str]dltn Live[code]" shows as
+"[Str]Dltn Live[Code]". Seen in the screenshots of the test. An extension cannot turn
+that off.
 
-## Files view
+Measured in the quick test on VS Code 1.147 with the template: 2222 items (151 sounds,
+1347 drum sounds in 139 banks, 153 samples, 22 snippets, 31 songs, 518 functions). "909
+bd" gives 6 results, the chips Drums/Kick and Maker/Roland give 20, "lpf" in Functions
+gives 6.
 
-After the logo, the side bar lists every folder of the workspace that holds a
-`.strudel` file, at any depth, and those files. It is the Explorer with everything else
-left out, so a song is one click away without leaving the [str]dltn Live[code] side bar.
+## Snippets
 
-`FilesProvider` asks VS Code for `**/*.strudel`, without `node_modules`, `.strdltn` and
-`.git`, and `buildFileTree` turns the paths into folders and files, folders first, names
-sorted as a person reads them (`2-b` before `10-a`). With one workspace folder its
-content is the top level. With several, each is a row. A watcher on `**/*.strudel`
-refreshes the view when a file is added or removed.
-
-A row has the address of its file (`resourceUri`), so it gets the icon of the file
-theme and the colors of git. A click runs `vscode.open`, which opens the file as the
-Explorer would: in the Strudel editor, unless the user chose another default.
-
-Which workspace folder a file is in is asked of VS Code (`getWorkspaceFolder`). The
-first version compared the paths as text and listed nothing on Windows, where the drive
-letter of the two can differ in case.
-
-## Snippets view
-
-`SnippetsView` lists every `.strudel` file under a folder named by `strdltn.libFolder`
+`SnippetLibrary` lists every `.strudel` file under a folder named by `strdltn.libFolder`
 (default `lib`), anywhere in the workspace. One file is one snippet. A watcher refreshes
-the list when a file is added, removed or saved.
-
-The view is a tree, built like the Sounds view: a row per folder of the library, and
-under it a row per snippet with its title, its tags in the dimmed text after it, and a
-dot in the color of its category. A row has two small buttons, the same as a sound has:
-insert at the cursor (`$(insert)`) and open the file (`$(go-to-file)`). A click on the
-row itself only selects it.
-
-The description, the header fields and the code are in the hover of the row
-(`SnippetsView.preview`, a `MarkdownString`). VS Code draws the hover itself, so it
-floats over the editor and is not held inside the narrow side bar, and the code block
-is colored by the highlighter of the editor. The hover shows the first 30 lines of a
-long snippet.
-
-It was a webview with cards before, see the drawer.
-
-Inserting goes to the Strudel editor when it is the active tab, and to the native
-editor when that shows a Strudel file. `window.activeTextEditor` is undefined while the
-Strudel editor is active, because it is a webview. Nothing is inserted into a file of
-another language: a click on a sound while a markdown file had the focus used to type
-the sound name into it.
+the list when a file is added, removed or saved. The Browser shows them under Snippets,
+by category, and the details pane shows the description, the header fields and the first
+30 lines of the code.
 
 ### Snippet header
 
@@ -315,9 +345,9 @@ for `samples('github:...')` and `samples('https://....json')` (`findPackSources`
 open and 1.5 seconds after the last edit, and tells the webview. The webview registers
 the pack at once, so its sounds can be browsed and previewed before the first play.
 
-**The pack gets a group in the Sounds view.** The song's scope has our own `samples`
+**The pack shows in the Browser.** The song's scope has our own `samples`
 (`taggedSamples`), put after `@strudel/webaudio` in `evalScope`. It calls the real one
-and adds the pack's name as the `tag` when the first argument is a name. The view makes
+and adds the pack's name as the `tag` when the first argument is a name. The Browser makes
 a group of every tag that starts with `github:` or `https://`.
 
 **The pack is copied into the workspace.** `PackCache` downloads the sample map and
@@ -598,8 +628,8 @@ from the hub is not built yet, see `doc/TODO.md`.
 into `{ s: 'vibefm1', n: 'obervave' }` (checked with `@strudel/mini` 1.2.6, also for ids with `-` and `.`), and the
 trigger picks the firmware from `n` on every hap. So the firmware is a pattern value: `s("vibefm1:<obervave sloop>")`
 changes it per cycle. A number picks by position in the folder and wraps, as `bd:3` does for samples; no `n` is the
-first one. An id that is not in the folder logs one error with the ids there are. The Sounds view shows `vibefm1` with
-its firmwares as named variations (`SoundInfo.variations`), and a click types `vibefm1:<id>`.
+first one. An id that is not in the folder logs one error with the ids there are. The Browser shows each firmware
+of `vibefm1` (`SoundInfo.variations`) as a row under Instruments, and inserting one types `vibefm1:<id>`.
 
 The catch: a later `.n()` replaces the firmware. `s("vibefm1:obervave").n("0 2").scale("c2:minor")` ends up with
 `n` gone, and then plays the first firmware. Put `n(...).scale(...)` first, or use `note`. The first time `vibefm1`
@@ -667,7 +697,7 @@ and sequencer take their tempo only from that event, and read the position from 
 
 An experimental mockup, to see how the SHRUB web editor would look inside VS Code. Off unless the setting
 `strdltn.experimental.shrubEditor` is on; then the command "strdltn: Open SHRUB editor (experimental)" shows in the
-palette and in the title bar of the Sounds view. Turning the setting off closes the tab. The tab is a `WebviewPanel` with
+palette and in the title bar of the Browser. Turning the setting off closes the tab. The tab is a `WebviewPanel` with
 a toolbar and an `iframe` of `https://shrub.audio/editor/`. Its CSP allows frames from that origin only, and scripts only
 with its nonce. `retainContextWhenHidden` keeps the editor's page, and its unsaved patches, while the tab is hidden.
 "Open in browser" goes through `vscode.env.openExternal`. "Use in song" is disabled: it marks where a VIBE FM build of

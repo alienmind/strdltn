@@ -29,6 +29,7 @@ the `.strudel` file that is open.
 | `reference/strudel-tutorial.md` | The workshop and the guides of strudel.cc as plain text, with their examples. Read the part about what is asked (drums, notes, effects, signals) when writing something new |
 | `samples/` | The user's own audio files. A folder `samples/kick/` is the sound `s("kick")`, and `s("kick:1")` is its second file |
 | `.strdltn/` | A cache the extension fills. Never edit it |
+| `strdltn.index.json` | Colors, tags and saved searches of the Browser, kept by the extension. Do not edit it by hand unless asked |
 
 ## How a song is written
 
@@ -60,7 +61,7 @@ A pattern with `_$:` in front is muted. Use that to turn a part off without dele
 | `n("0 2 4 7").scale("C:minor")` | Steps of a scale. The usual way to write a melody or a bass line |
 | `chord("<Am7 Fmaj7>").voicing()` | Chords by name |
 
-Only use a sound name that is in the Sounds view of [str]dltn Live[code], or that already appears in
+Only use a sound name that is in the Browser of [str]dltn Live[code], or that already appears in
 this project. Do not make up names.
 
 ### Mini-notation

@@ -10,8 +10,9 @@ fit any project.
 
 [str]dltn Live[code] is a VS Code extension that turns the editor into a Strudel IDE for `.strudel`
 files. It hosts the upstream Strudel packages (`@strudel/*` from npm, source at
-`codeberg.org/uzu/strudel`) in a webview and adds a Sounds view, a Snippets view, a
-stage, and a cache for remote sample packs. It runs on desktop VS Code and in GitHub
+`codeberg.org/uzu/strudel`) in a webview and adds a Browser in the style of Ableton
+Live (sounds, snippets, songs, functions, with tags and search), a stage, and a cache
+for remote sample packs. It runs on desktop VS Code and in GitHub
 Codespaces.
 
 This repo is a fork of `github.com/alienmind/vstrudel`. We forked it because the scope

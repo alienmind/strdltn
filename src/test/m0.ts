@@ -117,10 +117,10 @@ export async function run(): Promise<void> {
 		steps.settingsBack = await until(() => settingsLine() === steps.settingsAtStart, 5000);
 		save();
 
-		// 2b. The Sounds view: the engine's own list, preview and insert.
+		// 2b. The Browser: the engine's own list, preview and insert.
 		const demoText = await text(demo);
 		steps.soundsArrived = await until(() => api.sounds().length > 50, 40000);
-		steps.soundGroups = api.soundGroups();
+		steps.browserCounts = api.browserCounts();
 		// The list is written to a file 2 seconds after it settles, for the next start.
 		await sleep(2500);
 		steps.rememberedSounds = await api.rememberedSounds();
@@ -133,36 +133,44 @@ export async function run(): Promise<void> {
 			soundfont: pick((s) => s.type === 'soundfont'),
 		};
 		steps.soundPicks = Object.fromEntries(Object.entries(picks).map(([key, s]) => [key, s && `${s.name} (${s.type}, ${s.count})`]));
-		await vscode.commands.executeCommand('strdltn.sounds.focus');
+		await vscode.commands.executeCommand('strdltn.browser.focus');
 		await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
 		await vscode.commands.executeCommand('notifications.clearAll');
-		steps.soundBanks = api.soundBanks().length;
+		steps.drumBanks = api.browserGroups('drums').length;
 		steps.previewSoundsOn = api.previewSounds();
 		steps.snippetDetails = api.snippetDetails().slice(0, 3);
-		// The Files view: every folder with .strudel files, and nothing else.
+		// The songs: every folder with .strudel files, and nothing else.
 		steps.files = api.files().length;
-		steps.filesTopLevel = api.filesTopLevel();
+		steps.songFolders = api.browserGroups('songs');
 		steps.filesByFolder = Object.fromEntries(
 			[...new Set(api.files().map((path) => path.split('/').slice(0, -1).join('/') || '.'))].map((folder) => [
 				folder,
 				api.files().filter((path) => (path.split('/').slice(0, -1).join('/') || '.') === folder).length,
 			]),
 		);
-		await vscode.commands.executeCommand('strdltn.files.focus');
-		await api.expandFilesFolder('examples');
-		await sleep(1000);
+		// What the Browser shows for a few filters, as the webview reports it, and the same
+		// filters worked out in the host.
+		const everything = { query: '', chips: [], color: undefined, place: undefined };
+		steps.browserAll = await api.browserShow({ ...everything, category: 'all' });
+		await sleep(800);
+		await shot('browser');
+		steps.browserSongs = await api.browserShow({ ...everything, category: 'songs' }, ['examples']);
+		await sleep(800);
 		await shot('files-view');
-		await api.expandSoundGroup('Synths');
-		await api.expandSoundBank('RolandTR909');
-		await vscode.commands.executeCommand('strdltn.snippets.focus');
-		await sleep(1200);
-		await api.expandSnippet('bass/acid-303');
-		await sleep(1500);
+		const tr909 = api.browserGroups('drums').find((bank) => /^rolandtr909$/i.test(bank));
+		steps.browserDrums = await api.browserShow({ ...everything, category: 'drums' }, tr909 ? [tr909] : []);
+		await sleep(800);
 		await shot('sounds-view');
+		steps.browserSearch = await api.browserShow({ ...everything, category: 'all', query: '909 bd' });
+		steps.browserSearchHost = api.browserFind({ category: 'all', query: '909 bd' }).slice(0, 5);
+		steps.browserChips = await api.browserShow({ ...everything, category: 'drums', chips: ['Drums/Kick', 'Maker/Roland'] });
+		await sleep(800);
+		await shot('browser-chips');
+		steps.browserFunctions = await api.browserShow({ ...everything, category: 'functions', query: 'lpf' });
 		await vscode.commands.executeCommand('workbench.action.closeSidebar');
 		await sleep(1200);
 		await shot('editor');
-		await vscode.commands.executeCommand('strdltn.sounds.focus');
+		await vscode.commands.executeCommand('strdltn.browser.focus');
 		const previews: Record<string, boolean> = {};
 		for (const [key, sound] of Object.entries(picks)) {
 			if (!sound) continue;
@@ -175,7 +183,8 @@ export async function run(): Promise<void> {
 		const previewCount = (mode: string) => session(mode, demo)?.logs.filter((line) => line.includes('preview: bd:0')).length ?? 0;
 		if (picks.sample) {
 			const heardBefore = previewCount('editor');
-			await vscode.commands.executeCommand('strdltn.clickSound', { kind: 'sound', sound: picks.sample });
+			// What the Browser sends when a row is clicked with preview on.
+			await api.browserMessage({ type: 'play', id: `sound:${picks.sample.name}` });
 			steps.clickSoundInStrudelEditor = {
 				heard: await until(() => previewCount('editor') > heardBefore, 5000),
 				typedNothing: (await text(demo)) === demoText,
@@ -274,8 +283,8 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
 		await vscode.commands.executeCommand('notifications.clearAll');
 		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(demo));
-		await vscode.commands.executeCommand('strdltn.snippets.focus');
-		await sleep(1000);
+		steps.browserSnippets = await api.browserShow({ ...everything, category: 'snippets' });
+		await sleep(800);
 		await shot('snippets-view');
 		const snippetBody = 's("[~ hh]*4").bank("RolandTR909").gain(.6)';
 		const nativeBefore = await text(demo);
@@ -296,11 +305,13 @@ export async function run(): Promise<void> {
 			// The same click from the native editor: heard through the stage, nothing typed.
 			const textBefore = await text(demo);
 			const heardBefore = previewCount('stage');
-			await vscode.commands.executeCommand('strdltn.clickSound', { kind: 'sound', sound: { name: 'bd', type: 'sample', count: 8 } });
+			await api.browserMessage({ type: 'play', id: 'sound:bd' });
 			steps.clickSoundInNativeEditor = {
 				heard: await until(() => previewCount('stage') > heardBefore, 5000),
 				typedNothing: (await text(demo)) === textBefore,
 			};
+			// The song plays, so the preview waits for the next beat and says which.
+			steps.previewOnBeat = last('stage', demo, 'preview: bd:0');
 		}
 		// Move the first slider of the stage. The number in the code has to follow.
 		const beforeSlider = await text(demo);
@@ -361,8 +372,8 @@ export async function run(): Promise<void> {
 		if (!quick) {
 		await vscode.commands.executeCommand('vscode.openWith', coastline, EDITOR);
 		steps.packListedBeforePlay = await until(() => api.sounds().some((s) => s.tag === 'github:eddyflux/crate'), 40000);
-		steps.packGroup = api.soundGroups().find((group) => group.label.startsWith('github:'));
-		steps.packBanks = api.soundBanks('github:eddyflux/crate');
+		steps.packItems = api.browserFind({ place: 'packs' }).length;
+		steps.packBanks = api.browserGroups('drums').filter((bank) => bank.startsWith('crate'));
 		steps.packCached = await until(() => api.packs().some((pack) => pack.source === 'github:eddyflux/crate' && pack.complete), 180000);
 		steps.packs = api.packs();
 		steps.packServedFromCache = await until(() => has('editor', coastline, 'github:eddyflux/crate (cached): registered'), 20000);

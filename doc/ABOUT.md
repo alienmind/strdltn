@@ -58,7 +58,8 @@ it because the scope grew beyond a VS Code extension.
 
 - All the sounds of strudel.cc: drum machines, piano, the VCSL instruments, the General
   MIDI soundfonts, the synths.
-- A Sounds view that lists everything you can play, with an icon per kind.
+- A Browser like the one of Ableton Live: search, seven colors, categories, tag chips,
+  and every sound, snippet, song and function of Strudel in one list.
 - Drum machines grouped by bank.
 - A click on a sound plays it when preview is on. It never types.
 - Two buttons on each sound: one types its name at the cursor, one plays it.
@@ -73,16 +74,15 @@ it because the scope grew beyond a VS Code extension.
 
 **Snippets**
 
-- A Snippets view over the `.strudel` files in your `lib/` folder, grouped by folder,
-  with a colored dot per category and the tags of each snippet.
-- Rest the mouse on a snippet: its description and its code in color float beside it.
+- The Browser's Snippets: the `.strudel` files in your `lib/` folder, grouped by category,
+  with the tags of each snippet. Select one to read its description and code.
 - Two buttons on each snippet: one inserts the code at the cursor, one opens the file.
 - Snippets describe themselves in comments at the top of the file.
 
 **Projects**
 
 - Songs, samples and snippets are plain files: git, search and folders work as usual.
-- A Files view lists every folder of your project that holds songs, and only those.
+- The Browser's Songs list every `.strudel` file of your project, by folder.
 - Ready for AI assistants such as Copilot: the template tells them that "add a bass line"
   means a change to the song you have open, and gives them the Strudel reference and
   tutorial to look things up.
@@ -122,7 +122,7 @@ Now `s("kick snare")` plays them, and `s("kick:1")` picks the second kick.
 
 A song can also load a pack from GitHub with `samples('github:user/repo')`, or from any
 address with `samples('https://.../strudel.json')`. [str]dltn Live[code] sees that line when you
-open the file: the pack shows up in the Sounds view at once, and it is copied into a
+open the file: the pack shows up in the Browser at once, and it is copied into a
 `.strdltn/` folder of your project so it plays without the network next time.
 
 ### Snippets

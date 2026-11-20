@@ -12,7 +12,7 @@ import * as strudelSoundfonts from '@strudel/soundfonts';
 import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
-import { sliderLabel, visualLabel } from '../shared/context';
+import { insideString, sliderLabel, visualLabel } from '../shared/context';
 import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
@@ -83,7 +83,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			void preview(message.name, message.index);
 			break;
 		case 'insert':
-			insert(message.text);
+			insert(message.text, message.bare);
 			break;
 		case 'slider':
 			if (stageSliders[message.index]) moveSlider(stageSliders[message.index], String(message.value));
@@ -386,9 +386,11 @@ function applyRemoteText(text: string): void {
 	}
 }
 
-function insert(text: string): void {
+function insert(text: string, bare?: string): void {
 	if (!mirror) return;
-	mirror.editor.dispatch(mirror.editor.state.replaceSelection(text));
+	const state = mirror.editor.state;
+	const inside = bare !== undefined && insideString(state.doc.toString(), state.selection.main.from);
+	mirror.editor.dispatch(state.replaceSelection(inside ? bare : text));
 	mirror.editor.focus();
 }
 
@@ -472,7 +474,12 @@ function play(): Promise<void> {
 	});
 }
 
-/** Plays one sound once, the way the sounds tab of strudel.cc does. */
+/**
+ * Plays one sound once, the way the sounds tab of strudel.cc does. While the song plays,
+ * the sound starts on the next beat and lasts one beat, so a synth or a sample can be
+ * tried against the music, as the preview of Live does with "Raw" off. One cycle is a bar
+ * of four beats, the same rule the firmware clock uses.
+ */
 function preview(name: string, index: number): Promise<void> {
 	return withAudio(async () => {
 		const data = (strudelWebaudio.soundMap.get() as Record<string, { data?: any }>)[name]?.data ?? {};
@@ -480,8 +487,26 @@ function preview(name: string, index: number): Promise<void> {
 		const pitched = data.type !== 'sample' || !Array.isArray(data.samples);
 		const value = { s: name, n: index, clip: 1, release: 0.5, ...(pitched ? { note: 'a3' } : {}) };
 		const context: AudioContext = strudelWebaudio.getAudioContext();
-		await strudelWebaudio.superdough(value, context.currentTime + 0.05, 0.5);
-		log('info', `preview: ${name}:${index}`);
+		const scheduler = mirror?.repl?.scheduler;
+		let at = context.currentTime + 0.05;
+		let duration = 0.5;
+		let synced = '';
+		if (scheduler?.started && scheduler.cps > 0) {
+			const beats = 4;
+			// The audio time of a cycle, by the formula of upstream's Cyclist (cyclist.mjs,
+			// @strudel/core 1.2.6). Its `latency` is in it: the song is heard that much after
+			// the scheduler's own `now()`.
+			const timeOf = (c: number) => (c - scheduler.num_cycles_at_cps_change) / scheduler.cps + scheduler.seconds_at_cps_change + scheduler.latency;
+			const heard = (context.currentTime - scheduler.latency - scheduler.seconds_at_cps_change) * scheduler.cps + scheduler.num_cycles_at_cps_change;
+			let next = Math.ceil(heard * beats) / beats;
+			// Not a beat closer than 50 ms: the sound could not start in time.
+			while (timeOf(next) < context.currentTime + 0.05) next += 1 / beats;
+			at = timeOf(next);
+			duration = 1 / beats / scheduler.cps;
+			synced = ` on beat ${(Math.round(next * beats) % beats) + 1}`;
+		}
+		await strudelWebaudio.superdough(value, at, duration);
+		log('info', `preview: ${name}:${index}${synced}`);
 	});
 }
 

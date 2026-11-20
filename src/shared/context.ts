@@ -210,3 +210,26 @@ function shorten(text: string): string {
 	const single = text.replace(/\s+/g, ' ').trim();
 	return single.length > MAX ? `${single.slice(0, MAX - 3)}...` : single;
 }
+
+/**
+ * Whether a position is inside a string literal of its line: `s("bd hh <>")`. Insert at
+ * the cursor then types only a name, not a whole `s("...")` call inside the string. Strudel
+ * code is read line by line here: a mini-notation string over several lines (backticks) is
+ * only seen on the line where it starts.
+ */
+export function insideString(code: string, position: number): boolean {
+	const lineStart = code.lastIndexOf('\n', position - 1) + 1;
+	let quote = '';
+	for (let i = lineStart; i < position; i++) {
+		const char = code[i];
+		if (quote) {
+			if (char === '\\') i++;
+			else if (char === quote) quote = '';
+		} else if (char === '"' || char === "'" || char === '`') {
+			quote = char;
+		} else if (char === '/' && code[i + 1] === '/') {
+			return false;
+		}
+	}
+	return quote !== '';
+}

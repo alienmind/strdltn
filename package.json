@@ -67,11 +67,6 @@
 				"icon": "$(debug-stop)"
 			},
 			{
-				"command": "strdltn.refreshFiles",
-				"title": "strdltn: Refresh files",
-				"icon": "$(refresh)"
-			},
-			{
 				"command": "strdltn.stopAll",
 				"title": "strdltn: Stop all"
 			},
@@ -113,53 +108,23 @@
 				"icon": "$(insert)"
 			},
 			{
-				"command": "strdltn.copySoundName",
-				"title": "strdltn: Copy sound name",
-				"icon": "$(copy)"
-			},
-			{
-				"command": "strdltn.refreshSounds",
-				"title": "strdltn: Refresh sounds",
-				"icon": "$(refresh)"
-			},
-			{
 				"command": "strdltn.insertSnippet",
 				"title": "strdltn: Insert snippet at cursor",
 				"icon": "$(insert)"
-			},
-			{
-				"command": "strdltn.openSnippet",
-				"title": "strdltn: Open snippet file",
-				"icon": "$(go-to-file)"
-			},
-			{
-				"command": "strdltn.refreshSnippets",
-				"title": "strdltn: Refresh snippets",
-				"icon": "$(refresh)"
 			},
 			{
 				"command": "strdltn.showVersion",
 				"title": "strdltn: Show version and build"
 			},
 			{
-				"command": "strdltn.clickSound",
-				"title": "strdltn: Preview sound on click",
-				"icon": "$(insert)"
+				"command": "strdltn.focusSearch",
+				"title": "strdltn: Search the Browser",
+				"icon": "$(search)"
 			},
 			{
-				"command": "strdltn.insertBank",
-				"title": "strdltn: Insert .bank() at cursor",
-				"icon": "$(insert)"
-			},
-			{
-				"command": "strdltn.enablePreview",
-				"title": "Preview on click is OFF. Press to turn it on",
-				"icon": "$(mute)"
-			},
-			{
-				"command": "strdltn.disablePreview",
-				"title": "Preview on click is ON. Press to turn it off",
-				"icon": "$(unmute)"
+				"command": "strdltn.refreshBrowser",
+				"title": "strdltn: Refresh the Browser",
+				"icon": "$(refresh)"
 			}
 		],
 		"menus": {
@@ -182,66 +147,14 @@
 			],
 			"view/title": [
 				{
-					"command": "strdltn.disablePreview",
-					"when": "view == strdltn.sounds && strdltn.previewSounds",
-					"group": "navigation@1"
-				},
-				{
-					"command": "strdltn.enablePreview",
-					"when": "view == strdltn.sounds && !strdltn.previewSounds",
-					"group": "navigation@1"
-				},
-				{
-					"command": "strdltn.refreshSounds",
-					"when": "view == strdltn.sounds",
+					"command": "strdltn.refreshBrowser",
+					"when": "view == strdltn.browser",
 					"group": "navigation@2"
 				},
 				{
-					"command": "strdltn.refreshFiles",
-					"when": "view == strdltn.files",
-					"group": "navigation"
-				},
-				{
-					"command": "strdltn.refreshSnippets",
-					"when": "view == strdltn.snippets",
-					"group": "navigation"
-				},
-				{
 					"command": "strdltn.openShrubEditor",
-					"when": "view == strdltn.sounds && config.strdltn.experimental.shrubEditor",
+					"when": "view == strdltn.browser && config.strdltn.experimental.shrubEditor",
 					"group": "navigation@3"
-				}
-			],
-			"view/item/context": [
-				{
-					"command": "strdltn.insertSound",
-					"when": "view == strdltn.sounds && viewItem == sound",
-					"group": "inline@1"
-				},
-				{
-					"command": "strdltn.previewSound",
-					"when": "view == strdltn.sounds && viewItem == sound",
-					"group": "inline@2"
-				},
-				{
-					"command": "strdltn.insertBank",
-					"when": "view == strdltn.sounds && viewItem == bank",
-					"group": "inline"
-				},
-				{
-					"command": "strdltn.insertSnippet",
-					"when": "view == strdltn.snippets && viewItem == snippet",
-					"group": "inline@1"
-				},
-				{
-					"command": "strdltn.openSnippet",
-					"when": "view == strdltn.snippets && viewItem == snippet",
-					"group": "inline@2"
-				},
-				{
-					"command": "strdltn.copySoundName",
-					"when": "view == strdltn.sounds && viewItem == sound",
-					"group": "strdltn@1"
 				}
 			],
 			"commandPalette": [
@@ -254,31 +167,7 @@
 					"when": "false"
 				},
 				{
-					"command": "strdltn.clickSound",
-					"when": "false"
-				},
-				{
-					"command": "strdltn.insertBank",
-					"when": "false"
-				},
-				{
-					"command": "strdltn.copySoundName",
-					"when": "false"
-				},
-				{
 					"command": "strdltn.insertSnippet",
-					"when": "false"
-				},
-				{
-					"command": "strdltn.openSnippet",
-					"when": "false"
-				},
-				{
-					"command": "strdltn.enablePreview",
-					"when": "false"
-				},
-				{
-					"command": "strdltn.disablePreview",
 					"when": "false"
 				},
 				{
@@ -305,6 +194,11 @@
 				"key": "ctrl+alt+m",
 				"mac": "cmd+alt+m",
 				"when": "activeCustomEditorId == strdltn.editor || editorLangId == strudel"
+			},
+			{
+				"command": "strdltn.focusSearch",
+				"key": "ctrl+alt+f",
+				"mac": "cmd+alt+f"
 			}
 		],
 		"configuration": {
@@ -390,8 +284,14 @@
 				"strdltn.stage.position": {
 					"type": "string",
 					"default": "below",
-					"enum": ["below", "beside"],
-					"enumDescriptions": ["Under the code, in a group of its own", "To the right of the code"],
+					"enum": [
+						"below",
+						"beside"
+					],
+					"enumDescriptions": [
+						"Under the code, in a group of its own",
+						"To the right of the code"
+					],
 					"description": "Where the stage opens when a song plays in the native editor. It can be dragged anywhere after that."
 				},
 				"strdltn.remoteSamples.cache": {
@@ -418,25 +318,9 @@
 		"views": {
 			"strdltn": [
 				{
-					"id": "strdltn.logo",
-					"name": "strdltn",
-					"type": "webview",
-					"initialSize": 1
-				},
-				{
-					"id": "strdltn.files",
-					"name": "Files",
-					"initialSize": 3
-				},
-				{
-					"id": "strdltn.sounds",
-					"name": "Sounds",
-					"initialSize": 4
-				},
-				{
-					"id": "strdltn.snippets",
-					"name": "Snippets",
-					"initialSize": 4
+					"id": "strdltn.browser",
+					"name": "Browser",
+					"type": "webview"
 				}
 			]
 		},

@@ -64,16 +64,36 @@ browser.
 - Ctrl+. stops the song in front. Press it again to stop a song that plays in another
   tab. "strdltn: Stop all" stops every song.
 
+**Browser**
+
+- One Browser in the side bar, laid out like the browser of Ableton Live: a search
+  field, seven colors, a Library (Sounds, Drums, Samples, Instruments, Snippets, Songs,
+  Functions), Places (your project, packs, built in), tag chips, and the results below.
+- Search by name, bank, folder, description or tag. Every word must match. `#kick`
+  looks only at tags.
+- Tags come by themselves from the names: Kick, Snare, Hihat... for drums, Bass, Pad,
+  Keys... for instruments, the maker of a drum machine, where a sound comes from. Click a
+  chip to filter, Ctrl+click to take several of a group.
+- Put anything in a collection: the tag button on a row, the color dots under the
+  selected item, or the keys 1 to 7 (0 clears). Your own tags come from the same button
+  ("Edit tags...") or the "Tags..." button. They are kept in `strdltn.index.json` in your project, so they travel with it.
+  Tags of a snippet go into its own header.
+- Save a search: it becomes a row under Collections.
+- A click on a sound plays it when preview is on. It never types. Enter, a double click
+  or the insert button types the code that plays it at the cursor: `s("bd")`,
+  `s("bd").bank("RolandTR909")`, `note("c3").s("sawtooth")`. Inside a string, only the
+  name. Copy gives the name. A bank heading has a button that types
+  `.bank("...")`.
+- While a song plays, a preview starts on its next beat and lasts one beat, so you hear
+  the sound against the music.
+- A pane at the bottom shows the selected item: its tags, a snippet's description and
+  code, a function's parameters and an example.
+- The list is there as soon as VS Code starts, before you open a song.
+
 **Sounds**
 
 - All the sounds of strudel.cc: drum machines, piano, the VCSL instruments, the General
   MIDI soundfonts, the synths.
-- A Sounds view that lists everything you can play, with an icon per kind.
-- Drum machines grouped by bank.
-- A click on a sound plays it when preview is on. It never types.
-- Two buttons on each sound: one types its name at the cursor, one plays it.
-- A button on a bank types `.bank("...")`.
-- The list is there as soon as VS Code starts, before you open a song.
 - Your own samples: audio files in a `samples/` folder are sounds, with no setup. New
   files appear without a reload.
 - Sample packs from GitHub (`samples('github:user/repo')`) or from any address
@@ -90,16 +110,16 @@ browser.
 
 **Snippets**
 
-- A Snippets view over the `.strudel` files in your `lib/` folder, grouped by folder,
-  with a colored dot per category and the tags of each snippet.
-- Rest the mouse on a snippet: its description and its code in color float beside it.
+- The `.strudel` files in your `lib/` folder are the Snippets of the Browser, grouped by
+  category, with their tags.
 - Two buttons on each snippet: one inserts the code at the cursor, one opens the file.
 - Snippets describe themselves in comments at the top of the file.
 
 **Projects**
 
 - Songs, samples and snippets are plain files: git, search and folders work as usual.
-- A Files view lists every folder of your project that holds songs, and only those.
+- The Songs of the Browser are every `.strudel` file of your project, by folder, and
+  only those. A click opens one.
 - Ready for AI assistants such as Copilot: the template tells them that "add a bass line"
   means a change to the song you have open, and gives them the Strudel reference and
   tutorial to look things up.
@@ -130,24 +150,38 @@ the code follows.
 Edits made outside the editor, by git or by an agent, show up at once, even while the
 song plays.
 
-### Sounds
+### The Browser
 
-The [str]dltn Live[code] icon in the activity bar opens the side bar: the logo, then the Files,
-Sounds and Snippets views. Sounds lists what the engine can play, your own samples
-first:
+The [str]dltn Live[code] icon in the activity bar opens the Browser. From the top:
 
-- A click on a sound plays it when preview is on. The title of the view says "preview
-  on" or "preview off", and the speaker button at the top switches it.
-- A click never types. The first button on a row types the name at the cursor, the
-  second plays it.
-- Drum machines are grouped by bank. The button on a bank types `.bank("RolandTR909")`.
+- **Search.** Ctrl+F in the Browser, or Ctrl+Alt+F from anywhere, puts the cursor here.
+  Esc clears it, the down arrow goes to the results.
+- **Collections.** Seven color dots. A click shows everything with that color. Right click
+  a dot to rename it ("Favorites" is the first). Saved searches are listed here too.
+- **Library.** What kind of thing: Sounds (synths, soundfonts), Drums (by bank), Samples,
+  Instruments (VIBE FM firmwares), Snippets, Songs, Functions (every function of Strudel,
+  with its documentation).
+- **Places.** Where it comes from: your project, the packs your songs load, built in.
+- **Chips.** The tags of what is shown, by group. They narrow the results.
+- **Results.** Under headings: the bank, the folder, the category. Arrow keys move,
+  Enter inserts (or opens a song), Space plays, 1 to 7 color, right click for more.
+  Ctrl+click and Shift+click select several rows.
+- **Details.** The selected item: seven dots that put it in or take it out of a
+  collection, a "Tags..." button, its tags (a click filters by one), its description, code
+  or parameters.
+
+The speaker button beside the search turns preview on click on or off. While a song
+plays, a preview waits for the next beat of the song.
+
+Colors, your own tags and saved searches are kept in `strdltn.index.json` at the root of
+your project. Commit it and they travel with your songs.
 
 Your own samples need no setup. A folder `samples/kick/` with audio files in it becomes
 `s("kick")`, and `s("kick:1")` is its second file. A new folder shows up a few seconds
 after you copy it in.
 
 A song can load a pack from GitHub with `samples('github:user/repo')`, or from any
-address with `samples('https://.../strudel.json')`. The pack shows up in the Sounds view
+address with `samples('https://.../strudel.json')`. The pack shows up in the Browser
 when you open the file, and it is copied into `.strdltn/` in your project, so next time
 it plays without the network. That folder ignores itself for git. "strdltn: Show sample
 pack cache size" says how much it holds, and "strdltn: Clear sample pack cache" deletes
@@ -155,9 +189,9 @@ it.
 
 ### Snippets
 
-Put `.strudel` files in a `lib/` folder and they appear in the Snippets view, grouped by
-folder. Rest the mouse on a snippet to see its description and its code. The first
-button on the row inserts the code at the cursor, the second opens the file.
+Put `.strudel` files in a `lib/` folder and they appear under Snippets in the Browser,
+grouped by category. Select one to see its description and its code below the list. The
+first button on the row inserts the code at the cursor, the second opens the file.
 
 A snippet describes itself in comments at the top:
 

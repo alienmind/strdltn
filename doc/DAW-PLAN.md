@@ -17,6 +17,8 @@ The screen of Ableton Live, with code where Live has clips:
 |---|---|---|
 | Browser (left pane) | One Browser view: search box, color tags, categories, places, and the results in the same column | Three tree views: Files, Sounds, Snippets |
 | Session view with the mixer | A Mixer panel: one channel per chain of the song, made of the sliders that act on it, folded to its gain. Cables for sidechains (`.duck` to `.orbit`) and for MIDI (`.midi()` to a device), in two colors | The sliders are rows in the stage |
+| Two decks with a crossfader, three EQ knobs and a fader each, synced by the beat | The DECKS view of the Mixer | Two songs can play at once, nothing ties them |
+| Automation recording and the arrangement view | Record button; lanes of code, chains, sliders and decks on a timeline | Nothing |
 | Clip and device view (bottom) | The stage, as now, and a Devices view: one panel per firmware that plays, and the SHRUB window | The stage. Firmwares have no panel. SHRUB is a mockup tab behind a setting |
 | Arrangement | The code editor, as now | The Strudel editor and the native editor |
 | MIDI in and out | Devices in the Browser, `.midi()`, `midin()`, `midikeys()`, MIDI learn on the mixer | Nothing. A webview may not use MIDI (measured) |
@@ -249,8 +251,28 @@ webview: title, details, tags, code.
 **Keys.** Up and down move, right and left open and close, Enter inserts, Space plays, 1
 to 7 set a color, 0 clears, Ctrl+F goes to the search field, Esc clears the search.
 
-**Preview in tempo.** While a song plays, the preview of a sample starts on the next
-cycle. Expected to be possible with the scheduler's `now()`; a later step of the phase.
+**Preview in tempo.** Built in phase 1: while a song plays, a preview starts on its
+next beat and lasts one beat.
+
+**Insert as code.** Built, asked by the maintainer after phase 1: insert at the cursor
+types the code that plays the sound, not only its name. Copy keeps giving the bare name.
+The rules are `soundCode` in `src/shared/catalog.ts` and `insideString` in
+`src/shared/context.ts`, with their cases in the tests beside them.
+
+| Row | Insert types |
+|---|---|
+| A sample, `bd` | `s("bd")` |
+| A variation, `bd:3` | `s("bd:3")` |
+| A drum machine sound, `bd` under the bank `RolandTR909` | `s("bd").bank("RolandTR909")`, the bank by the name the Browser shows |
+| A synth, a soundfont, a wavetable | `note("c3").s("sawtooth")`: a pitched sound makes no sound without a note |
+| A firmware | `note("c3").s("vibefm1:obervave")` |
+| A bank heading | `.bank("RolandTR909")`, as now |
+| A snippet, a function | As now: the code, the name |
+
+When the cursor is already inside the string of an `s("...")` or a `.bank("...")`, only
+the name goes in, so `s("bd hh <>")` becomes `s("bd hh sd")` and not a call inside a
+string. `src/shared/context.ts` already finds what is around a position. In the native
+editor the host reads the text around the cursor; in the Strudel editor the webview does.
 
 **Hot-swap.** With the cursor inside `s("...")` or `.bank("...")`, a row gets a "replace"
 button that swaps the name under the cursor. `src/shared/context.ts` already finds what
@@ -661,6 +683,83 @@ and editors that are views of it.
   a mode switch start the new webview at the same cycle (option 1 of "Sound across a
   mode switch" in `doc/TODO.md`).
 
+### Audio without an open song
+
+Two things the maintainer does not want to see any more: "Open a .strudel file to hear
+sounds" when a sound of the Browser is clicked with no song open, and "Click to enable
+audio" over the editor or the stage.
+
+**What a worker can and cannot do.** The maintainer's proposal is a web worker. The facts:
+
+- A web worker has no `AudioContext`. Web Audio lives in a page (a window), and an
+  `AudioWorklet` runs on the audio thread of a context that a page made. So a worker
+  alone cannot make a sound. (The Web Audio API, read; our own engine is built this way.)
+- A worker can run everything except the sound: evaluate the code with
+  `@strudel/core`, `@strudel/mini`, `@strudel/tonal` and `@strudel/transpiler`, keep the
+  clock, query the pattern ahead (`queryArc`) and post the events with their times.
+  `m4l-gugelhupf` does exactly that in its MIDI devices (read, see "The engine of
+  m4l-gugelhupf" above). A dedicated worker is not slowed down when its page is hidden,
+  so the timing does not depend on whether the page is in sight.
+- The page that owns the `AudioContext` needs one user gesture inside it, once, before
+  the context runs (measured in VS Code, see "Starting audio" in `doc/ARCHITECTURE.md`; it
+  is the autoplay rule of every browser). After that the context keeps running for the
+  life of the page. No extension can lift that rule for a webview (measured, see the
+  drawer entry "Starting audio without a click").
+
+So the design is a worker for the pattern and the clock, and one page for the sound,
+chosen so that the one gesture it needs is a click the user makes anyway.
+
+**The engine in the Browser.** That page is the Browser in the side bar:
+
+- It is where the user clicks: a click on a sound to hear it is the gesture. From the
+  first preview of the window on, the Browser's `AudioContext` runs.
+- With `retainContextWhenHidden` it stays alive while another side bar is shown, so the
+  gesture is needed once per window, not once per song or per tab.
+- It exists before any song is open, so a sound can be heard with no song at all.
+
+```
+Browser webview (side bar)                          editors and stage
++------------------------------------------+        +-------------------------+
+| page: superdough, the AudioContext,      | <----> | CodeMirror, highlighting|
+|   sample maps, firmware worklets         | events | and drawing from the    |
+|   the click on a row unlocks it          | via    | engine's events (E2)    |
+| worker: evaluate, clock, query ahead,    | host   | no sound of their own   |
+|   post events with their audio times     |        +-------------------------+
++------------------------------------------+
+```
+
+**Step 1, previews.** The Browser page gets superdough and the sounds the editor engine
+loads today (synths, ZZFX, soundfonts, the default packs, the workspace's samples, the
+firmwares), moved out of `src/webview/main.ts` into a module both pages use. A click on a
+sound plays it in the Browser. While a song plays, the preview still goes to that song's
+engine, so it lands on its beat (built in phase 1). The message "Open a .strudel file to
+hear sounds" goes away. The Browser's engine also gives the sound list at start, so the
+list no longer depends on the one kept from the last song. The Browser's bundle gets
+larger (superdough and the soundfont list); measured when built. A pack that a song loads
+by name is registered in the Browser the first time one of its sounds is previewed.
+
+**Step 2, songs.** The songs play in the Browser's engine too: phase 6, with the engine in
+the Browser and not in the Mixer panel as first planned, and with the scheduler in a
+worker. The editor and the stage send the code and get events back for highlighting and
+drawing (spike E2). Then:
+
+- "Click to enable audio" can only show when nothing was clicked in the Browser since the
+  window opened. It shows once, in the Browser, not over the editor: a play button at the
+  top of the Browser that both starts the song and unlocks the audio. A play from the
+  editor before that (Ctrl+Enter in the native editor, the title bar button) reveals the
+  Browser with that button lit.
+- Switching between the Strudel editor and the native editor no longer stops the sound:
+  the engine is not in either of them.
+- Two songs (the two decks) are two patterns in one engine, on one clock, so Sync of the
+  decks becomes exact by construction (spike J1 is then not needed).
+- A song in the native editor needs no stage to be heard. The stage stays for the
+  visuals.
+
+The side bar can be closed or never opened. A view is created only when it is first
+shown (measured), so when a song is played and the Browser does not exist yet, the host
+opens the side bar on the Browser first (`strdltn.browser.focus`), which creates the
+engine.
+
 ### Devices
 
 Live shows the device of the selected track at the bottom of the screen. We show the
@@ -733,6 +832,204 @@ Devices and Mixer are two views of one container in the bottom panel. VS Code gi
 view of a container a fold of its own, so the whole Devices view can also be folded
 under the Mixer, and either can be dragged to another place.
 
+### Two decks
+
+The maintainer wants to DJ two songs: play song A, bring in song B in time with it, and
+mix between them with a fader per song, a crossfader and three EQ knobs per song, as on a
+DJ mixer.
+
+**What exists already.** Two songs can play at once today: each open song is its own
+engine, a webview with its own `AudioContext` and its own scheduler (measured: two songs
+play together, and Stop stops one of them, see "Stop" in `doc/ARCHITECTURE.md`). A song
+that is not in front keeps playing (`retainContextWhenHidden`). So a deck is a song that
+plays in its own engine, and the two decks need no phase 6.
+
+**Finding the beat costs nothing.** A DJ program has to listen to the audio to find the
+tempo and the downbeat. We do not: each scheduler knows its tempo (`cps`) and where it is
+in the cycle at every moment, to the sample. The preview on the beat (phase 1) already
+uses that: the audio time of a cycle is
+`(cycle - num_cycles_at_cps_change) / cps + seconds_at_cps_change + latency`. One cycle is
+a bar of four beats, so a song's tempo is `cps * 240` BPM. A song that counts its cycles
+differently (two bars per cycle) gets x2 and /2 buttons, as DJ software has.
+
+**The two clocks.** The two decks are two `AudioContext`s in two webviews, and their
+`currentTime`s start at different moments. To compare them, each engine maps its audio
+time to the wall clock with `AudioContext.getOutputTimestamp()`, which gives a pair of
+audio time and `performance.now()`, plus `performance.timeOrigin`. Two pages on one
+machine share the wall clock, so "cycle 12.5 of deck B is heard at wall time t" means the
+same in both. Expected to be exact to a few milliseconds, spike J1.
+
+**Sync.** A Sync button on deck B makes B follow A:
+
+1. Tempo: B's `cps` becomes A's (or x2, /2 when that is closer). `scheduler.setCps` is
+   upstream's own call, so the tempo changes without a patch.
+2. Phase: B's next bar must start when A's does. The host sends B the wall time of A's
+   next downbeat; B works out how far off its own downbeat is and closes the gap with a
+   short nudge: its tempo a few percent faster or slower for the time it takes, then back.
+   That is what a DJ does by hand with the jog wheel, and it uses `setCps` only. Writing
+   the scheduler's phase fields directly would be faster but is reaching into upstream's
+   private state; the nudge is the first try, spike J4 measures how close it gets.
+3. A phase meter on each deck shows the four beats of the bar and where the other deck
+   is, so the offset can be seen and corrected by hand with nudge buttons.
+
+Sync once, or keep in sync: while Sync is lit, B follows any tempo change of A.
+
+A song sets its tempo in its code (`setcps(133/60/4)`), and every evaluation runs that
+line again. The deck's tempo slider is an override of the performance, not of the song:
+after each evaluation (`afterEval`, a hook upstream gives) the engine sets the deck's
+tempo again. Changing the tempo does not change the pitch: synths play their notes, and
+samples are not time-stretched unless the song asks for it (`.loopAt`, `.fit`), so the
+key stays when the tempo moves. That is what DJ software calls master tempo, and here it
+is free. A sample that `.loopAt()` follows the tempo, as it should.
+
+**The deck strip.** This is the master channel of each song, as the maintainer put it:
+
+| Control | Does | How |
+|---|---|---|
+| Song | Which song is on the deck | "Load to deck A / B" on a song in the Browser, or the song in front |
+| Play, stop, cue | Starts at the next bar of the other deck when it plays, so a song comes in on the downbeat | The engine's play, timed with the clock above |
+| Tempo slider | +- 8 % around the song's own tempo, wider on a click | `setCps`, kept across evaluations |
+| BPM | `cps * 240`, x2, /2 | - |
+| Sync, nudge -, nudge + | See "Sync" | `setCps` for a short time |
+| Phase meter | The bar of this deck and of the other | The clocks of both decks |
+| EQ: high, mid, low | Three knobs, each from off (kill) to +6 dB | See "The audio of a deck" |
+| Filter | One knob: low pass to the left, high pass to the right, off in the middle | A filter in the same chain |
+| Channel fader | The volume of the deck | A gain in the same chain |
+| Meter | The level of the deck | An `AnalyserNode` at the end of the chain |
+
+Between the two strips, a horizontal crossfader: in the middle both decks play at full
+level, to the left B goes down, to the right A goes down, with an equal-power curve so
+the middle does not dip.
+
+**The audio of a deck.** superdough sends everything through one last gain node,
+`getSuperdoughAudioController().output.destinationGain`, into `audioContext.destination`.
+The controller and its `output` are exported and public. The deck chain goes in between,
+from outside: disconnect `destinationGain` from the destination, and connect it through
+our nodes:
+
+```
+destinationGain -> low shelf -> peaking (mid) -> high shelf -> filter -> fader gain
+                -> crossfader gain -> analyser -> destination
+```
+
+EQ as three `BiquadFilterNode`s is the gentle kind (shelving, like most club mixers).
+A kill that really removes a band needs an isolator: the signal split into three bands by
+crossover filters and summed again, with a gain per band (decision 17). Both are plain Web
+Audio nodes. Because the chain is after superdough's own output, it acts on the summed
+sound: a reverb tail fades with the fader, unlike a pattern's `gain`. superdough rebuilds
+its output on `reset()`, so the engine attaches the chain again after that. Spike J2.
+
+These controls are the performance, not the song: they are not written into the code. A
+deck remembers its last settings per song in `strdltn.index.json` (decision 16). With
+recording (below) they are recorded like any other move.
+
+**Pre-listening.** A DJ hears the next song in headphones before the crowd does. Each
+deck has its own `AudioContext`, and a context can be sent to another output device with
+`setSinkId` (it exists in the webview, measured). The cue would send a copy of a deck to
+the headphones: a `MediaStreamAudioDestinationNode` played by an `<audio>` element with
+its own `setSinkId`. That needs the names of the outputs, which a webview only gets with
+the microphone permission (spike S6). Expected, spike J3. Without it, there is no cue.
+
+**Where it is shown.** The Mixer panel gets a fourth position of its switch:
+`[ ALL | CHAINS | MIDI | DECKS ]`. DECKS shows the two deck strips and the crossfader, at
+full height. The knobs are drawn in the page (SVG): a drag up or down turns one, a double
+click puts it back to the middle, and with phase 5 each can be learned by a MIDI
+controller, which is how a DJ will want to use them.
+
+**Messages.**
+
+| Direction | Message | Meaning |
+|---|---|---|
+| engine -> host | `clock {cps, cycle, wallTime}` | About 10 times a second: which cycle is heard at which wall time |
+| host -> engine | `deck {gain, xfade, eq, filter}` | The controls of its strip |
+| host -> engine | `tempo {cps, keep}` | A new tempo; `keep` re-applies it after every evaluation |
+| host -> engine | `nudge {factor, ms}` | Faster or slower for a moment |
+| host -> engine | `startAt {wallTime}` | Start playing so that cycle 0 is heard then |
+
+### Recording and arrangement
+
+The maintainer wants a Record button. While it is on, everything the performer does is
+recorded against the beat: code typed and evaluated, comments added, a part added or
+taken out, sliders and faders moved, mute and solo, the deck controls. Afterwards another
+view shows the recording as lanes on a timeline, like the arrangement view of Live, where
+parts can be cut out over some bars and automation curves edited. It is the Session view
+of Live for Strudel, with automation.
+
+**What is recorded.** What changes the sound, each with the cycle it happened at, from the
+scheduler of the song:
+
+| Event | Recorded as | From |
+|---|---|---|
+| An evaluation (Ctrl+Enter, or an edit that runs) | The whole code as it was evaluated, stored as a diff to the one before | `afterEval` of the repl, with the cycle it took effect |
+| A slider, a fader, a knob | Its value, at most 50 times a second while it moves, with the name of the slider | The `cm-slider` message, the Mixer, the decks |
+| Mute, solo, `.duck` and `.orbit` edits from the Mixer | They are code changes, so they arrive as evaluations | - |
+| Deck controls, crossfader, tempo, sync | Their values | The DECKS view |
+| Typing that is not evaluated | Not by default: it makes no sound. With "record typing" on, every keystroke with its time, so the recording can be replayed as a video of the code being written (decision 19) | The document's change events |
+
+A slider is named by what the Mixer parser gives it (the constant `KICK_VOL`, or the chain
+and the call, `bass.lpf`), not by its position in the text: the position moves with every
+edit before it. Strudel is deterministic, randomness included (it is seeded by the
+cycle), so the code at a cycle plus the slider values at that cycle say exactly what was
+heard.
+
+**Where it is kept.** Beside the song, `demo.strudel` -> `demo.arrangement.json`: the cps,
+and a list of takes, each a start cycle and its events. A plain file, so it is committed
+with the song. The song file itself stays an ordinary Strudel song.
+
+**Playing it back.** The engine plays the song from cycle 0 and applies each event at its
+cycle: the code of an evaluation is evaluated a little ahead (the time an evaluation takes,
+measured in spike A1) so that it takes effect on its cycle; slider values are set as the
+cycles pass. Recording again over a range replaces the events of that range (punch in),
+or adds a new take beside the old one.
+
+**The arrangement view.** A webview tab in the editor area, because a timeline needs the
+width: the custom editor of `*.arrangement.json`, so VS Code gives it save, undo, the dirty
+marker and hot exit, like the Strudel editor has for `.strudel`.
+
+```
+ bar      1     5     9     13    17    21    25
+ code     |+kick|  +bass |.lpf  |  +riser   |-hh |       one mark per evaluation
+ kick     ######################################       a strip while the chain plays
+   gain   ~~~~~~~~~~~~~~/~~~~~~~~~~~~~\________        its sliders as curves
+ bass           ########################
+   gain         ______/~~~~~~~~~~~~~~~~
+   lpenv        ____/\/\/\____/~~~~~~~
+ riser                          ###########
+ deck A   fader ~~~~~~~~~~~~~~~~~~~~\______
+```
+
+- **Lanes.** A code lane with a mark per evaluation (a click shows its diff). Then one lane
+  per chain: a strip where the chain exists in the code and is not muted, worked out from
+  the code at each evaluation with the Mixer's parser. Under a chain, one lane per slider
+  of that chain, as a curve, folded like the Mixer folds them: gain first, the rest under
+  the fold. Deck lanes at the bottom.
+- **Time.** Bars and beats, one cycle a bar. A playhead follows the song while it plays.
+  A click on the ruler plays from there.
+- **Editing.**
+  - Select a range on a chain's strip and delete: the chain is muted there. That is an
+    added pair of events (mute at the start, unmute at the end), not a rewrite of the
+    code. "Take out strips over certain beats", as the maintainer put it.
+  - Drag the edges of a strip: the mute or unmute moves.
+  - Curves: drag a point, add one with a double click, draw with the pencil, delete a
+    range. Values snap to the slider's step.
+  - Move or delete a code mark: the evaluation happens on another bar, or not at all.
+  - Copy a range of bars and paste it elsewhere: all lanes of that range.
+- **Session.** Each evaluation of the recording is also a code snapshot. A row of them
+  along the top can be launched by hand, on the next bar, like the scenes of the Session
+  view: the code of that moment is evaluated. That is the step from "a recording of a
+  performance" to "a set of parts to perform with".
+
+**Export to plain Strudel.** A recording can be turned into one song that plays it on
+strudel.cc, with no extension: each section of code between two evaluations becomes an
+entry of upstream's `arrange()` (`arrange([4, partA], [8, partB])`, in `pattern.mjs` of
+`@strudel/core`), and each slider curve becomes a pattern of values per beat in place of
+the slider (`"<0.2 0.25 0.3 ...>"` or a `.segment()` of a signal). Expected to sound the
+same as the playback; spike A3 compares them. Decision 18 is whether this is wanted early.
+
+**Transport.** Record, play and stop of the arrangement sit in the title bar of the
+arrangement tab and in the header of the Mixer. Record starts on the next bar, after an
+optional count-in of one bar. The status bar item says "recording" in red while it runs.
+
 ### MIDI in the Browser and the Mixer
 
 - Browser, category MIDI: outputs and inputs, as the list in `doc/TODO.md` says. A click
@@ -748,6 +1045,27 @@ under the Mixer, and either can be dragged to another place.
 
 ## Phases
 
+## Order of work
+
+The phase numbers are names, not the order. The maintainer set the order after phase 1:
+the Mixer next, and the engine work last, because it changes the architecture.
+
+| Step | Phase | Spikes first |
+|---|---|---|
+| 1 | Phase 2: Mixer, read only | D3 (D1 only for the activity light, can wait) |
+| 2 | Phase 3: Mixer, editing | D1 |
+| 3 | Phase 4: Devices | F1, F2, F3 |
+| 4 | Phase 5: MIDI on desktop | S5 |
+| 5 | Phase 8: two decks | J1 to J4 |
+| 6 | Phase 9: recording | A1, A2 |
+| 7 | Phase 10: arrangement view | A3 |
+| 8 | Phase 1b: previews in the Browser | - |
+| 9 | Phase 6: one engine, in the Browser, scheduler in a worker | E1, E2, E4, E5 |
+| 10 | Phase 7: the engine as a browser page | E3 |
+
+The maintainer settled decision 14 with this order: the decks and the recording come
+after Devices and MIDI.
+
 Each phase ends with a build the maintainer can use, on a feature branch, with a pull
 request. Sizes are guesses in working sessions of an agent, not promises.
 
@@ -762,17 +1080,46 @@ Under `tmp/`, each deleted when its answer is written down.
 | D4 | Can text be dragged from a webview view into the native editor and into the Strudel editor? | A draggable row with `text/plain` | ARCHITECTURE "Browser". If not: click and Enter only |
 | S5 | Can the extension host send MIDI on time? | As in `doc/TODO.md` | TODO "MIDI" |
 | S6 | Can a webview list the sound cards by name? | As in `doc/TODO.md` | TODO "Sound card" |
-| E1 | Does a webview view with `retainContextWhenHidden` keep playing and keep its timers when hidden? | Play in a panel view, switch to Terminal, record the scheduler's tick times | ARCHITECTURE "Engine" |
+| E1 | Does a webview view with `retainContextWhenHidden` keep playing and keep its timers when hidden? | Play in the Browser, switch to the Explorer, record the scheduler's tick times | ARCHITECTURE "Engine" |
 | E2 | Can the editor highlight and draw from events sent by another webview, with upstream's functions? | Send the events of the engine to a second `StrudelMirror` that does not play | ARCHITECTURE "Engine" |
+| E4 | Can a worker started by the Browser page evaluate a song with `@strudel/core`, `mini`, `tonal` and `transpiler`, and feed superdough in the page on time? | Play `demo.strudel` that way next to the same song in the editor; compare the times of the events | ARCHITECTURE "Engine" |
+| E5 | Does a click in the Browser keep the `AudioContext` running for the whole window: other side bars shown, the window minimized, an hour later? | Click once, then play from a command at those moments | ARCHITECTURE "Starting audio" |
 | F1 | What is the frame format of `vibe_wasm_draw`, and how many frames a second can go from a worklet through the host to another webview, on desktop and in a Codespace? | Read the SDK headers, then send OBERVAVE's screen at 30 frames a second, whole and as changed rectangles | ARCHITECTURE "Firmware" |
 | F2 | Which events does a firmware take for its encoders, buttons and touch screen? | The SDK headers and `vibe_sdk.c` | ARCHITECTURE "Firmware" |
 | F3 | Does `shrub.audio/editor/` load in a frame of a webview view, and does it make sound there? | The existing mockup, moved into a webview view | The drawer entry, or ARCHITECTURE |
+| J1 | How exactly do two webviews agree on time through `getOutputTimestamp()` and the wall clock? | Two engines play clicks on every beat at the same tempo; record both into one file through a loopback, or compare their reported wall times of a downbeat | ARCHITECTURE "Decks" |
+| J2 | Can the chain EQ, filter, fader go between superdough's `destinationGain` and the destination from outside, and does it survive `reset()`? | In the webview with `demo.strudel` | ARCHITECTURE "Decks" |
+| J3 | Can a deck send a copy to a second output for headphones (`MediaStreamAudioDestinationNode` and an `<audio>` with `setSinkId`)? | After S6 | ARCHITECTURE "Decks" |
+| J4 | How close does Sync by nudge get two downbeats, and how fast? | Two songs at 128 and 124 BPM, Sync, log the offset per bar | ARCHITECTURE "Decks" |
+| A1 | How long does an evaluation take, and can a recorded one be applied ahead so it takes effect on its cycle? | `demo.strudel`: evaluate at known cycles, log the cycle of the first event of the new code | ARCHITECTURE "Recording" |
+| A2 | How many slider values a second does a drag give, and does a replay at that rate sound smooth? | Drag a gain slider while recording, play back | ARCHITECTURE "Recording" |
+| A3 | Does a recording exported with `arrange()` and value patterns sound like its playback? | Export a short recording, play both, compare the haps cycle by cycle | ARCHITECTURE "Recording" |
 | E3 | Does the engine page work in a normal browser from a forwarded port, with WebMIDI? | Serve `dist/` from the host, open in Chrome on desktop and from a Codespace | ARCHITECTURE "Engine" |
 
 D3 and D4 come first. They gate phases 1 to 3. D1 can wait for phase 3. F1 to F3 gate phase 4. S5 gates phase 5.
-E1 to E3 gate phases 6 and 7 and can wait.
+E1, E2, E4 and E5 gate phase 6, E3 phase 7. J1 to J4 gate phase 8, A1 to A3
+phases 9 and 10.
 
 ### Phase 1: index and Browser
+
+Built on the branch `feat/browser`, waiting for the maintainer's hand test (the table in
+`doc/TODO.md`). What was built differs from the steps below in three places, each for a
+reason:
+
+- There is no `media/index.json` with every default sound. The default sounds are only
+  known once an engine has loaded their maps from the network, and the host already keeps
+  the last list in `sounds.json` for the next start, which fills the Browser before a song
+  is open. The functions come from `@strudel/reference` at build time instead, as
+  `dist/functions.json`.
+- There is no `src/extension/index.ts`. `BrowserView` in `src/extension/browser.ts` builds
+  the items and keeps the project file; the item model is `src/shared/catalog.ts`.
+- The free tags of all items are one group, `Tag`. The plan had a `User` group beside the
+  snippet tags, and two groups for the same kind of word only split the chips.
+
+Decisions taken by the plan's recommendation: the old views are removed (decision 2), the
+user data is in the project (decision 4). Spike D4 (drag from the Browser into the editor)
+is not run; a row is typed with Enter, a double click or the insert button. Hot-swap and
+folders of the user's own as Places are not built.
 
 1. `src/shared/tags.ts` and its test: the rules that tag a sound from its name, bank and
    type.
@@ -864,12 +1211,32 @@ Size: 3 to 4 sessions.
 
 Size: 4 to 5 sessions.
 
+### Phase 1b: previews in the Browser
+
+Step 1 of "Audio without an open song", and "Insert as code" from "Browser". Small, but part of
+the change of architecture, so it comes last, with phase 6 (see "Order of work").
+
+1. A module for the sounds of an engine (synths, ZZFX, soundfonts, default packs, local
+   samples, firmwares), out of `src/webview/main.ts`, used by the editor's page and by
+   the Browser's.
+2. The Browser page: superdough, its own `AudioContext` made and resumed in the click
+   handler of a row. The host sends it the workspace's sample map and firmwares, with the
+   workspace folders in `localResourceRoots`, and the Content Security Policy of the
+   editor's page.
+3. Preview: in the Browser when no song plays, in the song's engine when one does.
+4. The sound list from the Browser's engine at start.
+5. Insert as code, with the rule for a cursor inside a string, in the host for the native
+   editor and in the webview for the Strudel editor. Cases in `context.test.ts`.
+6. Test: preview with no song open; the bundle size; insert of each kind of row.
+
+Size: 1 to 2 sessions.
+
 ### Phase 6: one engine
 
-Only after E1 and E2. Steps are written when the spikes have answered. The outline:
-engine module without CodeMirror, engine in the Mixer panel, the editor and the stage as
-views, preview without a song, sound across a mode switch, one transport for the window
-(play, stop, tempo in the Mixer's header).
+Only after E1, E2 and E4. Step 2 of "Audio without an open song": the engine in the
+Browser, the scheduler in a worker, the editor and the stage as views of it, sound across
+a mode switch, one transport for the window. Steps are written when the spikes have
+answered.
 
 Size: unknown until the spikes. Expected to be the largest phase.
 
@@ -881,6 +1248,42 @@ protocol, a command "strdltn: Open engine in the browser", a status bar item tha
 where the engine is.
 
 Size: 3 to 4 sessions after phase 6, more without it.
+
+### Phase 8: two decks
+
+1. Spikes J1 to J4.
+2. The engine: the deck chain after superdough's output, re-attached after `reset()`; the
+   `clock` message; `tempo`, `nudge`, `startAt`.
+3. The host: which song is on which deck, relaying clocks, Sync.
+4. The DECKS view of the Mixer: two strips, knobs, crossfader, phase meters.
+5. "Load to deck A / B" in the Browser.
+6. Test: two songs of the template at different tempos, Sync, record the offset of their
+   downbeats over a minute (the bar is 5 ms). Hand test with headphones if J3 works.
+
+Size: 3 to 4 sessions.
+
+### Phase 9: recording
+
+1. Spikes A1 and A2.
+2. The engine: stamp each evaluation and each slider value with its cycle.
+3. The host: takes, `*.arrangement.json`, punch in.
+4. Record in the Mixer header and the status bar, count-in.
+5. Playback of a recording in the engine.
+6. Test: record a scripted session in the test (evaluations and slider moves at known
+   cycles), play it back, and compare the cycles at which each change was heard.
+
+Size: 3 sessions.
+
+### Phase 10: arrangement view
+
+1. The custom editor for `*.arrangement.json`: lanes, ruler, playhead.
+2. Lanes from the parser: chains, their sliders, decks.
+3. Editing: ranges, strips, curves, code marks, copy and paste, through the custom
+   editor's edits so undo works.
+4. Snapshots as scenes.
+5. Export to plain Strudel, after A3.
+
+Size: 4 to 6 sessions.
 
 ## Decisions for the maintainer
 
@@ -898,6 +1301,14 @@ Size: 3 to 4 sessions after phase 6, more without it.
 | 10 | A knob turned in a firmware panel: change the sound only, or also write `.vp(id, value)` into the code like the Mixer's fader? | Change the sound only, with "Copy as code". A firmware has dozens of parameters, and writing each turn would bury the song in calls |
 | 11 | A firmware panel taken out into a tab: keep the firmware in the engine and relay the display, or move that firmware's copy into the tab? | Relay until phase 6. Decide with the measures of F1 |
 | 12 | A master strip: the sliders in an `all(x => ...)` line of the song, folded to `all(x => x.postgain(...))`? It acts on each note, not on the summed sound, so a reverb tail does not follow it. Or also a real master fader on superdough's final gain node, kept outside the song? | The `all()` strip only. A level that the song does not hold would sound different elsewhere |
+| 14 | When do the decks and the recording come: right after the Mixer (phase 3), or after MIDI (phase 5)? | Answered by the maintainer: after MIDI, as in "Order of work" |
+| 15 | The deck strip is the master of a song. Decision 12 put the master in the code (`all()`). For a DJ the master should act on the summed sound, so a reverb tail fades too. Keep both: `all()` sliders in the Mixer, and the deck chain for the performance? | Both. The `all()` strip is part of the song, the deck is the performance |
+| 16 | Deck settings (EQ, filter, fader, tempo) are not written into the song. Remember them per song in `strdltn.index.json`, or start each time at neutral? | Start at neutral, as a DJ mixer does when a track is loaded. A recording keeps them |
+| 17 | EQ: shelving filters (gentle, like most club mixers) or an isolator that can kill a band completely? | Isolator, with a kill at the end of each knob. That is what is used to swap bass lines |
+| 18 | Export a recording to plain Strudel with `arrange()`: needed early, or later? | Later, after the arrangement view works. It is the way to share a performance with somebody without the extension |
+| 19 | Record typing that is not evaluated, to replay the writing of the code like a video? | Off by default, as an option. It makes the file large and adds no sound |
+| 20 | Insert as code: `s("bd").bank("RolandTR909")` or `s("RolandTR909_bd")`? | Answered by the maintainer: `s()` with `.bank()`. Built |
+| 21 | Phase 1b (previews in the Browser) before the Mixer? | Answered by the maintainer: no, last, with phase 6, because it is part of the change of architecture |
 
 ## Risks
 
@@ -917,15 +1328,21 @@ Size: 3 to 4 sessions after phase 6, more without it.
 - **The display of a firmware through the relay (F1)** may be too heavy in Codespaces.
   Then the display is only drawn when the engine and the panel are in one webview, and the
   Devices view shows parameters only.
+- **The deck chain (J2)** reaches into superdough's output from outside. If `reset()` or a
+  new version rebuilds it differently, the chain is lost until the engine attaches it
+  again. A test checks that the deck fader still changes the level after a reset.
+- **Replaying code at a cycle (A1).** An evaluation takes time, more for a long song or a
+  sample pack that loads. A change could land a beat late. The spike measures it; a
+  pack that loads is loaded at the start of the playback instead.
 - **`@julusian/midi` is native code.** A VS Code update with a new Electron can break
   its binary. The integration test loads it, so a break is seen before a release.
 
 ## Not in this plan
 
-- Clips and scenes. The demo song has a `SECTION` slider that works like a scene. A row
-  of scene buttons that sets it is a small step later, not a clip launcher.
+- Clips as Live has them. The snapshots of a recording are launched like scenes (phase
+  10), but a chain cannot hold several clips to choose from.
 - Audio plugins on a channel (WAM, VST3). `doc/TODO.md` has the notes.
 - Tagging samples by listening to them, and "similar sounds".
-- Recording audio or MIDI.
+- Recording audio or MIDI input. The recording of phase 9 records the code and the
+  controls, not the sound.
 - MIDI clock in.
-- An arrangement view.

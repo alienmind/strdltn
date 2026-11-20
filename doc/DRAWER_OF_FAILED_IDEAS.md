@@ -254,3 +254,14 @@ orbit buses. The maintainer chose a smaller design: the strips are made of the s
 the song already has, grouped by chain and folded to their gain, and cables only show
 sidechains and MIDI, in two colors. Nothing is added to a song that it did not have, and the orbit buses are not
 touched.
+
+## Three tree views in the side bar
+
+Built, released in vstrudel, and replaced by the Browser (phase 1 of `doc/DAW-PLAN.md`).
+The side bar had a logo view and three trees: Files, Sounds and Snippets. A tree row is
+one line of text with an icon file, so it cannot show color labels, tag chips or a search
+field of its own; the filter of VS Code (Ctrl+F in a tree) only searches what a row
+shows. The logo view had an empty strip under the picture and a second title row, and VS
+Code gives a view no way to fit its content or hide its title. Four views also split the
+height of the side bar by fixed weights. One webview holds all of it now, laid out like
+the browser of Live, so nothing in the side bar is a different kind of view.

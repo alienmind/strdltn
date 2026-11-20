@@ -1,6 +1,6 @@
-// Builds the two bundles: the extension host (Node, CommonJS) and the webview (browser, ESM).
+// Builds the bundles: the extension host (Node, CommonJS), the webview of the editor and the stage, the Browser view, and the firmware worklet (browser).
 import { execFileSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { context } from 'esbuild';
 
 // A production build writes no source maps. Without this, maps from an earlier
@@ -48,6 +48,15 @@ const builds = [
 	},
 	{
 		...shared,
+		// The Browser view in the side bar. Its CSS is imported by main.ts and lands in dist/browser.css.
+		entryPoints: ['src/browser/main.ts'],
+		outfile: 'dist/browser.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
+	{
+		...shared,
 		// Loaded with audioWorklet.addModule() from beside webview.js. A worklet scope has no modules to import.
 		entryPoints: ['src/webview/vibe/worklet.ts'],
 		outfile: 'dist/vibe-worklet.js',
@@ -67,6 +76,45 @@ if (process.argv.includes('--test')) {
 		target: 'node20',
 		external: ['vscode'],
 	});
+}
+
+await writeFunctions();
+
+/**
+ * dist/functions.json: the functions of `@strudel/reference`, for the Functions category of
+ * the Browser. Only what a row and its details pane show, with the HTML of the reference
+ * turned into text. The full reference is 540 KB; this keeps the extension host light.
+ */
+async function writeFunctions() {
+	const { reference } = await import('@strudel/reference');
+	const text = (html = '') =>
+		html
+			.replace(/<\/p>\s*<p>/g, '\n\n')
+			.replace(/<br\s*\/?>/g, '\n')
+			.replace(/<[^>]+>/g, '')
+			.replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>')
+			.replace(/&quot;/g, '"')
+			.replace(/&#39;/g, "'")
+			.replace(/&amp;/g, '&')
+			.trim();
+	const seen = new Set();
+	const functions = [];
+	for (const doc of reference.docs) {
+		// Inner names (`_fast`) and doubles (a function documented in two files) are left out.
+		if (!doc.name || doc.name.startsWith('_') || seen.has(doc.name) || doc.kind === 'package') continue;
+		seen.add(doc.name);
+		functions.push({
+			name: doc.name,
+			synonyms: doc.synonyms?.length ? doc.synonyms : undefined,
+			description: text(doc.description),
+			params: doc.params?.map((p) => ({ name: p.name ?? '', type: (p.type?.names ?? []).join(' | '), description: text(p.description) })),
+			example: doc.examples?.[0],
+			file: doc.meta?.filename,
+		});
+	}
+	mkdirSync('dist', { recursive: true });
+	writeFileSync('dist/functions.json', JSON.stringify(functions));
 }
 
 const contexts = await Promise.all(builds.map((options) => context(options)));

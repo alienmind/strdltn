@@ -507,6 +507,23 @@ on strudel.cc. Two catches of the labels: upstream solos any label that starts w
 maintainer wants comments, the parser has to read commented chains too (a line `// $kick:
 ...` as a muted strip). Decision 5, asked again.
 
+**Racks.** Asked by the maintainer on 2026-11-20: Strudel has a "rack" for further
+grouping, and the Mixer should show it. We could not find it: there is no `rack` in the
+`@strudel/*` packages we pin (1.2.6, which is also the latest on npm, checked the same
+day) nor in superdough 1.3.0, and upstream's code search on Codeberg showed no match in
+the part we could read. So it may be newer than the npm release, or have another name.
+The maintainer is asked for a link or an example.
+
+How it would fit, whatever its syntax: a rack is a strip that holds strips, like a Group
+track or an Instrument Rack in Live. Folded, it shows its own name, M, S and its own gain
+fader when it has one; unfolded, its member strips sit inside its border, each foldable
+as today. A duck cable to a rack ends at the rack's jack when every member is on the
+ducked orbit, else at the members. The parser gives each chain a `parent`, and the model
+a list of racks with their range in the code. Until the real syntax is known, the same
+shape already fits a grouping Strudel has today: a chain made of `stack(a, b, c)` is a
+rack whose members are the arguments of `stack`, each with the sliders used inside it
+(`$drums: stack(s("bd*4").gain(KICK_VOL), s("hh*8").gain(HH_VOL))`). Not built.
+
 **Title and activity.** A click on the strip's title, beside the fold, moves the cursor
 of the editor to that chain. A small light in the header blinks on each event of the
 chain while it plays. The light needs the events to carry the id of their chain: in

@@ -237,7 +237,10 @@ another side bar is shown.
 double click inserts (a song opens), Space plays, 1 to 7 toggle a color on the selected
 rows and 0 clears them, Ctrl+click and Shift+click select several. Ctrl+F in the page and
 `strdltn.focusSearch` (Ctrl+Alt+F) put the cursor in the search field. A right click
-gives colors, play, insert, copy, open and "Edit tags...". A click on a row never types:
+gives colors, play, insert, copy, open and "Edit tags...". The same colors and "Edit
+tags..." are behind a tag button on every row, and the details pane has the seven dots
+and a "Tags..." button: the first version had only the keys and the right click, and the
+maintainer found no way to put a sound in a collection. A click on a row never types:
 a click selects, or selects and previews, and putting text into the code is Enter, a
 double click or the insert button. Until the Sounds view had that rule, a click on a
 sound typed its name, and it did so into any file that had the focus.

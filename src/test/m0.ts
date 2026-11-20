@@ -167,6 +167,17 @@ export async function run(): Promise<void> {
 		await sleep(800);
 		await shot('browser-chips');
 		steps.browserFunctions = await api.browserShow({ ...everything, category: 'functions', query: 'lpf' });
+		// A color from the dots of the details pane: the project file keeps it. The file is
+		// removed again when the test made it, so the template stays as it is in git.
+		const indexFile = vscode.Uri.joinPath(folder, 'strdltn.index.json');
+		const indexExisted = await vscode.workspace.fs.stat(indexFile).then(() => true, () => false);
+		await api.browserMessage({ type: 'color', ids: ['sound:bd'], color: 1, on: true });
+		steps.browserColorSaved = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(indexFile))).items?.['sound:bd'];
+		steps.browserColorFilter = await api.browserShow({ ...everything, category: 'all', color: 1 });
+		await sleep(800);
+		await shot('browser-color');
+		await api.browserMessage({ type: 'color', ids: ['sound:bd'], color: 1, on: false });
+		if (!indexExisted) await vscode.workspace.fs.delete(indexFile);
 		await vscode.commands.executeCommand('workbench.action.closeSidebar');
 		await sleep(1200);
 		await shot('editor');

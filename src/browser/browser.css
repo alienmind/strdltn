@@ -161,6 +161,8 @@ svg { display: block; flex: none; }
 .details td { padding: 1px 6px 1px 0; vertical-align: top; }
 .details td:first-child { color: var(--vscode-descriptionForeground); white-space: nowrap; }
 .details .tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0; }
+.details .collect { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.details .collect .chip.more { margin-left: 4px; }
 
 .menu {
 	position: fixed;

@@ -357,6 +357,14 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		else actions.appendChild(button('insert', 'Insert at the cursor (Enter)', () => post({ type: 'insert', id: item.id, index: index_ })));
 		if (item.kind === 'snippet') actions.appendChild(button('open', 'Open the file', () => post({ type: 'open', id: item.id })));
 		else if (item.kind !== 'song') actions.appendChild(button('copy', 'Copy the name', () => post({ type: 'copy', id: item.id, index: index_ })));
+		// Colors and tags have their own button: a right click or the keys 1 to 7 were the
+		// only ways in, and the maintainer found no way to put a sound in a collection.
+		actions.appendChild(
+			button('tag', 'Colors and tags', (event) => {
+				if (!selection.has(key)) select(index, false, false);
+				openMenu(event, ['colors', 'separator', { label: 'Edit tags...', run: () => editTags() }]);
+			}),
+		);
 	}
 	node.addEventListener('click', (event) => onRowClick(index, event));
 	node.addEventListener('dblclick', () => activate(rows[index]));
@@ -385,6 +393,23 @@ function drawDetails(): void {
 	details.appendChild(el('div', 'sub', [kind, item.group, item.count ? `${item.count} variations` : '', item.path ?? ''].filter(Boolean).join('  -  ')));
 	const tags = tagsOf(item, user);
 	const colors = colorsOf(item, user);
+	// The collections of this item, as the dots of Collections: a click puts it in one or
+	// takes it out. With several rows selected, it applies to all of them.
+	const targets = selectedItems().some((selected) => selected.id === item.id) ? selectedItems() : [item];
+	const collect = details.appendChild(el('div', 'collect'));
+	for (let color = 1; color <= COLOR_COUNT; color++) {
+		const on = targets.every((target) => colorsOf(target, user).includes(color));
+		const dot = collect.appendChild(el('span', `dot${on ? ' active' : ''}`));
+		dot.style.background = colorVar(color);
+		dot.title = `${on ? 'Take out of' : 'Put in'} "${user.colorNames[color - 1]}" (key ${color})`;
+		dot.addEventListener('click', () => post({ type: 'color', ids: targets.map((target) => target.id), color, on: !on }));
+	}
+	const tagButton = collect.appendChild(el('button', 'chip more', 'Tags...'));
+	tagButton.title = 'Add or remove your own tags';
+	tagButton.addEventListener('click', () => {
+		if (!targets.some((target) => selectedItems().includes(target))) select(cursor, false, false);
+		editTags();
+	});
 	if (tags.length || colors.length) {
 		const box = details.appendChild(el('div', 'tags'));
 		for (const color of colors) {

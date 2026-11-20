@@ -42,7 +42,7 @@ The Browser, on the branch `feat/browser`. Test on **desktop, launched with F5**
 | 2 | Library > Drums, open the heading `rolandtr909`, click `bd` | It plays. Nothing is typed. The details pane shows Drums/Kick, Maker/Roland |
 | 3 | Type `909 bd` in the search | About 6 results, under their categories |
 | 4 | Clear the search. In Drums, click the chip Kick, then Ctrl+click Snare, then click Roland | Kicks, then kicks and snares, then only the Roland ones |
-| 5 | Select a row, press 1, then 3 | Two color squares on the row. `strdltn.index.json` appears in the project with the id and `[1, 3]` |
+| 5 | Select a row, press 1, then 3. Then click the tag button of another row and pick green, and click the blue dot in the details pane | Color squares on both rows. `strdltn.index.json` appears in the project with both ids and their colors |
 | 6 | Click the red dot under Collections | Only the rows colored red |
 | 7 | Right click a snippet > Edit tags..., add `test` | The snippet's file gets `// @tags ..., test`. The chip Tag > test exists |
 | 8 | With a filter set, press the save button in the bar above the results, name it | A row with that name under Collections. A click on it brings the filter back |

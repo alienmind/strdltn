@@ -74,8 +74,9 @@ browser.
 - Tags come by themselves from the names: Kick, Snare, Hihat... for drums, Bass, Pad,
   Keys... for instruments, the maker of a drum machine, where a sound comes from. Click a
   chip to filter, Ctrl+click to take several of a group.
-- Give anything a color with the keys 1 to 7 (0 clears), and your own tags with a right
-  click. They are kept in `strdltn.index.json` in your project, so they travel with it.
+- Put anything in a collection: the tag button on a row, the color dots under the
+  selected item, or the keys 1 to 7 (0 clears). Your own tags come from the same button
+  ("Edit tags...") or the "Tags..." button. They are kept in `strdltn.index.json` in your project, so they travel with it.
   Tags of a snippet go into its own header.
 - Save a search: it becomes a row under Collections.
 - A click on a sound plays it when preview is on. It never types. Enter, a double click
@@ -163,8 +164,9 @@ The [str]dltn Live[code] icon in the activity bar opens the Browser. From the to
 - **Results.** Under headings: the bank, the folder, the category. Arrow keys move,
   Enter inserts (or opens a song), Space plays, 1 to 7 color, right click for more.
   Ctrl+click and Shift+click select several rows.
-- **Details.** The selected item: its tags (a click filters by one), its description,
-  code or parameters.
+- **Details.** The selected item: seven dots that put it in or take it out of a
+  collection, a "Tags..." button, its tags (a click filters by one), its description, code
+  or parameters.
 
 The speaker button beside the search turns preview on click on or off. While a song
 plays, a preview waits for the next beat of the song.

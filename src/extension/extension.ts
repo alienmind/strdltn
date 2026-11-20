@@ -143,6 +143,18 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		// The view keeps its page while hidden, so open cards and the filter survive a
 		// switch to another side bar view.
 		snippetsView,
+		// The logo at the top of the side bar. The header of a side bar takes text only,
+		// so the picture is a view of its own: a page with one image and no script.
+		vscode.window.registerWebviewViewProvider('vstrudel.logo', {
+			resolveWebviewView(view) {
+				view.webview.options = { localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')] };
+				const logo = view.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'logo.jpg'));
+				view.webview.html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${view.webview.cspSource}; style-src 'unsafe-inline'">
+<style>html, body { margin: 0; padding: 0; overflow: hidden; } img { display: block; width: 100%; height: auto; }</style></head>
+<body><img src="${logo}" alt="vstrudel - VS Code extension, live coding in strudel.cc"></body></html>`;
+			},
+		}),
 		filesView,
 		vscode.commands.registerCommand('vstrudel.refreshFiles', () => files.refresh()),
 		vscode.workspace.onDidChangeWorkspaceFolders(() => files.refresh()),

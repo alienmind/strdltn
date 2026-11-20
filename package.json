@@ -386,16 +386,25 @@
 		"views": {
 			"vstrudel": [
 				{
+					"id": "vstrudel.logo",
+					"name": "vstrudel",
+					"type": "webview",
+					"initialSize": 1
+				},
+				{
 					"id": "vstrudel.files",
-					"name": "Files"
+					"name": "Files",
+					"initialSize": 3
 				},
 				{
 					"id": "vstrudel.sounds",
-					"name": "Sounds"
+					"name": "Sounds",
+					"initialSize": 4
 				},
 				{
 					"id": "vstrudel.snippets",
-					"name": "Snippets"
+					"name": "Snippets",
+					"initialSize": 4
 				}
 			]
 		},

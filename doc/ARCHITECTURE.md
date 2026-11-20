@@ -194,9 +194,21 @@ We chose a kept list over an engine of its own for the view, see the drawer.
 Measured in VS Code 1.130: 151 samples, 1347 drum machine sounds in 138 banks, 25
 synths and 125 soundfonts are listed, and one sound of each group plays.
 
+## Logo in the side bar
+
+The side bar starts with the logo. The header of a side bar takes text only, so the
+picture is a view of its own, `vstrudel.logo`: a webview with one image and no script.
+The image is `media/logo.jpg`, the middle band of `doc/logo.jpg` at 640 by 149 pixels
+(18 KB). `doc/` is not in the `.vsix`, `media/` is.
+
+A webview view cannot take the height of its content. The four views share the height
+by the weights in `package.json` (`initialSize`: logo 1, Files 3, Sounds 4, Snippets 4).
+Seen in the screenshot of the test at 1250 pixels of window height: the logo shows whole,
+with an empty strip under it. A user who drags the borders keeps their own sizes.
+
 ## Files view
 
-The first view of the side bar lists every folder of the workspace that holds a
+After the logo, the side bar lists every folder of the workspace that holds a
 `.strudel` file, at any depth, and those files. It is the Explorer with everything else
 left out, so a song is one click away without leaving the vstrudel side bar.
 

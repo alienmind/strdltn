@@ -247,6 +247,9 @@ planned yet.
   tags, not tested. It does not search the description.
 - A click on a snippet row does nothing but select it. A click on a sound types it.
   The maintainer has not said which of the two a snippet should follow.
+- The logo view has an empty strip under the picture, and its own title row that says
+  "vstrudel" again under the title of the side bar. VS Code gives a view no way to fit
+  its content or to hide its title.
 - The Files view shows `.strudel` files only by name. It has no button to play a file
   and none to create one.
 - The samples of a map written in the song (`samples({...}, 'github:...')`) are not

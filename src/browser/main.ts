@@ -343,7 +343,7 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		const kindIcon = el('span');
 		kindIcon.innerHTML = icon(iconOf(item));
 		node.appendChild(kindIcon);
-		const label = row.type === 'variation' ? `${item.sound}:${item.variations?.[row.index] ?? row.index}` : item.label;
+		const label = row.type === 'variation' ? variationLabel(item, row.index) : item.label;
 		node.appendChild(el('span', 'label', label));
 		// The bank or folder is said by the heading, unless the headings are categories.
 		const detail = item.detail && (filter.category === 'all' || item.detail !== item.group) ? item.detail : '';
@@ -376,6 +376,14 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 	return node;
 }
 
+/**
+ * `bd:3` under the bank `akaixr10`, not `akaixr10_bd:3`: the heading already names the
+ * bank, as the row of the sound does. Play, insert and copy still use the full name.
+ */
+function variationLabel(item: CatalogItem, index: number): string {
+	return `${item.label}:${item.variations?.[index] ?? index}`;
+}
+
 function iconOf(item: CatalogItem): string {
 	if (item.kind !== 'sound') return item.kind;
 	return CATEGORIES.find((c) => c.id === item.category)?.icon ?? 'sample';
@@ -388,7 +396,7 @@ function drawDetails(): void {
 	const { item } = row;
 	const title = details.appendChild(el('h3'));
 	title.innerHTML = icon(iconOf(item));
-	title.appendChild(el('span', '', row.type === 'variation' ? `${item.sound}:${item.variations?.[row.index] ?? row.index}` : item.label));
+	title.appendChild(el('span', '', row.type === 'variation' ? variationLabel(item, row.index) : item.label));
 	const kind = CATEGORIES.find((c) => c.id === item.category)?.label ?? item.kind;
 	details.appendChild(el('div', 'sub', [kind, item.group, item.count ? `${item.count} variations` : '', item.path ?? ''].filter(Boolean).join('  -  ')));
 	const tags = tagsOf(item, user);

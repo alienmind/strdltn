@@ -251,8 +251,26 @@ webview: title, details, tags, code.
 **Keys.** Up and down move, right and left open and close, Enter inserts, Space plays, 1
 to 7 set a color, 0 clears, Ctrl+F goes to the search field, Esc clears the search.
 
-**Preview in tempo.** While a song plays, the preview of a sample starts on the next
-cycle. Expected to be possible with the scheduler's `now()`; a later step of the phase.
+**Preview in tempo.** Built in phase 1: while a song plays, a preview starts on its
+next beat and lasts one beat.
+
+**Insert as code.** Asked by the maintainer after phase 1: insert at the cursor types the
+code that plays the sound, not only its name. Copy keeps giving the bare name.
+
+| Row | Insert types |
+|---|---|
+| A sample, `bd` | `s("bd")` |
+| A variation, `bd:3` | `s("bd:3")` |
+| A drum machine sound, `bd` under the bank `RolandTR909` | `s("bd").bank("RolandTR909")`, the bank by the name the Browser shows |
+| A synth, a soundfont, a wavetable | `note("c3").s("sawtooth")`: a pitched sound makes no sound without a note |
+| A firmware | `note("c3").s("vibefm1:obervave")` |
+| A bank heading | `.bank("RolandTR909")`, as now |
+| A snippet, a function | As now: the code, the name |
+
+When the cursor is already inside the string of an `s("...")` or a `.bank("...")`, only
+the name goes in, so `s("bd hh <>")` becomes `s("bd hh sd")` and not a call inside a
+string. `src/shared/context.ts` already finds what is around a position. In the native
+editor the host reads the text around the cursor; in the Strudel editor the webview does.
 
 **Hot-swap.** With the cursor inside `s("...")` or `.bank("...")`, a row gets a "replace"
 button that swaps the name under the cursor. `src/shared/context.ts` already finds what
@@ -663,6 +681,83 @@ and editors that are views of it.
   a mode switch start the new webview at the same cycle (option 1 of "Sound across a
   mode switch" in `doc/TODO.md`).
 
+### Audio without an open song
+
+Two things the maintainer does not want to see any more: "Open a .strudel file to hear
+sounds" when a sound of the Browser is clicked with no song open, and "Click to enable
+audio" over the editor or the stage.
+
+**What a worker can and cannot do.** The maintainer's proposal is a web worker. The facts:
+
+- A web worker has no `AudioContext`. Web Audio lives in a page (a window), and an
+  `AudioWorklet` runs on the audio thread of a context that a page made. So a worker
+  alone cannot make a sound. (The Web Audio API, read; our own engine is built this way.)
+- A worker can run everything except the sound: evaluate the code with
+  `@strudel/core`, `@strudel/mini`, `@strudel/tonal` and `@strudel/transpiler`, keep the
+  clock, query the pattern ahead (`queryArc`) and post the events with their times.
+  `m4l-gugelhupf` does exactly that in its MIDI devices (read, see "The engine of
+  m4l-gugelhupf" above). A dedicated worker is not slowed down when its page is hidden,
+  so the timing does not depend on whether the page is in sight.
+- The page that owns the `AudioContext` needs one user gesture inside it, once, before
+  the context runs (measured in VS Code, see "Starting audio" in `doc/ARCHITECTURE.md`; it
+  is the autoplay rule of every browser). After that the context keeps running for the
+  life of the page. No extension can lift that rule for a webview (measured, see the
+  drawer entry "Starting audio without a click").
+
+So the design is a worker for the pattern and the clock, and one page for the sound,
+chosen so that the one gesture it needs is a click the user makes anyway.
+
+**The engine in the Browser.** That page is the Browser in the side bar:
+
+- It is where the user clicks: a click on a sound to hear it is the gesture. From the
+  first preview of the window on, the Browser's `AudioContext` runs.
+- With `retainContextWhenHidden` it stays alive while another side bar is shown, so the
+  gesture is needed once per window, not once per song or per tab.
+- It exists before any song is open, so a sound can be heard with no song at all.
+
+```
+Browser webview (side bar)                          editors and stage
++------------------------------------------+        +-------------------------+
+| page: superdough, the AudioContext,      | <----> | CodeMirror, highlighting|
+|   sample maps, firmware worklets         | events | and drawing from the    |
+|   the click on a row unlocks it          | via    | engine's events (E2)    |
+| worker: evaluate, clock, query ahead,    | host   | no sound of their own   |
+|   post events with their audio times     |        +-------------------------+
++------------------------------------------+
+```
+
+**Step 1, previews.** The Browser page gets superdough and the sounds the editor engine
+loads today (synths, ZZFX, soundfonts, the default packs, the workspace's samples, the
+firmwares), moved out of `src/webview/main.ts` into a module both pages use. A click on a
+sound plays it in the Browser. While a song plays, the preview still goes to that song's
+engine, so it lands on its beat (built in phase 1). The message "Open a .strudel file to
+hear sounds" goes away. The Browser's engine also gives the sound list at start, so the
+list no longer depends on the one kept from the last song. The Browser's bundle gets
+larger (superdough and the soundfont list); measured when built. A pack that a song loads
+by name is registered in the Browser the first time one of its sounds is previewed.
+
+**Step 2, songs.** The songs play in the Browser's engine too: phase 6, with the engine in
+the Browser and not in the Mixer panel as first planned, and with the scheduler in a
+worker. The editor and the stage send the code and get events back for highlighting and
+drawing (spike E2). Then:
+
+- "Click to enable audio" can only show when nothing was clicked in the Browser since the
+  window opened. It shows once, in the Browser, not over the editor: a play button at the
+  top of the Browser that both starts the song and unlocks the audio. A play from the
+  editor before that (Ctrl+Enter in the native editor, the title bar button) reveals the
+  Browser with that button lit.
+- Switching between the Strudel editor and the native editor no longer stops the sound:
+  the engine is not in either of them.
+- Two songs (the two decks) are two patterns in one engine, on one clock, so Sync of the
+  decks becomes exact by construction (spike J1 is then not needed).
+- A song in the native editor needs no stage to be heard. The stage stays for the
+  visuals.
+
+The side bar can be closed or never opened. A view is created only when it is first
+shown (measured), so when a song is played and the Browser does not exist yet, the host
+opens the side bar on the Browser first (`strdltn.browser.focus`), which creates the
+engine.
+
 ### Devices
 
 Live shows the device of the selected track at the bottom of the screen. We show the
@@ -962,8 +1057,10 @@ Under `tmp/`, each deleted when its answer is written down.
 | D4 | Can text be dragged from a webview view into the native editor and into the Strudel editor? | A draggable row with `text/plain` | ARCHITECTURE "Browser". If not: click and Enter only |
 | S5 | Can the extension host send MIDI on time? | As in `doc/TODO.md` | TODO "MIDI" |
 | S6 | Can a webview list the sound cards by name? | As in `doc/TODO.md` | TODO "Sound card" |
-| E1 | Does a webview view with `retainContextWhenHidden` keep playing and keep its timers when hidden? | Play in a panel view, switch to Terminal, record the scheduler's tick times | ARCHITECTURE "Engine" |
+| E1 | Does a webview view with `retainContextWhenHidden` keep playing and keep its timers when hidden? | Play in the Browser, switch to the Explorer, record the scheduler's tick times | ARCHITECTURE "Engine" |
 | E2 | Can the editor highlight and draw from events sent by another webview, with upstream's functions? | Send the events of the engine to a second `StrudelMirror` that does not play | ARCHITECTURE "Engine" |
+| E4 | Can a worker started by the Browser page evaluate a song with `@strudel/core`, `mini`, `tonal` and `transpiler`, and feed superdough in the page on time? | Play `demo.strudel` that way next to the same song in the editor; compare the times of the events | ARCHITECTURE "Engine" |
+| E5 | Does a click in the Browser keep the `AudioContext` running for the whole window: other side bars shown, the window minimized, an hour later? | Click once, then play from a command at those moments | ARCHITECTURE "Starting audio" |
 | F1 | What is the frame format of `vibe_wasm_draw`, and how many frames a second can go from a worklet through the host to another webview, on desktop and in a Codespace? | Read the SDK headers, then send OBERVAVE's screen at 30 frames a second, whole and as changed rectangles | ARCHITECTURE "Firmware" |
 | F2 | Which events does a firmware take for its encoders, buttons and touch screen? | The SDK headers and `vibe_sdk.c` | ARCHITECTURE "Firmware" |
 | F3 | Does `shrub.audio/editor/` load in a frame of a webview view, and does it make sound there? | The existing mockup, moved into a webview view | The drawer entry, or ARCHITECTURE |
@@ -977,7 +1074,7 @@ Under `tmp/`, each deleted when its answer is written down.
 | E3 | Does the engine page work in a normal browser from a forwarded port, with WebMIDI? | Serve `dist/` from the host, open in Chrome on desktop and from a Codespace | ARCHITECTURE "Engine" |
 
 D3 and D4 come first. They gate phases 1 to 3. D1 can wait for phase 3. F1 to F3 gate phase 4. S5 gates phase 5.
-E1 to E3 gate phases 6 and 7 and can wait. J1 to J4 gate phase 8, A1 to A3
+E1, E2, E4 and E5 gate phase 6, E3 phase 7. J1 to J4 gate phase 8, A1 to A3
 phases 9 and 10.
 
 ### Phase 1: index and Browser
@@ -1091,12 +1188,32 @@ Size: 3 to 4 sessions.
 
 Size: 4 to 5 sessions.
 
+### Phase 1b: previews in the Browser
+
+Step 1 of "Audio without an open song", and "Insert as code" from "Browser". Small, and
+independent of the Mixer: it can come before phase 2.
+
+1. A module for the sounds of an engine (synths, ZZFX, soundfonts, default packs, local
+   samples, firmwares), out of `src/webview/main.ts`, used by the editor's page and by
+   the Browser's.
+2. The Browser page: superdough, its own `AudioContext` made and resumed in the click
+   handler of a row. The host sends it the workspace's sample map and firmwares, with the
+   workspace folders in `localResourceRoots`, and the Content Security Policy of the
+   editor's page.
+3. Preview: in the Browser when no song plays, in the song's engine when one does.
+4. The sound list from the Browser's engine at start.
+5. Insert as code, with the rule for a cursor inside a string, in the host for the native
+   editor and in the webview for the Strudel editor. Cases in `context.test.ts`.
+6. Test: preview with no song open; the bundle size; insert of each kind of row.
+
+Size: 1 to 2 sessions.
+
 ### Phase 6: one engine
 
-Only after E1 and E2. Steps are written when the spikes have answered. The outline:
-engine module without CodeMirror, engine in the Mixer panel, the editor and the stage as
-views, preview without a song, sound across a mode switch, one transport for the window
-(play, stop, tempo in the Mixer's header).
+Only after E1, E2 and E4. Step 2 of "Audio without an open song": the engine in the
+Browser, the scheduler in a worker, the editor and the stage as views of it, sound across
+a mode switch, one transport for the window. Steps are written when the spikes have
+answered.
 
 Size: unknown until the spikes. Expected to be the largest phase.
 
@@ -1167,6 +1284,8 @@ Size: 4 to 6 sessions.
 | 17 | EQ: shelving filters (gentle, like most club mixers) or an isolator that can kill a band completely? | Isolator, with a kill at the end of each knob. That is what is used to swap bass lines |
 | 18 | Export a recording to plain Strudel with `arrange()`: needed early, or later? | Later, after the arrangement view works. It is the way to share a performance with somebody without the extension |
 | 19 | Record typing that is not evaluated, to replay the writing of the code like a video? | Off by default, as an option. It makes the file large and adds no sound |
+| 20 | Insert as code: `s("bd").bank("RolandTR909")` for a drum machine sound, or `s("RolandTR909_bd")` (one call, the full name)? | `.bank()`, as asked: it is how songs are written, and the bank can then be changed in one place |
+| 21 | Phase 1b (previews in the Browser) before the Mixer? | Yes. It is small, and it removes the message the maintainer does not want to see |
 
 ## Risks
 

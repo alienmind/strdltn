@@ -404,9 +404,29 @@ orbit's `summingNode`. So the orbit's filter (`djf`) and ducking apply, a hap's 
 `pan`, `gain`) do not. `note`, `n` with `scale`, `freq`, `velocity` and `midichan` (the track of a firmware with
 tracks) are read. The compiled `WebAssembly.Module` is passed to the worklet in `processorOptions`.
 
+**Firmwares from an address.** `firmware(...)` in a song adds firmwares next to the folder's, the way `samples()` adds
+sounds: `firmware('https://.../obervave.wasm')` (the id is the file name, without a `-vibe` ending) or
+`firmware({ obervave: 'https://...', boom: 'https://...zip' })`. A folder firmware of the same id wins. The file is
+fetched by the webview on the first note, so the server must send CORS headers. `raw.githubusercontent.com` does
+(`access-control-allow-origin: *`, checked). The first 4 bytes decide what it is: `\0asm` is used as it is, `PK` is a
+package zip from the hub, unpacked with `fflate` 0.8.2 (MIT), first `.wasm` that is not `.aot.wasm`. Anything else
+fails once, with a message, and is not fetched again. A `.fwsc` gets its own message, see "FM-1 update packages" in the
+drawer. Firmwares from an address are not cached for offline use yet.
+
+**Programs.** `.progNum(n)` sends a MIDI program change on the hap's channel before its note, only when the program of
+that channel changes, because a program change reloads a sound. In OBERVAVE (`trk_load`, `prog_get` in its source)
+programs 0 to 63 are its 64 factory sounds in the order of `FACTORY` in `obv_patches.h`, 64 to 69 drums and keys, the
+rest INIT, unless the user saved over them.
+
+**Channels.** `midichan` reaches the firmware, but what a channel means is the firmware's business. OBERVAVE plays its
+selected track on every channel while its MIDI setting is OMNI, which is its default (`set.midi_ch` 0). Only with a
+channel set on its GLOBAL page do the next three channels play tracks B to D. To get separate sounds from one firmware,
+use another orbit: each orbit runs its own copy.
+
 **Clock.** With each note and on play and stop, the page sends the scheduler's cycle at the current context frame and
 its cps. The worklet turns that into the firmware's position: one cycle is a bar of four quarter notes, so the tempo
-is `cps * 240` BPM. On stop the page empties the firmware's queue, ends its notes and sends "play off".
+is `cps * 240` BPM. The tempo also goes out as a `VIBE_EV_TRANSPORT` tempo event whenever it changes: OBERVAVE's arp
+and sequencer take their tempo only from that event, and read the position from the table (its `main.c`). On stop the page empties the firmware's queue, ends its notes and sends "play off".
 
 ## Content Security Policy
 
@@ -488,6 +508,10 @@ VIBE FM SDK repo (OBERVAVE 3.4, GPL-3.0), on 2026-11-20:
 | `note("c2*4").s("vibefm1:<obervave second>")`, two firmwares, at cps 0.5 | The first sounds in cycle 0, the second in cycle 1. The first only rings out in cycle 1 |
 | `vibefm1:1`, and a preview of variation 1 from the Sounds view | The second firmware plays |
 | `vibefm1:nosuch` | One error, "no such firmware. There are: obervave, second". Nothing starts |
+| `template/examples/07-vibefm1-obervave.strudel`, OBERVAVE from GitHub through `firmware()` | Plays with no error. Three copies on orbits 2, 3, 4. Spectral centroid: bass about 150 Hz, pad 350 Hz, arp 3.6 kHz |
+| `template/examples/08-vibefm1-patterns.strudel`, `.progNum("<35 28 53 2>")` | The lead's centroid per cycle: 2939, 517, 723, 1406 Hz, then the same shape again. The program changes the sound |
+| A package `.zip` (the wasm and `firmware.json` in a folder) through `firmware()` | Plays |
+| A file named `.fwsc` through `firmware()` | One error that says it is an FM-1 hardware firmware. Not fetched again |
 | OBERVAVE's start | Host protocol 7, 236 parameters, logs "OberVave 3.4 (native VIBE)" |
 | A note sent for frame 24000, rendered offline | First sample above 1e-4 at frame 24005 |
 | CPU, rendered offline, each firmware holding a 4-note chord, Xeon at 2.1 GHz | 1 firmware: 1.1% of real time. 4 firmwares: 5.0% |

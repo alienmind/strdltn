@@ -155,3 +155,20 @@ Tried, in Chrome with the webview bundle. The first plan registered each firmwar
 superdough said "sound vibe not found". We then named each sound `vibe_obervave`, which worked, but every firmware was
 a separate sound and the firmware could not be a pattern value. Now there is one instrument, `vibefm1`, and the colon
 does what it does for samples: `vibefm1:obervave` picks the firmware.
+
+## FM-1 update packages (`.fwsc`) in vibefm1
+
+Designed, with a fake file to check the message. The idea was to play SHRUB (Xfer's stripped-down Serum for the FM-1)
+through `vibefm1` from `https://shrub.audio/editor/firmware/SHRUB.fwsc`. A `.fwsc` is the update package the FM-1's
+updater writes to the device: M-VAVE's own firmware ships as `FM-1.fwsc`, and ChoralRoot ships a one-core and a
+two-core `.fwsc` for the FM-1's processor. That is native code for the FM-1's chip, not wasm, and only the hub's
+converter turns an FM-1 firmware into a VIBE FM `.wasm`, from its source. SHRUB's source is closed ("copyright 2026 Xfer
+Inc. All rights reserved"), so nobody but Xfer can make that build. Playing a `.fwsc` would need an emulator of the
+FM-1's chip. `firmware()` now says what the file is instead of failing on it as broken wasm. We could not fetch the
+SHRUB file from our sandbox to look at its bytes; the claim rests on how the other `.fwsc` files are described.
+
+## midichan as OBERVAVE's tracks
+
+Designed, and wrong. The first hand test said `.midichan("<1 2>")` would switch between OBERVAVE's tracks. Its source
+says otherwise: with its MIDI setting on OMNI, the default, every channel plays the selected track. Separate sounds come
+from separate orbits.

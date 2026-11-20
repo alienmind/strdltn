@@ -16,11 +16,13 @@ export interface SoundInfo {
 	tag?: string;
 	/** Number of variations (`name:0`, `name:1`...). 1 for a synth. */
 	count: number;
+	/** Names for the variations, when they have names: the firmwares of `vibefm1`. Then `name:<variation>` is typed. */
+	variations?: string[];
 }
 
-/** A VIBE FM firmware the song can play as `s("vibe_<id>")`. */
+/** A VIBE FM firmware the song can play as `s("vibefm1:<id>")`. */
 export interface FirmwareInfo {
-	/** The firmware's own id, lower case. The sound name is made from it (firmwareSound). */
+	/** The firmware's own id, lower case. It is what follows `vibefm1:` in a song. */
 	id: string;
 	name: string;
 	author?: string;

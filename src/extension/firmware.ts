@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { FirmwareInfo } from '../shared/protocol';
 
-/** A firmware id as the SDK allows it (letters, digits, `-`, `_`, `.`), lower case for the sound name. */
+/** A firmware id as the SDK allows it: letters, digits, `-`, `_`, `.`. Mini-notation keeps all of them in `vibefm1:<id>`. */
 const ID = /^[A-Za-z0-9._-]+$/;
 
 /**

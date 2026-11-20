@@ -1,5 +1,8 @@
-// VIBE FM firmwares as superdough sounds: `s("vibe_obervave")`. A firmware is a whole synth, often with its own
-// sequencer, so it runs as one AudioWorkletNode per firmware and orbit, and each hap only sends it notes.
+// VIBE FM firmwares as one superdough instrument, `vibefm1`, with the firmware after the colon:
+// `s("vibefm1:obervave")`. Mini-notation turns that into `{ s: 'vibefm1', n: 'obervave' }`, so the firmware is a
+// value like any other and can change per step: `s("vibefm1:<obervave sloop>")`. A number picks by position, as
+// `bd:3` does for samples. A firmware is a whole synth, often with its own sequencer, so it runs as one
+// AudioWorkletNode per firmware and orbit, and each hap only sends it notes.
 import * as strudelWebaudio from '@strudel/webaudio';
 import type { FirmwareInfo } from '../../shared/protocol';
 import type { VibeEvent } from './core';
@@ -16,28 +19,26 @@ interface Instance {
 	post(message: ToVibeWorklet): void;
 }
 
+/** The instrument's name in a song. */
+export const INSTRUMENT = 'vibefm1';
 const WORKLET_URL = new URL('vibe-worklet.js', import.meta.url).href;
 const firmware = new Map<string, FirmwareInfo>();
+/** In the folder's order, for `vibefm1:<number>` and the Sounds view. */
+let order: string[] = [];
+/** Ids already reported as unknown, so a pattern does not log the same line on every note. */
+const reported = new Set<string>();
 const modules = new Map<string, Promise<WebAssembly.Module>>();
 const instances = new Map<string, Promise<Instance | undefined>>();
 let workletLoaded: Promise<void> | undefined;
 let host: VibeHost;
-
-/**
- * The sound name of a firmware. One word: in mini-notation `vibe:obervave` would be the sound `vibe`, variation
- * `obervave`, and `-` or `.` would split it too. The `gm_` soundfonts use the same form.
- */
-export function firmwareSound(id: string): string {
-	return `vibe_${id.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
-}
 
 export function initFirmware(h: VibeHost): void {
 	host = h;
 }
 
 /**
- * Registers each firmware as a sound, and removes the sounds of firmwares no longer in the list. A firmware already
- * playing keeps playing when the list is sent again; one whose file changed is loaded again on its next note.
+ * Sets the firmwares that `vibefm1` can play. A firmware already playing keeps playing when the list is sent again;
+ * one whose file changed is loaded again on its next note; one that is gone stops.
  */
 export function registerFirmware(list: FirmwareInfo[]): void {
 	const ids = new Set(list.map((fw) => fw.id));
@@ -45,20 +46,21 @@ export function registerFirmware(list: FirmwareInfo[]): void {
 		if (ids.has(id)) continue;
 		forget(id);
 		firmware.delete(id);
-		// soundMap is a nanostores map: setting a key to undefined removes it.
-		strudelWebaudio.soundMap.setKey(firmwareSound(id), undefined);
 	}
 	for (const fw of list) {
 		const known = firmware.get(fw.id);
 		if (known && known.url !== fw.url) forget(fw.id);
 		firmware.set(fw.id, fw);
-		strudelWebaudio.registerSound(firmwareSound(fw.id), (t: number, value: any) => trigger(fw.id, t, value), {
-			type: 'firmware',
-			tag: 'firmware',
-			name: fw.name,
-		});
 	}
-	if (list.length) host.log('info', `firmware: ${list.map((fw) => fw.id).join(', ')}`);
+	order = list.map((fw) => fw.id);
+	reported.clear();
+	if (!list.length) {
+		// soundMap is a nanostores map: setting a key to undefined removes it.
+		strudelWebaudio.soundMap.setKey(INSTRUMENT, undefined);
+		return;
+	}
+	strudelWebaudio.registerSound(INSTRUMENT, trigger, { type: 'firmware', tag: 'firmware', variations: order });
+	host.log('info', `${INSTRUMENT}: ${order.join(', ')}`);
 }
 
 /** Tells every running firmware where the song is, and that it plays or stopped. */
@@ -86,8 +88,27 @@ function forget(id: string): void {
 	}
 }
 
+/** The firmware a hap asks for: `n` is its id, or its position in the folder. Without `n`, the first one. */
+function resolve(n: unknown): string | undefined {
+	if (typeof n === 'string') {
+		const id = n.toLowerCase();
+		if (firmware.has(id)) return id;
+		if (!reported.has(id)) {
+			reported.add(id);
+			host.log('error', `${INSTRUMENT}:${n}: no such firmware. There are: ${order.join(', ') || 'none'}`);
+		}
+		return undefined;
+	}
+	// Wraps around like the variations of a sample.
+	const index = Math.floor(Number(n ?? 0)) || 0;
+	return order[((index % order.length) + order.length) % order.length];
+}
+
 /** onTrigger of superdough. Returns nothing: the firmware's node is already on its orbit, and superdough then skips the hap's own chain. */
-async function trigger(id: string, t: number, value: any): Promise<undefined> {
+async function trigger(t: number, value: any): Promise<undefined> {
+	const id = resolve(value.n);
+	if (!id) return undefined;
+	precompile();
 	const orbit = Number(value.orbit ?? 1);
 	const instance = await instanceFor(id, orbit);
 	if (!instance) return undefined;
@@ -123,6 +144,31 @@ function sendClock(instance: Instance): void {
 	instance.post({ t: 'clock', frame: Math.round(ac.currentTime * ac.sampleRate), cycle, cps, playing });
 }
 
+/**
+ * Compiles every firmware of the list the first time `vibefm1` plays, so that a pattern that switches firmware does not
+ * wait for a download and a compile on its first note there. Only compiled: a running firmware costs CPU even when
+ * silent, so it starts with its first note.
+ */
+function precompile(): void {
+	for (const id of order) void moduleFor(id).catch(() => undefined);
+}
+
+function moduleFor(id: string): Promise<WebAssembly.Module> {
+	let module = modules.get(id);
+	if (!module) {
+		const fw = firmware.get(id);
+		if (!fw) return Promise.reject(new Error('not registered'));
+		module = fetch(fw.url).then(async (response) => {
+			if (!response.ok) throw new Error(`${response.status} for ${fw.url}`);
+			return WebAssembly.compile(await response.arrayBuffer());
+		});
+		// A failed download may work on the next try.
+		module.catch(() => modules.delete(id));
+		modules.set(id, module);
+	}
+	return module;
+}
+
 function instanceFor(id: string, orbit: number): Promise<Instance | undefined> {
 	const key = `${id}@${orbit}`;
 	let pending = instances.get(key);
@@ -143,14 +189,7 @@ async function start(id: string, orbit: number): Promise<Instance | undefined> {
 	const ac = context();
 	workletLoaded ??= ac.audioWorklet.addModule(WORKLET_URL);
 	await workletLoaded;
-	let module = modules.get(id);
-	if (!module) {
-		module = fetch(fw.url).then(async (response) => {
-			if (!response.ok) throw new Error(`${response.status} for ${fw.url}`);
-			return WebAssembly.compile(await response.arrayBuffer());
-		});
-		modules.set(id, module);
-	}
+	const module = moduleFor(id);
 	const node = new AudioWorkletNode(ac, 'vstrudel-vibe', {
 		numberOfInputs: 0,
 		numberOfOutputs: 1,

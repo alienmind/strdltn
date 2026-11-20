@@ -262,7 +262,7 @@
 				"vstrudel.firmwareFolder": {
 					"type": "string",
 					"default": "firmware",
-					"description": "Workspace folder that holds VIBE FM firmwares (.wasm) from thefirmwarehub.com. Each one plays as s(\"vibe_<id>\")."
+					"description": "Workspace folder that holds VIBE FM firmwares (.wasm) from thefirmwarehub.com. Each one plays as s(\"vibefm1:<id>\")."
 				},
 				"vstrudel.libFolder": {
 					"type": "string",

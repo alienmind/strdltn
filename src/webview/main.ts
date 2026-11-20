@@ -279,7 +279,8 @@ function publishSounds(): void {
 			type: String(data.type ?? 'other'),
 			tag: data.tag,
 			// Only a plain list has numbered variations. A pitched map (piano) has one sound.
-			count: Array.isArray(data.samples) ? data.samples.length : 1,
+			count: Array.isArray(data.variations) ? data.variations.length : Array.isArray(data.samples) ? data.samples.length : 1,
+			variations: Array.isArray(data.variations) ? data.variations : undefined,
 		}));
 	post({ type: 'sounds', sounds });
 }

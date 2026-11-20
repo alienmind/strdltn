@@ -160,7 +160,7 @@ export class SoundsProvider implements vscode.TreeDataProvider<SoundNode> {
 		}
 		const { sound } = node;
 		const variation = node.kind === 'variation';
-		const label = variation ? `${sound.name}:${node.index}` : node.label;
+		const label = variation ? `${sound.name}:${variationName(sound, node.index)}` : node.label;
 		const expandable = !variation && sound.count > 1;
 		const item = new vscode.TreeItem(label, expandable ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None);
 		if (expandable) item.description = String(sound.count);
@@ -175,5 +175,10 @@ export class SoundsProvider implements vscode.TreeDataProvider<SoundNode> {
 /** The text to put in the code for a node: `bd`, `bd:3` or `RolandTR909_bd`. Always the full name, which is valid anywhere. */
 export function soundText(node: SoundNode): string | undefined {
 	if (node.kind === 'group' || node.kind === 'bank') return undefined;
-	return node.kind === 'variation' ? `${node.sound.name}:${node.index}` : node.sound.name;
+	return node.kind === 'variation' ? `${node.sound.name}:${variationName(node.sound, node.index)}` : node.sound.name;
+}
+
+/** `3` for a sample, `obervave` for a firmware of `vibefm1`. */
+function variationName(sound: SoundInfo, index: number): string {
+	return sound.variations?.[index] ?? String(index);
 }

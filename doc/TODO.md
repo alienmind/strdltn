@@ -16,9 +16,9 @@ by hand and it works, see "Measured" in `doc/ARCHITECTURE.md`. Open: whether the
 `v0.2.0` goes on `main` with Firmware Hub in it, and the rest of "Release" in
 `doc/ARCHITECTURE.md` (tag, `pnpm promote`, home page).
 
-**In flight:** branch `fix/ctrl-enter-audio`. Ctrl+Enter in the Strudel editor did not
-start the audio after a reload, see "Starting audio" in `doc/ARCHITECTURE.md`. Next: the
-hand test below.
+**In flight:** branch `fix/ctrl-enter-audio`, tested by hand, waiting for a pull request:
+Ctrl+Enter starts the audio after a reload, `//` over a selection comments the lines,
+and the stage opens below the code (`vstrudel.stage.position`).
 
 Next in line:
 
@@ -31,28 +31,9 @@ Next in line:
 
 ## Next: test by hand
 
-Target: **desktop VS Code, F5 on this repo, branch `fix/ctrl-enter-audio`** (opens
-`template/`).
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Reload the window. Open `demo.strudel` in the Strudel editor and press Ctrl+Enter without clicking anywhere first | It plays. Output > `vstrudel` shows `AudioContext state -> running` |
-| 2 | The same with the network off and `examples/07-vibefm1-obervave.strudel` | OBERVAVE plays from the cache |
-| 3 | Run `pnpm test:quick` in a terminal | No sound from the test window. Done in about 75 seconds |
-| 4 | F5 on this repo, open `demo.strudel` in the native editor, and ask Copilot Chat in agent mode "add a bass line" | It adds one `$bass:` pattern (or similar) to `demo.strudel` and touches no other file |
-| 5 | Open the template as its own folder (File > Open Folder > `template/`) and ask the same | The same. Its answer may name `AGENTS.md` or `reference/` as what it read |
-| 6 | Play `examples/05-coastline.strudel`, then turn the network off, reload the window and play it again | It still plays, from the cache |
-| 7 | In the Strudel editor, select three lines and type `//` | Each line starts with `// ` |
-| 8 | Keep the selection and type `//` again | The `// ` is gone, the lines are as before |
-| 9 | Select a word and type one `/`, then wait a second | The word is replaced by `/`, as in any editor |
-| 10 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage opens below the code, and the cursor stays in the code |
-| 11 | In Settings set `vstrudel.stage.position` to `beside`, close the stage, play again | The stage opens to the right of the code |
-
-Expected still broken: sound stops on every mode switch, no MIDI, a short silence when a
-firmware changes source.
-
-Report the result by check number. When something fails, add the content of Output >
-`vstrudel`.
+Nothing waits for a hand test. The checks of `fix/ctrl-enter-audio` passed (Ctrl+Enter
+after a reload, `//` over a selection, the stage below the code, coastline and OBERVAVE
+offline, the silent quick test, Copilot with the instructions).
 
 ## Decisions waiting for the maintainer
 
@@ -343,8 +324,6 @@ planned yet.
 - The logo view has an empty strip under the picture, and its own title row that says
   "vstrudel" again under the title of the side bar. VS Code gives a view no way to fit
   its content or to hide its title.
-- The instructions for AI assistants are not tested with any assistant yet. Checks 29
-  and 30 are the first test.
 - Inline completion of Copilot does not read the instruction files. Only Chat and agents
   do.
 - The Files view shows `.strudel` files only by name. It has no button to play a file

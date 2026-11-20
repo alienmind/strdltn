@@ -395,7 +395,7 @@ function insert(text: string): void {
 /**
  * `//` typed over a selection comments the selected lines, and the same keys again take
  * the comment off (the rule is `toggleComment` in src/shared/comment.ts). The first `/`
- * waits for the second: any other key, or a pause of a second, types the `/` as usual,
+ * waits for the second: any other key, or a pause of half a second, types the `/` as usual,
  * over the selection. Without a selection `/` is an ordinary key.
  */
 function slashComment() {
@@ -427,11 +427,12 @@ function slashComment() {
 			if (text !== '/' || selection.ranges.every((range) => range.empty)) return false;
 			pending = {
 				selection,
+				// Half a second: the maintainer found a whole second too slow for a plain slash.
 				timer: setTimeout(() => {
 					// Typed once and left: it was a plain slash. Unless the selection moved since.
 					if (pending?.selection.eq(view.state.selection)) typeSlash(view);
 					pending = undefined;
-				}, 1000),
+				}, 500),
 			};
 			return true;
 		}),

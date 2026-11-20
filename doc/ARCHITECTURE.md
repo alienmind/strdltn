@@ -465,7 +465,8 @@ offline, and the cause has nothing to do with the network. So `init()` replaces 
 `evaluate` method of our `StrudelMirror` instance with our `play()`, which calls the
 original through `evaluateUpstream`. Upstream's code is not changed. A key press is a
 user gesture for the browser, so `resume()` is expected to succeed there and no overlay
-should show. Not measured yet: the test sends commands and cannot press a key.
+should show. Measured by hand by the maintainer: after a reload, Ctrl+Enter without a
+click plays, online and offline.
 
 Not measured: whether a real key press in the native editor counts as a gesture for the
 stage. The test sends commands, which is not a key press.
@@ -494,13 +495,14 @@ only the exact `// ` is removed, so `//x` written by hand stays.
 The keys are caught by a CodeMirror `inputHandler` at `Prec.highest`, added with
 `StateEffect.appendConfig` like our change listener. The first `/` over a selection is
 held back. A second `/` makes the comment. Any other key types the held `/` and then
-that key, over the selection, as if nothing had been held. A pause of a second types the
+that key, over the selection, as if nothing had been held. A pause of half a second types the
 held `/`, unless the selection moved since. Without a selection `/` is an ordinary key.
 
 The native editor is not changed: VS Code already does the same with Ctrl+/ (the
 `lineComment` of `language-configuration.json`), and catching typed keys in a text
 editor would need the `type` command, which slows every key press of every editor.
-Not measured: the test sends commands and cannot type, so this waits for a hand test.
+Measured by hand by the maintainer: comment, uncomment, and a single `/` that replaces
+the selection. The test sends commands and cannot type, so it does not cover this.
 
 In the stage the code is hidden, so what the code would show inline is laid out as rows
 in two groups: **Sliders**, then **Visuals**. Each row has a label on the left and the

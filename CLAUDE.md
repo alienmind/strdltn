@@ -26,7 +26,9 @@ Codespaces.
 ### State
 
 Read the top of `doc/TODO.md` for the current state. It says which branch holds the
-work, what is released, and what the next step is.
+work, what is released, and what the next step is. The same file lists the decisions
+that wait for the maintainer, the spikes that are still to run ("Spikes to run"), and
+the plan for the local model.
 
 ### How to work here
 
@@ -54,6 +56,11 @@ What to know about the real test:
   promote unless told to. Collect work on a feature branch.
 - **Commit and push on the feature branch without asking.** `main` gets the work through
   a pull request that the maintainer merges.
+- **One feature branch at a time.** When a feature branch is already in use, add to it.
+  Do not open a second branch or a worktree for a side task, not even for docs.
+- **Several agent sessions may share this folder.** Look at `git status` and the last
+  commits before you write. Commit only the files you changed, by name, and leave the
+  uncommitted changes of another session alone.
 - **Strudel comes from upstream npm, pinned.** No fork, no submodule, no patches.
 - **Our name is vstrudel.** The side bar, the commands and the icon say vstrudel. "Strudel"
   is only used for the language and for the upstream editor.

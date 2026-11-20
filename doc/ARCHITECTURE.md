@@ -553,6 +553,7 @@ In VS Code 1.130.0 on Windows (Electron 42, Chrome 148), with `pnpm test:vscode`
 | `crossOriginIsolated` | false. `SharedArrayBuffer` is not available |
 | WebMIDI (`navigator.requestMIDIAccess`) in the webview | Refused: "Midi has been disabled in this document by permissions policy" |
 | WebGPU (`navigator.gpu.requestAdapter`) in the webview | Works, with a hardware adapter |
+| The maintainer's machine, for sizing a local model | Intel Core Ultra 7 258V, 8 cores. Intel Arc 140V built-in GPU, which shares the system's memory. 31.5 GB of memory. Docker is installed, Ollama is not |
 | The Sounds view lists the default packs and the local samples | Works |
 | Preview of a local sample, a sample, a drum machine sound, a synth and a soundfont | Works |
 | A new folder under `samples/` appears in the list without a reload | Works |

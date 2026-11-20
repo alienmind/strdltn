@@ -282,6 +282,25 @@ planned yet.
 | M4 | Language support in the native editor: completion, hover, signature help, mini-notation grammar and diagnostics |
 | M5 | Ship: Marketplace, template as its own repo, Renovate for `@strudel/*` |
 
+## Spikes to run
+
+Each spike answers one question. Do it under `tmp/`, write the answer where the last
+column says, then delete the spike. None of these is started unless it says so.
+
+| # | Question | How | Record | Write the answer in |
+|---|---|---|---|---|
+| S1 | How fast does a small model run in the webview on the maintainer's machine, on the GPU and on the CPU? | Load one model with transformers.js in the webview through `pnpm test:vscode`. Run it once with WebGPU and once with WebAssembly. Start with Gemma 3 270M, then 1B, then a code model (CodeGemma 2B or Qwen2.5-Coder 1.5B) | Tokens per second, time to the first token, memory, size of the download, and whether our Content Security Policy needs a new rule | "Measured" in `doc/ARCHITECTURE.md`, and "Which model" below |
+| S2 | Can the weights be served from `tmp/vstrudel-models/` through `asWebviewUri`, or does the runtime insist on its own download? | Same spike as S1, with the files fetched by the extension host first | Works or not, and what had to be configured | "Local model" below |
+| S3 | Does a completion extension with a local server complete `.strudel` files? | Install llama.cpp (or Ollama) on the host and `llama.vscode` (or Continue) in the test profile. Type in a `.strudel` file in the native editor | Whether it offers anything, whether it needs `.strudel` mapped to JavaScript, tokens per second on the CPU | "Completion from another extension" below |
+| S4 | Do local reference files change what stock completion offers? | With Copilot on, type the start of a rare function in a `.strudel` file, first without and then with a reference file open in another tab, then with it only on disk | What was offered in each of the three cases | "Strudel's documentation as local examples" below |
+| S5 | Can the extension host send MIDI on time? | A worker thread that waits with `Atomics.wait`, or sends early and spins for the last millisecond. Measure with the silent "all notes off" message, as the first MIDI spike did | How late a send is: middle, 95th percentile, worst. The bar is 2 ms | "MIDI" above |
+| S6 | Can a webview list the sound cards by name? | Ask for the microphone once in the webview, then call `enumerateDevices()` again | Whether VS Code allows the request, and the list that comes back | "Sound card" above |
+| S7 | Does the pack cache work in Codespaces? | Open `examples/05-coastline.strudel` in a Codespace | Whether the files arrive in `.vstrudel/cache/` and play from there | "Measured" in `doc/ARCHITECTURE.md` |
+
+Already done, with their answers in `doc/ARCHITECTURE.md` and the drawer: sound in a
+webview, WebMIDI in a webview (refused), WebGPU in a webview (works), a native MIDI
+module in the extension host (works, but a plain timer is too late), audio outputs seen
+by a webview (one, without a name).
 ## Local model
 
 Planned, not started. No code until the maintainer says so. The goal: completion and
@@ -290,11 +309,21 @@ network, and that also works when the project is opened in a container.
 
 ### What the maintainer decided
 
+Said on 2026-11-20. These are settled, do not ask again.
+
+- The plan below is wanted. It moved from "noted for later" to planned.
 - Model files are cached under `tmp/` of the workspace, which git ignores.
 - The size of the model is whatever the maintainer's machine runs well. That machine is
   an Intel Core Ultra 7 258V (8 cores) with an Intel Arc 140V built-in GPU and 31.5 GB
   of memory. The GPU has no memory of its own, it shares the system's.
 - There should be a fallback to the CPU, so that it also works in Codespaces.
+- The maintainer wants to open the project in a container on this machine and work with
+  no network, with completion and the smart features still working.
+- A second extension may be recommended in the workspace to give completion from a
+  local model.
+
+Not decided yet, the maintainer was asked and has not answered: which of the eight uses
+below matter most, and the open points at the end of this section.
 
 ### Where the model runs
 

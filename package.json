@@ -71,6 +71,11 @@
 				"icon": "$(arrow-swap)"
 			},
 			{
+				"command": "vstrudel.openShrubEditor",
+				"title": "vstrudel: Open SHRUB editor (experimental)",
+				"icon": "$(beaker)"
+			},
+			{
 				"command": "vstrudel.openStage",
 				"title": "vstrudel: Open stage",
 				"icon": "$(open-preview)"
@@ -173,6 +178,11 @@
 					"command": "vstrudel.refreshSnippets",
 					"when": "view == vstrudel.snippets",
 					"group": "navigation"
+				},
+				{
+					"command": "vstrudel.openShrubEditor",
+					"when": "view == vstrudel.sounds && config.vstrudel.experimental.shrubEditor",
+					"group": "navigation@3"
 				}
 			],
 			"view/item/context": [
@@ -228,6 +238,10 @@
 				{
 					"command": "vstrudel.disablePreview",
 					"when": "false"
+				},
+				{
+					"command": "vstrudel.openShrubEditor",
+					"when": "config.vstrudel.experimental.shrubEditor"
 				}
 			]
 		},
@@ -263,6 +277,11 @@
 					"type": "string",
 					"default": "firmware",
 					"description": "Workspace folder that holds VIBE FM firmwares (.wasm) from thefirmwarehub.com. Each one plays as s(\"vibefm1:<id>\")."
+				},
+				"vstrudel.experimental.shrubEditor": {
+					"type": "boolean",
+					"default": false,
+					"description": "Experimental mockup: adds the command \"Open SHRUB editor\", which shows Xfer's SHRUB web editor (shrub.audio/editor) in a tab. It is a separate synth: not in the song's mix or tempo, and no MIDI inside VS Code."
 				},
 				"vstrudel.libFolder": {
 					"type": "string",

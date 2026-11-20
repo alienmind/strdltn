@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { SoundInfo } from '../shared/protocol';
 import { FirmwareCache } from './firmware';
 import { PackCache } from './packs';
+import { ShrubPanel } from './shrub';
 import { Session } from './session';
 import { SnippetsView, type Snippet } from './snippets';
 import { SoundsProvider, soundText, type SoundNode } from './sounds';
@@ -130,6 +131,10 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			if (found) return vscode.commands.executeCommand('vscode.openWith', found.uri, 'default');
 		}),
 		vscode.commands.registerCommand('vstrudel.refreshSnippets', () => snippets.refresh()),
+		vscode.commands.registerCommand('vstrudel.openShrubEditor', () => ShrubPanel.show(context)),
+		vscode.workspace.onDidChangeConfiguration((event) => {
+			if (event.affectsConfiguration('vstrudel.experimental.shrubEditor')) ShrubPanel.settingChanged();
+		}),
 		vscode.commands.registerCommand('vstrudel.showVersion', () => vscode.window.showInformationMessage(identity)),
 	);
 

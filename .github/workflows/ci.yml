@@ -21,6 +21,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - run: pnpm test:unit
       - run: pnpm package
       # A second copy under a fixed name, so that a devcontainer can always download
       # releases/latest/download/vstrudel.vsix without knowing the version.

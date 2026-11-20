@@ -175,6 +175,14 @@ export async function run(): Promise<void> {
 		steps.stagePlayed = await until(() => has('stage', demo, 'report:'), 40000);
 		steps.stageReport = last('stage', demo, 'report:');
 		steps.stageNeedsClick = has('stage', demo, 'click inside the webview');
+		steps.stageDock = last('stage', demo, 'dock:');
+		// Move the first slider of the stage. The number in the code has to follow.
+		const beforeSlider = await text(demo);
+		api.setStageSlider(0, 0.123);
+		steps.sliderWroteCode = await until(() => vscode.workspace.textDocuments.some((d) => d.uri.toString() === demo.toString() && d.getText().includes('slider(0.123,')), 5000);
+		const afterSlider = await text(demo);
+		steps.sliderChangedOnlyTheNumber = afterSlider.length - beforeSlider.length === '0.123'.length - (/slider\(([\d.]+),/.exec(beforeSlider)?.[1].length ?? 0);
+		await restore(demo, beforeSlider);
 		await vscode.commands.executeCommand('workbench.action.closeSidebar');
 		await sleep(2500);
 		await shot('stage');
@@ -216,9 +224,15 @@ export async function run(): Promise<void> {
 		steps.documentDirty = document.isDirty;
 		save();
 
+		// VSTRUDEL_TEST_QUICK=1 leaves out the two long parts, the pack download and the
+		// play of every template file. For a change that does not touch them.
+		const quick = process.env.VSTRUDEL_TEST_QUICK === '1';
+		steps.quick = quick;
+
 		// 7a. A song that loads a pack from GitHub: its sounds are listed before it has
 		// played, and the pack is copied into the cache of the workspace.
 		const coastline = vscode.Uri.joinPath(folder, 'examples', '05-coastline.strudel');
+		if (!quick) {
 		await vscode.commands.executeCommand('vscode.openWith', coastline, EDITOR);
 		steps.packListedBeforePlay = await until(() => api.sounds().some((s) => s.tag === 'github:eddyflux/crate'), 40000);
 		steps.packGroup = api.soundGroups().find((group) => group.label.startsWith('github:'));
@@ -227,6 +241,7 @@ export async function run(): Promise<void> {
 		steps.packs = api.packs();
 		steps.packServedFromCache = await until(() => has('editor', coastline, 'github:eddyflux/crate (cached): registered'), 20000);
 		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		}
 		save();
 
 		// 7b. Every snippet and example of the template plays. This is what catches a
@@ -234,7 +249,7 @@ export async function run(): Promise<void> {
 		const files = (await vscode.workspace.findFiles('{lib,examples}/**/*.strudel')).sort((a, b) => a.path.localeCompare(b.path));
 		const fileProblems: Record<string, string[]> = {};
 		let filesChecked = 0;
-		for (const file of files) {
+		for (const file of quick ? [] : files) {
 			if (file.path.includes('hydra')) continue;
 			filesChecked++;
 			await vscode.commands.executeCommand('vscode.openWith', file, EDITOR);

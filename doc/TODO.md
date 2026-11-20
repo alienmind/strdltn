@@ -3,24 +3,34 @@
 What is in flight, what is undecided, and what to try next. Finished work is deleted
 from here.
 
-## In flight: 0.0.4
+## State
 
-Work for the next release collects on the branch `feat/0.0.4`. The version stays 0.0.3
-until the maintainer asks for the release.
+**Released:** 0.0.3, tag `v0.0.3` on `main`.
 
-Done on the branch and covered by `pnpm test:vscode`: the README, icons and banks in
-the Sounds view, click to insert, the preview button, the Snippets view with cards and
-headers, the cache for remote sample packs, the new template (demo, examples, snippets).
-How they work is in `doc/ARCHITECTURE.md`.
+**Next release: 0.1.0.** The maintainer asked for it. The work is on the branch
+`feat/0.0.4` with the version already set to 0.1.0, and a pull request to `main` is
+open. What is left, in order:
 
-Left for 0.0.4:
+1. The maintainer merges the pull request.
+2. Tag `v0.1.0` on `main` and push the tag. The pipeline builds the release.
+3. `pnpm promote` from `main`, and tell the maintainer to run "Developer: Reload
+   Window".
+4. Refresh the home page: the steps are under "Public page" in `doc/ARCHITECTURE.md`.
+   `doc/ABOUT.md` and its screenshots are already written for 0.1.0.
+
+What 0.1.0 adds to 0.0.3: the README, icons and banks in the Sounds view, click to
+insert, the preview button, the Snippets view with cards and headers, the cache for
+remote sample packs, the stage with labels and sliders, and the new template (the
+maintainer's song as the demo, examples, a library of snippets). All of it is covered by
+`pnpm test:vscode`. How it works is in `doc/ARCHITECTURE.md`.
+
+Not in 0.1.0, next in line:
 
 | # | What | State |
 |---|---|---|
 | 1 | MIDI: devices in the Sounds view, playing through them, mappings | Spike done, not built. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
-| 3 | `doc/ABOUT.md` and its screenshots for the new views | At release time |
-| 4 | The hand test below | Waiting for the maintainer |
+| 3 | The hand test below | Waiting for the maintainer |
 
 ## Next: test by hand
 
@@ -42,10 +52,11 @@ Target: **desktop VS Code, F5 on this repo** (opens `template/`).
 | 9 | Double click a snippet | Its file opens in the native editor |
 | 10 | Type in the filter box of Snippets | The list narrows, on title, description and tags |
 | 11 | Open `examples/05-coastline.strudel` | A group `github:eddyflux/crate` appears in Sounds, with a bank `crate`. The status bar shows the download |
+| 13 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage lists Sliders (kick vol, snare vol...) and Visuals (kick, snare...), each with its name |
+| 14 | Drag a slider in the stage | The part gets louder or quieter, and the number in the code changes |
 | 12 | Play it, then turn the network off, reload the window and play it again | It still plays |
 
-Expected still broken: sound stops on every mode switch, sliders are missing in the
-stage, no MIDI.
+Expected still broken: sound stops on every mode switch, no MIDI.
 
 Report the result by check number. When something fails, add the content of Output >
 `vstrudel`.
@@ -216,7 +227,6 @@ planned yet.
 - Undo in the Strudel editor is CodeMirror's own history. It should go through VS Code
   so there is one history across both modes.
 - Cursor and scroll position are not carried across a mode switch.
-- Sliders do not appear in the stage.
 - Notes that are playing are not highlighted in the native editor.
 - A sample that was deleted stays in the Sounds view until the editor is reloaded.
 - The Sounds view is empty until a `.strudel` file is open.

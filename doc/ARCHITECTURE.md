@@ -53,6 +53,7 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/snippets.ts` | The Snippets view: reads the `.strudel` files under `lib/` and owns the view's webview. |
 | `src/snippets-view/main.ts` | The page of the Snippets view: folders, cards, code colors. Built as `dist/snippets-view.js`. |
 | `src/shared/snippet.ts` | Splits a snippet file into header fields and code. |
+| `src/shared/context.ts` | The rules that name a slider or a visual from the code around it. `context.test.ts` holds the cases. |
 | `src/extension/packs.ts` | Downloads the remote sample packs a song loads into `.vstrudel/cache/`. |
 | `src/shared/packs.ts` | Finds `samples('github:...')` in a song and resolves the name to an address. |
 | `src/shared/protocol.ts` | Message types and `diffText`, used by both sides. |
@@ -92,6 +93,7 @@ another, so the sound stops on a switch. See `doc/TODO.md` for the open question
 | host -> webview | `packs {packs}` | The remote sample packs of the song, with the cached copy of the ones we have |
 | host -> webview | `preview {name, index}` | Play one sound once |
 | host -> webview | `insert {text}` | Insert at the cursor of the Strudel editor |
+| host -> webview | `slider {index, value}` | Move a slider of the stage, as a drag would |
 | webview -> host | `sounds {sounds}` | The engine's sound list, sent after loading and after every change |
 | webview -> host | `started {started}` | The scheduler started or stopped |
 | webview -> host | `log {level, message}` | Goes to the `vstrudel` output channel |
@@ -288,22 +290,65 @@ code.
 Not measured: whether a real key press in the native editor counts as a gesture for the
 stage. The test sends commands, which is not a key press.
 
-## Stage dock
+## The stage
+
+In the stage the code is hidden, so what the code would show inline is laid out as rows
+in two groups: **Sliders**, then **Visuals**. Each row has a label on the left and the
+slider or the canvas on the right.
+
+### Visuals
 
 Inline widgets (`._scope()`, `._pianoroll()`) draw on a canvas they look up by id and
-create only when it is missing. Upstream then gives that canvas to CodeMirror. In the
-stage the editor is hidden, so:
+create only when it is missing. Upstream then gives that canvas to CodeMirror. So:
 
 1. Before the code runs, we transpile it ourselves with the same options, get the
-   widget ids with `getWidgetID`, and create the canvases in the dock.
+   widget ids with `getWidgetID`, and put a canvas with that id in each row. A canvas
+   that is already there is kept, so an update does not flash.
 2. After the code runs, we clear CodeMirror's widget decorations with `updateWidgets`
-   and move the canvases to the dock.
+   and move each canvas back to its row.
 
 Step 2 must clear the decorations first. Moving a canvas out while CodeMirror still owns
 it does not hold, see `doc/DRAWER_OF_FAILED_IDEAS.md`.
 
-Sliders are not in the dock yet.
+### Sliders
 
+The transpiler reports every `slider(value, min, max, step)` with the position of its
+first argument. Upstream keeps the value of a slider under the id `slider_<position>`
+and listens for a window message `cm-slider` to change it. A slider row in the stage
+does the two things the inline slider does:
+
+- It posts `cm-slider`, so the sound changes at once.
+- It writes the new number into the code: a change in the hidden editor, which travels
+  to the VS Code document like any other edit. This is held back for 150 ms, because a
+  drag fires an event per pixel and each one would be an edit in the document.
+
+The position of each number is kept up to date with `ChangeSet.mapPos` on every change
+of the document, ours or anyone's.
+
+The host can move a slider too (`slider {index, value}`). The test uses it, and a MIDI
+controller mapped to a slider will.
+
+### Labels
+
+A label has to say which part of the song a row belongs to, and the language has no
+name for that. `src/shared/context.ts` works one out from the code around the widget.
+It is guessing by rule. The rules are written at the top of that file in the order they
+are tried, and every label carries the name of the rule that gave it, which the stage
+shows as a tooltip.
+
+For a visual: the name of the pattern (`$kick:` or `kick:`), else the name of a
+variable, else the comment right above the expression, else the start of the code.
+
+For a slider: the variable it is assigned to (`const KICK_VOL = slider(...)` gives
+"kick vol"), else the property it is the value of, else the call it is an argument of
+(`.lpf(slider(...))` gives "lpf", with the name of the pattern in front when there is
+one), else a comment, else the line.
+
+A comment only counts when it reads as words: a banner drawn with characters, a ruler
+of dashes and a `@field` line are skipped.
+
+To tune a rule, add the code that got a wrong label to `src/shared/context.test.ts`
+first, then change `context.ts`. `pnpm test:unit` runs the cases.
 ## Content Security Policy
 
 The webview CSP is relaxed in five places. Each one has a reason:
@@ -410,8 +455,8 @@ the runner takes a screenshot with `Page.captureScreenshot` and writes
 ## Build pipeline
 
 `.github/workflows/ci.yml` runs on pushes to `main`, on pull requests and on tags. It
-installs with pnpm, type checks, and builds the `.vsix`, which it uploads as an
-artifact. On a tag `v*` it also checks that the tag matches the version in
+installs with pnpm, type checks, runs the unit tests, and builds the `.vsix`, which it
+uploads as an artifact. On a tag `v*` it also checks that the tag matches the version in
 `package.json` and creates a GitHub release with two files: `vstrudel-<version>.vsix`
 and `vstrudel.vsix`. The second has a fixed name so that
 `releases/latest/download/vstrudel.vsix` always works.
@@ -517,9 +562,10 @@ without changing the version, without a tag and without `pnpm promote`.
 
 1. Set the new version in `package.json`. Update `doc/ABOUT.md` and `README.md` when a
    user can do something new.
-2. `pnpm typecheck` and `pnpm test:vscode` pass.
-3. Commit, merge to `main`, tag `v<version>`, push the branch and the tag. The pipeline
-   builds the GitHub release.
+2. `pnpm typecheck`, `pnpm test:unit` and `pnpm test:vscode` pass.
+3. Commit and push the feature branch, and open a pull request. The maintainer merges
+   it. Then tag `v<version>` on `main` and push the tag. The pipeline builds the GitHub
+   release.
 4. `pnpm promote`, so the maintainer's own VS Code gets the same build. It warns when
    the checkout is not exactly the tag. Tell the maintainer to run "Developer: Reload
    Window".

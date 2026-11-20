@@ -26,7 +26,9 @@ export type ToWebview =
 	| { type: 'play' }
 	| { type: 'stop' }
 	| { type: 'preview'; name: string; index: number }
-	| { type: 'insert'; text: string };
+	| { type: 'insert'; text: string }
+	/** Moves a slider of the stage, by its position in the list. The same as dragging it. */
+	| { type: 'slider'; index: number; value: number };
 
 export type FromWebview =
 	| { type: 'ready' }

@@ -2,7 +2,7 @@
 	"name": "vstrudel",
 	"displayName": "vstrudel",
 	"description": "Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "0.0.3",
+	"version": "0.1.0",
 	"private": true,
 	"publisher": "vstrudel",
 	"license": "AGPL-3.0-or-later",
@@ -312,7 +312,8 @@
 		"test:vscode": "node scripts/test-vscode.mjs",
 		"smoke": "node scripts/build.mjs && node scripts/smoke/serve.mjs",
 		"package": "node scripts/build.mjs --production && vsce package --no-dependencies",
-		"promote": "node scripts/promote.mjs"
+		"promote": "node scripts/promote.mjs",
+		"test:unit": "node --test \"src/**/*.test.ts\""
 	},
 	"devDependencies": {
 		"@codemirror/state": "^6.7.6",

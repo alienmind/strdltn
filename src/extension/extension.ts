@@ -23,6 +23,8 @@ export interface VstrudelApi {
 	expandSoundBank(name: string): Promise<void>;
 	soundBanks(group?: string): string[];
 	expandSnippet(name: string): void;
+	/** Moves a slider of the stage of the active text editor. For the test. */
+	setStageSlider(index: number, value: number): void;
 	/** The remote sample packs seen so far and whether they are in the cache. */
 	packs(): { source: string; files: number; complete: boolean; note?: string }[];
 	previewSounds(): boolean;
@@ -265,6 +267,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		},
 		soundBanks: (label = 'Drum machines') => sounds.banksOf(label),
 		expandSnippet: (name) => snippets.expand(name),
+		setStageSlider: (index, value) => lastSession('stage')?.setSlider(index, value),
 		packs: () => packs.list(),
 		previewSounds: () => previewSounds,
 	};

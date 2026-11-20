@@ -74,6 +74,11 @@ export class Session {
 		this.post({ type: 'preview', name, index });
 	}
 
+	/** Moves one slider of the stage, as a drag would: the sound changes and the number in the code follows. */
+	setSlider(index: number, value: number): void {
+		this.post({ type: 'slider', index, value });
+	}
+
 	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */
 	insert(text: string): void {
 		this.post({ type: 'insert', text });
@@ -216,8 +221,20 @@ export class Session {
 	#editor { position: relative; z-index: 1; min-height: 100%; }
 	/* !important because StrudelMirror sets an inline display:block on its root. */
 	body.stage #editor { display: none !important; }
-	#dock { position: relative; z-index: 1; display: none; flex-direction: column; gap: 8px; padding: 8px; }
+	#dock { position: relative; z-index: 1; display: none; flex-direction: column; gap: 14px; padding: 10px 12px; font: 12px var(--vscode-font-family, sans-serif); }
 	body.stage #dock { display: flex; }
+	.dock-group h2 { margin: 0 0 6px; padding-bottom: 3px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+		opacity: .7; border-bottom: 1px solid rgba(128, 128, 128, .35); }
+	/* A song may draw a full page visual behind the stage. The rows keep their own dark ground so they stay readable. */
+	.dock-group { padding: 8px 10px; border-radius: 4px; background: rgba(0, 0, 0, .6); }
+	.dock-row { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 10px; padding: 3px 0; }
+	.dock-slot canvas { max-width: 100%; height: auto !important; }
+	.dock-label { display: flex; flex-direction: column; min-width: 0; }
+	.dock-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+	.dock-label small { opacity: .55; font-size: 10px; }
+	.dock-slot { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
+	.dock-slot input[type=range] { flex: 1; max-width: 320px; accent-color: var(--vscode-focusBorder, #3794ff); }
+	.dock-slot output { width: 64px; font-family: var(--vscode-editor-font-family, monospace); opacity: .85; }
 	#status { position: fixed; z-index: 3; right: 8px; bottom: 6px; font: 11px monospace; opacity: 0.6; pointer-events: none; }
 	#unlock { position: fixed; z-index: 4; inset: 0; display: none; align-items: center; justify-content: center;
 		background: rgba(0, 0, 0, 0.7); color: #fff; font: 16px sans-serif; cursor: pointer; }

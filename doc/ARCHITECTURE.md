@@ -116,17 +116,40 @@ another, so the sound stops on a switch. See `doc/TODO.md` for the open question
 
 ## Text sync
 
-Both sides send the whole text and apply only the difference. `diffText` finds the one
-smallest replacement between two texts, so a change far from the cursor does not move
-the cursor.
+The text of a song is held twice, in the VS Code document and in the editor of the
+webview, and both can change it at the same moment. `src/shared/sync.ts` keeps them
+equal, with the scheme of CodeMirror's collab package written on `ChangeSet` of
+`@codemirror/state` (adding `@codemirror/collab` itself was not allowed in that session,
+and the part we need is small).
 
-The host remembers the text the webview is known to hold (`Session.known`). A document
-change equal to that text is our own echo and is not sent back. The webview sets a flag
-while it applies a remote change, for the same reason.
+- The host is the authority and numbers the changes it accepts (`SyncHost`). `init`
+  gives the webview the text and the version.
+- The webview keeps its own changes that the host has not confirmed (`SyncClient`) and
+  sends them with the version they start from (`push`). The host takes them only when
+  that is its current version, and confirms them to the webview at once (`changes`).
+- A change of the document from anywhere else (an agent, a save that trims spaces, the
+  Browser into the native editor) is sent as `changes` too. The webview moves it over
+  its unconfirmed changes and its unconfirmed changes over it, and sends them again. At
+  the same place the host's text goes first, on both sides.
+- The host writes into the document after it has confirmed (`DocumentWrites`). VS Code
+  refuses a `WorkspaceEdit` made for a version of the document that has moved on
+  (`applyEdit` gives false). An edit from elsewhere that crossed our write is then moved
+  over what we have not written yet and passed on, and our write is moved over it and
+  made again. `reset` starts the sync over and is only for a write refused 20 times.
+- Every text and offset between the two sides has `\n` line endings, as CodeMirror
+  does. The host goes to the document by line and column, which do not depend on the
+  line ending, and VS Code turns an inserted `\n` into the file's own line ending. The
+  places that give offsets to the host (the Mixer, the error of an evaluation) read the
+  document's text with `\n` too.
 
-Edits from the webview are applied one at a time through a promise queue. Each edit is a
-diff against the document. A second diff computed before the first has landed would
-corrupt the text.
+The first version sent the whole text each way and made each side equal to the other
+with a diff. It broke in two ways, measured with real typing in the integration test:
+two changes that crossed undid each other and left the two sides different, so the next
+keystroke wrote stale text over the document; and on a file with `\r\n` line endings
+(what git gives on Windows with `core.autocrlf`) each keystroke was a diff over almost
+the whole file, so text came out scrambled, duplicated or lost in every case of the
+test. `sync.test.ts` runs 200 random orders of crossing edits on each side and checks
+that nothing is lost or doubled.
 
 ## Samples
 
@@ -345,6 +368,11 @@ strip area, 1 pixel big with `overflow: visible`: sized to the scroll area, as f
 written, it made the scroll area grow by its own size. Labels sit near the target end; at
 the middle of the curve the labels of cables from one jack covered each other.
 
+**Faders.** A fader moves the sound and writes the number, as described under
+"Sliders". While it is held, a model sent from the host waits, so a redraw does not pull
+the fader from under the pointer. The number is rounded to the slider's step (or a
+thousandth of its range), so a drag writes `0.607` and not `0.6070000000000001`.
+
 **Measured in the quick test on VS Code 1.147.** `demo.strudel` gives the table of the
 plan: 8 strips, 9 sliders, kick ducks bass, lowendbass and riser on orbits 2, 3, 4. In the
 default bottom panel (about 350 pixels high) the strips were first squeezed to the panel
@@ -352,6 +380,19 @@ and the faders ran out of them; the strips now keep their height and the area sc
 and the faders get shorter in a low panel. The first report of a Mixer opened by the test
 came before the model reached it, so the test's `mixerShow` sends the model again with
 each try.
+
+## Clicks in the Strudel editor
+
+The canvases of `._scope()` and `._pianoroll()` are block widgets of CodeMirror. A
+`<canvas>` is `display: inline`, so it sat on a line box a few pixels taller than
+itself, and CodeMirror, which measures the canvas, did not count them. Its idea of where
+each line is drifted further with every widget above, and a click landed one or two
+lines below the point. Measured in the integration test on `demo.strudel` while it
+played: 4 of 6 clicks off by 24 to 95 characters, the stored top of a line 10 to 30
+pixels above the real one, and CodeMirror's `posAtCoords` disagreeing with its own
+`coordsAtPos`. A fresh `requestMeasure()` did not change it, nor did an
+`estimatedHeight` for upstream's `BlockWidget`. The rule `#editor .cm-content > canvas {
+display: block; }` in the page of the session fixed all six.
 
 ## Snippets
 
@@ -632,19 +673,20 @@ it does not hold, see `doc/DRAWER_OF_FAILED_IDEAS.md`.
 
 The transpiler reports every `slider(value, min, max, step)` with the position of its
 first argument. Upstream keeps the value of a slider under the id `slider_<position>`
-and listens for a window message `cm-slider` to change it. A slider row in the stage
-does the two things the inline slider does:
+and listens for a window message `cm-slider` to change it.
 
-- It posts `cm-slider`, so the sound changes at once.
-- It writes the new number into the code: a change in the hidden editor, which travels
-  to the VS Code document like any other edit. This is held back for 150 ms, because a
-  drag fires an event per pixel and each one would be an edit in the document.
-
-The position of each number is kept up to date with `ChangeSet.mapPos` on every change
-of the document, ours or anyone's.
-
-The host can move a slider too (`slider {index, value}`). The test uses it, and a MIDI
-controller mapped to a slider will.
+The sliders are the faders of the Mixer, in both modes; the stage has no slider rows.
+After each evaluation the page keeps the sliders it reported (`liveSliders`), with their
+ids, and moves their positions with `ChangeSet.mapPos` on every change of the text. A
+fader sends `sliderValue {index, from, value}` through the host, and the page does what
+the inline slider does: it posts `cm-slider`, so the sound changes at once, and writes
+the number into the code 150 ms after the last move. The page writes it, not the host,
+because upstream's inline slider in the Strudel editor keeps the text of its number and
+replaces that many characters on its next drag; the page tells that widget the new text
+in the same step. `from` is missing when the host cannot parse the code at that moment
+(half typed); then the slider is found by its index. A slider typed since the last
+evaluation has no id, so only its number in the code changes. With no engine open on
+the song, the Mixer writes the number itself.
 
 ### Labels
 
@@ -1047,6 +1089,21 @@ The test can ask for a picture of the whole window. It drops a `<name>.request` 
 the runner takes a screenshot with `Page.captureScreenshot` and writes
 `tmp/shots/<name>.png`. This is how we look at the UI without a person. The pictures in `doc/` that
 `doc/ABOUT.md` shows are copies of these.
+
+The test can also click and type with real input. It drops `<name>.input`: the text the
+target editor holds (`match`, because a Strudel editor kept in the background still says
+it is visible) and a list of actions. The runner sends them to the window with
+`Input.dispatchMouseEvent` and `Input.dispatchKeyEvent`, which the browser treats as a
+person's input, and writes `<name>.done` with what the editor holds after. To aim a
+click, it asks the page for the screen position of a character through a small
+read-only hook (`window.__strdltnTest`), and adds the place of the webview's frame in
+the window. The DevTools target of a webview is VS Code's outer page; ours is a frame
+inside it, so the runner reaches it through `iframe.contentWindow`. The cases ("typing"
+and "typingCrlf" in the report) click into a string, after an inline scope, type fast,
+type while the host edits the file (once, and ten times 20 ms apart), type while a fader
+writes, undo, and click six places of `demo.strudel` while it plays with its visuals.
+Each says where the click put the cursor, whether the document is the text expected,
+whether the editor holds the same, and whether the file kept its line endings.
 
 ## Build pipeline
 

@@ -73,7 +73,8 @@ browser.
   slider(...)`) shows in the chain that uses the constant.
 - M and S show whether a chain is muted (`_kick:`) or soloed (`Skick:`).
 - Sidechain cables: a chain with `.duck("2,3")` is cabled to the chains on those orbits.
-- Read only for now: move a slider in the code or the stage, and the fader follows.
+- A fader changes the sound at once and the number in the code a moment later, like the
+  slider in the code. Moving the slider in the code moves the fader.
 
 **Browser**
 

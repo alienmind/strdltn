@@ -19,10 +19,13 @@ sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRU
 two decks to DJ with, recorded automation and an arrangement view)
 is in `doc/DAW-PLAN.md`, with the order of work the maintainer set ("Order of work"):
 the Mixer next (phases 2 and 3), the engine in a worker last. Phase 1, the Browser, is
-merged (PR #4). Phase 2, the Mixer read only, is built on the branch `feat/mixer`: a
-strip per chain of the song in front, faders that show the sliders, M and S, and the
-duck cables. Its hand test is below. Next: phase 3, the Mixer editing, starting with
-spike D3.
+merged (PR #4). Phase 2, the Mixer, is built on the branch `feat/mixer`: a strip per
+chain of the song in front, faders that move the sound and write the code, M and S, and
+the duck cables. The stage has no slider rows any more. On the same branch: the text
+sync between the editor and the document was rewritten (text was corrupted, worst on
+files with `\r\n` line endings), and clicks in the Strudel editor land where clicked.
+Both were reproduced and are checked by the integration test with real input. The hand
+test is below. Next in phase 3: mute and solo (decision 5), cable drags.
 
 Next in line:
 
@@ -34,7 +37,7 @@ Next in line:
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
 | 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
-| 6b | Racks in the Mixer: a strip that groups strips | Designed, not built. Strudel's `rack` was not found in the packages; waiting for a link or an example. See "Racks" in `doc/DAW-PLAN.md` |
+| 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
 | 6 | Functions in the Browser: an "Insert an example" button beside "Insert at the cursor" | Noted, not built. See "Insert an example" in `doc/DAW-PLAN.md` |
 | 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
 
@@ -51,6 +54,9 @@ The Mixer, on the branch `feat/mixer`. Test on **desktop, launched with F5** on
 | 2 | Look under the strips | Three dashed orange cables from the jack of kick to bass, lowendbass and riser, labeled orbit 2, 3, 4. They swing a little and come to rest |
 | 3 | Click the triangle of bass | It widens: gain and lpenv side by side. The cables follow and swing |
 | 4 | Drag the slider `BASS_VOL` in the code (Strudel editor) | The fader of bass follows after a moment |
+| 4a | Play the song, drag the gain fader of kick in the Mixer | The kick gets louder and softer while you drag. The number after `KICK_VOL=slider(` follows a moment after you let go |
+| 4b | Drag the inline slider of `KICK_VOL` in the code after that | It starts from the new number and the code stays intact |
+| 4c | Open `track.strudel` (its line endings are `\r\n`), type a few lines in different places, click around while it plays | Every click puts the cursor where you clicked. The text stays as typed. Save, close and reopen: the same text |
 | 5 | Type `$hat: s("hh*8").gain(slider(.3))` on a new line | A strip hat appears with a gain fader |
 | 6 | Delete a closing bracket in the code | The strips dim and the bar says the code does not parse. Undo brings them back |
 | 7 | Click the name kick | The cursor goes to the `$kick:` line |
@@ -59,8 +65,8 @@ The Mixer, on the branch `feat/mixer`. Test on **desktop, launched with F5** on
 | 10 | Make the panel low, then tall | The faders get shorter and longer. Nothing runs out of a strip |
 | 11 | Switch to a light theme | The Mixer follows the theme. The jacks stay readable |
 
-Expected still broken: the faders, M and S do not react to clicks yet; the stage still
-has its slider rows.
+Expected still broken: M and S do not react to clicks yet. A fader only moves the sound
+once the song has been evaluated after the slider was written.
 
 ### Browser
 
@@ -347,7 +353,8 @@ planned yet.
   same bytes, so the running firmware could be kept when they are.
 
 - Undo in the Strudel editor is CodeMirror's own history. It should go through VS Code
-  so there is one history across both modes.
+  so there is one history across both modes. Measured with real keys: typing `zz` and
+  Ctrl+Z takes both back, as expected.
 - Cursor and scroll position are not carried across a mode switch.
 - Notes that are playing are not highlighted in the native editor.
 - A sample that was deleted stays in the Browser until the editor is reloaded.

@@ -507,22 +507,19 @@ on strudel.cc. Two catches of the labels: upstream solos any label that starts w
 maintainer wants comments, the parser has to read commented chains too (a line `// $kick:
 ...` as a muted strip). Decision 5, asked again.
 
-**Racks.** Asked by the maintainer on 2026-11-20: Strudel has a "rack" for further
-grouping, and the Mixer should show it. We could not find it: there is no `rack` in the
-`@strudel/*` packages we pin (1.2.6, which is also the latest on npm, checked the same
-day) nor in superdough 1.3.0, and upstream's code search on Codeberg showed no match in
-the part we could read. So it may be newer than the npm release, or have another name.
-The maintainer is asked for a link or an example.
+**Stacks.** Asked by the maintainer on 2026-11-20: a `stack()` groups patterns, and the
+Mixer should show that grouping. (First asked as "rack", which Strudel does not have;
+the maintainer meant `stack`.)
 
-How it would fit, whatever its syntax: a rack is a strip that holds strips, like a Group
+How it fits: a stack is a strip that holds strips, like a Group
 track or an Instrument Rack in Live. Folded, it shows its own name, M, S and its own gain
 fader when it has one; unfolded, its member strips sit inside its border, each foldable
 as today. A duck cable to a rack ends at the rack's jack when every member is on the
 ducked orbit, else at the members. The parser gives each chain a `parent`, and the model
-a list of racks with their range in the code. Until the real syntax is known, the same
-shape already fits a grouping Strudel has today: a chain made of `stack(a, b, c)` is a
-rack whose members are the arguments of `stack`, each with the sliders used inside it
-(`$drums: stack(s("bd*4").gain(KICK_VOL), s("hh*8").gain(HH_VOL))`). Not built.
+a list of racks with their range in the code. A chain made of
+`stack(a, b, c)` is such a strip, and its members are the arguments of `stack`, each with
+the sliders used inside it (`$drums: stack(s("bd*4").gain(KICK_VOL), s("hh*8").gain(HH_VOL))`).
+A stack inside a stack nests. Not built.
 
 **Title and activity.** A click on the strip's title, beside the fold, moves the cursor
 of the editor to that chain. A small light in the header blinks on each event of the
@@ -1244,6 +1241,12 @@ Built on the branch `feat/mixer`, waiting for the maintainer's hand test (the ta
 Size: 2 to 3 sessions.
 
 ### Phase 3: Mixer, editing
+
+Started on the branch `feat/mixer`. Done: faders move the sound and write the code, in
+both modes, and the stage lost its slider rows. Spike D3 was not run as planned: the
+fader goes host -> engine, and the integration test moves it while typing without a
+problem, but its latency is not measured. Not started: mute and solo (decision 5 waits),
+cable drags, the activity light (D1).
 
 0. Spike D3, then the stage loses its slider rows (step 4 of phase 2).
 1. Faders move the sound and write the code, through the existing `slider` message.

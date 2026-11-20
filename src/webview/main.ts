@@ -1,7 +1,7 @@
 // The webview: upstream StrudelMirror (editor, engine and visuals in one page) bound to
 // a VS Code text document. We host upstream and add nothing to it, so that a new visual
 // or widget in a later @strudel release arrives with a version bump.
-import { StateEffect } from '@codemirror/state';
+import { Prec, StateEffect, type EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import * as strudelCodemirror from '@strudel/codemirror';
 import * as strudelCore from '@strudel/core';
@@ -13,6 +13,7 @@ import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
 import { sliderLabel, visualLabel } from '../shared/context';
+import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
 import { diffText, type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
@@ -199,6 +200,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			}),
 		),
 	});
+	mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(slashComment()) });
 
 	// Ctrl+Enter and Alt+Enter in the editor are upstream's keymap, which calls
 	// mirror.evaluate() directly. That path never resumed the AudioContext: upstream only
@@ -388,6 +390,52 @@ function insert(text: string): void {
 	if (!mirror) return;
 	mirror.editor.dispatch(mirror.editor.state.replaceSelection(text));
 	mirror.editor.focus();
+}
+
+/**
+ * `//` typed over a selection comments the selected lines, and the same keys again take
+ * the comment off (the rule is `toggleComment` in src/shared/comment.ts). The first `/`
+ * waits for the second: any other key, or a pause of a second, types the `/` as usual,
+ * over the selection. Without a selection `/` is an ordinary key.
+ */
+function slashComment() {
+	let pending: { selection: EditorSelection; timer: ReturnType<typeof setTimeout> } | undefined;
+	const typeSlash = (view: EditorView, after = '') => view.dispatch(view.state.replaceSelection(`/${after}`));
+	return Prec.highest(
+		EditorView.inputHandler.of((view, _from, _to, text) => {
+			const { selection } = view.state;
+			if (pending) {
+				const waiting = pending;
+				pending = undefined;
+				clearTimeout(waiting.timer);
+				if (!waiting.selection.eq(selection)) return false;
+				if (text !== '/') {
+					typeSlash(view, text);
+					return true;
+				}
+				const doc = view.state.doc.toString();
+				const seen = new Set<number>();
+				const changes = selection.ranges
+					.flatMap((range) => toggleComment(doc, range.from, range.to))
+					// Two ranges on one line would edit it twice.
+					.filter((edit) => !seen.has(edit.at) && seen.add(edit.at))
+					.sort((a, b) => a.at - b.at)
+					.map((edit) => ({ from: edit.at, to: edit.at + edit.remove, insert: edit.insert }));
+				if (changes.length) view.dispatch({ changes, userEvent: 'input.comment' });
+				return true;
+			}
+			if (text !== '/' || selection.ranges.every((range) => range.empty)) return false;
+			pending = {
+				selection,
+				timer: setTimeout(() => {
+					// Typed once and left: it was a plain slash. Unless the selection moved since.
+					if (pending?.selection.eq(view.state.selection)) typeSlash(view);
+					pending = undefined;
+				}, 1000),
+			};
+			return true;
+		}),
+	);
 }
 
 /**

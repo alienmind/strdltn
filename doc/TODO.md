@@ -42,6 +42,11 @@ Target: **desktop VS Code, F5 on this repo, branch `fix/ctrl-enter-audio`** (ope
 | 4 | F5 on this repo, open `demo.strudel` in the native editor, and ask Copilot Chat in agent mode "add a bass line" | It adds one `$bass:` pattern (or similar) to `demo.strudel` and touches no other file |
 | 5 | Open the template as its own folder (File > Open Folder > `template/`) and ask the same | The same. Its answer may name `AGENTS.md` or `reference/` as what it read |
 | 6 | Play `examples/05-coastline.strudel`, then turn the network off, reload the window and play it again | It still plays, from the cache |
+| 7 | In the Strudel editor, select three lines and type `//` | Each line starts with `// ` |
+| 8 | Keep the selection and type `//` again | The `// ` is gone, the lines are as before |
+| 9 | Select a word and type one `/`, then wait a second | The word is replaced by `/`, as in any editor |
+| 10 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage opens below the code, and the cursor stays in the code |
+| 11 | In Settings set `vstrudel.stage.position` to `beside`, close the stage, play again | The stage opens to the right of the code |
 
 Expected still broken: sound stops on every mode switch, no MIDI, a short silence when a
 firmware changes source.

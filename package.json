@@ -386,6 +386,13 @@
 					"minimum": 0,
 					"description": "Font size of the Strudel editor in pixels. 0: the size of the VS Code editor (editor.fontSize)."
 				},
+				"vstrudel.stage.position": {
+					"type": "string",
+					"default": "below",
+					"enum": ["below", "beside"],
+					"enumDescriptions": ["Under the code, in a group of its own", "To the right of the code"],
+					"description": "Where the stage opens when a song plays in the native editor. It can be dragged anywhere after that."
+				},
 				"vstrudel.remoteSamples.cache": {
 					"type": "boolean",
 					"default": true,

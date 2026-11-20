@@ -163,8 +163,8 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		vscode.commands.registerCommand('vstrudel.refreshFiles', () => files.refresh()),
 		vscode.workspace.onDidChangeWorkspaceFolders(() => files.refresh()),
 
-		vscode.commands.registerCommand('vstrudel.play', () => {
-			const session = activeEditorSession() ?? stageForActiveTextEditor() ?? onlySession();
+		vscode.commands.registerCommand('vstrudel.play', async () => {
+			const session = activeEditorSession() ?? (await stageForActiveTextEditor()) ?? onlySession();
 			session?.play();
 		}),
 		// Stop is for the song in front. With nothing playing there, it is for the song
@@ -427,21 +427,37 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		return sessions.size === 1 ? [...sessions][0] : undefined;
 	}
 
-	function stageForActiveTextEditor(): Session | undefined {
+	/** A stage that is being opened. A second play in the meantime waits for it instead of opening another. */
+	let openingStage: Promise<Session> | undefined;
+
+	async function stageForActiveTextEditor(): Promise<Session | undefined> {
 		const editor = vscode.window.activeTextEditor;
 		if (!editor || editor.document.languageId !== 'strudel') return undefined;
 		const existing = find(editor.document.uri, 'stage');
 		if (existing) return existing;
+		return (openingStage ??= openStage(editor).finally(() => (openingStage = undefined)));
+	}
+
+	/**
+	 * Opens the stage of a file: below the code by default, or beside it
+	 * (`vstrudel.stage.position`). VS Code has no "below" for a new panel, so an empty
+	 * group is split off under the code first and the stage is created in it. Then the
+	 * focus goes back to the code. The user can drag the stage anywhere after that.
+	 */
+	async function openStage(editor: vscode.TextEditor): Promise<Session> {
+		const below = vscode.workspace.getConfiguration('vstrudel').get('stage.position', 'below') === 'below';
+		if (below) await vscode.commands.executeCommand('workbench.action.newGroupBelow');
 		const name = editor.document.uri.path.split('/').pop();
 		const panel = vscode.window.createWebviewPanel(
 			STAGE_VIEW_TYPE,
 			`Stage: ${name}`,
-			{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+			{ viewColumn: below ? vscode.ViewColumn.Active : vscode.ViewColumn.Beside, preserveFocus: !below },
 			{ retainContextWhenHidden: true },
 		);
 		const session = new Session(context, editor.document, panel, 'stage', host);
 		sessions.add(session);
 		updateStatus();
+		if (below) await vscode.window.showTextDocument(editor.document, { viewColumn: editor.viewColumn, preserveFocus: false });
 		return session;
 	}
 

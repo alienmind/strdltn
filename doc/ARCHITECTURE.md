@@ -79,7 +79,7 @@ message.
 | Layout | Where | What shows |
 |---|---|---|
 | `editor` | Custom editor tab for the `.strudel` file | Code in CodeMirror, widgets inline in the text |
-| `stage` | Panel beside the native text editor | No code. Widgets in a dock, global visuals behind |
+| `stage` | Panel below the native text editor (`vstrudel.stage.position`) | No code. Widgets in a dock, global visuals behind |
 
 The toggle command (`vstrudel.toggleMode`, title bar button, Ctrl+Alt+M) runs
 `vscode.openWith` on the same file with the other editor type. Opening the Strudel
@@ -471,6 +471,36 @@ Not measured: whether a real key press in the native editor counts as a gesture 
 stage. The test sends commands, which is not a key press.
 
 ## The stage
+
+The stage opens below the code by default, so the code keeps the whole width of the
+window. VS Code has no "below" for a new panel: `ViewColumn` only knows columns side by
+side. So `openStage` runs `workbench.action.newGroupBelow`, which splits an empty group
+off under the code and makes it active, creates the panel there (`ViewColumn.Active`),
+and then gives the focus back to the code with `showTextDocument`. A second play while
+this runs waits for the same stage instead of opening another. With
+`vstrudel.stage.position` set to `beside` the stage opens to the right of the code, as it
+did before. Either way the user can drag it anywhere. Seen in the screenshot of
+`pnpm test:quick` in VS Code 1.147: the stage under the code, the cursor in the code.
+
+## Typing `//` over a selection
+
+In the Strudel editor, `//` typed over a selection comments the selected lines with
+`// `, and the same keys on lines that all start with `// ` take that off again. The
+rule is `toggleComment` in `src/shared/comment.ts`, with its cases in
+`comment.test.ts`: the comment goes at the indentation the lines share, empty lines are
+left alone, a selection that ends at the start of a line does not take that line, and
+only the exact `// ` is removed, so `//x` written by hand stays.
+
+The keys are caught by a CodeMirror `inputHandler` at `Prec.highest`, added with
+`StateEffect.appendConfig` like our change listener. The first `/` over a selection is
+held back. A second `/` makes the comment. Any other key types the held `/` and then
+that key, over the selection, as if nothing had been held. A pause of a second types the
+held `/`, unless the selection moved since. Without a selection `/` is an ordinary key.
+
+The native editor is not changed: VS Code already does the same with Ctrl+/ (the
+`lineComment` of `language-configuration.json`), and catching typed keys in a text
+editor would need the `type` command, which slows every key press of every editor.
+Not measured: the test sends commands and cannot type, so this waits for a hand test.
 
 In the stage the code is hidden, so what the code would show inline is laid out as rows
 in two groups: **Sliders**, then **Visuals**. Each row has a label on the left and the

@@ -15,7 +15,8 @@ installs beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do
 over.
 
 The plan to make this a DAW (one Browser view with tags and search, a Mixer panel with
-cables, MIDI, one engine) is in `doc/DAW-PLAN.md`. It waits for the maintainer's answers
+cables, a Devices view with a panel per firmware and the SHRUB window, MIDI, one engine)
+is in `doc/DAW-PLAN.md`. It waits for the maintainer's answers
 to its "Decisions for the maintainer". Nothing of it is built.
 
 Next in line:
@@ -214,7 +215,8 @@ The ways it could reach a song, best first:
    framing. It would be a second, separate synth: its own audio, not in our mix and not in
    time, and no MIDI (a webview, and a frame inside it, may not use WebMIDI). It would be a
    browser tab inside VS Code, good for editing patches for a real FM-1 and nothing else.
-   Not worth building further. A mockup exists, off by default: the setting
+   The maintainer wants it as a panel of the Devices view of `doc/DAW-PLAN.md`, so it is
+   in that plan (phase 4, spike F3) with these limits. A mockup exists, off by default: the setting
    `strdltn.experimental.shrubEditor` and the command "strdltn: Open SHRUB editor
    (experimental)". To try by hand: does the site load in the frame, and does it make
    sound there?

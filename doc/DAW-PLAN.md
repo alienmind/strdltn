@@ -17,7 +17,7 @@ The screen of Ableton Live, with code where Live has clips:
 |---|---|---|
 | Browser (left pane) | One Browser view: search box, color tags, categories, places, and the results in the same column | Three tree views: Files, Sounds, Snippets |
 | Session view with the mixer | A Mixer panel: one channel per chain of the song, one channel per orbit, a main channel, and cables between them | Nothing |
-| Clip and device view (bottom) | The stage, as now | The stage |
+| Clip and device view (bottom) | The stage, as now, and a Devices view: one panel per firmware that plays, and the SHRUB window | The stage. Firmwares have no panel. SHRUB is a mockup tab behind a setting |
 | Arrangement | The code editor, as now | The Strudel editor and the native editor |
 | MIDI in and out | Devices in the Browser, `.midi()`, `midin()`, `midikeys()`, MIDI learn on the mixer | Nothing. A webview may not use MIDI (measured) |
 
@@ -172,7 +172,11 @@ extension host                        webviews (browser side)
 | model     chains, orbits, |         |   search, colors, categories, list   |
 |           routes of a song| <-----> | Mixer panel (bottom panel)           |
 | relay     passes messages |         |   channels, orbits, main, cables     |
-|           between views   | <-----> | Engine: Strudel editor or stage      |
+|           between views   | <-----> | Devices view (bottom panel)          |
+|                           |         |   one panel per running firmware,    |
+|                           |         |   the SHRUB window                   |
+|                           | <-----> | Engine: Strudel editor or stage      |
+|                           |         |   firmwares run here, in worklets    |
 | midi      devices, bridge |         |   StrudelMirror, superdough, taps    |
 +---------------------------+         +--------------------------------------+
 ```
@@ -229,7 +233,7 @@ column is not built: the results are in the same column.
 | Snippets | The files under `lib/`, by their `@category` | As today |
 | Songs | The `.strudel` files of the workspace | As the Files view today |
 | Functions | The Strudel functions with their documentation | `@strudel/reference`, which we already ship |
-| MIDI | Outputs and inputs | The MIDI bridge, from phase 4 |
+| MIDI | Outputs and inputs | The MIDI bridge, from phase 5 |
 
 **Places.** Current project (the folders `samples/`, `lib/`, `firmware/` and the songs),
 Packs (each cached remote pack, with its size), Template (the examples), and folders the
@@ -432,7 +436,7 @@ framework. One fixed SVG layer over the Mixer, `pointer-events: none`.
 |---|---|---|---|---|
 | Route | "out" of a chain | "in" of an orbit | `.orbit(n)` | The color of the chain, solid |
 | Sidechain | "duck" of a chain | "duck in" of an orbit | `.duck("n")` | The color of the chain, dashed, with an arrow head |
-| MIDI (phase 4) | "out" of a chain | A MIDI output channel | `.midi("device")` | Gray, solid |
+| MIDI (phase 5) | "out" of a chain | A MIDI output channel | `.midi("device")` | Gray, solid |
 
 A chain with no `.orbit()` has a cable to orbit 1, drawn dim, because that is what
 Strudel does.
@@ -463,7 +467,7 @@ solves them in order of cost.
 **Phases 1 to 3 change nothing here.** The engine is the `StrudelMirror` of the Strudel
 editor or of the stage, as today. The host relays.
 
-**MIDI goes through the extension host on desktop (phase 4).** The road is the one of
+**MIDI goes through the extension host on desktop (phase 5).** The road is the one of
 gugelhupf, with the extension host in the place of Max:
 
 ```
@@ -493,7 +497,7 @@ scheduler -> our .midi() output          worker thread with an exact clock
 - In Codespaces this road does not exist: the host cannot see the user's devices.
 
 **The browser page is the road for Codespaces, and for the maintainer's idea of the IDE
-as a dumb client (phase 6).** The same engine bundle is served as a normal web page by a
+as a dumb client (phase 7).** The same engine bundle is served as a normal web page by a
 small server in the extension host, and opened in the user's browser. A normal page may
 use WebMIDI and Web Audio, and upstream `@strudel/midi` works there unchanged. VS Code
 then holds no engine: editor, Browser and Mixer talk to the page over a WebSocket, as
@@ -509,7 +513,7 @@ is opened by the user, so it runs in their browser, with their devices.
 - This is an addition, not a replacement. A user who needs no MIDI in Codespaces never
   sees it.
 
-**One engine for all songs and views (phase 5).** Today a switch between the Strudel
+**One engine for all songs and views (phase 6).** Today a switch between the Strudel
 editor and the native editor stops the sound, a preview needs an open song, and two open
 songs are two engines. The target: one engine webview that lives as long as the window,
 and editors that are views of it.
@@ -529,6 +533,78 @@ and editors that are views of it.
   by its spikes. If they fail, the smaller step stays: keep the engine per song, and on
   a mode switch start the new webview at the same cycle (option 1 of "Sound across a
   mode switch" in `doc/TODO.md`).
+
+### Devices
+
+Live shows the device of the selected track at the bottom of the screen. We show the
+instruments that make their own sound outside superdough: every VIBE FM firmware that is
+running, and the SHRUB editor. Each one gets a panel. Every panel can be folded, shown
+alone in the whole view, and taken out into a tab of its own, which VS Code can then
+maximize or move to another window like any editor.
+
+**Why one view and not one view per device.** VS Code knows the views of an extension
+from `package.json`, so their number is fixed when the extension is installed. A song
+can run any number of firmwares. So there is one webview view, "Devices"
+(`strdltn.devices`), in the bottom panel next to the Mixer, and the panels are drawn
+inside it. A tab (`WebviewPanel`) can be made at run time, which is what "take out" uses.
+
+```
++ Devices ---------------------------------------------------------------+
+| v obervave  orbit 2   [_] [max] [out]                                  |
+|   +----------------------+  CUTOFF  RESO   ENV   ...  (parameters)     |
+|   |  480 x 320 display   |   (o)    (o)    (o)                         |
+|   +----------------------+  prog 12          [store]                   |
+| > sloop     orbit 4   [_] [max] [out]          (folded: one line)      |
+| v SHRUB     editor    [_] [max] [out]                                  |
+|   +--------------------------------------------------------------+     |
+|   |  shrub.audio/editor in a frame                               |     |
++------------------------------------------------------------------------+
+```
+
+**A firmware panel.** One per running copy. A copy is a firmware on an orbit, because
+each orbit runs its own copy (see "Channels" under "Firmware" in `doc/ARCHITECTURE.md`).
+The panel appears with the first note of that copy and stays while the song names it.
+
+| Part | Shows | Does |
+|---|---|---|
+| Header | Firmware name, version, orbit, the channel color of the chain that plays it | A click selects the chain in the Mixer and its line in the code. Fold, maximize, take out |
+| Display | The firmware's 480 by 320 screen from `vibe_wasm_draw`, about 30 frames a second (step 11 of "Firmware Hub" in `doc/TODO.md`) | Mouse and wheel become the firmware's encoder and button events, if the SDK has events for them (spike F2) |
+| Parameters | Every parameter from `vibe_wasm_param_info`: name, range, unit, steps, as knobs | A turn sets the parameter at once. "Copy as code" types `.vp(id, value)` (step 4 of "Firmware Hub"). Decision 10 is whether a turn also writes the code |
+| Program | The program the song sent with `.progNum()` | - |
+| Store | What the firmware saved with `vibe_host_store` | Saved to `.strdltn/firmware-store/<id>/` (step 8 of "Firmware Hub") |
+
+The firmware runs in an `AudioWorkletNode` of the engine, and the Devices view is
+another webview. Parameters and events are small messages and go through the host like
+the Mixer's. The display is not small: a frame of 480 by 320 is 300 KB at two bytes a
+pixel (the format is not known yet, spike F1), so 30 frames a second would be about 9 MB
+a second through the host, and twice that over the network in Codespaces. The plan: the
+worklet sends a frame only when it changed and only for panels that are open and not
+folded, the frame goes as changed rectangles, and the rate drops when the view is
+hidden. Spike F1 measures the frame format and what the relay can carry. When the engine
+moves into one webview (phase 6), the panels can live in that webview and the display
+costs nothing to move.
+
+**The SHRUB panel.** The mockup that exists today (a tab with `shrub.audio/editor/` in a
+frame) becomes a panel of the Devices view, with the same fold, maximize and take-out
+buttons. Taken out, it is the tab of the mockup. Its limits stay what the drawer entry "A
+panel with the SHRUB editor" says: its sound is its own, not in our mix and not in time,
+and it has no MIDI. Two things are still not measured: whether the site lets itself be
+framed, and whether it makes sound inside a webview (spike F3). A frame that is folded is
+hidden with CSS, not removed, so its unsaved patches stay. If Xfer ever builds SHRUB as a
+VIBE FM firmware (decision 15 of `doc/TODO.md`), it becomes a firmware panel like the
+others.
+
+**Fold, maximize, take out.**
+
+| Button | Does | How |
+|---|---|---|
+| Fold | The panel shrinks to its header | Inside the view. The state is kept per firmware id in the webview's state |
+| Maximize | The panel fills the Devices view and the others fold. Again to go back. A second click maximizes the whole bottom panel | Inside the view, and VS Code's command `workbench.action.toggleMaximizedPanel` for the bottom panel (expected, not tested from an extension) |
+| Take out | The panel leaves the view and opens as a tab. The tab has VS Code's own maximize and "Move into New Window". Closing the tab puts the panel back | A `WebviewPanel` per device, created at run time |
+
+Devices and Mixer are two views of one container in the bottom panel. VS Code gives each
+view of a container a fold of its own, so the whole Devices view can also be folded
+under the Mixer, and either can be dragged to another place.
 
 ### MIDI in the Browser and the Mixer
 
@@ -562,10 +638,13 @@ Under `tmp/`, each deleted when its answer is written down.
 | S6 | Can a webview list the sound cards by name? | As in `doc/TODO.md` | TODO "Sound card" |
 | E1 | Does a webview view with `retainContextWhenHidden` keep playing and keep its timers when hidden? | Play in a panel view, switch to Terminal, record the scheduler's tick times | ARCHITECTURE "Engine" |
 | E2 | Can the editor highlight and draw from events sent by another webview, with upstream's functions? | Send the events of the engine to a second `StrudelMirror` that does not play | ARCHITECTURE "Engine" |
+| F1 | What is the frame format of `vibe_wasm_draw`, and how many frames a second can go from a worklet through the host to another webview, on desktop and in a Codespace? | Read the SDK headers, then send OBERVAVE's screen at 30 frames a second, whole and as changed rectangles | ARCHITECTURE "Firmware" |
+| F2 | Which events does a firmware take for its encoders, buttons and touch screen? | The SDK headers and `vibe_sdk.c` | ARCHITECTURE "Firmware" |
+| F3 | Does `shrub.audio/editor/` load in a frame of a webview view, and does it make sound there? | The existing mockup, moved into a webview view | The drawer entry, or ARCHITECTURE |
 | E3 | Does the engine page work in a normal browser from a forwarded port, with WebMIDI? | Serve `dist/` from the host, open in Chrome on desktop and from a Codespace | ARCHITECTURE "Engine" |
 
-D1 to D4 come first. They gate phases 1 to 3. S5 gates phase 4. E1 to E3 gate phases 5
-and 6 and can wait.
+D1 to D4 come first. They gate phases 1 to 3. F1 to F3 gate phase 4. S5 gates phase 5.
+E1 to E3 gate phases 6 and 7 and can wait.
 
 ### Phase 1: index and Browser
 
@@ -619,7 +698,26 @@ Size: 3 to 4 sessions.
 
 Size: 3 to 4 sessions.
 
-### Phase 4: MIDI on desktop
+### Phase 4: Devices
+
+1. The Devices view (`strdltn.devices`) in the bottom panel, beside the Mixer: a fourth
+   small bundle, `src/devices/`.
+2. Messages: `devices {list}` from the engine when a firmware copy starts or ends,
+   `params {device, list}`, `param {device, id, value}` both ways, `event {device, ...}`
+   for encoders and buttons, `frame {device, ...}` for the display, by the answer of F1.
+3. `VibeCore`: read the parameter list once (it already can), call `vibe_wasm_draw`
+   only while a panel of that copy is open, and send the frame by the rule of F1.
+4. The firmware panel: header, display, knobs, program, store, "Copy as code".
+5. Fold, maximize and take out, with the state kept per firmware id.
+6. The SHRUB panel: the mockup moved into the view, behind the same setting until F3
+   says it works.
+7. The integration test plays `template/examples/07-vibefm1-obervave.strudel`, records
+   the device list and the parameter count, and takes a screenshot of the view.
+8. Docs: ARCHITECTURE "Devices", the drawer entry of the SHRUB panel, README.
+
+Size: 3 to 4 sessions.
+
+### Phase 5: MIDI on desktop
 
 1. `@julusian/midi` as a dependency, pinned. Its prebuilt binaries in the `.vsix`
    (2.2 MB measured). The build permission goes in `pnpm-workspace.yaml`.
@@ -632,12 +730,12 @@ Size: 3 to 4 sessions.
 6. Tests: a unit test for the queue and the clock rule. The integration test sends to
    "Microsoft GS Wavetable Synth" when it exists and records the lateness. A hand test
    with the maintainer's controller and `demo.strudel` with its `midin` lines back in.
-7. In Codespaces the MIDI category says that devices need the browser page (phase 6) or
+7. In Codespaces the MIDI category says that devices need the browser page (phase 7) or
    desktop.
 
 Size: 4 to 5 sessions.
 
-### Phase 5: one engine
+### Phase 6: one engine
 
 Only after E1 and E2. Steps are written when the spikes have answered. The outline:
 engine module without CodeMirror, engine in the Mixer panel, the editor and the stage as
@@ -646,14 +744,14 @@ views, preview without a song, sound across a mode switch, one transport for the
 
 Size: unknown until the spikes. Expected to be the largest phase.
 
-### Phase 6: the engine as a browser page
+### Phase 7: the engine as a browser page
 
 Only after E3 and only if the maintainer wants it (decision 7). A server in the host for
 `dist/` and the workspace files, a WebSocket with the same messages as the webview
 protocol, a command "strdltn: Open engine in the browser", a status bar item that says
 where the engine is.
 
-Size: 3 to 4 sessions after phase 5, more without it.
+Size: 3 to 4 sessions after phase 6, more without it.
 
 ## Decisions for the maintainer
 
@@ -665,9 +763,11 @@ Size: 3 to 4 sessions after phase 5, more without it.
 | 4 | The user's tags and colors: in the project (`strdltn.index.json`, committed, travels with the songs), global for the user (kept by VS Code, the same in every project), or both? | Project. A color on a default sound then follows the project, not the person. Global can be added later as a fourth layer |
 | 5 | Mute and solo from the Mixer write `_name:` and `Sname:` into the code. OK, or runtime only? | Write. It is upstream's own syntax and the song stays the truth |
 | 6 | An orbit fader has no call in Strudel to be saved in. Leave it unsaved, save it in `strdltn.index.json`, or leave the fader out? | Leave it out in phase 2, decide when the panel is in use |
-| 7 | Is the browser page (phase 6) wanted? It is the only road to MIDI in Codespaces, and it is the "IDE as a dumb client" design | Yes, after phase 4, and before phase 5 if MIDI in Codespaces matters more than sound across a mode switch |
+| 7 | Is the browser page (phase 7) wanted? It is the only road to MIDI in Codespaces, and it is the "IDE as a dumb client" design | Yes, after phase 5, and before phase 6 if MIDI in Codespaces matters more than sound across a mode switch |
 | 8 | The Mixer in the bottom panel, where the stage also opens "below the code". Both fit as two views of the panel, or the stage moves beside the code | Mixer in the bottom panel, stage where `strdltn.stage.position` says, as now |
 | 9 | Order: Browser first, or Mixer first? | Browser. It has no open technical question, and the index is needed by the MIDI category later |
+| 10 | A knob turned in a firmware panel: change the sound only, or also write `.vp(id, value)` into the code like the Mixer's fader? | Change the sound only, with "Copy as code". A firmware has dozens of parameters, and writing each turn would bury the song in calls |
+| 11 | A firmware panel taken out into a tab: keep the firmware in the engine and relay the display, or move that firmware's copy into the tab? | Relay until phase 6. Decide with the measures of F1 |
 
 ## Risks
 
@@ -682,8 +782,11 @@ Size: 3 to 4 sessions after phase 5, more without it.
 - **One webview for the whole side bar** loses what VS Code gives a tree for free:
   keyboard navigation, the filter of Ctrl+F, screen reader support. We build the first
   two. The third needs ARIA roles on the list and a test with a reader.
-- **Phase 5** can end with "not possible without rebuilding upstream's editor". The plan
+- **Phase 6** can end with "not possible without rebuilding upstream's editor". The plan
   keeps every other phase independent of it.
+- **The display of a firmware through the relay (F1)** may be too heavy in Codespaces.
+  Then the display is only drawn when the engine and the panel are in one webview, and the
+  Devices view shows parameters only.
 - **`@julusian/midi` is native code.** A VS Code update with a new Electron can break
   its binary. The integration test loads it, so a break is seen before a release.
 

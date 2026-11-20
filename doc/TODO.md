@@ -15,7 +15,8 @@ installs beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do
 over.
 
 The plan to make this a DAW (one Browser view with tags and search, a Mixer panel with
-sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRUB window, MIDI, one engine)
+sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRUB window, MIDI, one engine,
+two decks to DJ with, recorded automation and an arrangement view)
 is in `doc/DAW-PLAN.md`. The maintainer chose to start with the Browser and took the
 plan's recommendation for every other decision. Phase 1, the Browser, is built on the
 branch `feat/browser` and waits for the hand test below. A synth or sample preview starts

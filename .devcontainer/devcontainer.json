@@ -1,7 +1,7 @@
 // Codespace for working on the extension itself. It builds the .vsix from this
 // checkout and installs it, so the Codespace runs the code of the branch you opened.
 {
-	"name": "vstrudel (built from source)",
+	"name": "[str]dltn Live[code] (built from source)",
 	"image": "mcr.microsoft.com/devcontainers/javascript-node:24",
 	"postCreateCommand": "bash scripts/codespace-install.sh build",
 	// Installing needs a connected editor, so it runs on attach and not on create.

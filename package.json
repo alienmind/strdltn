@@ -1,14 +1,14 @@
 {
-	"name": "vstrudel",
-	"displayName": "vstrudel",
-	"description": "Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
+	"name": "strdltn",
+	"displayName": "[str]dltn Live[code]",
+	"description": "Your IDE is your DAW. Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
 	"version": "0.0.1",
 	"private": true,
-	"publisher": "vstrudel",
+	"publisher": "strdltn",
 	"license": "AGPL-3.0-or-later",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/alienmind/vstrudel"
+		"url": "https://github.com/alienmind/strdltn"
 	},
 	"engines": {
 		"vscode": "^1.95.0",
@@ -44,7 +44,7 @@
 		],
 		"customEditors": [
 			{
-				"viewType": "vstrudel.editor",
+				"viewType": "strdltn.editor",
 				"displayName": "Strudel editor",
 				"selector": [
 					{
@@ -56,107 +56,107 @@
 		],
 		"commands": [
 			{
-				"command": "vstrudel.play",
-				"title": "vstrudel: Play / Update",
+				"command": "strdltn.play",
+				"title": "strdltn: Play / Update",
 				"icon": "$(play)"
 			},
 			{
-				"command": "vstrudel.stop",
-				"title": "vstrudel: Stop",
+				"command": "strdltn.stop",
+				"title": "strdltn: Stop",
 				"icon": "$(debug-stop)"
 			},
 			{
-				"command": "vstrudel.refreshFiles",
-				"title": "vstrudel: Refresh files",
+				"command": "strdltn.refreshFiles",
+				"title": "strdltn: Refresh files",
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "vstrudel.stopAll",
-				"title": "vstrudel: Stop all"
+				"command": "strdltn.stopAll",
+				"title": "strdltn: Stop all"
 			},
 			{
-				"command": "vstrudel.togglePlay",
-				"title": "vstrudel: Play / Stop"
+				"command": "strdltn.togglePlay",
+				"title": "strdltn: Play / Stop"
 			},
 			{
-				"command": "vstrudel.showPackCache",
-				"title": "vstrudel: Show sample pack cache size"
+				"command": "strdltn.showPackCache",
+				"title": "strdltn: Show sample pack cache size"
 			},
 			{
-				"command": "vstrudel.clearPackCache",
-				"title": "vstrudel: Clear sample pack cache"
+				"command": "strdltn.clearPackCache",
+				"title": "strdltn: Clear sample pack cache"
 			},
 			{
-				"command": "vstrudel.toggleMode",
-				"title": "vstrudel: Toggle Strudel editor / native editor",
+				"command": "strdltn.toggleMode",
+				"title": "strdltn: Toggle Strudel editor / native editor",
 				"icon": "$(arrow-swap)"
 			},
 			{
-				"command": "vstrudel.openShrubEditor",
-				"title": "vstrudel: Open SHRUB editor (experimental)",
+				"command": "strdltn.openShrubEditor",
+				"title": "strdltn: Open SHRUB editor (experimental)",
 				"icon": "$(beaker)"
 			},
 			{
-				"command": "vstrudel.openStage",
-				"title": "vstrudel: Open stage",
+				"command": "strdltn.openStage",
+				"title": "strdltn: Open stage",
 				"icon": "$(open-preview)"
 			},
 			{
-				"command": "vstrudel.previewSound",
-				"title": "vstrudel: Play sound once",
+				"command": "strdltn.previewSound",
+				"title": "strdltn: Play sound once",
 				"icon": "$(play)"
 			},
 			{
-				"command": "vstrudel.insertSound",
-				"title": "vstrudel: Insert sound name at cursor",
+				"command": "strdltn.insertSound",
+				"title": "strdltn: Insert sound name at cursor",
 				"icon": "$(insert)"
 			},
 			{
-				"command": "vstrudel.copySoundName",
-				"title": "vstrudel: Copy sound name",
+				"command": "strdltn.copySoundName",
+				"title": "strdltn: Copy sound name",
 				"icon": "$(copy)"
 			},
 			{
-				"command": "vstrudel.refreshSounds",
-				"title": "vstrudel: Refresh sounds",
+				"command": "strdltn.refreshSounds",
+				"title": "strdltn: Refresh sounds",
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "vstrudel.insertSnippet",
-				"title": "vstrudel: Insert snippet at cursor",
+				"command": "strdltn.insertSnippet",
+				"title": "strdltn: Insert snippet at cursor",
 				"icon": "$(insert)"
 			},
 			{
-				"command": "vstrudel.openSnippet",
-				"title": "vstrudel: Open snippet file",
+				"command": "strdltn.openSnippet",
+				"title": "strdltn: Open snippet file",
 				"icon": "$(go-to-file)"
 			},
 			{
-				"command": "vstrudel.refreshSnippets",
-				"title": "vstrudel: Refresh snippets",
+				"command": "strdltn.refreshSnippets",
+				"title": "strdltn: Refresh snippets",
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "vstrudel.showVersion",
-				"title": "vstrudel: Show version and build"
+				"command": "strdltn.showVersion",
+				"title": "strdltn: Show version and build"
 			},
 			{
-				"command": "vstrudel.clickSound",
-				"title": "vstrudel: Preview sound on click",
+				"command": "strdltn.clickSound",
+				"title": "strdltn: Preview sound on click",
 				"icon": "$(insert)"
 			},
 			{
-				"command": "vstrudel.insertBank",
-				"title": "vstrudel: Insert .bank() at cursor",
+				"command": "strdltn.insertBank",
+				"title": "strdltn: Insert .bank() at cursor",
 				"icon": "$(insert)"
 			},
 			{
-				"command": "vstrudel.enablePreview",
+				"command": "strdltn.enablePreview",
 				"title": "Preview on click is OFF. Press to turn it on",
 				"icon": "$(mute)"
 			},
 			{
-				"command": "vstrudel.disablePreview",
+				"command": "strdltn.disablePreview",
 				"title": "Preview on click is ON. Press to turn it off",
 				"icon": "$(unmute)"
 			}
@@ -164,172 +164,172 @@
 		"menus": {
 			"editor/title": [
 				{
-					"command": "vstrudel.play",
-					"when": "activeCustomEditorId == vstrudel.editor || resourceExtname == .strudel",
+					"command": "strdltn.play",
+					"when": "activeCustomEditorId == strdltn.editor || resourceExtname == .strudel",
 					"group": "navigation@1"
 				},
 				{
-					"command": "vstrudel.stop",
-					"when": "activeCustomEditorId == vstrudel.editor || resourceExtname == .strudel",
+					"command": "strdltn.stop",
+					"when": "activeCustomEditorId == strdltn.editor || resourceExtname == .strudel",
 					"group": "navigation@2"
 				},
 				{
-					"command": "vstrudel.toggleMode",
-					"when": "activeCustomEditorId == vstrudel.editor || resourceExtname == .strudel",
+					"command": "strdltn.toggleMode",
+					"when": "activeCustomEditorId == strdltn.editor || resourceExtname == .strudel",
 					"group": "navigation@3"
 				}
 			],
 			"view/title": [
 				{
-					"command": "vstrudel.disablePreview",
-					"when": "view == vstrudel.sounds && vstrudel.previewSounds",
+					"command": "strdltn.disablePreview",
+					"when": "view == strdltn.sounds && strdltn.previewSounds",
 					"group": "navigation@1"
 				},
 				{
-					"command": "vstrudel.enablePreview",
-					"when": "view == vstrudel.sounds && !vstrudel.previewSounds",
+					"command": "strdltn.enablePreview",
+					"when": "view == strdltn.sounds && !strdltn.previewSounds",
 					"group": "navigation@1"
 				},
 				{
-					"command": "vstrudel.refreshSounds",
-					"when": "view == vstrudel.sounds",
+					"command": "strdltn.refreshSounds",
+					"when": "view == strdltn.sounds",
 					"group": "navigation@2"
 				},
 				{
-					"command": "vstrudel.refreshFiles",
-					"when": "view == vstrudel.files",
+					"command": "strdltn.refreshFiles",
+					"when": "view == strdltn.files",
 					"group": "navigation"
 				},
 				{
-					"command": "vstrudel.refreshSnippets",
-					"when": "view == vstrudel.snippets",
+					"command": "strdltn.refreshSnippets",
+					"when": "view == strdltn.snippets",
 					"group": "navigation"
 				},
 				{
-					"command": "vstrudel.openShrubEditor",
-					"when": "view == vstrudel.sounds && config.vstrudel.experimental.shrubEditor",
+					"command": "strdltn.openShrubEditor",
+					"when": "view == strdltn.sounds && config.strdltn.experimental.shrubEditor",
 					"group": "navigation@3"
 				}
 			],
 			"view/item/context": [
 				{
-					"command": "vstrudel.insertSound",
-					"when": "view == vstrudel.sounds && viewItem == sound",
+					"command": "strdltn.insertSound",
+					"when": "view == strdltn.sounds && viewItem == sound",
 					"group": "inline@1"
 				},
 				{
-					"command": "vstrudel.previewSound",
-					"when": "view == vstrudel.sounds && viewItem == sound",
+					"command": "strdltn.previewSound",
+					"when": "view == strdltn.sounds && viewItem == sound",
 					"group": "inline@2"
 				},
 				{
-					"command": "vstrudel.insertBank",
-					"when": "view == vstrudel.sounds && viewItem == bank",
+					"command": "strdltn.insertBank",
+					"when": "view == strdltn.sounds && viewItem == bank",
 					"group": "inline"
 				},
 				{
-					"command": "vstrudel.insertSnippet",
-					"when": "view == vstrudel.snippets && viewItem == snippet",
+					"command": "strdltn.insertSnippet",
+					"when": "view == strdltn.snippets && viewItem == snippet",
 					"group": "inline@1"
 				},
 				{
-					"command": "vstrudel.openSnippet",
-					"when": "view == vstrudel.snippets && viewItem == snippet",
+					"command": "strdltn.openSnippet",
+					"when": "view == strdltn.snippets && viewItem == snippet",
 					"group": "inline@2"
 				},
 				{
-					"command": "vstrudel.copySoundName",
-					"when": "view == vstrudel.sounds && viewItem == sound",
-					"group": "vstrudel@1"
+					"command": "strdltn.copySoundName",
+					"when": "view == strdltn.sounds && viewItem == sound",
+					"group": "strdltn@1"
 				}
 			],
 			"commandPalette": [
 				{
-					"command": "vstrudel.previewSound",
+					"command": "strdltn.previewSound",
 					"when": "false"
 				},
 				{
-					"command": "vstrudel.insertSound",
+					"command": "strdltn.insertSound",
 					"when": "false"
 				},
 				{
-					"command": "vstrudel.clickSound",
+					"command": "strdltn.clickSound",
 					"when": "false"
 				},
 				{
-					"command": "vstrudel.insertBank",
+					"command": "strdltn.insertBank",
 					"when": "false"
 				},
 				{
-					"command": "vstrudel.copySoundName",
+					"command": "strdltn.copySoundName",
 					"when": "false"
 				},
 				{
-					"command": "vstrudel.insertSnippet",
+					"command": "strdltn.insertSnippet",
 					"when": "false"
 				},
 				{
-					"command": "vstrudel.openSnippet",
+					"command": "strdltn.openSnippet",
 					"when": "false"
 				},
 				{
-					"command": "vstrudel.enablePreview",
+					"command": "strdltn.enablePreview",
 					"when": "false"
 				},
 				{
-					"command": "vstrudel.disablePreview",
+					"command": "strdltn.disablePreview",
 					"when": "false"
 				},
 				{
-					"command": "vstrudel.openShrubEditor",
-					"when": "config.vstrudel.experimental.shrubEditor"
+					"command": "strdltn.openShrubEditor",
+					"when": "config.strdltn.experimental.shrubEditor"
 				}
 			]
 		},
 		"keybindings": [
 			{
-				"command": "vstrudel.play",
+				"command": "strdltn.play",
 				"key": "ctrl+enter",
 				"mac": "cmd+enter",
 				"when": "editorLangId == strudel && editorTextFocus"
 			},
 			{
-				"command": "vstrudel.stop",
+				"command": "strdltn.stop",
 				"key": "ctrl+.",
 				"mac": "cmd+.",
-				"when": "activeCustomEditorId == vstrudel.editor || editorLangId == strudel"
+				"when": "activeCustomEditorId == strdltn.editor || editorLangId == strudel"
 			},
 			{
-				"command": "vstrudel.toggleMode",
+				"command": "strdltn.toggleMode",
 				"key": "ctrl+alt+m",
 				"mac": "cmd+alt+m",
-				"when": "activeCustomEditorId == vstrudel.editor || editorLangId == strudel"
+				"when": "activeCustomEditorId == strdltn.editor || editorLangId == strudel"
 			}
 		],
 		"configuration": {
-			"title": "vstrudel",
+			"title": "strdltn",
 			"properties": {
-				"vstrudel.samplesFolder": {
+				"strdltn.samplesFolder": {
 					"type": "string",
 					"default": "samples",
 					"description": "Workspace folder that holds your samples. Each subfolder becomes a sound name."
 				},
-				"vstrudel.firmwareFolder": {
+				"strdltn.firmwareFolder": {
 					"type": "string",
 					"default": "firmware",
 					"description": "Workspace folder that holds VIBE FM firmwares (.wasm) from thefirmwarehub.com. Each one plays as s(\"vibefm1:<id>\")."
 				},
-				"vstrudel.experimental.shrubEditor": {
+				"strdltn.experimental.shrubEditor": {
 					"type": "boolean",
 					"default": false,
 					"description": "Experimental mockup: adds the command \"Open SHRUB editor\", which shows Xfer's SHRUB web editor (shrub.audio/editor) in a tab. It is a separate synth: not in the song's mix or tempo, and no MIDI inside VS Code."
 				},
-				"vstrudel.libFolder": {
+				"strdltn.libFolder": {
 					"type": "string",
 					"default": "lib",
 					"description": "Workspace folder that holds reusable Strudel snippets."
 				},
-				"vstrudel.editor.theme": {
+				"strdltn.editor.theme": {
 					"type": "string",
 					"default": "strudelTheme",
 					"enum": [
@@ -375,30 +375,30 @@
 					],
 					"description": "Color theme of the Strudel editor and the stage. These are the themes of strudel.cc."
 				},
-				"vstrudel.editor.fontFamily": {
+				"strdltn.editor.fontFamily": {
 					"type": "string",
 					"default": "",
 					"description": "Font of the Strudel editor. Empty: the font of the VS Code editor (editor.fontFamily)."
 				},
-				"vstrudel.editor.fontSize": {
+				"strdltn.editor.fontSize": {
 					"type": "number",
 					"default": 0,
 					"minimum": 0,
 					"description": "Font size of the Strudel editor in pixels. 0: the size of the VS Code editor (editor.fontSize)."
 				},
-				"vstrudel.stage.position": {
+				"strdltn.stage.position": {
 					"type": "string",
 					"default": "below",
 					"enum": ["below", "beside"],
 					"enumDescriptions": ["Under the code, in a group of its own", "To the right of the code"],
 					"description": "Where the stage opens when a song plays in the native editor. It can be dragged anywhere after that."
 				},
-				"vstrudel.remoteSamples.cache": {
+				"strdltn.remoteSamples.cache": {
 					"type": "boolean",
 					"default": true,
-					"description": "Keep a copy of the remote samples a song loads (samples('github:user/repo'), samples('https://.../strudel.json'), or a map with such a base) in .vstrudel/cache of the workspace, so they play without the network."
+					"description": "Keep a copy of the remote samples a song loads (samples('github:user/repo'), samples('https://.../strudel.json'), or a map with such a base) in .strdltn/cache of the workspace, so they play without the network."
 				},
-				"vstrudel.remoteSamples.maxFiles": {
+				"strdltn.remoteSamples.maxFiles": {
 					"type": "number",
 					"default": 600,
 					"description": "A remote sample pack with more files than this is not copied to the cache. It still plays from the network."
@@ -408,32 +408,32 @@
 		"viewsContainers": {
 			"activitybar": [
 				{
-					"id": "vstrudel",
-					"title": "vstrudel",
-					"icon": "media/vstrudel.svg"
+					"id": "strdltn",
+					"title": "[str]dltn Live[code]",
+					"icon": "media/strdltn.svg"
 				}
 			]
 		},
 		"views": {
-			"vstrudel": [
+			"strdltn": [
 				{
-					"id": "vstrudel.logo",
-					"name": "vstrudel",
+					"id": "strdltn.logo",
+					"name": "strdltn",
 					"type": "webview",
 					"initialSize": 1
 				},
 				{
-					"id": "vstrudel.files",
+					"id": "strdltn.files",
 					"name": "Files",
 					"initialSize": 3
 				},
 				{
-					"id": "vstrudel.sounds",
+					"id": "strdltn.sounds",
 					"name": "Sounds",
 					"initialSize": 4
 				},
 				{
-					"id": "vstrudel.snippets",
+					"id": "strdltn.snippets",
 					"name": "Snippets",
 					"initialSize": 4
 				}
@@ -441,11 +441,11 @@
 		},
 		"viewsWelcome": [
 			{
-				"view": "vstrudel.files",
+				"view": "strdltn.files",
 				"contents": "No .strudel files in this folder yet."
 			},
 			{
-				"view": "vstrudel.sounds",
+				"view": "strdltn.sounds",
 				"contents": "Open a .strudel file to load the sound list."
 			}
 		]

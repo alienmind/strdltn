@@ -11,11 +11,11 @@ import { SoundsProvider, soundText, type SoundNode } from './sounds';
 /** `git describe` of the checkout this bundle was built from. Set by scripts/build.mjs. */
 declare const __BUILD__: string;
 
-const EDITOR_VIEW_TYPE = 'vstrudel.editor';
-const STAGE_VIEW_TYPE = 'vstrudel.stage';
+const EDITOR_VIEW_TYPE = 'strdltn.editor';
+const STAGE_VIEW_TYPE = 'strdltn.stage';
 
 /** What `activate` returns. Only the integration test in `src/test/` uses it. */
-export interface VstrudelApi {
+export interface StrdltnApi {
 	sessions(): { mode: string; uri: string; started: boolean; error?: string; logs: string[] }[];
 	/** What the status bar item shows, or undefined while it is hidden. */
 	status(): { text: string; tooltip: string } | undefined;
@@ -47,11 +47,11 @@ export interface VstrudelApi {
 	identity: string;
 }
 
-export function activate(context: vscode.ExtensionContext): VstrudelApi {
-	const output = vscode.window.createOutputChannel('vstrudel');
+export function activate(context: vscode.ExtensionContext): StrdltnApi {
+	const output = vscode.window.createOutputChannel('strdltn');
 	// Says which copy is running: the promoted one in the maintainer's own editor
 	// (extensionMode Production) or the work in progress in a development host.
-	const identity = `vstrudel ${context.extension.packageJSON.version} (build ${__BUILD__}, ${vscode.ExtensionMode[context.extensionMode].toLowerCase()})`;
+	const identity = `strdltn ${context.extension.packageJSON.version} (build ${__BUILD__}, ${vscode.ExtensionMode[context.extensionMode].toLowerCase()})`;
 	output.appendLine(identity);
 	const sessions = new Set<Session>();
 	const packs = new PackCache(output);
@@ -60,7 +60,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	const snippets = new SnippetsView();
 	// Whether a click on a sound also plays it. A button at the top of the Sounds view
 	// flips it, and the choice is kept between sessions.
-	const PREVIEW_KEY = 'vstrudel.previewSounds';
+	const PREVIEW_KEY = 'strdltn.previewSounds';
 	let previewSounds = context.globalState.get(PREVIEW_KEY, true);
 	const setPreview = (on: boolean) => {
 		previewSounds = on;
@@ -69,11 +69,11 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		// In words beside the title of the view. The icon alone was read both ways.
 		soundsView.description = on ? 'preview on' : 'preview off';
 	};
-	const diagnostics = vscode.languages.createDiagnosticCollection('vstrudel');
+	const diagnostics = vscode.languages.createDiagnosticCollection('strdltn');
 	// Right side, beside the language of the file: it is about the file in front.
-	const status = vscode.window.createStatusBarItem('vstrudel.status', vscode.StatusBarAlignment.Right, 101);
-	status.name = 'vstrudel';
-	status.command = 'vstrudel.togglePlay';
+	const status = vscode.window.createStatusBarItem('strdltn.status', vscode.StatusBarAlignment.Right, 101);
+	status.name = 'strdltn';
+	status.command = 'strdltn.togglePlay';
 	// The item cannot be asked whether it shows. The test wants to know.
 	let statusVisible = false;
 	const showStatus = (visible: boolean) => {
@@ -117,11 +117,11 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	const playingElsewhere = () =>
 		[...sessions].filter((s) => s.started).sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
 
-	const soundsView = vscode.window.createTreeView('vstrudel.sounds', { treeDataProvider: sounds, showCollapseAll: true });
+	const soundsView = vscode.window.createTreeView('strdltn.sounds', { treeDataProvider: sounds, showCollapseAll: true });
 	setPreview(previewSounds);
-	const snippetsView = vscode.window.createTreeView('vstrudel.snippets', { treeDataProvider: snippets, showCollapseAll: true });
+	const snippetsView = vscode.window.createTreeView('strdltn.snippets', { treeDataProvider: snippets, showCollapseAll: true });
 	const files = new FilesProvider();
-	const filesView = vscode.window.createTreeView('vstrudel.files', { treeDataProvider: files, showCollapseAll: true });
+	const filesView = vscode.window.createTreeView('strdltn.files', { treeDataProvider: files, showCollapseAll: true });
 
 	context.subscriptions.push(
 		output,
@@ -149,78 +149,78 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		snippetsView,
 		// The logo at the top of the side bar. The header of a side bar takes text only,
 		// so the picture is a view of its own: a page with one image and no script.
-		vscode.window.registerWebviewViewProvider('vstrudel.logo', {
+		vscode.window.registerWebviewViewProvider('strdltn.logo', {
 			resolveWebviewView(view) {
 				view.webview.options = { localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')] };
 				const logo = view.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'logo.jpg'));
 				view.webview.html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${view.webview.cspSource}; style-src 'unsafe-inline'">
 <style>html, body { margin: 0; padding: 0; overflow: hidden; } img { display: block; width: 100%; height: auto; }</style></head>
-<body><img src="${logo}" alt="vstrudel - VS Code extension, live coding in strudel.cc"></body></html>`;
+<body><img src="${logo}" alt="[str]dltn Live[code] - your IDE is your DAW"></body></html>`;
 			},
 		}),
 		filesView,
-		vscode.commands.registerCommand('vstrudel.refreshFiles', () => files.refresh()),
+		vscode.commands.registerCommand('strdltn.refreshFiles', () => files.refresh()),
 		vscode.workspace.onDidChangeWorkspaceFolders(() => files.refresh()),
 
-		vscode.commands.registerCommand('vstrudel.play', async () => {
+		vscode.commands.registerCommand('strdltn.play', async () => {
 			const session = activeEditorSession() ?? (await stageForActiveTextEditor()) ?? onlySession();
 			session?.play();
 		}),
 		// Stop is for the song in front. With nothing playing there, it is for the song
 		// that plays in another tab, so the key always ends a sound you hear.
-		vscode.commands.registerCommand('vstrudel.stop', () => {
+		vscode.commands.registerCommand('strdltn.stop', () => {
 			const front = frontSession();
 			(front?.started ? front : (playingElsewhere() ?? front))?.stop();
 		}),
-		vscode.commands.registerCommand('vstrudel.stopAll', () => sessions.forEach((s) => s.stop())),
+		vscode.commands.registerCommand('strdltn.stopAll', () => sessions.forEach((s) => s.stop())),
 		// The click on the status bar item.
-		vscode.commands.registerCommand('vstrudel.togglePlay', () => {
+		vscode.commands.registerCommand('strdltn.togglePlay', () => {
 			const session = frontSession() ?? (isStrudel(vscode.window.activeTextEditor) ? undefined : playingElsewhere());
 			if (session?.started) return session.stop();
-			return vscode.commands.executeCommand('vstrudel.play');
+			return vscode.commands.executeCommand('strdltn.play');
 		}),
-		vscode.commands.registerCommand('vstrudel.showPackCache', showPackCache),
-		vscode.commands.registerCommand('vstrudel.clearPackCache', clearPackCache),
-		vscode.commands.registerCommand('vstrudel.openStage', () => stageForActiveTextEditor()),
-		vscode.commands.registerCommand('vstrudel.toggleMode', toggleMode),
+		vscode.commands.registerCommand('strdltn.showPackCache', showPackCache),
+		vscode.commands.registerCommand('strdltn.clearPackCache', clearPackCache),
+		vscode.commands.registerCommand('strdltn.openStage', () => stageForActiveTextEditor()),
+		vscode.commands.registerCommand('strdltn.toggleMode', toggleMode),
 
-		vscode.commands.registerCommand('vstrudel.previewSound', previewSound),
+		vscode.commands.registerCommand('strdltn.previewSound', previewSound),
 		// A click on a sound selects it, and plays it when preview is on. It never types:
 		// text goes into the code only through the insert button of the row.
-		vscode.commands.registerCommand('vstrudel.clickSound', (node: SoundNode) => {
+		vscode.commands.registerCommand('strdltn.clickSound', (node: SoundNode) => {
 			if (previewSounds) previewSound(node);
 		}),
-		vscode.commands.registerCommand('vstrudel.insertSound', (node: SoundNode) => {
+		vscode.commands.registerCommand('strdltn.insertSound', (node: SoundNode) => {
 			const text = soundText(node);
 			if (text) return insertText(text);
 		}),
-		vscode.commands.registerCommand('vstrudel.insertBank', (node: SoundNode) => {
+		vscode.commands.registerCommand('strdltn.insertBank', (node: SoundNode) => {
 			if (node.kind === 'bank') return insertText(`.bank("${node.name}")`);
 		}),
-		vscode.commands.registerCommand('vstrudel.enablePreview', () => setPreview(true)),
-		vscode.commands.registerCommand('vstrudel.disablePreview', () => setPreview(false)),
-		vscode.commands.registerCommand('vstrudel.copySoundName', (node: SoundNode) => {
+		vscode.commands.registerCommand('strdltn.enablePreview', () => setPreview(true)),
+		vscode.commands.registerCommand('strdltn.disablePreview', () => setPreview(false)),
+		vscode.commands.registerCommand('strdltn.copySoundName', (node: SoundNode) => {
 			const text = soundText(node);
 			if (text) return vscode.env.clipboard.writeText(text);
 		}),
-		vscode.commands.registerCommand('vstrudel.refreshSounds', () => Promise.all([...sessions].flatMap((s) => [s.refreshSamples(), s.refreshFirmware()]))),
+		vscode.commands.registerCommand('strdltn.refreshSounds', () => Promise.all([...sessions].flatMap((s) => [s.refreshSamples(), s.refreshFirmware()]))),
 		// The header of a snippet describes it. Only the code goes into the song.
-		vscode.commands.registerCommand('vstrudel.insertSnippet', (snippet: Pick<Snippet, 'name'>) => {
+		vscode.commands.registerCommand('strdltn.insertSnippet', (snippet: Pick<Snippet, 'name'>) => {
 			const found = snippets.find(snippet.name);
 			if (found) return insertText(found.code);
 		}),
-		vscode.commands.registerCommand('vstrudel.openSnippet', (snippet: Pick<Snippet, 'name'>) => {
+		vscode.commands.registerCommand('strdltn.openSnippet', (snippet: Pick<Snippet, 'name'>) => {
 			const found = snippets.find(snippet.name);
 			// The native editor: a snippet is edited as text, header included.
 			if (found) return vscode.commands.executeCommand('vscode.openWith', found.uri, 'default');
 		}),
-		vscode.commands.registerCommand('vstrudel.refreshSnippets', () => snippets.refresh()),
-		vscode.commands.registerCommand('vstrudel.openShrubEditor', () => ShrubPanel.show(context)),
+		vscode.commands.registerCommand('strdltn.refreshSnippets', () => snippets.refresh()),
+		vscode.commands.registerCommand('strdltn.openShrubEditor', () => ShrubPanel.show(context)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
-			if (event.affectsConfiguration('vstrudel.experimental.shrubEditor')) ShrubPanel.settingChanged();
+			if (event.affectsConfiguration('strdltn.experimental.shrubEditor')) ShrubPanel.settingChanged();
 		}),
-		vscode.commands.registerCommand('vstrudel.showVersion', () => vscode.window.showInformationMessage(identity)),
+		vscode.commands.registerCommand('strdltn.showVersion', () => vscode.window.showInformationMessage(identity)),
 	);
 
 	watchFolders();
@@ -238,7 +238,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		if (!session) {
 			// A Strudel file in the native editor that has not played yet has no stage.
 			if (!isStrudel(native)) return showStatus(false);
-			status.text = '$(debug-stop) vstrudel: stopped';
+			status.text = '$(debug-stop) strdltn: stopped';
 			status.tooltip = 'Click to play. A stage opens beside the code.';
 			status.backgroundColor = undefined;
 			return showStatus(true);
@@ -251,7 +251,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		if (!session.ready) [icon, text] = ['loading~spin', 'loading'];
 		else if (needsClick) [icon, text] = ['mute', `click in the ${session.mode === 'stage' ? 'stage' : 'editor'} for sound`];
 		else if (session.error) [icon, text] = ['error', started ? 'playing, error in the code' : 'error in the code'];
-		status.text = `$(${icon}) vstrudel: ${where}${text}`;
+		status.text = `$(${icon}) strdltn: ${where}${text}`;
 		status.tooltip = [
 			`${name}: ${started ? 'playing' : 'stopped'}, audio ${audio}`,
 			...(session.error ? [`Error: ${session.error}`] : []),
@@ -319,7 +319,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	async function showPackCache(): Promise<void> {
 		const usage = await packs.usage(workspaceUris());
 		if (!usage.files) return void vscode.window.showInformationMessage('The sample pack cache is empty.');
-		const answer = await vscode.window.showInformationMessage(`Sample pack cache (.vstrudel/cache): ${describe(usage)}.`, 'Clear cache');
+		const answer = await vscode.window.showInformationMessage(`Sample pack cache (.strdltn/cache): ${describe(usage)}.`, 'Clear cache');
 		if (answer) await clearPackCache();
 	}
 
@@ -331,7 +331,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			'Delete the sample pack cache?',
 			{
 				modal: true,
-				detail: `${describe(usage)}, in .vstrudel/cache. A song that loads a pack downloads it again the next time it is opened or edited. To stop that, turn off the setting vstrudel.remoteSamples.cache.`,
+				detail: `${describe(usage)}, in .strdltn/cache. A song that loads a pack downloads it again the next time it is opened or edited. To stop that, turn off the setting strdltn.remoteSamples.cache.`,
 			},
 			'Delete',
 		);
@@ -392,7 +392,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		};
 		const create = () => {
 			watchers.forEach((w) => w.dispose());
-			const configuration = vscode.workspace.getConfiguration('vstrudel');
+			const configuration = vscode.workspace.getConfiguration('strdltn');
 			const samplesWatcher = vscode.workspace.createFileSystemWatcher(`**/${configuration.get('samplesFolder', 'samples')}/**`);
 			const libWatcher = vscode.workspace.createFileSystemWatcher(`**/${SnippetsView.folderName()}/**/*.strudel`);
 			const firmwareWatcher = vscode.workspace.createFileSystemWatcher(`**/${configuration.get('firmwareFolder', 'firmware')}/**`);
@@ -415,7 +415,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		context.subscriptions.push(
 			{ dispose: () => watchers.forEach((w) => w.dispose()) },
 			vscode.workspace.onDidChangeConfiguration((event) => {
-				if (!event.affectsConfiguration('vstrudel')) return;
+				if (!event.affectsConfiguration('strdltn')) return;
 				create();
 				samplesChanged();
 				void snippets.refresh();
@@ -440,12 +440,12 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 
 	/**
 	 * Opens the stage of a file: below the code by default, or beside it
-	 * (`vstrudel.stage.position`). VS Code has no "below" for a new panel, so an empty
+	 * (`strdltn.stage.position`). VS Code has no "below" for a new panel, so an empty
 	 * group is split off under the code first and the stage is created in it. Then the
 	 * focus goes back to the code. The user can drag the stage anywhere after that.
 	 */
 	async function openStage(editor: vscode.TextEditor): Promise<Session> {
-		const below = vscode.workspace.getConfiguration('vstrudel').get('stage.position', 'below') === 'below';
+		const below = vscode.workspace.getConfiguration('strdltn').get('stage.position', 'below') === 'below';
 		if (below) await vscode.commands.executeCommand('workbench.action.newGroupBelow');
 		const name = editor.document.uri.path.split('/').pop();
 		const panel = vscode.window.createWebviewPanel(

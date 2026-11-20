@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="doc/logo.jpg" alt="vstrudel - VS Code extension, live coding in strudel.cc" width="760">
+  <img src="doc/logo.jpg" alt="[str]dltn Live[code] - your IDE is your DAW" width="760">
 </p>
 
-# vstrudel
+# [str]dltn Live[code]
 
-**vstrudel is a VS Code extension. It turns your editor into a Strudel IDE whenever you
+**[str]dltn Live[code] is a VS Code extension. It turns your editor into a Strudel IDE whenever you
 open a `.strudel` file.**
 
-[Strudel](https://strudel.cc) is a language for making music with code. vstrudel embeds
+[Strudel](https://strudel.cc) is a language for making music with code. [str]dltn Live[code] embeds
 the real Strudel, the same editor and the same sound engine as strudel.cc, and adds
 panels around it for the things a web page cannot give you:
 
@@ -32,13 +32,13 @@ it because the scope grew beyond a VS Code extension.
 
 ## Install
 
-**In VS Code:** download `vstrudel.vsix` from the
-[latest release](https://github.com/alienmind/vstrudel/releases/latest). In the
+**In VS Code:** download `strdltn.vsix` from the
+[latest release](https://github.com/alienmind/strdltn/releases/latest). In the
 Extensions view press `...` and choose "Install from VSIX...". Then make a file called
 `song.strudel`, type `s("bd sd, hh*4")`, click in the code and press Ctrl+Enter.
 
 **In Codespaces:** on GitHub press Code, Codespaces, `...`, "New with options", and
-choose the configuration "vstrudel template (released extension)". Open
+choose the configuration "[str]dltn Live[code] template (released extension)". Open
 `demo.strudel`, click in the code and press Ctrl+Enter. The sound comes out of your
 browser.
 
@@ -62,7 +62,7 @@ browser.
 - Settings for the theme of the editor (the 39 themes of strudel.cc) and its font. By
   default the font and size are those of your VS Code editor.
 - Ctrl+. stops the song in front. Press it again to stop a song that plays in another
-  tab. "vstrudel: Stop all" stops every song.
+  tab. "strdltn: Stop all" stops every song.
 
 **Sounds**
 
@@ -106,7 +106,7 @@ browser.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 
-Experimental, off by default: the setting `vstrudel.experimental.shrubEditor` adds a tab
+Experimental, off by default: the setting `strdltn.experimental.shrubEditor` adds a tab
 with Xfer's SHRUB web editor, to see how it would look. It is not connected to your songs.
 
 Not there yet: MIDI, sound across a switch of editor, completion and hover in the code,
@@ -132,7 +132,7 @@ song plays.
 
 ### Sounds
 
-The vstrudel icon in the activity bar opens the side bar: the logo, then the Files,
+The [str]dltn Live[code] icon in the activity bar opens the side bar: the logo, then the Files,
 Sounds and Snippets views. Sounds lists what the engine can play, your own samples
 first:
 
@@ -148,9 +148,9 @@ after you copy it in.
 
 A song can load a pack from GitHub with `samples('github:user/repo')`, or from any
 address with `samples('https://.../strudel.json')`. The pack shows up in the Sounds view
-when you open the file, and it is copied into `.vstrudel/` in your project, so next time
-it plays without the network. That folder ignores itself for git. "vstrudel: Show sample
-pack cache size" says how much it holds, and "vstrudel: Clear sample pack cache" deletes
+when you open the file, and it is copied into `.strdltn/` in your project, so next time
+it plays without the network. That folder ignores itself for git. "strdltn: Show sample
+pack cache size" says how much it holds, and "strdltn: Clear sample pack cache" deletes
 it.
 
 ### Snippets
@@ -184,11 +184,11 @@ plays or stops.
 
 | Setting | Does |
 |---|---|
-| `vstrudel.editor.theme` | The color theme of the Strudel editor, one of the themes of strudel.cc |
-| `vstrudel.editor.fontFamily`, `vstrudel.editor.fontSize` | Its font. Empty and 0 take the font of your VS Code editor |
-| `vstrudel.samplesFolder` | The folder of your own samples. Default `samples` |
-| `vstrudel.libFolder` | The folder of your snippets. Default `lib` |
-| `vstrudel.remoteSamples.cache`, `vstrudel.remoteSamples.maxFiles` | Whether packs are copied into the project, and up to how many files |
+| `strdltn.editor.theme` | The color theme of the Strudel editor, one of the themes of strudel.cc |
+| `strdltn.editor.fontFamily`, `strdltn.editor.fontSize` | Its font. Empty and 0 take the font of your VS Code editor |
+| `strdltn.samplesFolder` | The folder of your own samples. Default `samples` |
+| `strdltn.libFolder` | The folder of your snippets. Default `lib` |
+| `strdltn.remoteSamples.cache`, `strdltn.remoteSamples.maxFiles` | Whether packs are copied into the project, and up to how many files |
 
 ## Keys
 
@@ -216,7 +216,7 @@ for one click ("Click to enable audio"). Browsers do not start sound without a c
 | `AGENTS.md`, `.github/` | Rules for an AI assistant such as Copilot: a request like "add a bass line" changes the song you have open |
 | `reference/` | Every Strudel function and the strudel.cc tutorial as text, for the assistant to look things up |
 
-## Work on vstrudel itself
+## Work on [str]dltn Live[code] itself
 
 You need Node 24 and pnpm.
 
@@ -249,5 +249,5 @@ extension loaded.
 ## Thanks
 
 All of the music making is [Strudel](https://codeberg.org/uzu/strudel), by Felix Roos,
-Alex McLean and the Strudel contributors. vstrudel hosts the upstream `@strudel/*`
+Alex McLean and the Strudel contributors. [str]dltn Live[code] hosts the upstream `@strudel/*`
 packages unchanged.

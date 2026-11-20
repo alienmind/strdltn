@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 
-/** Where the SHRUB editor lives. Xfer's site: we only frame it, nothing of it is in vstrudel. */
+/** Where the SHRUB editor lives. Xfer's site: we only frame it, nothing of it is in strdltn. */
 export const SHRUB_EDITOR_URL = 'https://shrub.audio/editor/';
 export const SHRUB_SETTING = 'experimental.shrubEditor';
 
 /**
- * An experimental mockup: SHRUB's web editor in a tab, behind the setting `vstrudel.experimental.shrubEditor`. It is a
+ * An experimental mockup: SHRUB's web editor in a tab, behind the setting `strdltn.experimental.shrubEditor`. It is a
  * second, separate synth: its sound is not in the song's mix or tempo, and it has no MIDI, because a webview and any
  * frame inside it may not use WebMIDI. Why we would not build it further is in doc/DRAWER_OF_FAILED_IDEAS.md.
  */
@@ -13,11 +13,11 @@ export class ShrubPanel {
 	private static current: ShrubPanel | undefined;
 
 	static show(context: vscode.ExtensionContext): void {
-		if (!vscode.workspace.getConfiguration('vstrudel').get<boolean>(SHRUB_SETTING, false)) {
+		if (!vscode.workspace.getConfiguration('strdltn').get<boolean>(SHRUB_SETTING, false)) {
 			void vscode.window
 				.showInformationMessage('The SHRUB editor panel is an experiment and is off.', 'Open setting')
 				.then((choice) => {
-					if (choice) void vscode.commands.executeCommand('workbench.action.openSettings', `vstrudel.${SHRUB_SETTING}`);
+					if (choice) void vscode.commands.executeCommand('workbench.action.openSettings', `strdltn.${SHRUB_SETTING}`);
 				});
 			return;
 		}
@@ -30,13 +30,13 @@ export class ShrubPanel {
 
 	/** Closes the panel when the setting is turned off. */
 	static settingChanged(): void {
-		if (!vscode.workspace.getConfiguration('vstrudel').get<boolean>(SHRUB_SETTING, false)) ShrubPanel.current?.panel.dispose();
+		if (!vscode.workspace.getConfiguration('strdltn').get<boolean>(SHRUB_SETTING, false)) ShrubPanel.current?.panel.dispose();
 	}
 
 	private readonly panel: vscode.WebviewPanel;
 
 	private constructor(context: vscode.ExtensionContext) {
-		this.panel = vscode.window.createWebviewPanel('vstrudel.shrub', 'SHRUB editor (experimental)', vscode.ViewColumn.Beside, {
+		this.panel = vscode.window.createWebviewPanel('strdltn.shrub', 'SHRUB editor (experimental)', vscode.ViewColumn.Beside, {
 			enableScripts: true,
 			// The frame's page is gone when the tab is hidden otherwise, with every unsaved patch in it.
 			retainContextWhenHidden: true,

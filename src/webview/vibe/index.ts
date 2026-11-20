@@ -297,7 +297,7 @@ async function start(id: string, orbit: number): Promise<Instance | undefined> {
 	workletLoaded ??= ac.audioWorklet.addModule(WORKLET_URL);
 	await workletLoaded;
 	const module = moduleFor(id);
-	const node = new AudioWorkletNode(ac, 'vstrudel-vibe', {
+	const node = new AudioWorkletNode(ac, 'strdltn-vibe', {
 		numberOfInputs: 0,
 		numberOfOutputs: 1,
 		outputChannelCount: [2],

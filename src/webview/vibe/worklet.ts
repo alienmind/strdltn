@@ -69,4 +69,4 @@ class VibeProcessor extends AudioWorkletProcessor {
 	}
 }
 
-registerProcessor('vstrudel-vibe', VibeProcessor);
+registerProcessor('strdltn-vibe', VibeProcessor);

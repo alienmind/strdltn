@@ -5,12 +5,12 @@ import { buildFileTree, countFiles, type FileTreeFile, type FileTreeFolder } fro
 export type FileNode = { item: FileTreeFolder | FileTreeFile; root: vscode.Uri; parent?: FileNode; children?: FileNode[] };
 
 /** Never songs: packages, the cache of remote samples, and git's own folder. */
-const EXCLUDE = '**/{node_modules,.vstrudel,.git}/**';
+const EXCLUDE = '**/{node_modules,.strdltn,.git}/**';
 
 /**
  * The Files view: the folders of the workspace that hold `.strudel` files, and those
  * files. It is the Explorer with everything else left out, so a song is one click away
- * without leaving the vstrudel side bar. A click opens the file the way the Explorer
+ * without leaving the strdltn side bar. A click opens the file the way the Explorer
  * would, which is the Strudel editor unless the user chose otherwise.
  */
 export class FilesProvider implements vscode.TreeDataProvider<FileNode> {

@@ -64,7 +64,7 @@ function info(id: string, meta: Record<string, unknown>, url: vscode.Uri): Firmw
 
 /**
  * Keeps a copy of the firmwares that songs load from an address (`firmware('https://...')`), in
- * `.vstrudel/cache/firmware/<hash of the address>/` of the workspace folder, beside the sample packs. The host
+ * `.strdltn/cache/firmware/<hash of the address>/` of the workspace folder, beside the sample packs. The host
  * downloads with Node, so a server without CORS headers works too, and a cached firmware plays offline.
  * The file is kept as it came, a `.wasm` or a package `.zip`: the webview tells them apart by their first bytes.
  */
@@ -76,10 +76,10 @@ export class FirmwareCache {
 
 	constructor(private readonly output: vscode.OutputChannel) {}
 
-	/** `<workspace>/.vstrudel/cache/firmware/<16 hex digits of the address' SHA-256>/`. */
+	/** `<workspace>/.strdltn/cache/firmware/<16 hex digits of the address' SHA-256>/`. */
 	private static folderOf(url: string, workspaceFolder: vscode.Uri): vscode.Uri {
 		const hash = createHash('sha256').update(url).digest('hex').slice(0, 16);
-		return vscode.Uri.joinPath(workspaceFolder, '.vstrudel', 'cache', 'firmware', hash);
+		return vscode.Uri.joinPath(workspaceFolder, '.strdltn', 'cache', 'firmware', hash);
 	}
 
 	/** The webview URL of the cached copy, or undefined while there is none. */
@@ -120,11 +120,11 @@ export class FirmwareCache {
 		if (!response.ok) throw new Error(`${response.status} for ${url}`);
 		const bytes = new Uint8Array(await response.arrayBuffer());
 		await fs.createDirectory(folder);
-		const ignore = vscode.Uri.joinPath(workspaceFolder, '.vstrudel', '.gitignore');
+		const ignore = vscode.Uri.joinPath(workspaceFolder, '.strdltn', '.gitignore');
 		try {
 			await fs.stat(ignore);
 		} catch {
-			await fs.writeFile(ignore, new TextEncoder().encode('# Downloaded by vstrudel. Safe to delete.\n*\n'));
+			await fs.writeFile(ignore, new TextEncoder().encode('# Downloaded by strdltn. Safe to delete.\n*\n'));
 		}
 		await fs.writeFile(vscode.Uri.joinPath(folder, firmwareFileName(url)), bytes);
 		// Written last: cached() only trusts a folder that has it. It also says where the file came from.

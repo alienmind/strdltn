@@ -9,8 +9,10 @@ from here.
 `experimental` was merged into it: Firmware Hub (VIBE FM firmwares from a `firmware/`
 folder or an address, played as `vibefm1:<id>`, with `.progNum()` and a cache) and the
 experimental SHRUB editor panel are back on `main`. The tag 1.0.0 is the vstrudel release
-without these two features. This repo is becoming [str]dltn Live[code]; the rebrand is
-the next step.
+without these two features. The extension is renamed to [str]dltn Live[code]: id
+`strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it
+installs beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry
+over. The next step is the new icon: `media/strdltn.svg` is still the old one.
 
 Next in line:
 
@@ -33,8 +35,8 @@ offline, the silent quick test, Copilot with the instructions).
 |---|---|---|
 | 1 | Snippet header: is the form `// @title`, `@category`, `@details`, `@tags`, `@by`, `@credits` right, and the nine categories? | Built it this way |
 | 3 | A sound in a bank types its full name (`RolandTR909_bd`). Or should it type the short name (`bd`) and leave the bank to the button? | Full name |
-| 4 | Where the Snippets view lives: in the vstrudel side bar, or behind its own icon? | In the vstrudel side bar. Any view can be dragged elsewhere |
-| 5 | The cache for remote packs is `.vstrudel/cache/` in the workspace, not `tmp/`. A dot folder that ignores itself for git seemed safer than a folder a project may already use. OK? | `.vstrudel/cache/` |
+| 4 | Where the Snippets view lives: in the [str]dltn Live[code] side bar, or behind its own icon? | In the [str]dltn Live[code] side bar. Any view can be dragged elsewhere |
+| 5 | The cache for remote packs is `.strdltn/cache/` in the workspace, not `tmp/`. A dot folder that ignores itself for git seemed safer than a folder a project may already use. OK? | `.strdltn/cache/` |
 | 6 | A pack is copied whole. `github:eddyflux/crate` is 367 files and 175 MB. Copy everything, or only the files a song has played? | Everything, up to 600 files |
 | 7 | MIDI: build the desktop bridge now, knowing it cannot work in Codespaces? | Not built |
 | 8 | Sound across a mode switch (see "Open design questions") | Sound stops |
@@ -53,7 +55,7 @@ offline, the silent quick test, Copilot with the instructions).
 
 - A webview may not use WebMIDI ("Midi has been disabled in this document by
   permissions policy"). So Strudel's own `.midi()`, `midin()` and `midikeys()` cannot
-  work inside vstrudel, on desktop or in Codespaces.
+  work inside [str]dltn Live[code], on desktop or in Codespaces.
 - A native MIDI module, `@julusian/midi` 3.9.0 (MIT), loads in the runtime the extension
   host uses (Electron 42 as Node). It ships prebuilt binaries for Windows, macOS and
   Linux, about 2.2 MB together, so nothing is compiled on install.
@@ -147,7 +149,7 @@ Read from the hub's pages on 2026-11-20. Not tested.
   source.
 - Licenses: most firmwares are GPL-3.0, some MPL-2.0, M-VAVE's own V15 is Apache-2.0. The
   SDK is Apache-2.0. The VIBE FM VST and the browser emulator are closed, all rights
-  reserved: we may not copy, embed or host them. vstrudel is AGPL-3.0.
+  reserved: we may not copy, embed or host them. [str]dltn Live[code] is AGPL-3.0.
 - The Playground (`play.thefirmwarehub.com/?fw=<id>`) reads its list from
   `firmware/index.json` on that host. We could not fetch it from our sandbox, so its
   shape and its CORS headers are unknown. The hub documents no public catalog API.
@@ -162,7 +164,7 @@ Read from the hub's pages on 2026-11-20. Not tested.
 | 4 | `.vp()` for parameters by their id, through `VIBE_EV_PARAM`. `VibeCore` already reads the list and has the event | A slider moves a firmware parameter |
 | 5 | The Firmware view: groups "In this project" and the hub's list by device; name, version, author, license; a click types `s("vibefm1:<id>")` and starts the download; buttons for the hub page, the cheat sheet, the parameters and a test note; a filter box; "Add firmware..." for a `.zip` or `.wasm` from disk | The hand test of the view passes |
 | 7 | `.midi("vibefm1:...")`, once the webview's own `.midi()` from "MIDI" exists: names that start with `vibefm1:` go to the firmware, CCs and `midimaps` work too | Code written for an FM-1 over MIDI plays the firmware |
-| 8 | Store: `vibe_host_store` writes go to `.vstrudel/firmware-store/<id>/` through the host, and come back on load | Save a sound in a firmware, reload, it is there |
+| 8 | Store: `vibe_host_store` writes go to `.strdltn/firmware-store/<id>/` through the host, and come back on load | Save a sound in a firmware, reload, it is there |
 | 9 | A snippet in `lib/` for a firmware part | |
 | 10 | README and `doc/ABOUT.md`, once the view exists | |
 | 11 | Later: the 480 x 320 display in the stage, from `vibe_wasm_draw` at 30 fps | |
@@ -209,7 +211,7 @@ The ways it could reach a song, best first:
    time, and no MIDI (a webview, and a frame inside it, may not use WebMIDI). It would be a
    browser tab inside VS Code, good for editing patches for a real FM-1 and nothing else.
    Not worth building further. A mockup exists, off by default: the setting
-   `vstrudel.experimental.shrubEditor` and the command "vstrudel: Open SHRUB editor
+   `strdltn.experimental.shrubEditor` and the command "strdltn: Open SHRUB editor
    (experimental)". To try by hand: does the site load in the frame, and does it make
    sound there?
 
@@ -260,7 +262,7 @@ secret. What is left, in order:
 1. The maintainer creates a publisher on the Marketplace and a token for it. Only the
    maintainer can do this.
 2. Set `publisher` in `package.json` to that publisher id. This changes the extension
-   id, which is `<publisher>.vstrudel`. The id is also written in `src/test/m0.ts`.
+   id, which is `<publisher>.strdltn`. The id is also written in `src/test/m0.ts`.
 3. Add the token to the GitHub repository as the secret `VSCE_PAT`.
 4. Add an `icon` to `package.json`: a PNG of at least 128 by 128 pixels. The Marketplace
    restricts the use of the VS Code logo in an extension's icon, and `doc/logo.jpg`
@@ -302,7 +304,7 @@ planned yet.
 - The place of an error is found by rule from its message. For a name that is written
   more than once it can be the wrong place. An error no rule places is on line 1.
 - A sound that is not found while the pattern plays is not a problem of the file. It
-  only goes to Output > `vstrudel`.
+  only goes to Output > `strdltn`.
 - The theme of the Strudel editor does not follow the VS Code theme.
 - The list of themes in `package.json` is a copy of upstream's. Nothing checks it when
   `@strudel/codemirror` is updated.
@@ -314,7 +316,7 @@ planned yet.
   Code (Ctrl+F in the view) works on what a row shows. Expected to cover title and
   tags, not tested. It does not search the description.
 - The logo view has an empty strip under the picture, and its own title row that says
-  "vstrudel" again under the title of the side bar. VS Code gives a view no way to fit
+  "strdltn" again under the title of the side bar. VS Code gives a view no way to fit
   its content or to hide its title.
 - Inline completion of Copilot does not read the instruction files. Only Chat and agents
   do.
@@ -355,12 +357,12 @@ column says, then delete the spike. None of these is started unless it says so.
 | # | Question | How | Record | Write the answer in |
 |---|---|---|---|---|
 | S1 | How fast does a small model run in the webview on the maintainer's machine, on the GPU and on the CPU? | Load one model with transformers.js in the webview through `pnpm test:vscode`. Run it once with WebGPU and once with WebAssembly. Start with Gemma 3 270M, then 1B, then a code model (CodeGemma 2B or Qwen2.5-Coder 1.5B) | Tokens per second, time to the first token, memory, size of the download, and whether our Content Security Policy needs a new rule | "Measured" in `doc/ARCHITECTURE.md`, and "Which model" below |
-| S2 | Can the weights be served from `tmp/vstrudel-models/` through `asWebviewUri`, or does the runtime insist on its own download? | Same spike as S1, with the files fetched by the extension host first | Works or not, and what had to be configured | "Local model" below |
+| S2 | Can the weights be served from `tmp/strdltn-models/` through `asWebviewUri`, or does the runtime insist on its own download? | Same spike as S1, with the files fetched by the extension host first | Works or not, and what had to be configured | "Local model" below |
 | S3 | Does a completion extension with a local server complete `.strudel` files? | Install llama.cpp (or Ollama) on the host and `llama.vscode` (or Continue) in the test profile. Type in a `.strudel` file in the native editor | Whether it offers anything, whether it needs `.strudel` mapped to JavaScript, tokens per second on the CPU | "Completion from another extension" below |
 | S4 | Do local reference files change what stock completion offers? | With Copilot on, type the start of a rare function in a `.strudel` file, first without and then with a reference file open in another tab, then with it only on disk | What was offered in each of the three cases | "Strudel's documentation as local examples" below |
 | S5 | Can the extension host send MIDI on time? | A worker thread that waits with `Atomics.wait`, or sends early and spins for the last millisecond. Measure with the silent "all notes off" message, as the first MIDI spike did | How late a send is: middle, 95th percentile, worst. The bar is 2 ms | "MIDI" above |
 | S6 | Can a webview list the sound cards by name? | Ask for the microphone once in the webview, then call `enumerateDevices()` again | Whether VS Code allows the request, and the list that comes back | "Sound card" above |
-| S7 | Does the pack cache work in Codespaces? | Open `examples/05-coastline.strudel` in a Codespace | Whether the files arrive in `.vstrudel/cache/` and play from there | "Measured" in `doc/ARCHITECTURE.md` |
+| S7 | Does the pack cache work in Codespaces? | Open `examples/05-coastline.strudel` in a Codespace | Whether the files arrive in `.strdltn/cache/` and play from there | "Measured" in `doc/ARCHITECTURE.md` |
 
 Already done, with their answers in `doc/ARCHITECTURE.md` and the drawer: sound in a
 webview, WebMIDI in a webview (refused), WebGPU in a webview (works), a native MIDI
@@ -428,7 +430,7 @@ time to first token, and the memory used. Proposed bar: completion needs 20 toke
 second or more to feel like typing. Expected, not measured: 1B to 2B models pass on this
 GPU, 4B is usable for chat, and on the CPU only the smallest ones pass.
 
-The weights are downloaded once by the extension host into `tmp/vstrudel-models/` and
+The weights are downloaded once by the extension host into `tmp/strdltn-models/` and
 given to the webview through `asWebviewUri`, the way the pack cache works. That keeps
 them out of the browser's own storage, which a webview does not keep reliably.
 
@@ -499,7 +501,7 @@ Possible, with these pieces. None of it is tested.
 | Piece | Today | Needed |
 |---|---|---|
 | The extension | Installed from a `.vsix` | Nothing |
-| Our own model | Not built | Weights in `tmp/vstrudel-models/`, fetched once |
+| Our own model | Not built | Weights in `tmp/strdltn-models/`, fetched once |
 | The model server for another extension | Not set up | llama.cpp or Ollama on the host, reached from the container as `host.docker.internal`, or a second container with the weights in a volume |
 | The completion extension itself | Installed from the Marketplace | Installed once while online, or its `.vsix` kept in the image |
 | Default sounds | Maps from the network at every start, audio on first play | Kept in the cache like remote packs |
@@ -518,7 +520,7 @@ outside the container, on the real GPU. Docker is installed here. Ollama is not.
   the user.
 - How to tell a good completion from a bad one. A small set of Strudel lines with the
   end cut off, scored by whether the result evaluates.
-- The pack cache is in `.vstrudel/cache/` and the models go to `tmp/`. One place would
+- The pack cache is in `.strdltn/cache/` and the models go to `tmp/`. One place would
   be simpler. See decision 5.
 - Whether the weights in `tmp/` are shared between projects or downloaded for each one.
 

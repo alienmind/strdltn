@@ -1,8 +1,8 @@
-// Codespace for writing music. It installs the released vstrudel extension.
+// Codespace for writing music. It installs the released [str]dltn Live[code] extension.
 {
-	"name": "vstrudel template",
+	"name": "[str]dltn Live[code] template",
 	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
 	// One command, on attach: installing needs a connected editor. It downloads the
 	// .vsix only when it is not there yet, and keeps it in the home folder.
-	"postAttachCommand": "bash -c 'f=$HOME/.vstrudel.vsix; [ -f $f ] || curl -fsSL -o $f https://github.com/alienmind/vstrudel/releases/latest/download/vstrudel.vsix; code --install-extension $f --force'"
+	"postAttachCommand": "bash -c 'f=$HOME/.strdltn.vsix; [ -f $f ] || curl -fsSL -o $f https://github.com/alienmind/strdltn/releases/latest/download/strdltn.vsix; code --install-extension $f --force'"
 }

@@ -36,7 +36,7 @@ const time = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
 const packageVersion = release ? '' : `${version}-dev.${time}`;
 
 mkdirSync(join(root, '.bin'), { recursive: true });
-const vsix = join(root, '.bin', 'vstrudel.vsix');
+const vsix = join(root, '.bin', 'strdltn.vsix');
 node('scripts/build.mjs', '--production');
 shell(`pnpm exec vsce package ${packageVersion} --no-dependencies --no-update-package-json --no-git-tag-version --out "${vsix}"`);
 writeFileSync(join(root, '.bin', 'PROMOTED.txt'), `${build}\n${new Date().toISOString()}\n`);
@@ -45,11 +45,11 @@ writeFileSync(join(root, '.bin', 'PROMOTED.txt'), `${build}\n${new Date().toISOS
 node('scripts/build.mjs');
 
 if (process.argv.includes('--no-install')) {
-	console.log(`\npackaged ${build} as .bin/vstrudel.vsix (not installed)`);
+	console.log(`\npackaged ${build} as .bin/strdltn.vsix (not installed)`);
 } else {
 	const installed = spawnSync(`code --install-extension "${vsix}" --force`, { cwd: root, stdio: 'inherit', shell: true });
 	if (installed.status !== 0) {
-		console.error('\ninstall failed. Is the `code` command on your PATH? The package is at .bin/vstrudel.vsix');
+		console.error('\ninstall failed. Is the `code` command on your PATH? The package is at .bin/strdltn.vsix');
 		process.exit(installed.status ?? 1);
 	}
 	console.log(`\npromoted ${build}${packageVersion ? ` as ${packageVersion}` : ''}. Run "Developer: Reload Window" in VS Code to load it.`);

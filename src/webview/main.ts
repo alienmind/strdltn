@@ -21,7 +21,7 @@ import { addFirmware, initFirmware, registerFirmware, setFirmwareCache, transpor
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
-const REPL_ID = 'vstrudel';
+const REPL_ID = 'strdltn';
 const vscode = acquireVsCodeApi();
 const post = (message: FromWebview) => vscode.postMessage(message);
 const log = (level: 'info' | 'warn' | 'error', message: string) => post({ type: 'log', level, message });

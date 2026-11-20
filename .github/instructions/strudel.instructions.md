@@ -5,7 +5,7 @@ applyTo: "**/*.strudel"
 # When a `.strudel` file is open
 
 A `.strudel` file is a song, written in Strudel (https://strudel.cc). This repository
-is also the source of the vstrudel extension that plays it, and the two must not be
+is also the source of the [str]dltn Live[code] extension that plays it, and the two must not be
 mixed up.
 
 A request about music ("add a bass line", "busier hats", "more reverb on the snare")

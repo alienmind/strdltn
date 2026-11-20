@@ -25,7 +25,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 const PREVIEW_LINES = 30;
 
 /**
- * The Snippets view: every .strudel file under a folder named by `vstrudel.libFolder`
+ * The Snippets view: every .strudel file under a folder named by `strdltn.libFolder`
  * (default `lib`), anywhere in the workspace. One file is one snippet.
  *
  * It is a tree, like the Sounds view above it: a row per snippet, with the same two
@@ -41,7 +41,7 @@ export class SnippetsView implements vscode.TreeDataProvider<SnippetNode> {
 	readonly onDidChangeTreeData = this.changed.event;
 
 	static folderName(): string {
-		return vscode.workspace.getConfiguration('vstrudel').get<string>('libFolder', 'lib');
+		return vscode.workspace.getConfiguration('strdltn').get<string>('libFolder', 'lib');
 	}
 
 	async refresh(): Promise<void> {

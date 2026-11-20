@@ -4,9 +4,9 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as vscode from 'vscode';
-import type { VstrudelApi } from '../extension/extension';
+import type { StrdltnApi } from '../extension/extension';
 
-const EDITOR = 'vstrudel.editor';
+const EDITOR = 'strdltn.editor';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function run(): Promise<void> {
@@ -15,7 +15,7 @@ export async function run(): Promise<void> {
 	const steps = result.steps as Record<string, unknown>;
 	const save = () => out && writeFileSync(out, JSON.stringify(result, null, 2));
 	try {
-		const extension = vscode.extensions.getExtension<VstrudelApi>('vstrudel.vstrudel')!;
+		const extension = vscode.extensions.getExtension<StrdltnApi>('strdltn.strdltn')!;
 		const api = await extension.activate();
 		result.identity = api.identity;
 		const folder = vscode.workspace.workspaceFolders![0].uri;
@@ -68,7 +68,7 @@ export async function run(): Promise<void> {
 		save();
 
 		// 2. Play from a command, with no click inside the webview.
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		steps.editorPlayed = await until(() => has('editor', demo, 'report:'), 30000);
 		steps.editorReport = last('editor', demo, 'report:');
 		steps.editorNeedsClick = has('editor', demo, 'click inside the webview');
@@ -87,7 +87,7 @@ export async function run(): Promise<void> {
 			edit.insert(demo, new vscode.Position(0, 0), `${line}\n`);
 			await vscode.workspace.applyEdit(edit);
 			await sleep(500);
-			await vscode.commands.executeCommand('vstrudel.play');
+			await vscode.commands.executeCommand('strdltn.play');
 			await until(() => vscode.languages.getDiagnostics(demo).length > 0, 10000);
 			const seen = problemList();
 			const status = api.status();
@@ -97,13 +97,13 @@ export async function run(): Promise<void> {
 		steps.errorUnknownFunction = await breakWith('$: s("bd").lfpx(200)');
 		steps.errorSyntax = await breakWith('$: s("bd"))');
 		steps.errorMini = await breakWith('$: s("bd [sd")');
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		steps.errorGoneAfterGoodPlay = await until(() => session('editor', demo)?.error === undefined, 10000);
 		steps.statusAfterFix = api.status()?.text;
 		save();
 
 		// 2a2. Theme and font size from the settings, without a reload.
-		const configuration = vscode.workspace.getConfiguration('vstrudel');
+		const configuration = vscode.workspace.getConfiguration('strdltn');
 		const settingsLine = () => last('editor', demo, 'settings:') ?? '';
 		steps.settingsAtStart = settingsLine();
 		await configuration.update('editor.theme', 'githubLight', vscode.ConfigurationTarget.Global);
@@ -133,7 +133,7 @@ export async function run(): Promise<void> {
 			soundfont: pick((s) => s.type === 'soundfont'),
 		};
 		steps.soundPicks = Object.fromEntries(Object.entries(picks).map(([key, s]) => [key, s && `${s.name} (${s.type}, ${s.count})`]));
-		await vscode.commands.executeCommand('vstrudel.sounds.focus');
+		await vscode.commands.executeCommand('strdltn.sounds.focus');
 		await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
 		await vscode.commands.executeCommand('notifications.clearAll');
 		steps.soundBanks = api.soundBanks().length;
@@ -148,13 +148,13 @@ export async function run(): Promise<void> {
 				api.files().filter((path) => (path.split('/').slice(0, -1).join('/') || '.') === folder).length,
 			]),
 		);
-		await vscode.commands.executeCommand('vstrudel.files.focus');
+		await vscode.commands.executeCommand('strdltn.files.focus');
 		await api.expandFilesFolder('examples');
 		await sleep(1000);
 		await shot('files-view');
 		await api.expandSoundGroup('Synths');
 		await api.expandSoundBank('RolandTR909');
-		await vscode.commands.executeCommand('vstrudel.snippets.focus');
+		await vscode.commands.executeCommand('strdltn.snippets.focus');
 		await sleep(1200);
 		await api.expandSnippet('bass/acid-303');
 		await sleep(1500);
@@ -162,11 +162,11 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('workbench.action.closeSidebar');
 		await sleep(1200);
 		await shot('editor');
-		await vscode.commands.executeCommand('vstrudel.sounds.focus');
+		await vscode.commands.executeCommand('strdltn.sounds.focus');
 		const previews: Record<string, boolean> = {};
 		for (const [key, sound] of Object.entries(picks)) {
 			if (!sound) continue;
-			await vscode.commands.executeCommand('vstrudel.previewSound', { kind: 'sound', sound });
+			await vscode.commands.executeCommand('strdltn.previewSound', { kind: 'sound', sound });
 			previews[key] = await until(() => has('editor', demo, `preview: ${sound.name}:0`), 15000);
 			await sleep(700);
 		}
@@ -175,14 +175,14 @@ export async function run(): Promise<void> {
 		const previewCount = (mode: string) => session(mode, demo)?.logs.filter((line) => line.includes('preview: bd:0')).length ?? 0;
 		if (picks.sample) {
 			const heardBefore = previewCount('editor');
-			await vscode.commands.executeCommand('vstrudel.clickSound', { kind: 'sound', sound: picks.sample });
+			await vscode.commands.executeCommand('strdltn.clickSound', { kind: 'sound', sound: picks.sample });
 			steps.clickSoundInStrudelEditor = {
 				heard: await until(() => previewCount('editor') > heardBefore, 5000),
 				typedNothing: (await text(demo)) === demoText,
 			};
 		}
 		if (picks.soundfont) {
-			await vscode.commands.executeCommand('vstrudel.insertSound', { kind: 'sound', sound: picks.soundfont });
+			await vscode.commands.executeCommand('strdltn.insertSound', { kind: 'sound', sound: picks.soundfont });
 			steps.insertSoundInStrudelEditor = await until(() => false, 1500).then(async () => (await text(demo)).includes(picks.soundfont!.name));
 			await restore(demo, demoText);
 		}
@@ -205,36 +205,36 @@ export async function run(): Promise<void> {
 		const playing = () => [session('editor', demo)?.started, session('editor', second)?.started];
 		await vscode.commands.executeCommand('vscode.openWith', second, EDITOR);
 		await until(() => has('editor', second, 'local samples'), 30000);
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		await until(() => has('editor', second, 'report:'), 30000);
 		await sleep(1000);
 		steps.twoSongsPlaying = playing();
 		steps.statusSecondSong = api.status()?.text;
-		await vscode.commands.executeCommand('vstrudel.stop');
+		await vscode.commands.executeCommand('strdltn.stop');
 		await sleep(500);
 		steps.afterStopInFront = playing();
 		const plain = await vscode.workspace.openTextDocument({ content: 'not a song', language: 'plaintext' });
 		await vscode.window.showTextDocument(plain);
 		await sleep(500);
 		steps.statusInAnotherTab = api.status()?.text;
-		await vscode.commands.executeCommand('vstrudel.stop');
+		await vscode.commands.executeCommand('strdltn.stop');
 		await sleep(500);
 		steps.afterStopElsewhere = playing();
 		steps.statusNothingPlays = api.status()?.text ?? 'hidden';
 		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
 		await vscode.commands.executeCommand('vscode.openWith', second, EDITOR);
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		await vscode.commands.executeCommand('vscode.openWith', demo, EDITOR);
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		await until(() => playing().every(Boolean), 10000);
 		steps.twoSongsPlayingAgain = playing();
-		await vscode.commands.executeCommand('vstrudel.stopAll');
+		await vscode.commands.executeCommand('strdltn.stopAll');
 		await sleep(500);
 		steps.afterStopAll = playing();
 		await vscode.commands.executeCommand('vscode.openWith', second, EDITOR);
 		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 		await vscode.commands.executeCommand('vscode.openWith', demo, EDITOR);
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		await until(() => !!session('editor', demo)?.started, 10000);
 		save();
 
@@ -245,7 +245,7 @@ export async function run(): Promise<void> {
 		steps.editorStartedWhileHidden = session('editor', demo)?.started;
 		steps.editorSessionAliveWhileHidden = !!session('editor', demo);
 		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
-		await vscode.commands.executeCommand('vstrudel.stop');
+		await vscode.commands.executeCommand('strdltn.stop');
 		await sleep(500);
 		steps.editorStartedAfterStop = session('editor', demo)?.started;
 		steps.editorProblems = problems('editor', demo);
@@ -255,7 +255,7 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('vscode.openWith', demo, EDITOR);
 		await sleep(500);
 		let before = Date.now();
-		await vscode.commands.executeCommand('vstrudel.toggleMode');
+		await vscode.commands.executeCommand('strdltn.toggleMode');
 		steps.toggleToNativeMs = Date.now() - before;
 		await sleep(500);
 		steps.tabsAfterToggleToNative = tabs(demo);
@@ -268,26 +268,26 @@ export async function run(): Promise<void> {
 		// 4a. A click on a sound does not type into a file that is not a Strudel file.
 		const notes = await vscode.workspace.openTextDocument({ content: 'notes', language: 'markdown' });
 		await vscode.window.showTextDocument(notes);
-		await vscode.commands.executeCommand('vstrudel.insertSound', { kind: 'sound', sound: { name: 'bd', type: 'sample', count: 1 } });
+		await vscode.commands.executeCommand('strdltn.insertSound', { kind: 'sound', sound: { name: 'bd', type: 'sample', count: 1 } });
 		await sleep(500);
 		steps.otherFileUntouched = notes.getText() === 'notes';
 		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
 		await vscode.commands.executeCommand('notifications.clearAll');
 		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(demo));
-		await vscode.commands.executeCommand('vstrudel.snippets.focus');
+		await vscode.commands.executeCommand('strdltn.snippets.focus');
 		await sleep(1000);
 		await shot('snippets-view');
 		const snippetBody = 's("[~ hh]*4").bank("RolandTR909").gain(.6)';
 		const nativeBefore = await text(demo);
 		const snippetUri = vscode.Uri.joinPath(folder, 'lib', 'drums', 'offbeat-hats.strudel');
-		await vscode.commands.executeCommand('vstrudel.insertSnippet', { uri: snippetUri, name: 'drums/offbeat-hats' });
+		await vscode.commands.executeCommand('strdltn.insertSnippet', { uri: snippetUri, name: 'drums/offbeat-hats' });
 		await sleep(700);
 		steps.insertSnippetInNativeEditor = count(await text(demo), snippetBody) === count(nativeBefore, snippetBody) + 1;
 		await restore(demo, nativeBefore);
 		await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
 
 		// 5. Play from the native editor: a stage opens beside it.
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		steps.stagePlayed = await until(() => has('stage', demo, 'report:'), 40000);
 		steps.stageReport = last('stage', demo, 'report:');
 		steps.stageNeedsClick = has('stage', demo, 'click inside the webview');
@@ -296,7 +296,7 @@ export async function run(): Promise<void> {
 			// The same click from the native editor: heard through the stage, nothing typed.
 			const textBefore = await text(demo);
 			const heardBefore = previewCount('stage');
-			await vscode.commands.executeCommand('vstrudel.clickSound', { kind: 'sound', sound: { name: 'bd', type: 'sample', count: 8 } });
+			await vscode.commands.executeCommand('strdltn.clickSound', { kind: 'sound', sound: { name: 'bd', type: 'sample', count: 8 } });
 			steps.clickSoundInNativeEditor = {
 				heard: await until(() => previewCount('stage') > heardBefore, 5000),
 				typedNothing: (await text(demo)) === textBefore,
@@ -320,26 +320,26 @@ export async function run(): Promise<void> {
 		insert.insert(demo, new vscode.Position(0, 0), marker);
 		await vscode.workspace.applyEdit(insert);
 		await sleep(500);
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		await sleep(3000);
 		steps.documentLength = document.getText().length;
 		steps.stageReportAfterEdit = last('stage', demo, 'report:');
 		steps.stageProblems = problems('stage', demo);
-		await vscode.commands.executeCommand('vstrudel.stop');
+		await vscode.commands.executeCommand('strdltn.stop');
 		save();
 
 		// 7. Switch back. The stage closes and the Strudel editor has the edit.
 		await vscode.window.showTextDocument(document);
 		before = Date.now();
-		await vscode.commands.executeCommand('vstrudel.toggleMode');
+		await vscode.commands.executeCommand('strdltn.toggleMode');
 		steps.toggleToStrudelMs = Date.now() - before;
 		steps.editorReloaded = await until(() => has('editor', demo, 'local samples'), 30000);
 		steps.tabsAfterToggleToStrudel = tabs(demo);
 		steps.stageGoneAfterToggle = !session('stage', demo);
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		await until(() => has('editor', demo, 'report:'), 15000);
 		steps.editorReportAfterToggle = last('editor', demo, 'report:');
-		await vscode.commands.executeCommand('vstrudel.stop');
+		await vscode.commands.executeCommand('strdltn.stop');
 
 		// Leave the file as it was.
 		const remove = new vscode.WorkspaceEdit();
@@ -381,15 +381,15 @@ export async function run(): Promise<void> {
 			steps.httpsPackListed = await until(() => api.sounds().some((s) => s.tag === address), 40000);
 			steps.httpsPackCached = await until(() => api.packs().some((pack) => pack.source === address && pack.complete), 120000);
 			steps.httpsPackServedFromCache = await until(() => has('editor', packSong, `${address} (cached): registered`), 20000);
-			await vscode.commands.executeCommand('vstrudel.play');
+			await vscode.commands.executeCommand('strdltn.play');
 			await until(() => has('editor', packSong, 'report:'), 30000);
 			steps.baseFirstPlay = last('editor', packSong, `samples from ${base}`);
 			steps.baseFilesCached = await until(() => api.packs().some((pack) => pack.source === base && pack.complete), 60000);
-			await vscode.commands.executeCommand('vstrudel.play');
+			await vscode.commands.executeCommand('strdltn.play');
 			steps.baseServedFromCache = await until(() => has('editor', packSong, `samples from ${base}: cache`), 10000);
 			await sleep(2000);
 			steps.packSongProblems = problems('editor', packSong);
-			await vscode.commands.executeCommand('vstrudel.stop');
+			await vscode.commands.executeCommand('strdltn.stop');
 			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 		} finally {
 			await vscode.workspace.fs.delete(packSong).then(undefined, () => undefined);
@@ -409,7 +409,7 @@ export async function run(): Promise<void> {
 			filesChecked++;
 			await vscode.commands.executeCommand('vscode.openWith', file, EDITOR);
 			await until(() => has('editor', file, 'local samples'), 30000);
-			await vscode.commands.executeCommand('vstrudel.play');
+			await vscode.commands.executeCommand('strdltn.play');
 			const played = await until(() => has('editor', file, 'report:'), 30000);
 			await sleep(3000);
 			const logs = session('editor', file)?.logs ?? [];
@@ -421,7 +421,7 @@ export async function run(): Promise<void> {
 			if (!played) bad.unshift('did not play');
 			else if (!last('editor', file, 'report:')?.includes('started=true')) bad.unshift('did not start');
 			if (bad.length) fileProblems[vscode.workspace.asRelativePath(file)] = [...new Set(bad)].slice(0, 5);
-			await vscode.commands.executeCommand('vstrudel.stop');
+			await vscode.commands.executeCommand('strdltn.stop');
 			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 			save();
 		}
@@ -433,7 +433,7 @@ export async function run(): Promise<void> {
 		if (!quick) {
 		await vscode.commands.executeCommand('vscode.openWith', hydra, EDITOR);
 		steps.hydraLoaded = await until(() => has('editor', hydra, 'local samples'), 30000);
-		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('strdltn.play');
 		steps.hydraPlayed = await until(() => has('editor', hydra, 'report:'), 40000);
 		await sleep(3000);
 		steps.hydraReport = last('editor', hydra, 'report:');
@@ -441,7 +441,7 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('workbench.action.closeSidebar');
 		await sleep(1500);
 		await shot('hydra');
-		await vscode.commands.executeCommand('vstrudel.stop');
+		await vscode.commands.executeCommand('strdltn.stop');
 		}
 		result.finished = true;
 		result.logs = api.sessions().map((s) => ({ mode: s.mode, uri: s.uri.split('/').pop(), logs: s.logs }));

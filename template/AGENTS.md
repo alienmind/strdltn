@@ -2,7 +2,7 @@
 
 This is a music project. The songs are the `.strudel` files. They are written in
 Strudel (https://strudel.cc), a language for live coding music, and played by the
-vstrudel extension of VS Code.
+[str]dltn Live[code] extension of VS Code.
 
 ## What a request means
 
@@ -28,7 +28,7 @@ the `.strudel` file that is open.
 | `reference/strudel-functions.md` | Every Strudel function with its parameters and examples, from the upstream reference. Search it before using a function |
 | `reference/strudel-tutorial.md` | The workshop and the guides of strudel.cc as plain text, with their examples. Read the part about what is asked (drums, notes, effects, signals) when writing something new |
 | `samples/` | The user's own audio files. A folder `samples/kick/` is the sound `s("kick")`, and `s("kick:1")` is its second file |
-| `.vstrudel/` | A cache the extension fills. Never edit it |
+| `.strdltn/` | A cache the extension fills. Never edit it |
 
 ## How a song is written
 
@@ -60,7 +60,7 @@ A pattern with `_$:` in front is muted. Use that to turn a part off without dele
 | `n("0 2 4 7").scale("C:minor")` | Steps of a scale. The usual way to write a melody or a bass line |
 | `chord("<Am7 Fmaj7>").voicing()` | Chords by name |
 
-Only use a sound name that is in the Sounds view of vstrudel, or that already appears in
+Only use a sound name that is in the Sounds view of [str]dltn Live[code], or that already appears in
 this project. Do not make up names.
 
 ### Mini-notation
@@ -117,5 +117,5 @@ Strudel has many functions, and a name that does not exist stops the whole song.
 function only when it is in one of the places above. When in doubt, use the plainer way
 from the tables of this file.
 
-After an edit, an error in the code shows as a problem of the file (source `vstrudel`).
+After an edit, an error in the code shows as a problem of the file (source `strdltn`).
 Read it and fix the song.

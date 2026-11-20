@@ -73,7 +73,7 @@ const SUB_VOL=slider(0.452,0,1)
 const BASS_ENERGY=slider(1,1,4)
 const SUB_ENERGY=slider(1.999,1,4)
 
-// Option 2 - physical knobs via MIDI. Not available inside vstrudel yet: a VS Code webview has no MIDI.
+// Option 2 - physical knobs via MIDI. Not available inside [str]dltn Live[code] yet: a VS Code webview has no MIDI.
 // const  cc = await midin('MPK mini 3',{debug : true}) // Experimental feature. Device name could also be omitted
 // Bank 1 - cc(1) to cc(8)
 // const KICK_VOL=cc(1).range(0,1)

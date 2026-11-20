@@ -5,7 +5,7 @@ applyTo: "**/*.strudel"
 # When a `.strudel` file is open
 
 A `.strudel` file is a song, written in Strudel (https://strudel.cc) and played by the
-vstrudel extension.
+[str]dltn Live[code] extension.
 
 A request about music ("add a bass line", "busier hats", "more reverb on the snare")
 means: edit the open `.strudel` file, and only that file, by adding or changing a

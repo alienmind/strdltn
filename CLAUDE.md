@@ -8,7 +8,7 @@ fit any project.
 
 ### What this is
 
-vstrudel is a VS Code extension that turns the editor into a Strudel IDE for `.strudel`
+[str]dltn Live[code] is a VS Code extension that turns the editor into a Strudel IDE for `.strudel`
 files. It hosts the upstream Strudel packages (`@strudel/*` from npm, source at
 `codeberg.org/uzu/strudel`) in a webview and adds a Sounds view, a Snippets view, a
 stage, and a cache for remote sample packs. It runs on desktop VS Code and in GitHub
@@ -19,7 +19,7 @@ grew beyond a VS Code extension.
 
 | Where | What |
 |---|---|
-| `github.com/alienmind/vstrudel` | This repo |
+| `github.com/alienmind/strdltn` | This repo |
 | `../alienmind-www` | The maintainer's home page. It shows `doc/ABOUT.md` of this repo |
 | `README.md` | What a user gets, with the full feature list |
 | `doc/ARCHITECTURE.md` | How every part works, and every fact we measured about VS Code |
@@ -67,8 +67,12 @@ What to know about the real test:
   commits before you write. Commit only the files you changed, by name, and leave the
   uncommitted changes of another session alone.
 - **Strudel comes from upstream npm, pinned.** No fork, no submodule, no patches.
-- **Our name is vstrudel.** The side bar, the commands and the icon say vstrudel. "Strudel"
-  is only used for the language and for the upstream editor.
+- **Our name is [str]dltn Live[code], short `strdltn`.** The side bar and the docs say
+  [str]dltn Live[code]. Commands, settings and ids use `strdltn` (extension id
+  `strdltn.strdltn`). "Strudel" is only used for the language and for the
+  upstream editor.
+- **This project and vstrudel must not collide.** The maintainer still runs vstrudel in
+  their own VS Code. Never reuse an id, command, setting, view or file name of vstrudel.
 - **Other people's work.** A file by somebody else goes in only with a license that
   allows it. A technique learned from somebody is written again as our own code, and the
   snippet says `// @credits <name>`, the name and nothing else.

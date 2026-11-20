@@ -1,23 +1,23 @@
 ---
-title: "vstrudel"
+title: "[str]dltn Live[code]"
 ---
 
-# vstrudel
+# [str]dltn Live[code]
 
-![vstrudel logo](logo.jpg)
+![[str]dltn Live[code] logo](logo.jpg)
 
-**vstrudel is a VS Code extension. It turns your editor into a Strudel IDE whenever you
+**[str]dltn Live[code] is a VS Code extension. It turns your editor into a Strudel IDE whenever you
 open a `.strudel` file.**
 
 [Strudel](https://strudel.cc) is a language for making music with code. Its home is a
 web page, and a web page is a hard place to keep a growing pile of songs, samples and
-reusable ideas. vstrudel embeds the real Strudel, the same editor and the same sound
+reusable ideas. [str]dltn Live[code] embeds the real Strudel, the same editor and the same sound
 engine, and adds panels around it: the songs of your project, every sound you can play,
 your own library of snippets, and your music as plain files in a project.
 
 ![The Strudel editor in VS Code, with the Sounds and Snippets views](screenshot-sounds.png)
 
-[Download the latest release](https://github.com/alienmind/vstrudel/releases/latest) | [Source on GitHub](https://github.com/alienmind/vstrudel)
+[Download the latest release](https://github.com/alienmind/strdltn/releases/latest) | [Source on GitHub](https://github.com/alienmind/strdltn)
 
 Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Code and
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
@@ -52,7 +52,7 @@ it because the scope grew beyond a VS Code extension.
 - Settings for the theme of the editor (the 39 themes of strudel.cc) and its font. By
   default the font and size are those of your VS Code editor.
 - Ctrl+. stops the song in front. Press it again to stop a song that plays in another
-  tab. "vstrudel: Stop all" stops every song.
+  tab. "strdltn: Stop all" stops every song.
 
 **Sounds**
 
@@ -97,7 +97,7 @@ it because the scope grew beyond a VS Code extension.
 
 ![The Strudel editor playing a song](screenshot-editor.png)
 
-vstrudel does not imitate Strudel. It hosts the upstream Strudel packages, so you get
+[str]dltn Live[code] does not imitate Strudel. It hosts the upstream Strudel packages, so you get
 the same editor and engine as on strudel.cc, and new Strudel features arrive with a
 version bump.
 
@@ -121,9 +121,9 @@ samples/
 Now `s("kick snare")` plays them, and `s("kick:1")` picks the second kick.
 
 A song can also load a pack from GitHub with `samples('github:user/repo')`, or from any
-address with `samples('https://.../strudel.json')`. vstrudel sees that line when you
+address with `samples('https://.../strudel.json')`. [str]dltn Live[code] sees that line when you
 open the file: the pack shows up in the Sounds view at once, and it is copied into a
-`.vstrudel/` folder of your project so it plays without the network next time.
+`.strdltn/` folder of your project so it plays without the network next time.
 
 ### Snippets
 
@@ -186,8 +186,8 @@ the visuals draw behind your code, driven by your pattern.
 
 ### In VS Code
 
-1. Download `vstrudel.vsix` from the
-   [latest release](https://github.com/alienmind/vstrudel/releases/latest).
+1. Download `strdltn.vsix` from the
+   [latest release](https://github.com/alienmind/strdltn/releases/latest).
 2. In VS Code open the Extensions view, press `...` at the top, and choose
    **Install from VSIX...**
 3. Make a file called `song.strudel`, type `s("bd sd, hh*4")`, click in the code and
@@ -195,9 +195,9 @@ the visuals draw behind your code, driven by your pattern.
 
 ### In GitHub Codespaces
 
-1. Open [github.com/alienmind/vstrudel](https://github.com/alienmind/vstrudel).
+1. Open [github.com/alienmind/strdltn](https://github.com/alienmind/strdltn).
 2. Press **Code**, then **Codespaces**, then `...` and **New with options**.
-3. Choose the configuration **vstrudel template (released extension)** and create it.
+3. Choose the configuration **[str]dltn Live[code] template (released extension)** and create it.
 4. Open `demo.strudel`, click in the code and press **Ctrl+Enter**.
 
 The sound comes out of your browser.
@@ -219,8 +219,8 @@ On a Mac use Cmd in place of Ctrl.
   first. Pressing Ctrl+Enter inside the Strudel editor counts as that click.
 - **The network.** The default sounds and Hydra are downloaded when they are used.
   Offline, the synths, your own samples and the packs already copied still play.
-- **Disk space.** A pack is copied whole. Some are large. "vstrudel: Show sample pack
-  cache size" says how much, and "vstrudel: Clear sample pack cache" gets the space
+- **Disk space.** A pack is copied whole. Some are large. "strdltn: Show sample pack
+  cache size" says how much, and "strdltn: Clear sample pack cache" gets the space
   back.
 
 ## What is missing
@@ -236,7 +236,7 @@ On a Mac use Cmd in place of Ctrl.
 ## Thanks
 
 All of the music making is [Strudel](https://codeberg.org/uzu/strudel), by Felix Roos,
-Alex McLean and the Strudel contributors. vstrudel is only the VS Code part around it.
+Alex McLean and the Strudel contributors. [str]dltn Live[code] is only the VS Code part around it.
 
 The template includes `coastline` by eddyflux, from Strudel's own examples, and "Array
 (Lil Data Edit)" by DJ_Dave. Several snippets use techniques learned from Switch Angel

@@ -34,7 +34,7 @@ export interface FirmwareInfo {
 	url: string;
 }
 
-/** How the Strudel editor looks. From the settings `vstrudel.editor.*`, resolved by the host. */
+/** How the Strudel editor looks. From the settings `strdltn.editor.*`, resolved by the host. */
 export interface EditorSettings {
 	/** The name of an upstream theme, as in `themes` of `@strudel/codemirror`. */
 	theme: string;

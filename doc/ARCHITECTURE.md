@@ -1,6 +1,6 @@
 # Architecture
 
-How vstrudel is built, and what we know about the platform. Each fact says whether it
+How [str]dltn Live[code] is built, and what we know about the platform. Each fact says whether it
 was measured or is only expected.
 
 ## Goal
@@ -46,7 +46,7 @@ extension host (Node, may be remote)          webview (browser)
 
 | File | Job |
 |---|---|
-| `src/extension/extension.ts` | Registers the custom editor `vstrudel.editor` and the commands. Owns the list of sessions, the status bar item and the kept sound list. |
+| `src/extension/extension.ts` | Registers the custom editor `strdltn.editor` and the commands. Owns the list of sessions, the status bar item and the kept sound list. |
 | `src/extension/session.ts` | Binds one webview to one document. Text sync, sample scan, problems, HTML and CSP. |
 | `src/extension/samples.ts` | Turns the samples folder into the map upstream `samples()` accepts. |
 | `src/extension/sounds.ts` | The Sounds view: groups the sound list that the engine reports. |
@@ -55,13 +55,13 @@ extension host (Node, may be remote)          webview (browser)
 | `src/shared/filetree.ts` | Builds the tree of the Files view from a list of paths. `filetree.test.ts` holds the cases. |
 | `src/shared/snippet.ts` | Splits a snippet file into header fields and code. |
 | `src/shared/context.ts` | The rules that name a slider or a visual from the code around it. `context.test.ts` holds the cases. |
-| `src/extension/packs.ts` | Downloads the remote samples a song loads into `.vstrudel/cache/`, measures the cache and empties it. |
+| `src/extension/packs.ts` | Downloads the remote samples a song loads into `.strdltn/cache/`, measures the cache and empties it. |
 | `src/shared/packs.ts` | Finds the packs a song names, resolves a name to an address and to a place in the cache. `packs.test.ts` holds the cases. |
 | `src/shared/diagnostic.ts` | The rules that find the place of an evaluation error in the code. `diagnostic.test.ts` holds the cases. |
 | `src/shared/protocol.ts` | Message types and `diffText`, used by both sides. |
 | `src/webview/main.ts` | Creates `StrudelMirror`, syncs text, handles play and stop, fills the stage dock. |
 | `src/extension/firmware.ts` | Lists the VIBE FM firmwares in the `firmware/` folder, and caches the ones songs load from an address. See "Firmware" |
-| `src/extension/shrub.ts` | Experimental mockup, behind `vstrudel.experimental.shrubEditor`: SHRUB's web editor in a tab. See "SHRUB editor panel" |
+| `src/extension/shrub.ts` | Experimental mockup, behind `strdltn.experimental.shrubEditor`: SHRUB's web editor in a tab. See "SHRUB editor panel" |
 | `src/shared/firmware.ts` | Finds the addresses of `firmware(...)` in a song. `firmware.test.ts` holds the cases |
 | `src/webview/vibe/core.ts` | Hosts one firmware `.wasm` and renders its sound. No Web Audio in it, so the tests run it. `core.test.ts` holds the cases |
 | `src/webview/vibe/worklet.ts` | The AudioWorklet processor around `core.ts`. Built as `dist/vibe-worklet.js` |
@@ -79,9 +79,9 @@ message.
 | Layout | Where | What shows |
 |---|---|---|
 | `editor` | Custom editor tab for the `.strudel` file | Code in CodeMirror, widgets inline in the text |
-| `stage` | Panel below the native text editor (`vstrudel.stage.position`) | No code. Widgets in a dock, global visuals behind |
+| `stage` | Panel below the native text editor (`strdltn.stage.position`) | No code. Widgets in a dock, global visuals behind |
 
-The toggle command (`vstrudel.toggleMode`, title bar button, Ctrl+Alt+M) runs
+The toggle command (`strdltn.toggleMode`, title bar button, Ctrl+Alt+M) runs
 `vscode.openWith` on the same file with the other editor type. Opening the Strudel
 editor closes the stage of that file, so one file never has two engines.
 
@@ -108,7 +108,7 @@ another, so the sound stops on a switch. See `doc/TODO.md` for the open question
 | webview -> host | `evaluated {error?}` | An evaluation ended. With `error` it failed: the message, and the place in the code when a rule found one |
 | webview -> host | `cacheFiles {id, base, files}` | A song called `samples(map, base)` with a remote base. Does the cache hold these files? |
 | host -> webview | `cachedFiles {id, base?}` | The answer: the address of the cached folder when every file is in it |
-| webview -> host | `log {level, message}` | Goes to the `vstrudel` output channel |
+| webview -> host | `log {level, message}` | Goes to the `strdltn` output channel |
 
 ## Text sync
 
@@ -126,7 +126,7 @@ corrupt the text.
 
 ## Samples
 
-`scanSamples` reads the folder named by the setting `vstrudel.samplesFolder` (default
+`scanSamples` reads the folder named by the setting `strdltn.samplesFolder` (default
 `samples`). We take the one nearest to the file: beside it, or in a parent folder, up to
 the workspace root. A song in a subfolder of a bigger repo then still finds its own
 samples. A subfolder is a sound name and its
@@ -179,7 +179,7 @@ When preview is on, a click on a sound plays it once through `superdough()`, wit
 note `a3` for anything that is not a plain sample list, as the sounds tab of strudel.cc
 does. The insert button types the full name at the cursor (`RolandTR909_bd`, which is
 valid anywhere). The speaker button at the top of the view turns preview
-on and off. It is two commands that swap on the context key `vstrudel.previewSounds`,
+on and off. It is two commands that swap on the context key `strdltn.previewSounds`,
 and the choice is kept in `globalState`. The view also says "preview on" or "preview
 off" in words beside its title, because the icon alone was read both ways. A row has two
 buttons: insert types the name without playing, play plays without typing.
@@ -208,7 +208,7 @@ synths and 125 soundfonts are listed, and one sound of each group plays.
 ## Logo in the side bar
 
 The side bar starts with the logo. The header of a side bar takes text only, so the
-picture is a view of its own, `vstrudel.logo`: a webview with one image and no script.
+picture is a view of its own, `strdltn.logo`: a webview with one image and no script.
 The image is `media/logo.jpg`, the middle band of `doc/logo.jpg` at 640 by 149 pixels
 (16 KB). `doc/` is not in the `.vsix`, `media/` is. When `doc/logo.jpg` changes, cut it again.
 
@@ -221,9 +221,9 @@ with an empty strip under it. A user who drags the borders keeps their own sizes
 
 After the logo, the side bar lists every folder of the workspace that holds a
 `.strudel` file, at any depth, and those files. It is the Explorer with everything else
-left out, so a song is one click away without leaving the vstrudel side bar.
+left out, so a song is one click away without leaving the [str]dltn Live[code] side bar.
 
-`FilesProvider` asks VS Code for `**/*.strudel`, without `node_modules`, `.vstrudel` and
+`FilesProvider` asks VS Code for `**/*.strudel`, without `node_modules`, `.strdltn` and
 `.git`, and `buildFileTree` turns the paths into folders and files, folders first, names
 sorted as a person reads them (`2-b` before `10-a`). With one workspace folder its
 content is the top level. With several, each is a row. A watcher on `**/*.strudel`
@@ -239,7 +239,7 @@ letter of the two can differ in case.
 
 ## Snippets view
 
-`SnippetsView` lists every `.strudel` file under a folder named by `vstrudel.libFolder`
+`SnippetsView` lists every `.strudel` file under a folder named by `strdltn.libFolder`
 (default `lib`), anywhere in the workspace. One file is one snippet. A watcher refreshes
 the list when a file is added, removed or saved.
 
@@ -333,7 +333,7 @@ marker to keep, because the song has the map. A file counts when it is there.
 A remote folder has one place in the cache, whichever way a song names it
 (`cacheSegments`):
 
-| Address | Place below `.vstrudel/cache/` |
+| Address | Place below `.strdltn/cache/` |
 |---|---|
 | `https://raw.githubusercontent.com/<user>/<repo>/<branch>/...` and every `github:` name | `github/<user>/<repo>/<branch>/...` |
 | `https://<host>/<path>/` | `https/<host>/<path>/` |
@@ -347,12 +347,12 @@ Every file is written under the name `<file>.part` and renamed when it is whole.
 with the right name is then never half a file, also when the window was closed during a
 download.
 
-`.vstrudel/` has its own `.gitignore` with `*` in it, so the cache is never committed
+`.strdltn/` has its own `.gitignore` with `*` in it, so the cache is never committed
 and the `.gitignore` of the project is not touched.
 
 ### What is not cached
 
-- A pack with more files than `vstrudel.remoteSamples.maxFiles` (default 600).
+- A pack with more files than `strdltn.remoteSamples.maxFiles` (default 600).
 - A map where a sound names its own `_base`. Its files do not sit below one folder.
 - A map that names a file by a full address, by an absolute path, or with `..` in the
   path (`unsafeFile`). The map comes from the network, and such a path would put a file
@@ -361,15 +361,15 @@ and the `.gitignore` of the project is not touched.
   as they are, and only then is the file below our folder.
 - An address with a query, for example what `shabda:` resolves to. Its answer is made on
   request.
-- Anything while `vstrudel.remoteSamples.cache` is off.
+- Anything while `strdltn.remoteSamples.cache` is off.
 
-All of these still play from the network. Output > `vstrudel` says why a pack was not
+All of these still play from the network. Output > `strdltn` says why a pack was not
 cached.
 
 ### Size and clearing
 
-"vstrudel: Show sample pack cache size" walks `.vstrudel/cache/` of every workspace
-folder and shows the bytes, the number of files and the packs that are whole. "vstrudel:
+"strdltn: Show sample pack cache size" walks `.strdltn/cache/` of every workspace
+folder and shows the bytes, the number of files and the packs that are whole. "strdltn:
 Clear sample pack cache" asks first, in a modal dialog with the same numbers, and then
 deletes that folder. It refuses while a download runs. Open webviews are told, drop
 their cached copies and register the packs again from the network. Nothing is downloaded
@@ -487,7 +487,7 @@ side. So `openStage` runs `workbench.action.newGroupBelow`, which splits an empt
 off under the code and makes it active, creates the panel there (`ViewColumn.Active`),
 and then gives the focus back to the code with `showTextDocument`. A second play while
 this runs waits for the same stage instead of opening another. With
-`vstrudel.stage.position` set to `beside` the stage opens to the right of the code, as it
+`strdltn.stage.position` set to `beside` the stage opens to the right of the code, as it
 did before. Either way the user can drag it anywhere. Seen in the screenshot of
 `pnpm test:quick` in VS Code 1.147: the stage under the code, the cursor in the code.
 
@@ -577,7 +577,7 @@ A VIBE FM firmware from thefirmwarehub.com plays through one instrument, `vibefm
 browser Playground and the VIBE FM hardware. We host it ourselves in the webview, so it needs no MIDI and works in
 Codespaces.
 
-**Where firmwares come from.** `scanFirmware` reads the folder named by `vstrudel.firmwareFolder` (default
+**Where firmwares come from.** `scanFirmware` reads the folder named by `strdltn.firmwareFolder` (default
 `firmware`), found the same way as the samples folder: beside the song or in a parent folder. Two layouts:
 `<id>.wasm` with `<id>.json` beside it (the SDK repo's `firmwares/`), or `<id>/*.wasm` with `firmware.json` (an
 unzipped package from the hub). The json gives name, author, version and license. The `.wasm` goes to the webview
@@ -632,7 +632,7 @@ drawer.
 **The cache of firmwares from an address.** Like the sample packs. After an edit (with the same 1.5 s pause) and when a
 song opens, the host finds the addresses of its `firmware(...)` calls (`findFirmwareUrls`: both forms, over several
 lines, not in `//` comments), downloads each one with Node into
-`.vstrudel/cache/firmware/<first 16 hex digits of the address' SHA-256>/<file name>`, and writes `.complete` with the
+`.strdltn/cache/firmware/<first 16 hex digits of the address' SHA-256>/<file name>`, and writes `.complete` with the
 address last. The file is kept as it came, `.wasm` or `.zip`. The host sends the webview a map from address to the
 `asWebviewUri` of each copy (`firmwareCache`). The webview loads a firmware from its copy when the map has one, and from
 the address otherwise, also when the copy is gone. Because the host downloads, a server without CORS headers works
@@ -656,7 +656,7 @@ and sequencer take their tempo only from that event, and read the position from 
 ## SHRUB editor panel
 
 An experimental mockup, to see how the SHRUB web editor would look inside VS Code. Off unless the setting
-`vstrudel.experimental.shrubEditor` is on; then the command "vstrudel: Open SHRUB editor (experimental)" shows in the
+`strdltn.experimental.shrubEditor` is on; then the command "strdltn: Open SHRUB editor (experimental)" shows in the
 palette and in the title bar of the Sounds view. Turning the setting off closes the tab. The tab is a `WebviewPanel` with
 a toolbar and an `iframe` of `https://shrub.audio/editor/`. Its CSP allows frames from that origin only, and scripts only
 with its nonce. `retainContextWhenHidden` keeps the editor's page, and its unsaved patches, while the tab is hidden.
@@ -673,34 +673,34 @@ line of debug text in the corner of the webview.
 
 | Text | When |
 |---|---|
-| `vstrudel: loading` | The webview has no content yet |
-| `vstrudel: stopped`, `vstrudel: playing` | The scheduler of that webview |
-| `vstrudel: click in the editor for sound` | The click overlay is up (see "Starting audio"). "stage" in the stage |
-| `vstrudel: error in the code`, `vstrudel: playing, error in the code` | The last evaluation failed. Red background. The message is in the tooltip |
-| `vstrudel: <file> playing` | The tab in front is not a Strudel file and that song plays in another tab |
+| `strdltn: loading` | The webview has no content yet |
+| `strdltn: stopped`, `strdltn: playing` | The scheduler of that webview |
+| `strdltn: click in the editor for sound` | The click overlay is up (see "Starting audio"). "stage" in the stage |
+| `strdltn: error in the code`, `strdltn: playing, error in the code` | The last evaluation failed. Red background. The message is in the tooltip |
+| `strdltn: <file> playing` | The tab in front is not a Strudel file and that song plays in another tab |
 
 "The song in front" is the session whose panel is active (the Strudel editor or the
 stage), or the stage of the native editor that is active. A Strudel file in the native
 editor that has not played yet has no session and shows `stopped`. In any other tab the
 item is hidden, unless a song plays in the background.
 
-A click runs `vstrudel.togglePlay`: stop when that song plays, play otherwise.
+A click runs `strdltn.togglePlay`: stop when that song plays, play otherwise.
 
 The webview sends `state` when the scheduler starts or stops, when the `AudioContext`
 changes state, and when the overlay comes or goes.
 
 ## Stop
 
-`vstrudel.stop` (Ctrl+.) stops the song in front. When nothing plays there, it stops the
+`strdltn.stop` (Ctrl+.) stops the song in front. When nothing plays there, it stops the
 song that plays in another tab, the one the user was in last. So the key always ends a
-sound that is heard, and a second press ends the next one. `vstrudel.stopAll` stops
+sound that is heard, and a second press ends the next one. `strdltn.stopAll` stops
 every song. It has no key.
 
 ## Errors in the code
 
 Upstream reports a failed evaluation through `onEvalError`, as an `Error`. The webview
 sends it to the host (`evaluated {error}`), and the host sets one diagnostic on the
-document, with the source `vstrudel`. It shows in the Problems view and as a squiggle in
+document, with the source `strdltn`. It shows in the Problems view and as a squiggle in
 the native editor. The Strudel editor is a webview and shows no squiggle. The status bar
 item turns red in both.
 
@@ -724,15 +724,15 @@ can check the code again without playing it. The status bar keeps the error and 
 message until the next evaluation.
 
 A sound that is not found, or a sample that does not load, is not an evaluation error.
-It happens later, while the pattern plays, and only goes to Output > `vstrudel`.
+It happens later, while the pattern plays, and only goes to Output > `strdltn`.
 
 ## Theme and font
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `vstrudel.editor.theme` | `strudelTheme` | One of the 39 themes of `@strudel/codemirror` 1.3.0. It also colors the stage |
-| `vstrudel.editor.fontFamily` | empty | Empty: `editor.fontFamily` of VS Code |
-| `vstrudel.editor.fontSize` | 0 | 0: `editor.fontSize` of VS Code |
+| `strdltn.editor.theme` | `strudelTheme` | One of the 39 themes of `@strudel/codemirror` 1.3.0. It also colors the stage |
+| `strdltn.editor.fontFamily` | empty | Empty: `editor.fontFamily` of VS Code |
+| `strdltn.editor.fontSize` | 0 | 0: `editor.fontSize` of VS Code |
 
 The host resolves the three values (`editorSettings`) and sends them with `init`, and
 again as `settings` when one of them changes, so no reload is needed. Upstream keeps
@@ -809,7 +809,7 @@ In VS Code 1.130.0 on Windows (Electron 42, Chrome 148), with `pnpm test:vscode`
 | Drum machine banks in the Sounds view | 138 |
 | Every file in `template/lib` and `template/examples` plays | 27 files, no error |
 | A song with `samples('github:eddyflux/crate')`: sounds listed before the first play | Works, 18 sounds |
-| The same pack copied to `.vstrudel/cache/` and then answered from there | Works: 367 files, 175 MB |
+| The same pack copied to `.strdltn/cache/` and then answered from there | Works: 367 files, 175 MB |
 
 In VS Code 1.147.0 on Windows, with `pnpm test:vscode`, on the branch `feat/m1-solid-core`:
 
@@ -821,11 +821,11 @@ In VS Code 1.147.0 on Windows, with `pnpm test:vscode`, on the branch `feat/m1-s
 | A mini-notation error (`s("bd [sd")`) | One problem on that line (rule "mini line") |
 | An edit after an error | The problem is gone |
 | A good evaluation after an error | The status bar says "playing" again |
-| `vstrudel.editor.theme` and `vstrudel.editor.fontSize` changed while a song plays | The webview gets them without a reload. A new editor starts with the font of VS Code (Consolas, 14) |
+| `strdltn.editor.theme` and `strdltn.editor.fontSize` changed while a song plays | The webview gets them without a reload. A new editor starts with the font of VS Code (Consolas, 14) |
 | The sound list kept for the next start | 1651 sounds written and read back |
-| Two songs playing, `vstrudel.stop` in the tab of one | Only that one stops |
-| `vstrudel.stop` again, from a plain text tab | The status bar named the other song ("demo.strudel playing"), and it stops. Then the item hides |
-| `vstrudel.stopAll` with two songs playing | Both stop |
+| Two songs playing, `strdltn.stop` in the tab of one | Only that one stops |
+| `strdltn.stop` again, from a plain text tab | The status bar named the other song ("demo.strudel playing"), and it stops. Then the item hides |
+| `strdltn.stopAll` with two songs playing | Both stop |
 | `samples('https://raw.githubusercontent.com/tidalcycles/uzu-drumkit/main/strudel.json')` | Listed before the first play, 41 files cached, then answered from the cache |
 | `samples({ zzbd: 'bd/BT0A0A7.wav' }, 'github:tidalcycles/dirt-samples')` | First play from the network, the file is cached, the next play is from the cache |
 | The cache size the command reports | 188,956,347 bytes in 459 files, the same as the disk |
@@ -859,7 +859,7 @@ an address, both examples, an unknown id, stop, the folder watcher, and OBERVAVE
 the cache with the network off. Two things were seen. A firmware that changes source
 restarts with a short silence. And Ctrl+Enter in the Strudel editor after a reload ran
 the song without sound, while the play button worked: see "Starting audio".
-`vstrudel.editor.theme` only colors the Strudel editor and the stage, as built; the
+`strdltn.editor.theme` only colors the Strudel editor and the stage, as built; the
 native editor keeps the VS Code theme.
 
 Full `pnpm test:vscode` for the release of 1.0.0, in VS Code 1.147.0 on Windows, build
@@ -955,9 +955,9 @@ the runner takes a screenshot with `Page.captureScreenshot` and writes
 `.github/workflows/ci.yml` runs on pushes to `main`, on pull requests and on tags. It
 installs with pnpm, type checks, runs the unit tests, and builds the `.vsix`, which it
 uploads as an artifact. On a tag `v*` it also checks that the tag matches the version in
-`package.json` and creates a GitHub release with two files: `vstrudel-<version>.vsix`
-and `vstrudel.vsix`. The second has a fixed name so that
-`releases/latest/download/vstrudel.vsix` always works.
+`package.json` and creates a GitHub release with two files: `strdltn-<version>.vsix`
+and `strdltn.vsix`. The second has a fixed name so that
+`releases/latest/download/strdltn.vsix` always works.
 
 The integration test does not run in CI yet.
 
@@ -997,7 +997,10 @@ the configurations that new Codespace used.
 
 ## Public page
 
-`doc/ABOUT.md` is shown at <https://www-alienmind.vercel.app/vstrudel/index.html>. The
+[str]dltn Live[code] has no page on the home page yet. What follows is how the page of
+vstrudel is built, and the same steps would apply with new names.
+
+The `doc/ABOUT.md` of vstrudel is shown at <https://www-alienmind.vercel.app/vstrudel/index.html>. The
 home page repo, `alienmind-www`, has this repo as the git submodule `projects/vstrudel`.
 Its `scripts/build-docs.ts` turns `doc/ABOUT.md` into `public/vstrudel/index.html` and
 copies the images that sit in `doc/`. The card on the front page is an entry in
@@ -1025,7 +1028,7 @@ editor the maintainer is working in.
 | Copy | Where | Who loads it | Changes when |
 |---|---|---|---|
 | Work in progress | `dist/` | Only an Extension Development Host: F5, or `pnpm test:vscode` with its throwaway profile | Any build, at any moment |
-| Promoted | `.bin/vstrudel.vsix`, installed into the maintainer's VS Code | Every normal VS Code window | Only when `pnpm promote` runs |
+| Promoted | `.bin/strdltn.vsix`, installed into the maintainer's VS Code | Every normal VS Code window | Only when `pnpm promote` runs |
 
 `pnpm promote` makes a production build, packages it into `.bin/`, installs it with
 `code --install-extension --force`, and puts the development build back in `dist/`.
@@ -1046,8 +1049,8 @@ version cures it.
 In a development host the work in progress wins over the installed copy, because VS
 Code prefers the extension under development with the same id.
 
-To see which copy a window runs: the first line of Output > `vstrudel`, or the command
-"vstrudel: Show version and build". It shows the version, the `git describe` of the
+To see which copy a window runs: the first line of Output > `strdltn`, or the command
+"strdltn: Show version and build". It shows the version, the `git describe` of the
 build, and `production` or `development`.
 
 For fast work on the work in progress: `pnpm watch`, press F5 once, and use "Developer:

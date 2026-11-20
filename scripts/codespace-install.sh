@@ -11,7 +11,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-vsix="$HOME/.vstrudel/vstrudel.vsix"
+vsix="$HOME/.strdltn/strdltn.vsix"
 
 build() {
 	# No global pnpm in the image. npx runs the exact version package.json names,
@@ -23,7 +23,7 @@ build() {
 	$pnpm install --frozen-lockfile
 	$pnpm package
 	mkdir -p "$(dirname "$vsix")"
-	cp vstrudel-*.vsix "$vsix"
+	cp strdltn-*.vsix "$vsix"
 	echo "built $vsix"
 }
 

@@ -145,7 +145,7 @@ arrange(
   [16, verse],
   [4, postverse]
 )
-  // vstrudel: .fontFamily() and .theme() were removed here. They only exist on strudel.cc.
+  // strdltn: .fontFamily() and .theme() were removed here. They only exist on strudel.cc.
   .color("[fuschia [aquamarine dodgerblue] [hotpink] blueviolet deeppink [cornsilk indigo] crimson cyan]/27")
   .punchcard({fold:1,flipTime:1,vertical:1})
 

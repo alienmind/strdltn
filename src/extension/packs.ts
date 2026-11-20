@@ -28,10 +28,10 @@ export interface CacheUsage {
 }
 
 /**
- * Keeps a copy of the remote samples a song loads, in `.vstrudel/cache/` of the
+ * Keeps a copy of the remote samples a song loads, in `.strdltn/cache/` of the
  * workspace folder. A cached pack plays without the network and loads at once.
  *
- * The folder ignores itself for git (a `.gitignore` with `*` inside `.vstrudel/`), so
+ * The folder ignores itself for git (a `.gitignore` with `*` inside `.strdltn/`), so
  * the root `.gitignore` of the project is never touched.
  */
 export class PackCache {
@@ -48,11 +48,11 @@ export class PackCache {
 	}
 
 	private static cacheRoot(workspaceFolder: vscode.Uri): vscode.Uri {
-		return vscode.Uri.joinPath(workspaceFolder, '.vstrudel', 'cache');
+		return vscode.Uri.joinPath(workspaceFolder, '.strdltn', 'cache');
 	}
 
 	/**
-	 * `github:eddyflux/crate` -> `<workspace>/.vstrudel/cache/github/eddyflux/crate/main/`.
+	 * `github:eddyflux/crate` -> `<workspace>/.strdltn/cache/github/eddyflux/crate/main/`.
 	 * The map of a `github:` pack is always `strudel.json`. An `https://` pack can have
 	 * any name, and two maps can sit in one folder, so each has its own marker.
 	 */
@@ -114,12 +114,12 @@ export class PackCache {
 	}
 
 	private static enabled(): boolean {
-		return vscode.workspace.getConfiguration('vstrudel').get('remoteSamples.cache', true);
+		return vscode.workspace.getConfiguration('strdltn').get('remoteSamples.cache', true);
 	}
 
 	private static limit(count: number): void {
-		const limit = vscode.workspace.getConfiguration('vstrudel').get('remoteSamples.maxFiles', 600);
-		if (count > limit) throw new Error(`${count} files, more than the limit of ${limit} (setting vstrudel.remoteSamples.maxFiles)`);
+		const limit = vscode.workspace.getConfiguration('strdltn').get('remoteSamples.maxFiles', 600);
+		if (count > limit) throw new Error(`${count} files, more than the limit of ${limit} (setting strdltn.remoteSamples.maxFiles)`);
 	}
 
 	private async download(source: string, workspaceFolder: vscode.Uri, place: PackPlace): Promise<void> {
@@ -203,15 +203,15 @@ export class PackCache {
 	/** Downloads `files` from `address` into `folder`, six at a time. Returns how many failed. */
 	private async fetchInto(workspaceFolder: vscode.Uri, folder: vscode.Uri, address: string, files: string[], title: string): Promise<number> {
 		const fs = vscode.workspace.fs;
-		const ignore = vscode.Uri.joinPath(workspaceFolder, '.vstrudel', '.gitignore');
+		const ignore = vscode.Uri.joinPath(workspaceFolder, '.strdltn', '.gitignore');
 		await fs.createDirectory(folder);
 		try {
 			await fs.stat(ignore);
 		} catch {
-			await fs.writeFile(ignore, new TextEncoder().encode('# Downloaded by vstrudel. Safe to delete.\n*\n'));
+			await fs.writeFile(ignore, new TextEncoder().encode('# Downloaded by strdltn. Safe to delete.\n*\n'));
 		}
 		let failed = 0;
-		await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: `vstrudel: caching ${title}` }, async (progress) => {
+		await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: `strdltn: caching ${title}` }, async (progress) => {
 			let done = 0;
 			const queue = [...files];
 			const worker = async () => {

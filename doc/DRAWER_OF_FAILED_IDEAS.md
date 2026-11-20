@@ -21,7 +21,7 @@ carry that. `asWebviewUri` serves workspace files in both places with no port.
 
 Designed. The idea was a backend in a web worker with pglite. Strudel's backend only
 shares patterns publicly. Everything else it stores is browser storage for settings and
-user samples. In vstrudel the workspace files are the storage, so there is nothing for
+user samples. In [str]dltn Live[code] the workspace files are the storage, so there is nothing for
 a database to hold.
 
 ## The gugelhupf fork of Strudel
@@ -95,7 +95,7 @@ stable build unless `VSCODE_EXE` is set.
 ## Passing the .vsix from create to attach through /tmp
 
 Tried, in the first Codespace. `postCreateCommand` built the `.vsix` and copied it to
-`/tmp/vstrudel.vsix`, and `postAttachCommand` installed from there. On attach the file
+`/tmp/strdltn.vsix`, and `postAttachCommand` installed from there. On attach the file
 did not exist (`ENOENT`). The cause showed up later: `vsce package` asked "Do you want
 to continue? [y/N]" because `package.json` had no `repository` field, and nobody answers
 a question during create. CI did not ask, so the pipeline passed. `package.json` now has
@@ -175,7 +175,7 @@ from separate orbits.
 
 ## A panel with the SHRUB editor
 
-Designed, and dropped as a feature. A mockup exists behind the setting `vstrudel.experimental.shrubEditor`, only to see
+Designed, and dropped as a feature. A mockup exists behind the setting `strdltn.experimental.shrubEditor`, only to see
 how it looks. The idea was a webview panel that shows `shrub.audio/editor/`, so patches are made beside the
 song. The editor would be a second synth with its own audio: not in our mix, not in time with the song, and with no MIDI
 in or out, because a webview, and any frame inside it, may not use WebMIDI. It would be a browser tab inside VS Code,

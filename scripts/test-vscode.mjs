@@ -22,7 +22,7 @@ execFileSync(process.execPath, [join(root, 'scripts/build.mjs'), '--test'], { cw
 const executable = process.env.VSCODE_EXE ?? (await downloadAndUnzipVSCode('stable'));
 if (!existsSync(executable)) throw new Error(`VS Code not found at ${executable}.`);
 
-const profile = mkdtempSync(join(tmpdir(), 'vstrudel-test-'));
+const profile = mkdtempSync(join(tmpdir(), 'strdltn-test-'));
 const out = join(profile, 'result.json');
 // This script may itself be started from a VS Code terminal or extension. Those set
 // variables that would make the new Code.exe run as plain Node or attach to the parent.

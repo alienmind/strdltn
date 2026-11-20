@@ -1,7 +1,7 @@
 # Instructions for GitHub Copilot
 
 This is a music project. The songs are `.strudel` files, written in Strudel
-(https://strudel.cc) and played by the vstrudel extension.
+(https://strudel.cc) and played by the [str]dltn Live[code] extension.
 
 A request about music ("add a bass line", "busier hats", "more reverb") means: edit the
 open `.strudel` file, and only that file, by adding or changing a `$name:` pattern in

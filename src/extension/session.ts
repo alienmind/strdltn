@@ -19,9 +19,9 @@ export interface SessionHost {
 	onState(session: Session): void;
 }
 
-/** The settings `vstrudel.editor.*`. An empty font and a size of 0 mean: as the VS Code editor. */
+/** The settings `strdltn.editor.*`. An empty font and a size of 0 mean: as the VS Code editor. */
 export function editorSettings(): EditorSettings {
-	const ours = vscode.workspace.getConfiguration('vstrudel.editor');
+	const ours = vscode.workspace.getConfiguration('strdltn.editor');
 	const editor = vscode.workspace.getConfiguration('editor');
 	return {
 		theme: ours.get('theme', 'strudelTheme'),
@@ -97,7 +97,7 @@ export class Session {
 			host.packs.onDidChange((what) => void this.sendPacks(what === 'cached')),
 			host.firmwareCache.onDidChange(() => void this.sendFirmwareCache()),
 			vscode.workspace.onDidChangeConfiguration((event) => {
-				if (!event.affectsConfiguration('vstrudel.editor') && !event.affectsConfiguration('editor.fontFamily') && !event.affectsConfiguration('editor.fontSize')) return;
+				if (!event.affectsConfiguration('strdltn.editor') && !event.affectsConfiguration('editor.fontFamily') && !event.affectsConfiguration('editor.fontSize')) return;
 				this.post({ type: 'settings', settings: editorSettings() });
 			}),
 			panel.onDidChangeViewState(() => {
@@ -252,7 +252,7 @@ export class Session {
 				? new vscode.Range(this.document.positionAt(error.from!), this.document.positionAt(error.to!))
 				: this.document.lineAt(0).range;
 			const diagnostic = new vscode.Diagnostic(range, error.message, vscode.DiagnosticSeverity.Error);
-			diagnostic.source = 'vstrudel';
+			diagnostic.source = 'strdltn';
 			this.host.diagnostics.set(this.document.uri, [diagnostic]);
 		}
 		this.host.onState(this);
@@ -264,12 +264,12 @@ export class Session {
 	 * samples that belong to it.
 	 */
 	private samplesFolder(): Promise<vscode.Uri> {
-		return this.nearestFolder(vscode.workspace.getConfiguration('vstrudel').get<string>('samplesFolder', 'samples'));
+		return this.nearestFolder(vscode.workspace.getConfiguration('strdltn').get<string>('samplesFolder', 'samples'));
 	}
 
 	/** The firmware folder nearest to the file, found the same way as the samples. */
 	private firmwareFolder(): Promise<vscode.Uri> {
-		return this.nearestFolder(vscode.workspace.getConfiguration('vstrudel').get<string>('firmwareFolder', 'firmware'));
+		return this.nearestFolder(vscode.workspace.getConfiguration('strdltn').get<string>('firmwareFolder', 'firmware'));
 	}
 
 	private async nearestFolder(name: string): Promise<vscode.Uri> {

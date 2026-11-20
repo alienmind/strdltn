@@ -17,10 +17,11 @@ over.
 The plan to make this a DAW (one Browser view with tags and search, a Mixer panel with
 sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRUB window, MIDI, one engine,
 two decks to DJ with, recorded automation and an arrangement view)
-is in `doc/DAW-PLAN.md`. The maintainer chose to start with the Browser and took the
-plan's recommendation for every other decision. Phase 1, the Browser, is built on the
-branch `feat/browser` and waits for the hand test below. A synth or sample preview starts
-on the next beat while a song plays (asked by the maintainer during phase 1).
+is in `doc/DAW-PLAN.md`, with the order of work the maintainer set ("Order of work"):
+the Mixer next (phases 2 and 3), the engine in a worker last. Phase 1, the Browser, is
+built on the branch `feat/browser` (PR #4): search, colors, tags, color and tag buttons,
+insert as code, a preview on the beat while a song plays. Its hand test is below. The
+next session starts the Mixer on a new branch once PR #4 is merged.
 
 Next in line:
 
@@ -47,7 +48,7 @@ The Browser, on the branch `feat/browser`. Test on **desktop, launched with F5**
 | 7 | Right click a snippet > Edit tags..., add `test` | The snippet's file gets `// @tags ..., test`. The chip Tag > test exists |
 | 8 | With a filter set, press the save button in the bar above the results, name it | A row with that name under Collections. A click on it brings the filter back |
 | 9 | Play `demo.strudel`, then click a synth in Sounds (`sawtooth`) a few times | Each preview lands on a beat of the song |
-| 10 | Put the cursor in the code, select a sound, press Enter | Its name is typed at the cursor |
+| 10 | Put the cursor in the code, select `sawtooth`, press Enter. Then put the cursor inside `s("bd <here>")` and insert `sd` | `note("c3").s("sawtooth")` is typed. Inside the string only `sd` |
 | 11 | Songs: click a song | It opens |
 | 12 | Functions: search `lpf`, select it | The details pane shows its description, parameters and an example |
 | 13 | Press Ctrl+Alt+F in the editor | The search field of the Browser gets the cursor |

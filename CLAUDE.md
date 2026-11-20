@@ -25,7 +25,7 @@ grew beyond a VS Code extension.
 | `README.md` | What a user gets, with the full feature list |
 | `doc/ARCHITECTURE.md` | How every part works, and every fact we measured about VS Code |
 | `doc/TODO.md` | What is left, the decisions waiting for the maintainer, the next hand test |
-| `doc/DAW-PLAN.md` | The plan for the Browser, the Mixer with cables, MIDI and the engine. Not built, waits for the maintainer |
+| `doc/DAW-PLAN.md` | The plan to make this a DAW, phase by phase, with "Order of work". Phase 1 (the Browser) is built; the Mixer is next |
 | `doc/DRAWER_OF_FAILED_IDEAS.md` | What we tried or designed and dropped, with the reason. Read it before a spike |
 
 ### State

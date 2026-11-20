@@ -254,8 +254,10 @@ to 7 set a color, 0 clears, Ctrl+F goes to the search field, Esc clears the sear
 **Preview in tempo.** Built in phase 1: while a song plays, a preview starts on its
 next beat and lasts one beat.
 
-**Insert as code.** Asked by the maintainer after phase 1: insert at the cursor types the
-code that plays the sound, not only its name. Copy keeps giving the bare name.
+**Insert as code.** Built, asked by the maintainer after phase 1: insert at the cursor
+types the code that plays the sound, not only its name. Copy keeps giving the bare name.
+The rules are `soundCode` in `src/shared/catalog.ts` and `insideString` in
+`src/shared/context.ts`, with their cases in the tests beside them.
 
 | Row | Insert types |
 |---|---|
@@ -1043,6 +1045,27 @@ optional count-in of one bar. The status bar item says "recording" in red while 
 
 ## Phases
 
+## Order of work
+
+The phase numbers are names, not the order. The maintainer set the order after phase 1:
+the Mixer next, and the engine work last, because it changes the architecture.
+
+| Step | Phase | Spikes first |
+|---|---|---|
+| 1 | Phase 2: Mixer, read only | D3 (D1 only for the activity light, can wait) |
+| 2 | Phase 3: Mixer, editing | D1 |
+| 3 | Phase 4: Devices | F1, F2, F3 |
+| 4 | Phase 5: MIDI on desktop | S5 |
+| 5 | Phase 8: two decks | J1 to J4 |
+| 6 | Phase 9: recording | A1, A2 |
+| 7 | Phase 10: arrangement view | A3 |
+| 8 | Phase 1b: previews in the Browser | - |
+| 9 | Phase 6: one engine, in the Browser, scheduler in a worker | E1, E2, E4, E5 |
+| 10 | Phase 7: the engine as a browser page | E3 |
+
+Decision 14 is still open: the decks and the recording could come right after the
+Mixer, before Devices and MIDI.
+
 Each phase ends with a build the maintainer can use, on a feature branch, with a pull
 request. Sizes are guesses in working sessions of an agent, not promises.
 
@@ -1190,8 +1213,8 @@ Size: 4 to 5 sessions.
 
 ### Phase 1b: previews in the Browser
 
-Step 1 of "Audio without an open song", and "Insert as code" from "Browser". Small, and
-independent of the Mixer: it can come before phase 2.
+Step 1 of "Audio without an open song", and "Insert as code" from "Browser". Small, but part of
+the change of architecture, so it comes last, with phase 6 (see "Order of work").
 
 1. A module for the sounds of an engine (synths, ZZFX, soundfonts, default packs, local
    samples, firmwares), out of `src/webview/main.ts`, used by the editor's page and by
@@ -1284,8 +1307,8 @@ Size: 4 to 6 sessions.
 | 17 | EQ: shelving filters (gentle, like most club mixers) or an isolator that can kill a band completely? | Isolator, with a kill at the end of each knob. That is what is used to swap bass lines |
 | 18 | Export a recording to plain Strudel with `arrange()`: needed early, or later? | Later, after the arrangement view works. It is the way to share a performance with somebody without the extension |
 | 19 | Record typing that is not evaluated, to replay the writing of the code like a video? | Off by default, as an option. It makes the file large and adds no sound |
-| 20 | Insert as code: `s("bd").bank("RolandTR909")` for a drum machine sound, or `s("RolandTR909_bd")` (one call, the full name)? | `.bank()`, as asked: it is how songs are written, and the bank can then be changed in one place |
-| 21 | Phase 1b (previews in the Browser) before the Mixer? | Yes. It is small, and it removes the message the maintainer does not want to see |
+| 20 | Insert as code: `s("bd").bank("RolandTR909")` or `s("RolandTR909_bd")`? | Answered by the maintainer: `s()` with `.bank()`. Built |
+| 21 | Phase 1b (previews in the Browser) before the Mixer? | Answered by the maintainer: no, last, with phase 6, because it is part of the change of architecture |
 
 ## Risks
 

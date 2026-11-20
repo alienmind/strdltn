@@ -359,6 +359,26 @@ again folds it.
                                         \___ orbit 2 ___/ \___ orbit 3 ___/ \_orbit 4_/
 ```
 
+**View switch.** A song with many chains and a studio with many instruments make too
+many strips for one row. Sliders and MIDI devices are different things, so the top of
+the Mixer has a switch with three positions:
+
+```
+[ ALL | CHAINS | MIDI ]
+```
+
+| View | Strips | Cables | Use |
+|---|---|---|---|
+| CHAINS | The chain strips, "global", and the master strip if decision 12 adds it | Sidechain (orange) | Mixing the song with its sliders |
+| MIDI | The MIDI device strips only. Each one lists the chains that play it, by name, as small tags under its title. A click on a tag shows that chain in the code | None: the chains are not on screen | Setting up the instruments: names, ports, channels, volumes |
+| ALL | Both, chains on the left and devices on the right | Both kinds | Routing a chain to a device by cable |
+
+In CHAINS a chain that plays a device shows the device's name in its header
+("-> Bass synth"), so the routing is still readable without the cable. A cable is drawn
+by drag only in ALL, where both of its ends are on screen. The view is kept per window in
+the webview's state. It starts on CHAINS. Before phase 5 there is no MIDI, so the switch
+is hidden and the Mixer is the CHAINS view.
+
 **Channels.** One per `$:` or `name:` line, in the order of the code, named as the line
 names it: `$kick:` gives "kick", `lowendbass:` gives "lowendbass". An anonymous `$:` is
 named by the rules of `src/shared/context.ts` that name a visual today. A chain with no
@@ -451,7 +471,8 @@ apart in dark, light and high contrast themes (expected, to check in the screens
 each). The line style differs too, so the kinds stay apart for a reader who does not see
 the colors.
 
-**MIDI device strips.** They come with phase 5, on the right of the chains, and they
+**MIDI device strips.** They come with phase 5. They show in the views MIDI and ALL, in
+ALL on the right of the chains, and they
 stand for the real instruments plugged into the computer. A strip is one device on one
 MIDI channel, with a name the user gives it, as a MIDI track of Live is an instrument on
 a port and a channel:

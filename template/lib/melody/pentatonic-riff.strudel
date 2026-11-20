@@ -1,0 +1,10 @@
+// @title Pentatonic riff
+// @category melody
+// @details A short riff in a minor pentatonic scale. Two of its steps change every bar, so it does not repeat exactly.
+// @tags riff, lead
+// @by alienmind
+n("0 [2 4] <3 5> [4 7]")
+  .scale("a3:minor:pentatonic")
+  .s("square")
+  .lpf(1800).decay(.2).sustain(.2)
+  .room(.3).gain(.4)

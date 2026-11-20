@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { diffText, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { findPackSources } from '../shared/packs';
+import type { PackCache } from './packs';
 import { scanSamples } from './samples';
 
 /**
@@ -30,6 +32,7 @@ export class Session {
 		readonly mode: Mode,
 		private readonly output: vscode.OutputChannel,
 		private readonly events: { onDispose(session: Session): void; onSounds(sounds: SoundInfo[]): void },
+		private readonly packs: PackCache,
 	) {
 		this.known = document.getText();
 		const workspaceFolders = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
@@ -51,7 +54,10 @@ export class Session {
 				if (text === this.known) return;
 				this.known = text;
 				this.post({ type: 'update', text });
+				this.sendPacksSoon();
 			}),
+			// A pack finished downloading: the webview can now play it from the cache.
+			packs.onDidChange(() => void this.sendPacks()),
 		);
 		this.disposables.push(
 			panel.onDidChangeViewState(() => {
@@ -71,6 +77,27 @@ export class Session {
 	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */
 	insert(text: string): void {
 		this.post({ type: 'insert', text });
+	}
+
+	private packsTimer: ReturnType<typeof setTimeout> | undefined;
+	/** After an edit, wait until the typing stops. A half typed `samples('github:...` is not a pack. */
+	private sendPacksSoon(): void {
+		clearTimeout(this.packsTimer);
+		this.packsTimer = setTimeout(() => void this.sendPacks(), 1500);
+	}
+
+	/**
+	 * Tells the webview which remote packs the song loads, with the cached copy of the
+	 * ones we have, and starts the download of the others. The webview registers them at
+	 * once, so their sounds are in the Sounds view before the song has played.
+	 */
+	private async sendPacks(): Promise<void> {
+		const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
+		if (!this.ready || !folder) return;
+		const sources = findPackSources(this.document.getText());
+		const packs = await Promise.all(sources.map((source) => this.packs.info(source, folder, this.panel.webview)));
+		this.post({ type: 'packs', packs });
+		for (const pack of packs) if (!pack.cached) void this.packs.ensure(pack.source, folder);
 	}
 
 	/** Scans the samples folder again, after files were added or removed. */
@@ -99,6 +126,7 @@ export class Session {
 				this.known = this.document.getText();
 				this.post({ type: 'init', text: this.known, mode: this.mode, samples });
 				this.ready = true;
+				void this.sendPacks();
 				if (this.playWhenReady) {
 					this.playWhenReady = false;
 					this.post({ type: 'play' });
@@ -149,6 +177,7 @@ export class Session {
 	private async applyEdit(text: string): Promise<void> {
 		const change = diffText(this.document.getText(), text);
 		this.known = text;
+		this.sendPacksSoon();
 		if (!change) return;
 		const edit = new vscode.WorkspaceEdit();
 		const range = new vscode.Range(this.document.positionAt(change.from), this.document.positionAt(change.to));

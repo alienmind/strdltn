@@ -1,0 +1,8 @@
+// @title Filter sweep
+// @category effect
+// @details A low pass filter that opens and closes over sixteen bars. Put the lpf line on any pattern to make it breathe.
+// @tags filter, sweep, build
+// @by alienmind
+note("c2*8").s("supersaw")
+  .lpf(sine.range(200, 4000).slow(16)).lpq(6)
+  .gain(.4)

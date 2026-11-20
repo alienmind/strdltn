@@ -1,0 +1,8 @@
+// @title Dub delay
+// @category effect
+// @details A rim shot with a long echo in dotted time and some room. The echo fills the gaps.
+// @tags dub, delay, echo
+// @by alienmind
+s("~ rim ~ ~").bank("RolandTR808")
+  .delay(.6).delaytime(.375).delayfeedback(.6)
+  .room(.4)

@@ -1,0 +1,6 @@
+// @title Broken beat
+// @category drums
+// @details A syncopated kick against a late snare. For electro and breaks.
+// @tags electro, breaks, 808
+// @by alienmind
+s("bd ~ ~ bd ~ ~ bd ~, ~ ~ ~ ~ sd ~ ~ ~, hh*8").bank("RolandTR808")

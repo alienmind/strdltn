@@ -77,7 +77,7 @@
 			},
 			{
 				"command": "vstrudel.previewSound",
-				"title": "vstrudel: Preview sound",
+				"title": "vstrudel: Play sound once",
 				"icon": "$(play)"
 			},
 			{
@@ -113,6 +113,26 @@
 			{
 				"command": "vstrudel.showVersion",
 				"title": "vstrudel: Show version and build"
+			},
+			{
+				"command": "vstrudel.clickSound",
+				"title": "vstrudel: Insert sound name and preview",
+				"icon": "$(insert)"
+			},
+			{
+				"command": "vstrudel.insertBank",
+				"title": "vstrudel: Insert .bank() at cursor",
+				"icon": "$(insert)"
+			},
+			{
+				"command": "vstrudel.enablePreview",
+				"title": "Preview sound on click (now off)",
+				"icon": "$(mute)"
+			},
+			{
+				"command": "vstrudel.disablePreview",
+				"title": "Preview sound on click (now on)",
+				"icon": "$(unmute)"
 			}
 		],
 		"menus": {
@@ -135,9 +155,19 @@
 			],
 			"view/title": [
 				{
+					"command": "vstrudel.disablePreview",
+					"when": "view == vstrudel.sounds && vstrudel.previewSounds",
+					"group": "navigation@1"
+				},
+				{
+					"command": "vstrudel.enablePreview",
+					"when": "view == vstrudel.sounds && !vstrudel.previewSounds",
+					"group": "navigation@1"
+				},
+				{
 					"command": "vstrudel.refreshSounds",
 					"when": "view == vstrudel.sounds",
-					"group": "navigation"
+					"group": "navigation@2"
 				},
 				{
 					"command": "vstrudel.refreshSnippets",
@@ -147,19 +177,19 @@
 			],
 			"view/item/context": [
 				{
-					"command": "vstrudel.insertSound",
+					"command": "vstrudel.previewSound",
 					"when": "view == vstrudel.sounds && viewItem == sound",
+					"group": "inline"
+				},
+				{
+					"command": "vstrudel.insertBank",
+					"when": "view == vstrudel.sounds && viewItem == bank",
 					"group": "inline"
 				},
 				{
 					"command": "vstrudel.copySoundName",
 					"when": "view == vstrudel.sounds && viewItem == sound",
 					"group": "vstrudel@1"
-				},
-				{
-					"command": "vstrudel.openSnippet",
-					"when": "view == vstrudel.snippets && viewItem == snippet",
-					"group": "inline"
 				}
 			],
 			"commandPalette": [
@@ -172,6 +202,14 @@
 					"when": "false"
 				},
 				{
+					"command": "vstrudel.clickSound",
+					"when": "false"
+				},
+				{
+					"command": "vstrudel.insertBank",
+					"when": "false"
+				},
+				{
 					"command": "vstrudel.copySoundName",
 					"when": "false"
 				},
@@ -181,6 +219,14 @@
 				},
 				{
 					"command": "vstrudel.openSnippet",
+					"when": "false"
+				},
+				{
+					"command": "vstrudel.enablePreview",
+					"when": "false"
+				},
+				{
+					"command": "vstrudel.disablePreview",
 					"when": "false"
 				}
 			]
@@ -217,6 +263,16 @@
 					"type": "string",
 					"default": "lib",
 					"description": "Workspace folder that holds reusable Strudel snippets."
+				},
+				"vstrudel.remoteSamples.cache": {
+					"type": "boolean",
+					"default": true,
+					"description": "Keep a copy of the sample packs a song loads from GitHub (samples('github:user/repo')) in .vstrudel/cache of the workspace, so they play without the network."
+				},
+				"vstrudel.remoteSamples.maxFiles": {
+					"type": "number",
+					"default": 600,
+					"description": "A remote sample pack with more files than this is not copied to the cache. It still plays from the network."
 				}
 			}
 		},
@@ -237,7 +293,8 @@
 				},
 				{
 					"id": "vstrudel.snippets",
-					"name": "Snippets"
+					"name": "Snippets",
+					"type": "webview"
 				}
 			]
 		},
@@ -245,10 +302,6 @@
 			{
 				"view": "vstrudel.sounds",
 				"contents": "Open a .strudel file to load the sound list."
-			},
-			{
-				"view": "vstrudel.snippets",
-				"contents": "No snippets yet. Put .strudel files in a lib/ folder."
 			}
 		]
 	},

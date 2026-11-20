@@ -126,7 +126,7 @@ let running = true;
 })();
 
 const child = spawn(executable, args, { env, stdio: 'inherit' });
-const timeout = setTimeout(() => child.kill(), 6 * 60 * 1000);
+const timeout = setTimeout(() => child.kill(), 15 * 60 * 1000);
 child.on('exit', (code) => {
 	running = false;
 	clearTimeout(timeout);

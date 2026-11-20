@@ -1,0 +1,9 @@
+// @title Stereo mirror
+// @category effect
+// @details Plays the line forward in the left ear and backward in the right one. A cheap way to make a small line wide.
+// @tags stereo, jux
+// @by alienmind
+n("0 4 7 11 7 4").scale("c4:minor")
+  .s("triangle")
+  .jux(rev)
+  .room(.3).gain(.5)

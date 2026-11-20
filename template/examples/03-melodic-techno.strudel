@@ -1,0 +1,39 @@
+// @title Melodic techno
+// @details A slower, wider track built on four chords. The arpeggio and the stabs share one filter slider, so one hand can open the whole track.
+// @by alienmind
+setcpm(124/4)
+
+const CHORDS = "<Dm7 Bbmaj7 F C>"
+const OPEN = slider(900, 200, 4000)
+const DRUMS = slider(.8, 0, 1)
+
+$kick: s("bd*4").bank("RolandTR909")
+  .duck(2).duckattack(.2).duckdepth(.7)
+  .gain(DRUMS)
+
+$hats: s("[~ hh]*4").bank("RolandTR909").delay(.2).gain(.5).gain(DRUMS)
+
+$perc: s("rim(3,8), cb(5,16,2)").bank("RolandTR808").gain(.3).gain(DRUMS)
+
+$bass: chord(CHORDS).rootNotes(2)
+  .struct("x*8")
+  .s("sawtooth").lpf(400)
+  .orbit(2).gain(.55)
+
+$arp: n("0 2 1 3 2 1 3 0").fast(2)
+  .chord(CHORDS).voicing()
+  .s("supersaw").clip(.5)
+  .lpf(OPEN).lpq(4)
+  .delay(.4).room(.5)
+  .orbit(2).gain(.35)._pianoroll()
+
+$stabs: chord(CHORDS).voicing()
+  .struct("~ x ~ ~ x ~ ~ x")
+  .s("sawtooth").decay(.15).sustain(0)
+  .lpf(OPEN).delay(.5)
+  .orbit(2).gain(.4)
+
+$pad: chord(CHORDS).voicing()
+  .s("supersaw").attack(.5).release(2)
+  .lpf(800).room(.9)
+  .orbit(2).gain(.2)

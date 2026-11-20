@@ -8,52 +8,251 @@ from here.
 Work for the next release collects on the branch `feat/0.0.4`. The version stays 0.0.3
 until the maintainer asks for the release.
 
-| # | Feature | Size | State |
-|---|---|---|---|
-| 1 | README rewrite: say first that vstrudel is a VS Code extension that turns the editor into a Strudel IDE for `.strudel` files. Then the panels, then Codespaces as a way to keep music projects (fork the repo, open it in a Codespace) | Small | Not started |
-| 2 | Icons in the Sounds view: a drum for drum machines, a keyboard for synths, and one each for samples, soundfonts and MIDI. Our own SVG files, because the VS Code icon set has no drum | Small | Not started |
-| 3 | Drum machines grouped by bank: Drum machines -> RolandTR909 -> bd, cb, cr. The bank is the part of the name before the last `_` | Small | Not started |
-| 4 | A click on a sound types its name at the cursor, and also plays it when preview is on | Small | Not started |
-| 5 | Preview toggle: a button at the top right of the Sounds view, tooltip "Preview sound on click". The choice is remembered | Small | Not started |
-| 6 | Snippets as a rich view: a click opens a card in place with a table of the header fields, the code with syntax colors, and an "Insert at cursor" button. A double click opens the file. This needs a webview view, a tree cannot show colored code or a table | Medium | Not started |
-| 7 | Snippet headers: comment lines at the top of the file that the view reads and hides from the code preview. See "Snippet header" below | Small | Not started |
-| 8 | MIDI devices as a group in the Sounds view, a click types the device name | Large | Blocked, see "MIDI" below |
+Done on the branch and covered by `pnpm test:vscode`: the README, icons and banks in
+the Sounds view, click to insert, the preview button, the Snippets view with cards and
+headers, the cache for remote sample packs, the new template (demo, examples, snippets).
+How they work is in `doc/ARCHITECTURE.md`.
 
-### Snippet header
+Left for 0.0.4:
 
-Proposed, not decided. Strudel already has a convention for metadata in comments
-(`// @title`, `// @by`, `// @details`, `// @genre`). We use the same form, so a snippet
-is still a normal Strudel file, and add two fields of our own. To check against the
-upstream documentation before building.
+| # | What | State |
+|---|---|---|
+| 1 | MIDI: devices in the Sounds view, playing through them, mappings | Spike done, not built. See "MIDI" |
+| 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
+| 3 | `doc/ABOUT.md` and its screenshots for the new views | At release time |
+| 4 | The hand test below | Waiting for the maintainer |
 
-```
-// @title Four on the floor
-// @category drums
-// @details House beat with an open hat on the off beat.
-// @tags house, 909
-// @by alienmind
-s("bd*4, ~ cp, [~ oh]*4").bank("RolandTR909")
-```
+## Next: test by hand
 
-Categories, a fixed list so the view can group and color them: `drums`, `bass`,
-`melody`, `chords`, `texture`, `effect` (a chain to put on a pattern), `function` (a
-helper to call), `song` (a starting point for a whole piece), `visual`.
+`pnpm test:vscode` passes in VS Code 1.130 and we looked at its screenshots. It cannot
+hear, and it cannot feel whether a click does what you expect.
 
-### MIDI
+Target: **desktop VS Code, F5 on this repo** (opens `template/`).
 
-Measured: a webview may not use WebMIDI. So neither a device list nor Strudel's own
-`.midi()` works from our webview, on desktop or in Codespaces.
+| # | Do this | Should happen |
+|---|---------|---------------|
+| 1 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Your Sea of Souls mix plays, with the vocals from `samples/sos-vocals` |
+| 2 | Drag the sliders at the top of the code | Parts come in and out |
+| 3 | Click the vstrudel icon. Open "Drum machines", then a bank | Banks by name, each with a drum icon. Sounds inside are `bd`, `cp`... |
+| 4 | Put the cursor inside a `s("...")` and click a sound | The full name is typed at the cursor, and you hear the sound |
+| 5 | Press the speaker button at the top of Sounds, click another sound | The name is typed, no sound. The button changed |
+| 6 | Press the button on a bank | `.bank("...")` is typed |
+| 7 | In Snippets, click a snippet | A card opens under it: fields, colored code, two buttons |
+| 8 | Press "Insert at cursor" | Only the code is inserted, not the header |
+| 9 | Double click a snippet | Its file opens in the native editor |
+| 10 | Type in the filter box of Snippets | The list narrows, on title, description and tags |
+| 11 | Open `examples/05-coastline.strudel` | A group `github:eddyflux/crate` appears in Sounds, with a bank `crate`. The status bar shows the download |
+| 12 | Play it, then turn the network off, reload the window and play it again | It still plays |
 
-What could work, to try as a spike before promising the feature:
-- Desktop: a native MIDI module in the extension host lists the devices and sends the
-  notes. The webview gets a `.midi()` output that posts each note with its time to the
-  host. Needs prebuilt binaries for every platform inside the `.vsix`.
-- Codespaces: the extension host is remote and cannot see a device on the user's
-  machine. The only route is a page outside the webview, in the user's browser, that
-  owns WebMIDI. No design yet.
+Expected still broken: sound stops on every mode switch, sliders are missing in the
+stage, no MIDI.
 
-Listing devices without being able to play them is of little use, so the list and the
-bridge are one piece of work.
+Report the result by check number. When something fails, add the content of Output >
+`vstrudel`.
+
+## Decisions waiting for the maintainer
+
+| # | Question | What we did meanwhile |
+|---|---|---|
+| 1 | Snippet header: is the form `// @title`, `@category`, `@details`, `@tags`, `@by`, `@credits` right, and the nine categories? | Built it this way |
+| 2 | A click on a sound types its name every time. Good while writing, noisy while only browsing. Keep it, or type on double click? | Click types |
+| 3 | A sound in a bank types its full name (`RolandTR909_bd`). Or should it type the short name (`bd`) and leave the bank to the button? | Full name |
+| 4 | Where the Snippets view lives: in the vstrudel side bar, or behind its own icon? | In the vstrudel side bar. Any view can be dragged elsewhere |
+| 5 | The cache for remote packs is `.vstrudel/cache/` in the workspace, not `tmp/`. A dot folder that ignores itself for git seemed safer than a folder a project may already use. OK? | `.vstrudel/cache/` |
+| 6 | A pack is copied whole. `github:eddyflux/crate` is 367 files and 175 MB. Copy everything, or only the files a song has played? | Everything, up to 600 files |
+| 7 | MIDI: build the desktop bridge now, knowing it cannot work in Codespaces? | Not built |
+| 8 | Sound across a mode switch (see "Open design questions") | Sound stops |
+| 9 | Default editor for `.strudel`: the Strudel editor, or the native one with the stage? | The Strudel editor |
+| 10 | Marketplace: publisher id, token, and an icon without the VS Code logo (see "Publishing") | Waiting |
+| 11 | Should the test screenshots keep the debug text in the corner and the title "[Extension Development Host]"? | Kept |
+| 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
+
+## MIDI
+
+### What we measured
+
+- A webview may not use WebMIDI ("Midi has been disabled in this document by
+  permissions policy"). So Strudel's own `.midi()`, `midin()` and `midikeys()` cannot
+  work inside vstrudel, on desktop or in Codespaces.
+- A native MIDI module, `@julusian/midi` 3.9.0 (MIT), loads in the runtime the extension
+  host uses (Electron 42 as Node). It ships prebuilt binaries for Windows, macOS and
+  Linux, about 2.2 MB together, so nothing is compiled on install.
+- It lists outputs and inputs. On the maintainer's machine it showed the output
+  "Microsoft GS Wavetable Synth" and the input "Vienna Instruments MIDI". The M-Vave was
+  not in the list at that moment.
+- Sending a message takes 0.05 ms (the first one 41 ms).
+- A timer in that runtime on Windows fires late: 10 ms in the middle, 16 ms at the 95th
+  percentile, 80 ms at worst. A note sent from a plain timer would be audibly off.
+
+### What follows
+
+- Desktop is possible: devices are listed and played from the extension host. The
+  webview gets its own `.midi()` that posts each note with its time to the host.
+- The host must not use a plain timer to send. To try: a worker thread that waits with
+  `Atomics.wait`, or sending a little early and spinning for the last millisecond.
+- Codespaces is not possible this way: the extension host is remote and cannot see a
+  device on the user's machine. No design yet.
+
+### What to build
+
+1. A "MIDI devices" group in the Sounds view with two folders, outputs (instruments)
+   and inputs (controllers). A click types the device name.
+2. `.midi()` for outputs through the bridge.
+3. `midin()` and `midikeys()` for inputs through the bridge, in the other direction.
+4. Mappings set up in the side bar, so a song needs no setup code: which CC of which
+   controller drives what, and which control of a synth is which CC. Strudel already
+   has the pieces to target (`midimaps`, `defaultmidimap`, `midin`), see below.
+
+### How Strudel uses MIDI
+
+From the upstream documentation (`learn/input-output`) and `@strudel/midi`. This is what
+the bridge has to offer under the same names.
+
+Sending:
+
+| Call | Does |
+|---|---|
+| `.midi(output?, options?)` | Sends the pattern to a device, by name or number. Without a name, the first output |
+| options | `isController` (no notes, only controls), `latencyMs` (default 34, to line MIDI up with the audio), `midichannel` (1 to 16), `midimap`, `midiport` |
+| `.midiport(name)` | Picks the device, and can be a pattern that switches between devices |
+| `.midichan(n)` | Picks the channel. Default 1 |
+| `.ccn(n).ccv(v)` or `.control([n, v])` | Sends a control change. `ccv` is 0 to 1 |
+| `.progNum(n)` | Program change, to switch presets |
+| `.midibend(v)`, `.miditouch(v)` | Pitch bend (-1 to 1) and aftertouch (0 to 1) |
+| `.sysex(id, data)` | System exclusive bytes |
+| `midicmd("clock*48,<start stop>/2")` | MIDI clock and transport |
+
+Mapping names to control changes, so a song says `lpf` and the synth gets CC 74:
+
+| Call | Does |
+|---|---|
+| `defaultmidimap({ lpf: 74 })` | The map used when a pattern names none |
+| `midimaps({ mysynth: { lpf: 74 } })` | Named maps, picked with `.midimap('mysynth')` |
+| `midimaps({ mysynth: { lpf: { ccn: 74, min: 0, max: 20000, exp: 0.5 } } })` | The same with a range and a curve |
+| `midimaps('github:user/repo')` | Loads `midimap.json` from a repository |
+
+Receiving:
+
+| Call | Does |
+|---|---|
+| `const cc = await midin('MPK mini 3')` | Opens a controller. `cc(1)` is a pattern with the last value of CC 1, 0 to 1. `cc(1, 2)` only listens on channel 2 |
+| `cc(7).range(0, 5)` | The usual way to scale a knob |
+| `const kb = await midikeys('KeyStep')` | Opens a keyboard. `kb()` is a pattern of the notes being played, with velocity |
+
+The maintainer's `demo.strudel` was written for an "MPK mini 3" with eight knobs as a
+mixer. Its `midin` lines are commented out and sliders stand in for the knobs. When the
+bridge exists, that file is the first test.
+
+## Sound card
+
+Measured in the webview: `enumerateDevices()` returns one audio output with no label,
+and `AudioContext.setSinkId` exists. A browser only gives the real list, with names,
+to a page that may use the microphone. We have not asked for that permission yet, so we
+do not know whether VS Code lets a webview have it.
+
+To try, in this order:
+1. Ask for the microphone once in the webview and list the outputs again. If it works,
+   the list goes in the side bar and a click calls `setSinkId`. superdough already has
+   `getAudioDevices()` and an audio device setting for this.
+2. If VS Code refuses, there is no way from the webview. The extension host cannot
+   route the webview's sound.
+
+## Open design questions
+
+**Sound across a mode switch.** Each webview has its own engine, so a switch stops the
+sound. Upstream `StrudelMirror` keeps editor, scheduler and drawing in one page, which
+makes a separate engine webview costly: highlighting and scopes need the haps and the
+analyser data where the editor is. Options to try:
+1. Accept the gap and restart playback in the new webview at the same cycle position.
+2. One long-lived panel that holds the engine and is moved or shown differently, instead
+   of two webview kinds.
+3. A separate hidden engine webview, with the editor webview running a silent copy of
+   the pattern for visuals.
+
+A new webview also needs a new click before it may play. Option 1 would show the
+overlay on every switch. That counts against it.
+
+**How `lib/` is reused.** Today a snippet is pasted. Strudel has no module system for
+local files. A second way to reuse code would be a prelude that evaluates the
+`function` snippets before the song, so that their functions are global.
+
+**Where the template lives.** It is the folder `template/` in this repo for now, so F5
+and the test have something to open. It should become its own GitHub template repo
+before M5. `template/.devcontainer/` is already written for that.
+
+## Publishing
+
+Decided: music projects get the extension from the VS Code Marketplace. The pipeline
+already has the publish step. It does nothing until the repository has a `VSCE_PAT`
+secret. What is left, in order:
+
+1. The maintainer creates a publisher on the Marketplace and a token for it. Only the
+   maintainer can do this.
+2. Set `publisher` in `package.json` to that publisher id. This changes the extension
+   id, which is `<publisher>.vstrudel`. The id is also written in `src/test/m0.ts`.
+3. Add the token to the GitHub repository as the secret `VSCE_PAT`.
+4. Add an `icon` to `package.json`: a PNG of at least 128 by 128 pixels. The Marketplace
+   restricts the use of the VS Code logo in an extension's icon, and `doc/logo.jpg`
+   contains it, so the icon needs its own picture.
+5. Tag a release. The pipeline publishes it.
+6. Change the three devcontainer files to install by id
+   (`customizations.vscode.extensions`) and drop the `.vsix` download.
+
+Until then the devcontainers install the `.vsix` from a GitHub release. Open VSX is not
+planned yet.
+
+## Open questions
+
+- Does a real key press in the native editor count as a click for the stage? A command
+  sent by the test does not.
+- Does the scheduler keep exact time in a hidden tab? The test only saw that it kept
+  running.
+- Does a second install of the same version leave the old side bar title and icon in a
+  running window, and does a version of its own cure it? Seen once, not confirmed.
+- Does the pack cache work in Codespaces, where the workspace is remote?
+
+## Known gaps
+
+- Undo in the Strudel editor is CodeMirror's own history. It should go through VS Code
+  so there is one history across both modes.
+- Cursor and scroll position are not carried across a mode switch.
+- Sliders do not appear in the stage.
+- Notes that are playing are not highlighted in the native editor.
+- A sample that was deleted stays in the Sounds view until the editor is reloaded.
+- The Sounds view is empty until a `.strudel` file is open.
+- A sound with more than 64 variations only shows the first 64.
+- The Sounds view has no search box of its own. The tree filter of VS Code (Ctrl+F in
+  the view) works.
+- A snippet is a whole file. Several snippets in one file are not possible.
+- The pack cache only knows `samples('github:...')`. A full `https://` address, and a
+  `github:` name as the second argument of `samples()`, stay on the network.
+- The pack cache has no way to see its size or to clear it, other than deleting
+  `.vstrudel/`.
+- A kick that ducks an orbit logs "duck target orbit 2 does not exist" once, when it
+  hits before anything has played on that orbit. It comes from upstream and is harmless.
+- `stop` stops every session, not only the active one.
+- The grammar only reuses JavaScript highlighting. Mini-notation is not highlighted in
+  the native editor.
+- The editor font and theme are Strudel's defaults, not VS Code's.
+- The status text in the corner of the editor ("editor | audio running | playing") is a
+  debugging aid and should become a status bar item.
+- The integration test does not run in CI. A runner has no sound card and needs a
+  virtual display. It also takes about ten minutes now, because it plays every file of
+  the template.
+- The integration test leaves `demo.strudel` marked as changed in its own window. It
+  does not save, so the file on disk is untouched.
+- The default sound packs need the network. Offline, only synths, ZZFX, local samples
+  and cached packs play.
+
+## Milestones
+
+| Milestone | Content |
+|---|---|
+| M1 | Solid core: settings for theme and font, eval errors as diagnostics, status bar |
+| M2 | Native mode feedback: note highlighting through decorations, sliders in the stage with write-back, one undo history |
+| M3 | MIDI through the bridge, sound card choice, the Strudel reference in the side bar |
+| M4 | Language support in the native editor: completion, hover, signature help, mini-notation grammar and diagnostics |
+| M5 | Ship: Marketplace, template as its own repo, Renovate for `@strudel/*` |
 
 ## Noted for later, not planned
 
@@ -80,138 +279,16 @@ keyboard layout, and it is not a character of the language. `/` is the divide si
 is used in mini-notation, Ctrl+Space is VS Code's own completion, Ctrl+I is its inline
 chat. A typed trigger as a second way in: `,,` followed by the text. Two commas in a
 row mean nothing in Strudel code and are easy to type on every layout.
-## Next: test by hand
-
-`pnpm test:vscode` passes in VS Code 1.130 and we looked at its screenshots (see
-"Measured" in `doc/ARCHITECTURE.md`). It cannot hear. Version 0.0.1 was heard on
-desktop and in Codespaces. Version 0.0.2 adds the Sounds and Snippets views, and nobody
-has listened to those.
-
-Target: **desktop VS Code, F5 on this repo**, or **a new Codespace on `main`** with the
-configuration "vstrudel template (released extension)".
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Sound, as before |
-| 2 | Click the vstrudel icon in the activity bar | A Sounds view with groups and counts, and a Snippets view with `drums` |
-| 3 | Open "Drum machines" and click a few sounds | Each one is heard once |
-| 4 | Open "Soundfonts" and click `gm_piano` | A piano note |
-| 5 | Open "Local samples", click `blip` | The blip |
-| 6 | Put the cursor inside a `s("...")`, press the insert button on a sound | The name is typed at the cursor |
-| 7 | Copy a folder with a few `.wav` files into `samples/` | It appears under "Local samples" in a few seconds, and plays |
-| 8 | Put the cursor on an empty line, click `drums` in Snippets | The text of `lib/drums.strudel` is inserted |
-| 9 | Press the swap button, then Ctrl+Enter in the native editor | The stage opens. Note whether it plays at once or asks for a click |
-
-Expected still broken: sound stops on every mode switch, and sliders are missing in the
-stage.
-
-Report the result by check number. When something fails, add the content of Output >
-`vstrudel`.
-
-## Open questions
-
-- Does a real key press in the native editor count as a click for the stage? A command
-  sent by the test does not. Check 9 answers it.
-- Does the scheduler keep exact time in a hidden tab? The test only saw that it kept
-  running.
-- Which devcontainer configuration did the working new Codespace use? Both should work,
-  only one was seen.
-
-## Open decisions
-
-**Sound across a mode switch.** Each webview has its own engine, so a switch stops the
-sound. Upstream `StrudelMirror` keeps editor, scheduler and drawing in one page, which
-makes a separate engine webview costly: highlighting and scopes need the haps and the
-analyser data where the editor is. Options to try:
-1. Accept the gap and restart playback in the new webview at the same cycle position.
-2. One long-lived panel that holds the engine and is moved or shown differently, instead
-   of two webview kinds.
-3. A separate hidden engine webview, with the editor webview running a silent copy of
-   the pattern for visuals.
-
-A new webview also needs a new click before it may play. Option 1 would show the
-overlay on every switch. That counts against it.
-
-**Default editor for `.strudel`.** Today the Strudel editor is the default
-(`priority: default`). Planned: a setting `vstrudel.defaultEditor: strudel | native`.
-
-**Publishing.** Decided: music projects get the extension from the VS Code Marketplace.
-The pipeline already has the publish step. It does nothing until the repository has a
-`VSCE_PAT` secret. What is left, in order:
-1. The maintainer creates a publisher on the Marketplace and a token for it. Only the
-   maintainer can do this.
-2. Set `publisher` in `package.json` to that publisher id. This changes the extension
-   id, which is `<publisher>.vstrudel`. The id is also written in `src/test/m0.ts`.
-3. Add the token to the GitHub repository as the secret `VSCE_PAT`.
-4. Add an `icon` to `package.json`: a PNG of at least 128 by 128 pixels. The Marketplace
-   restricts the use of the VS Code logo in an extension's icon, and `doc/logo.jpg`
-   contains it, so the icon needs its own picture.
-5. Tag a release. The pipeline publishes it.
-6. Change the three devcontainer files to install by id
-   (`customizations.vscode.extensions`) and drop the `.vsix` download.
-Until then the devcontainers install the `.vsix` from a GitHub release. Open VSX is not
-planned yet.
-
-**How `lib/` is reused.** Today a snippet is a file whose text is pasted. Strudel has no
-module system for local files. A second way to reuse code would be a prelude that
-evaluates every file in `lib/` before the song, so that its functions are global. Not
-decided.
-
-**Where the template lives.** It is the folder `template/` in this repo for now, so F5
-and the test have something to open. It should become its own GitHub template repo
-before M5. `template/.devcontainer/` is already written for that.
-
-## Known gaps
-
-- Undo in the Strudel editor is CodeMirror's own history. It should go through VS Code
-  so there is one history across both modes.
-- Cursor and scroll position are not carried across a mode switch.
-- Sliders do not appear in the stage.
-- Notes that are playing are not highlighted in the native editor.
-- A sample that was deleted stays in the Sounds view until the editor is reloaded.
-- The Sounds view is empty until a `.strudel` file is open.
-- A sound with more than 64 variations only shows the first 64.
-- The Sounds view has no search box of its own. The tree filter of VS Code (Ctrl+F in
-  the view) works.
-- A snippet is a whole file. There is no way to put several in one file or to give one
-  a description.
-- `stop` stops every session, not only the active one.
-- The grammar only reuses JavaScript highlighting. Mini-notation is not highlighted in
-  the native editor.
-- The editor font and theme are Strudel's defaults, not VS Code's.
-- The status text in the corner of the editor ("editor | audio running | playing") is a
-  debugging aid and should become a status bar item.
-- The integration test does not run in CI. A runner has no sound card and needs a
-  virtual display.
-- The integration test leaves `demo.strudel` marked as changed in its own window. It
-  does not save, so the file on disk is untouched.
-- The default sound packs need the network. Offline, only synths, ZZFX and local samples
-  play.
-
-## Milestones
-
-| Milestone | Content |
-|---|---|
-| M1 | Solid core: settings for theme and font, eval errors as diagnostics, status bar |
-| M2 | Native mode feedback: note highlighting through decorations, sliders in the stage with write-back, one undo history |
-| M3 | What is left of the side panels: the Strudel reference (from `@strudel/reference`), search in the Sounds view |
-| M4 | Language support in the native editor: completion, hover, signature help, mini-notation grammar and diagnostics |
-| M5 | Ship: Marketplace and Open VSX, template as its own repo, Renovate for `@strudel/*` |
-
-## Ideas for later
 
 **Plugins on Strudel channels.** Load an audio plugin with something like
 `.vst("name")` and insert it on that pattern's orbit. In the Strudel editor the call
 renders as a block with the plugin name and small sliders for its macros, and a click
-opens the plugin's own window. The widget mechanism is the same one `slider()` uses.
-The plugin format in a webview is WAM (Web Audio Modules 2): wasm DSP with a web GUI.
-First question to answer: does superdough let us insert a node on one orbit, or does
-that need a change upstream?
+opens the plugin's own window. The plugin format in a webview is WAM (Web Audio Modules
+2): wasm DSP with a web GUI. First question: does superdough let us insert a node on
+one orbit, or does that need a change upstream?
 
 **Native VST3 on desktop.** Only possible outside the webview: a sidecar host process,
-with audio streamed out and back. Large, adds latency, never works in Codespaces. A user
-can already get there today by sending orbits to separate outputs with `.channels()`
-into a DAW.
+with audio streamed out and back. Large, adds latency, never works in Codespaces.
 
 **A skill that ports open-source VST3 plugins to WAM.** From source (JUCE, iPlug2, DPF,
 Faust), not from a binary. See the drawer for why not from a binary.

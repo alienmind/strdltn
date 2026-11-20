@@ -1,0 +1,6 @@
+// @title Euclidean percussion
+// @category drums
+// @details Rim and cowbell spread evenly over the bar with euclidean rhythms. Layer it over a plain beat.
+// @tags percussion, euclid, 808
+// @by alienmind
+s("rim(3,8), cb(5,16,2)").bank("RolandTR808").gain(.5)

@@ -50,7 +50,11 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/session.ts` | Binds one webview to one document. Text sync, sample scan, HTML and CSP. |
 | `src/extension/samples.ts` | Turns the samples folder into the map upstream `samples()` accepts. |
 | `src/extension/sounds.ts` | The Sounds view: groups the sound list that the engine reports. |
-| `src/extension/snippets.ts` | The Snippets view: the `.strudel` files under `lib/`. |
+| `src/extension/snippets.ts` | The Snippets view: reads the `.strudel` files under `lib/` and owns the view's webview. |
+| `src/snippets-view/main.ts` | The page of the Snippets view: folders, cards, code colors. Built as `dist/snippets-view.js`. |
+| `src/shared/snippet.ts` | Splits a snippet file into header fields and code. |
+| `src/extension/packs.ts` | Downloads the remote sample packs a song loads into `.vstrudel/cache/`. |
+| `src/shared/packs.ts` | Finds `samples('github:...')` in a song and resolves the name to an address. |
 | `src/shared/protocol.ts` | Message types and `diffText`, used by both sides. |
 | `src/webview/main.ts` | Creates `StrudelMirror`, syncs text, handles play and stop, fills the stage dock. |
 | `scripts/build.mjs` | esbuild: `dist/extension.cjs` (Node, CommonJS) and `dist/webview.js` (browser, ESM). |
@@ -85,6 +89,7 @@ another, so the sound stops on a switch. See `doc/TODO.md` for the open question
 | host -> webview | `update {text}` | The document changed from somewhere else |
 | host -> webview | `play`, `stop` | A VS Code command was run |
 | host -> webview | `samples {samples}` | The samples folder changed. Register the new map |
+| host -> webview | `packs {packs}` | The remote sample packs of the song, with the cached copy of the ones we have |
 | host -> webview | `preview {name, index}` | Play one sound once |
 | host -> webview | `insert {text}` | Insert at the cursor of the Strudel editor |
 | webview -> host | `sounds {sounds}` | The engine's sound list, sent after loading and after every change |
@@ -142,28 +147,129 @@ the host after loading and again whenever it changes (300 ms after the last chan
 because a pack registers hundreds of sounds one by one). The view never has a list of
 its own, so it shows exactly what can be played, including the workspace samples.
 
-`SoundsProvider` sorts the list into groups: local samples, samples, drum machines,
-synths, soundfonts, wavetables, other. A sound with numbered variations opens into
-`name:0`, `name:1` and so on, up to 64.
+`SoundsProvider` sorts the list into groups: local samples, one group per remote pack,
+samples, drum machines, synths, soundfonts, wavetables, other. A sound with numbered
+variations opens into `name:0`, `name:1` and so on, up to 64.
 
-A click plays the sound once through `superdough()`, with the note `a3` for anything
-that is not a plain sample list, as the sounds tab of strudel.cc does. The inline button
-inserts the name at the cursor. The view is empty until a `.strudel` file is open,
-because the list lives in an engine.
+Drum machines and remote packs have one more level, the bank. Such a sound is named
+`<bank>_<sound>`, for example `RolandTR909_bd` or `crate_bd`, and the bank is everything
+before the last underscore. Under a bank the row shows the short name `bd`. A prefix
+that only one sound has is not a bank, and that sound stays a plain row.
 
-Measured in VS Code 1.130: 151 samples, 1347 drum machine sounds, 25 synths and 125
-soundfonts are listed, and one sound of each group plays.
+A click on a sound types its full name at the cursor (`RolandTR909_bd`, which is valid
+anywhere). When preview is on, the click also plays the sound once through
+`superdough()`, with the note `a3` for anything that is not a plain sample list, as the
+sounds tab of strudel.cc does. The speaker button at the top of the view turns preview
+on and off. It is two commands that swap on the context key `vstrudel.previewSounds`,
+and the choice is kept in `globalState`. The play button on a row plays without typing.
+The button on a bank types `.bank("RolandTR909")`.
+
+The icons are our own files in `media/icons/`: a drum, a keyboard, a wave for samples,
+a note for soundfonts. VS Code's icon set has no drum. A tree draws an icon as an image,
+so it cannot take the color of the theme, and each icon exists as a light and a dark
+file.
+
+The view is empty until a `.strudel` file is open, because the list lives in an engine.
+
+Measured in VS Code 1.130: 151 samples, 1347 drum machine sounds in 138 banks, 25
+synths and 125 soundfonts are listed, and one sound of each group plays.
 
 ## Snippets view
 
-`SnippetsProvider` lists every `.strudel` file under a folder named by
-`vstrudel.libFolder` (default `lib`), anywhere in the workspace. One file is one
-snippet. A click inserts the file's text at the cursor. A watcher refreshes the list.
+`SnippetsView` lists every `.strudel` file under a folder named by `vstrudel.libFolder`
+(default `lib`), anywhere in the workspace. One file is one snippet. A watcher refreshes
+the list when a file is added, removed or saved.
+
+The view is a webview view, not a tree. A tree row is one line of plain text, and a
+snippet needs a card: the header fields as a table, the code in color, and buttons. The
+page (`src/snippets-view/main.ts`) groups the snippets by the folder they are in, with a
+filter box on top. A click opens the card in place. A double click opens the file in the
+native editor. "Insert at cursor" inserts the code without the header.
+
+The colors of the code come from a regular expression that knows comments, strings,
+numbers, keywords, `$name:` labels and function calls. VS Code does not let a webview
+use the editor's highlighter, and a preview does not need a parser.
 
 Inserting goes to the Strudel editor when it is the active tab, and to the native
 editor otherwise. `window.activeTextEditor` is undefined while the Strudel editor is
 active, because it is a webview.
 
+### Snippet header
+
+A snippet describes itself in comments at the top of the file. The form is the one
+Strudel uses for the metadata of a song, so a snippet is still an ordinary Strudel
+file:
+
+```
+// @title Four on the floor
+// @category drums
+// @details Kick on every beat, clap on 2 and 4, open hat on the off beat.
+// @tags house, techno, 909
+// @by alienmind
+// @credits Switch Angel
+s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
+```
+
+`parseSnippet` reads `// @name value` lines, the same lines inside one block comment,
+and the older upstream form `// "title" @by author`. The header ends at the first line
+that is neither. A file whose top comment has no field has no header, and the comment
+stays in the code. Every field is shown in the card. `@title` names the row, `@category`
+picks the color, `@tags` become chips. The categories are `drums`, `bass`, `melody`,
+`chords`, `texture`, `effect`, `function`, `song` and `visual`.
+
+## Remote sample packs
+
+A song can load a pack by name: `samples('github:eddyflux/crate')`. Three things happen
+around that call, none of which change upstream.
+
+**The pack is found before the song plays.** The host scans the text of the document
+for `samples('github:...')` (`findPackSources`), on open and 1.5 seconds after the last
+edit, and tells the webview. The webview registers the pack at once, so its sounds can
+be browsed and previewed before the first play.
+
+**The pack gets a group in the Sounds view.** The song's scope has our own `samples`
+(`taggedSamples`), put after `@strudel/webaudio` in `evalScope`. It calls the real one
+and adds the pack's name as the `tag` when the first argument is a name. The view makes
+a group of every tag that starts with `github:`.
+
+**The pack is copied into the workspace.** `PackCache` downloads the sample map and
+every file it names into `.vstrudel/cache/github/<user>/<repo>/<branch>/`, six at a
+time, with progress in the status bar. A file `.complete` is written last, and only a
+folder that has it is used. Then the webview is told again, with the map and the
+webview address of the folder. Upstream lets us answer for a prefix
+(`registerSamplesPrefix('github:', ...)`): a cached pack is answered from the workspace,
+any other is fetched as upstream would.
+
+`.vstrudel/` has its own `.gitignore` with `*` in it, so the cache is never committed
+and the `.gitignore` of the project is not touched.
+
+A pack is left on the network when it has more files than
+`vstrudel.remoteSamples.maxFiles` (default 600), or when its map uses more than one
+base address. `vstrudel.remoteSamples.cache` turns the cache off.
+
+Not covered: a pack loaded through a full `https://` address, and a `github:` name used
+as the second argument of `samples()` with a map written in the song.
+
+## The template
+
+`template/` is what a user starts from, and what every test opens.
+
+| Path | Holds |
+|---|---|
+| `demo.strudel` | "Sea of Souls (club mix)" by the maintainer. The test plays it on every run. It uses the vocals in `samples/sos-vocals/` |
+| `examples/` | Songs to learn from: three of ours, Hydra visuals, `coastline` from Strudel's own examples, and "Array (Lil Data Edit)" |
+| `lib/` | Snippets by category, one folder each |
+| `samples/` | Local samples |
+
+Rules for what goes in:
+
+- A file by somebody else is only copied when it has a license that allows it. Its
+  header keeps the author and the license. A change we made is said in a comment
+  (`06-array-lil-data-edit.strudel` lost two calls that only exist on strudel.cc).
+- A technique learned from somebody without a license on their code is written again
+  as our own code, and the snippet names the person in `@credits`.
+- The integration test plays every file in `lib/` and `examples/`. That is how we know a
+  function or a sound name exists in the pinned Strudel version.
 ## Starting audio
 
 A webview does not start an `AudioContext` without a real click inside it. Measured in
@@ -256,6 +362,13 @@ In VS Code 1.130.0 on Windows (Electron 42, Chrome 148), with `pnpm test:vscode`
 | Preview of a local sample, a sample, a drum machine sound, a synth and a soundfont | Works |
 | A new folder under `samples/` appears in the list without a reload | Works |
 | Insert a sound name into the Strudel editor, and a snippet into the native editor | Works |
+| Audio outputs seen by the webview (`enumerateDevices`) | 1, without a label. `AudioContext.setSinkId` exists |
+| A native MIDI module (`@julusian/midi`) in the extension host's runtime | Loads, lists inputs and outputs, sends in 0.05 ms |
+| A 20 ms timer in the extension host's runtime, Windows | Late by 10 ms in the middle, 16 ms at the 95th percentile, 80 ms at worst |
+| Drum machine banks in the Sounds view | 138 |
+| Every file in `template/lib` and `template/examples` plays | 27 files, no error |
+| A song with `samples('github:eddyflux/crate')`: sounds listed before the first play | Works, 18 sounds |
+| The same pack copied to `.vstrudel/cache/` and then answered from there | Works: 367 files, 175 MB |
 
 The test cannot hear or see. "Works" for audio means the `AudioContext` is running, the
 scheduler started and the samples decoded. It does not prove sound came out of the
@@ -265,9 +378,9 @@ In Chrome, with `pnpm smoke`: the editor, inline widgets, slider, note highlight
 text sync in both directions and the stage dock were also checked by looking at the
 page.
 
-Looked at in screenshots of the same test: the Sounds and Snippets views, the inline
-scope, piano roll and slider, the outlines on playing notes, and Hydra shapes behind the
-code.
+Looked at in screenshots of the same test: the Sounds view with its icons and banks, a
+snippet card with its table and colored code, the inline scope, piano roll and slider,
+the outlines on playing notes, and Hydra shapes behind the code.
 
 In Codespaces, by hand, with version 0.0.1: a new Codespace installs the extension by
 itself and `demo.strudel` plays with sound in the browser.

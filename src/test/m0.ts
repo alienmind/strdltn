@@ -20,7 +20,7 @@ export async function run(): Promise<void> {
 		result.identity = api.identity;
 		const folder = vscode.workspace.workspaceFolders![0].uri;
 		const demo = vscode.Uri.joinPath(folder, 'demo.strudel');
-		const hydra = vscode.Uri.joinPath(folder, 'hydra.strudel');
+		const hydra = vscode.Uri.joinPath(folder, 'examples', '04-hydra-visuals.strudel');
 
 		const session = (mode: string, uri: vscode.Uri) => api.sessions().find((s) => s.mode === mode && s.uri === uri.toString());
 		const until = async (test: () => boolean, ms: number) => {
@@ -92,8 +92,14 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('vstrudel.sounds.focus');
 		await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
 		await vscode.commands.executeCommand('notifications.clearAll');
-		await api.expandSoundGroup('Local samples');
-		await api.expandSoundGroup('Drum machines');
+		steps.soundBanks = api.soundBanks().length;
+		steps.previewSoundsOn = api.previewSounds();
+		steps.snippetDetails = api.snippetDetails().slice(0, 3);
+		await api.expandSoundGroup('Synths');
+		await api.expandSoundBank('RolandTR909');
+		await vscode.commands.executeCommand('vstrudel.snippets.focus');
+		await sleep(1200);
+		api.expandSnippet('bass/acid-303');
 		await sleep(1500);
 		await shot('sounds-view');
 		await vscode.commands.executeCommand('workbench.action.closeSidebar');
@@ -155,10 +161,10 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('vstrudel.snippets.focus');
 		await sleep(1000);
 		await shot('snippets-view');
-		const snippetBody = 's("bd*2, ~ sd, hh*8")';
+		const snippetBody = 's("[~ hh]*4").bank("RolandTR909").gain(.6)';
 		const nativeBefore = await text(demo);
-		const snippetUri = vscode.Uri.joinPath(folder, 'lib', 'drums.strudel');
-		await vscode.commands.executeCommand('vstrudel.insertSnippet', { uri: snippetUri, name: 'drums' });
+		const snippetUri = vscode.Uri.joinPath(folder, 'lib', 'drums', 'offbeat-hats.strudel');
+		await vscode.commands.executeCommand('vstrudel.insertSnippet', { uri: snippetUri, name: 'drums/offbeat-hats' });
 		await sleep(700);
 		steps.insertSnippetInNativeEditor = count(await text(demo), snippetBody) === count(nativeBefore, snippetBody) + 1;
 		await restore(demo, nativeBefore);
@@ -208,6 +214,49 @@ export async function run(): Promise<void> {
 		await sleep(500);
 		steps.documentRestored = !document.getText().includes(marker.trim());
 		steps.documentDirty = document.isDirty;
+		save();
+
+		// 7a. A song that loads a pack from GitHub: its sounds are listed before it has
+		// played, and the pack is copied into the cache of the workspace.
+		const coastline = vscode.Uri.joinPath(folder, 'examples', '05-coastline.strudel');
+		await vscode.commands.executeCommand('vscode.openWith', coastline, EDITOR);
+		steps.packListedBeforePlay = await until(() => api.sounds().some((s) => s.tag === 'github:eddyflux/crate'), 40000);
+		steps.packGroup = api.soundGroups().find((group) => group.label.startsWith('github:'));
+		steps.packBanks = api.soundBanks('github:eddyflux/crate');
+		steps.packCached = await until(() => api.packs().some((pack) => pack.source === 'github:eddyflux/crate' && pack.complete), 180000);
+		steps.packs = api.packs();
+		steps.packServedFromCache = await until(() => has('editor', coastline, 'github:eddyflux/crate (cached): registered'), 20000);
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		save();
+
+		// 7b. Every snippet and example of the template plays. This is what catches a
+		// function or a sound name that the pinned Strudel version does not have.
+		const files = (await vscode.workspace.findFiles('{lib,examples}/**/*.strudel')).sort((a, b) => a.path.localeCompare(b.path));
+		const fileProblems: Record<string, string[]> = {};
+		let filesChecked = 0;
+		for (const file of files) {
+			if (file.path.includes('hydra')) continue;
+			filesChecked++;
+			await vscode.commands.executeCommand('vscode.openWith', file, EDITOR);
+			await until(() => has('editor', file, 'local samples'), 30000);
+			await vscode.commands.executeCommand('vstrudel.play');
+			const played = await until(() => has('editor', file, 'report:'), 30000);
+			await sleep(3000);
+			const logs = session('editor', file)?.logs ?? [];
+			// Not problems: the capability probes (they report a refusal as text), and
+			// upstream's message for a kick that ducks an orbit before anything played on it.
+			const bad = logs.filter(
+				(line) => /error|not found/i.test(line) && !/click inside|\] info: (midi|webgpu|audio outputs): |duck target orbit/.test(line),
+			);
+			if (!played) bad.unshift('did not play');
+			else if (!last('editor', file, 'report:')?.includes('started=true')) bad.unshift('did not start');
+			if (bad.length) fileProblems[vscode.workspace.asRelativePath(file)] = [...new Set(bad)].slice(0, 5);
+			await vscode.commands.executeCommand('vstrudel.stop');
+			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+			save();
+		}
+		steps.filesChecked = filesChecked;
+		steps.fileProblems = fileProblems;
 		save();
 
 		// 8. Hydra: loaded from unpkg.com at run time, needs WebGL.

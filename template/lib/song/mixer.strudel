@@ -1,0 +1,12 @@
+// @title Mixer with sliders
+// @category song
+// @details One slider for the volume of each part, at the top of the file. Drag them while the song plays to bring parts in and out.
+// @tags mixer, sliders, live
+// @by alienmind
+const KICK = slider(.8, 0, 1)
+const HATS = slider(.5, 0, 1)
+const BASS = slider(.6, 0, 1)
+
+$: s("bd*4").bank("RolandTR909").gain(KICK)
+$: s("[~ hh]*4").bank("RolandTR909").gain(HATS)
+$: note("c2*8").s("sawtooth").lpf(500).gain(BASS)

@@ -131,3 +131,19 @@ permissions policy`. VS Code builds the frame of a webview and does not allow `m
 it. An extension cannot change that. So upstream `.midi()` cannot work inside our
 webview, and MIDI devices cannot be listed from there. MIDI needs a bridge outside the
 webview, see `doc/TODO.md`.
+
+## Sending MIDI from a plain timer in the extension host
+
+Tried, as part of the MIDI spike. The idea was that the webview posts each note with its
+time and the extension host sends it with `setTimeout`. In the host's runtime on Windows
+a 20 ms timer fired 10 ms late in the middle and 80 ms late at worst. That is audible. A
+bridge needs a better clock, see "MIDI" in `doc/TODO.md`.
+
+## Copying other people's examples that have no license
+
+Designed. The maintainer's `algorave` repository has songs and helper code by other
+people, kept with their names but without a license from them. A name is not a
+permission, so we did not copy those files. We copied what has a license (`coastline`
+from Strudel's own examples, "Array (Lil Data Edit)" under CC BY-NC-SA) and the
+maintainer's own song. For the rest we wrote our own snippets with the same techniques
+and put the name in `@credits`.

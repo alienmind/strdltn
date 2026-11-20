@@ -12,6 +12,7 @@ import * as strudelSoundfonts from '@strudel/soundfonts';
 import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
+import { githubBase, type PackInfo } from '../shared/packs';
 import { diffText, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -51,6 +52,9 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'samples':
 			void loadLocalSamples(message.samples);
+			break;
+		case 'packs':
+			void loadPacks(message.packs);
 			break;
 		case 'play':
 			void play();
@@ -97,11 +101,14 @@ function init(text: string, initialMode: Mode, samples: SampleMap): void {
 					strudelCodemirror,
 					strudelHydra,
 					strudelSoundfonts,
+					// Last, so that it replaces the `samples` of @strudel/webaudio in the song's scope.
+					{ samples: taggedSamples },
 				),
 				strudelWebaudio.registerSynthSounds(),
 				strudelWebaudio.registerZZFXSounds(),
 				strudelSoundfonts.registerSoundfonts(),
 			]);
+			strudelWebaudio.registerSamplesPrefix('github:', resolveGithubPack);
 			await loadLocalSamples(samples);
 			log('info', `local samples: ${Object.keys(samples).join(', ') || 'none'}`);
 			// The first play waits for the default packs, or "bd" is not found yet (measured
@@ -185,6 +192,54 @@ async function loadDefaultSounds(): Promise<void> {
 async function loadLocalSamples(samples: SampleMap): Promise<void> {
 	if (!Object.keys(samples).length) return;
 	await strudelWebaudio.samples(samples, undefined, { prebake: false, tag: 'local' });
+}
+
+/** The packs the extension host has in its cache: name in the song -> sample map and folder URL. */
+const cachedPacks = new Map<string, { map: Record<string, unknown>; base: string }>();
+/** What was already registered, so that a repeated message does not load a pack again. */
+const registeredPacks = new Set<string>();
+
+/**
+ * `samples()` as the song sees it. A pack loaded by name gets that name as its tag, and
+ * the Sounds view makes a group of it. Nothing else changes.
+ */
+function taggedSamples(map: unknown, base?: string, options: Record<string, unknown> = {}): Promise<void> {
+	return strudelWebaudio.samples(map, base, typeof map === 'string' ? { tag: map, ...options } : options);
+}
+
+/**
+ * Upstream asks this for the map of every `github:` pack (registerSamplesPrefix). A
+ * cached pack is answered from the workspace. Any other is fetched the way upstream
+ * does it.
+ */
+async function resolveGithubPack(source: string): Promise<[Record<string, unknown>, string]> {
+	const cached = cachedPacks.get(source);
+	if (cached) return [structuredClone(cached.map), cached.base];
+	const base = githubBase(source);
+	const map = await fetch(`${base}strudel.json`).then((response) => response.json());
+	return [map, map._base || base];
+}
+
+/**
+ * The remote packs of the open song, from the extension host. They are registered right
+ * away, so their sounds can be browsed before the song has played. When a pack arrives
+ * in the cache it is registered again, and from then on it plays from the workspace.
+ */
+async function loadPacks(packs: PackInfo[]): Promise<void> {
+	await mirror?.prebaked;
+	for (const pack of packs) {
+		if (pack.cached) cachedPacks.set(pack.source, pack.cached);
+		const key = `${pack.source}${pack.cached ? ' (cached)' : ''}`;
+		if (registeredPacks.has(key)) continue;
+		registeredPacks.add(key);
+		try {
+			await taggedSamples(pack.source);
+			log('info', `pack ${key}: registered`);
+		} catch (error) {
+			registeredPacks.delete(key);
+			log('warn', `pack ${pack.source} not loaded: ${(error as Error)?.message}`);
+		}
+	}
 }
 
 let publishTimer: ReturnType<typeof setTimeout> | undefined;
@@ -353,6 +408,12 @@ function reportEnvironment(): void {
 	void probe('midi', async () => {
 		const access = await (navigator as any).requestMIDIAccess();
 		return `outputs=[${[...access.outputs.values()].map((port: any) => port.name).join(', ')}] inputs=[${[...access.inputs.values()].map((port: any) => port.name).join(', ')}]`;
+	});
+	// Which sound cards can the engine send its sound to? Labels are empty until the
+	// page may use a microphone, so the count is the first thing to look at.
+	void probe('audio outputs', async () => {
+		const devices = (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === 'audiooutput');
+		return `${devices.length} [${devices.map((device) => device.label || '(no label)').join(', ')}] setSinkId=${'setSinkId' in AudioContext.prototype}`;
 	});
 	void probe('webgpu', async () => {
 		const adapter = await (navigator as any).gpu.requestAdapter();

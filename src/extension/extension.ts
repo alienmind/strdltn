@@ -182,11 +182,9 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		vscode.commands.registerCommand('vstrudel.toggleMode', toggleMode),
 
 		vscode.commands.registerCommand('vstrudel.previewSound', previewSound),
-		// A click on a sound types its name, and plays it when preview is on.
-		vscode.commands.registerCommand('vstrudel.clickSound', async (node: SoundNode) => {
-			const text = soundText(node);
-			if (!text) return;
-			await insertText(text);
+		// A click on a sound selects it, and plays it when preview is on. It never types:
+		// text goes into the code only through the insert button of the row.
+		vscode.commands.registerCommand('vstrudel.clickSound', (node: SoundNode) => {
 			if (previewSounds) previewSound(node);
 		}),
 		vscode.commands.registerCommand('vstrudel.insertSound', (node: SoundNode) => {

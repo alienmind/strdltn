@@ -164,10 +164,15 @@ Drum machines and remote packs have one more level, the bank. Such a sound is na
 before the last underscore. Under a bank the row shows the short name `bd`. A prefix
 that only one sound has is not a bank, and that sound stays a plain row.
 
-A click on a sound types its full name at the cursor (`RolandTR909_bd`, which is valid
-anywhere). When preview is on, the click also plays the sound once through
-`superdough()`, with the note `a3` for anything that is not a plain sample list, as the
-sounds tab of strudel.cc does. The speaker button at the top of the view turns preview
+A click on a row never types. The maintainer's rule for every view of the side bar: a
+click selects, or selects and previews, and putting text into the code is a deliberate
+press on the insert button of the row. Until then a click on a sound typed its name, and
+it did so into any file that had the focus.
+
+When preview is on, a click on a sound plays it once through `superdough()`, with the
+note `a3` for anything that is not a plain sample list, as the sounds tab of strudel.cc
+does. The insert button types the full name at the cursor (`RolandTR909_bd`, which is
+valid anywhere). The speaker button at the top of the view turns preview
 on and off. It is two commands that swap on the context key `vstrudel.previewSounds`,
 and the choice is kept in `globalState`. The view also says "preview on" or "preview
 off" in words beside its title, because the icon alone was read both ways. A row has two
@@ -641,7 +646,7 @@ view:
 | What | Result |
 |---|---|
 | The Files view on `template/` | 29 files. Top level: `examples`, `lib`, `demo.strudel` |
-| A click on the name of a sound, in the Strudel editor and in the native editor with a stage | The name is typed and the sound is played, both times |
+| A click on the name of a sound, in the Strudel editor and in the native editor with a stage | The sound is played and nothing is typed, both times |
 | Insert a sound while a markdown file has the focus | Nothing is typed |
 | The Snippets view as a tree | Seen in the screenshot: folders, a colored dot and the tags per row, the two buttons on the selected row |
 

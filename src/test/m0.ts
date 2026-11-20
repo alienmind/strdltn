@@ -171,16 +171,15 @@ export async function run(): Promise<void> {
 			await sleep(700);
 		}
 		steps.previews = previews;
-		// A click on the name of a sound: the name is typed and, with preview on, heard.
+		// A click on the name of a sound: heard, with preview on, and nothing is typed.
 		const previewCount = (mode: string) => session(mode, demo)?.logs.filter((line) => line.includes('preview: bd:0')).length ?? 0;
 		if (picks.sample) {
 			const heardBefore = previewCount('editor');
 			await vscode.commands.executeCommand('vstrudel.clickSound', { kind: 'sound', sound: picks.sample });
 			steps.clickSoundInStrudelEditor = {
 				heard: await until(() => previewCount('editor') > heardBefore, 5000),
-				typed: (await text(demo)).length === demoText.length + picks.sample.name.length,
+				typedNothing: (await text(demo)) === demoText,
 			};
-			await restore(demo, demoText);
 		}
 		if (picks.soundfont) {
 			await vscode.commands.executeCommand('vstrudel.insertSound', { kind: 'sound', sound: picks.soundfont });
@@ -294,16 +293,14 @@ export async function run(): Promise<void> {
 		steps.stageNeedsClick = has('stage', demo, 'click inside the webview');
 		steps.stageDock = last('stage', demo, 'dock:');
 		{
-			// The same click from the native editor: typed there, heard through the stage.
-			const lengthBefore = (await text(demo)).length;
+			// The same click from the native editor: heard through the stage, nothing typed.
+			const textBefore = await text(demo);
 			const heardBefore = previewCount('stage');
 			await vscode.commands.executeCommand('vstrudel.clickSound', { kind: 'sound', sound: { name: 'bd', type: 'sample', count: 8 } });
 			steps.clickSoundInNativeEditor = {
 				heard: await until(() => previewCount('stage') > heardBefore, 5000),
-				typed: (await text(demo)).length === lengthBefore + 2,
+				typedNothing: (await text(demo)) === textBefore,
 			};
-			await vscode.commands.executeCommand('undo');
-			await sleep(300);
 		}
 		// Move the first slider of the stage. The number in the code has to follow.
 		const beforeSlider = await text(demo);

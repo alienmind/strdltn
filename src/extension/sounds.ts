@@ -166,8 +166,8 @@ export class SoundsProvider implements vscode.TreeDataProvider<SoundNode> {
 		if (expandable) item.description = String(sound.count);
 		item.contextValue = 'sound';
 		item.iconPath = this.icon(this.groupOf(node).icon);
-		item.tooltip = `${soundText(node)} (${sound.tag ?? sound.type}). Click to type the name at the cursor.`;
-		item.command = { command: 'vstrudel.clickSound', title: 'Insert', arguments: [node] };
+		item.tooltip = `${soundText(node)} (${sound.tag ?? sound.type}). A click plays it when preview is on. The first button types the name at the cursor.`;
+		item.command = { command: 'vstrudel.clickSound', title: 'Preview', arguments: [node] };
 		return item;
 	}
 }

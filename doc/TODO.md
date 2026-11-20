@@ -37,15 +37,14 @@ Target: **desktop VS Code, F5 on this repo** (opens `template/`).
 | 1 | Open `demo.strudel`, click in the code, press Ctrl+Enter | Your Sea of Souls mix plays, with the vocals from `samples/sos-vocals` |
 | 2 | Drag the sliders at the top of the code | Parts come in and out |
 | 3 | Click the vstrudel icon. Open "Drum machines", then a bank | Banks by name, each with a drum icon. Sounds inside are `bd`, `cp`... |
-| 4 | Put the cursor inside a `s("...")` and click a sound | The full name is typed at the cursor, and you hear the sound |
-| 5 | Press the speaker button at the top of Sounds, click another sound | The name is typed, no sound. The button changed |
+| 4 | Click a sound | You hear it. Nothing is typed |
+| 5 | Press the speaker button at the top of Sounds, click another sound | No sound, nothing typed. The title says "preview off" |
 | 6 | Press the button on a bank | `.bank("...")` is typed |
 | 7 | In Snippets, rest the mouse on a snippet | A hover floats beside it: title, description, fields, colored code |
 | 8 | Press the first small button on the row | Only the code is inserted, not the header |
 | 9 | Press the second small button on the row | Its file opens in the native editor |
 | 10 | Open the Files view and click `examples`, then a file | The file opens. Only folders with `.strudel` files are listed |
-| 26 | With preview on ("preview on" beside the title of Sounds), click the name of a drum machine sound | The name is typed and you hear the sound |
-| 27 | Press the two small buttons on a sound | The first types the name without sound. The second plays without typing |
+| 27 | Put the cursor inside a `s("...")` and press the two small buttons on a sound | The first types the full name at the cursor, without sound. The second plays without typing |
 | 28 | Run `pnpm test:quick` in a terminal | No sound from the test window. Done in about 75 seconds |
 | 11 | Open `examples/05-coastline.strudel` | A group `github:eddyflux/crate` appears in Sounds, with a bank `crate`. The status bar shows the download |
 | 13 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage lists Sliders (kick vol, snare vol...) and Visuals (kick, snare...), each with its name |
@@ -62,7 +61,6 @@ Report the result by check number. When something fails, add the content of Outp
 | # | Question | What we did meanwhile |
 |---|---|---|
 | 1 | Snippet header: is the form `// @title`, `@category`, `@details`, `@tags`, `@by`, `@credits` right, and the nine categories? | Built it this way |
-| 2 | A click on a sound types its name every time. Good while writing, noisy while only browsing. Keep it, or type on double click? | Click types |
 | 3 | A sound in a bank types its full name (`RolandTR909_bd`). Or should it type the short name (`bd`) and leave the bank to the button? | Full name |
 | 4 | Where the Snippets view lives: in the vstrudel side bar, or behind its own icon? | In the vstrudel side bar. Any view can be dragged elsewhere |
 | 5 | The cache for remote packs is `.vstrudel/cache/` in the workspace, not `tmp/`. A dot folder that ignores itself for git seemed safer than a folder a project may already use. OK? | `.vstrudel/cache/` |
@@ -245,8 +243,6 @@ planned yet.
 - The Snippets view lost its filter box when it became a tree. The tree filter of VS
   Code (Ctrl+F in the view) works on what a row shows. Expected to cover title and
   tags, not tested. It does not search the description.
-- A click on a snippet row does nothing but select it. A click on a sound types it.
-  The maintainer has not said which of the two a snippet should follow.
 - The logo view has an empty strip under the picture, and its own title row that says
   "vstrudel" again under the title of the side bar. VS Code gives a view no way to fit
   its content or to hide its title.

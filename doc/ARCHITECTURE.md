@@ -210,7 +210,7 @@ synths and 125 soundfonts are listed, and one sound of each group plays.
 The side bar starts with the logo. The header of a side bar takes text only, so the
 picture is a view of its own, `vstrudel.logo`: a webview with one image and no script.
 The image is `media/logo.jpg`, the middle band of `doc/logo.jpg` at 640 by 149 pixels
-(18 KB). `doc/` is not in the `.vsix`, `media/` is.
+(16 KB). `doc/` is not in the `.vsix`, `media/` is. When `doc/logo.jpg` changes, cut it again.
 
 A webview view cannot take the height of its content. The four views share the height
 by the weights in `package.json` (`initialSize`: logo 1, Files 3, Sounds 4, Snippets 4).

@@ -282,6 +282,163 @@ planned yet.
 | M4 | Language support in the native editor: completion, hover, signature help, mini-notation grammar and diagnostics |
 | M5 | Ship: Marketplace, template as its own repo, Renovate for `@strudel/*` |
 
+## Local model
+
+Planned, not started. No code until the maintainer says so. The goal: completion and
+the smart features below from a model that runs on the user's own machine, with no
+network, and that also works when the project is opened in a container.
+
+### What the maintainer decided
+
+- Model files are cached under `tmp/` of the workspace, which git ignores.
+- The size of the model is whatever the maintainer's machine runs well. That machine is
+  an Intel Core Ultra 7 258V (8 cores) with an Intel Arc 140V built-in GPU and 31.5 GB
+  of memory. The GPU has no memory of its own, it shares the system's.
+- There should be a fallback to the CPU, so that it also works in Codespaces.
+
+### Where the model runs
+
+Two places are possible, and they are good at different things.
+
+| | In the webview | A local server (llama.cpp, Ollama) |
+|---|---|---|
+| Uses the Intel GPU | Yes, through WebGPU. Measured: the webview gets a hardware adapter | Not by default. Ollama does not use an Intel GPU. llama.cpp can with a Vulkan or SYCL build |
+| Falls back to the CPU | Yes, the same runtime runs as WebAssembly | Yes |
+| Codespaces | Works: the webview runs in the user's browser, on the user's GPU or CPU | Runs on the Codespace's few CPU cores. Slow |
+| A container on this machine | Works, the webview is outside the container | Works. The server runs on the host or in a second container |
+| Other extensions can use it | No | Yes. This is what a third-party completion extension needs |
+| Our own features can use it | Yes | Yes, from the extension host |
+
+Proposal: our own features use the webview, because one runtime covers the GPU, the CPU
+and Codespaces. A local server is only added for the third-party completion extension
+(see "Completion from another extension"). Our code talks to "a model" through one small
+interface, so the place can change.
+
+Runtime to try first in the webview: transformers.js (ONNX Runtime Web), which has both
+WebGPU and WebAssembly. WebLLM is the alternative, faster on a GPU but with no CPU
+fallback. To be confirmed by the spike, this is from knowledge and not measured.
+
+### Which model
+
+Two jobs need two kinds of model:
+
+- **Completion while typing** needs a model trained to fill in the middle of code.
+  General Gemma models are not. Candidates: CodeGemma 2B (the Gemma family's code
+  model), Qwen2.5-Coder 0.5B, 1.5B and 3B.
+- **Everything else** (explain, write from a description, name things) is chat. A
+  general Gemma works: Gemma 3 270M and 1B to start, 4B if the machine keeps up.
+
+Size is decided by measuring, not by guessing. The spike runs each candidate in the
+webview on this machine and records tokens per second on WebGPU and on WebAssembly, the
+time to first token, and the memory used. Proposed bar: completion needs 20 tokens per
+second or more to feel like typing. Expected, not measured: 1B to 2B models pass on this
+GPU, 4B is usable for chat, and on the CPU only the smallest ones pass.
+
+The weights are downloaded once by the extension host into `tmp/vstrudel-models/` and
+given to the webview through `asWebviewUri`, the way the pack cache works. That keeps
+them out of the browser's own storage, which a webview does not keep reliably.
+
+### What it is used for
+
+In the order we would build them:
+
+1. **Smart insert, without a model.** A key opens a quick pick with fuzzy search over
+   everything the panels know: sound names, banks, snippets, functions. Most of the
+   value, no download, the same in both editors. Proposed key: Alt+I ("insert"). It is
+   free in VS Code, does not depend on the keyboard layout, and is not a character of
+   the language. `/` is the divide sign and is used in mini-notation, Ctrl+Space is VS
+   Code's completion, Ctrl+I its inline chat. A typed trigger as a second way in: `,,`
+   and then the text.
+2. **Search by meaning.** A small embedding model finds a snippet from its description
+   ("a bass that pumps with the kick") and a function from what it does.
+3. **Completion while typing**, from our own `InlineCompletionItemProvider`. It gives
+   the model what a general tool cannot know: the sound names that exist, the snippets
+   of the project, the reference of the functions near the cursor. It works in the
+   native editor through the VS Code API and needs a bridge for the Strudel editor.
+4. **Explain the selection**: what this pattern does, in words.
+5. **A pattern from a description**: "four on the floor with an off beat hat" becomes
+   code, built from the project's own snippets where one fits.
+6. **A variation** of the selected pattern.
+7. **Better names in the stage** when the rules in `context.ts` fall back to showing
+   code.
+8. **Headers for snippets**: propose `@title`, `@category`, `@details` and `@tags` for a
+   file that has none.
+
+### Completion from another extension
+
+A quick way to get completion in the native editor before we build our own: recommend
+an extension that turns a local model into inline completion, in
+`.vscode/extensions.json` and in the devcontainer. Candidates: `llama.vscode` (from the
+llama.cpp project) and Continue. Both talk to a local server, so this path needs one.
+The names and their settings are from knowledge and have to be checked.
+
+What it will not do: it only works in the native editor, not in the Strudel editor,
+which is a webview. It knows nothing about our sounds and snippets. And `.strudel` is a
+language it has never heard of, so it may need to be told to treat it as JavaScript.
+
+### Strudel's documentation as local examples
+
+The idea: put every function of Strudel into the workspace as a small `.strudel` file
+with its description and examples, so that completion has more to learn from.
+
+What we expect, not measured:
+
+- Stock inline completion (GitHub Copilot) reads the file being edited and a few open or
+  related tabs. It does not read the whole workspace. Files on disk that are not open
+  help it little. VS Code's own word suggestions only use open documents.
+- It helps a great deal everywhere else: an agent or a chat searches the workspace and
+  finds them, our own completion and search by meaning can use them as their source, and
+  the help panel can show them.
+
+So the files are worth making, as the source for our own features more than for stock
+completion. The data exists: `@strudel/reference` has every function with its
+parameters and examples. The tutorial pages of the Strudel site can be converted later.
+
+Open: where the files live. In the template (`reference/`), they are part of every
+project and every tool sees them. Generated into `tmp/`, they stay out of git, but
+agents and search tools often skip ignored folders.
+
+### Working without a network
+
+Possible, with these pieces. None of it is tested.
+
+| Piece | Today | Needed |
+|---|---|---|
+| The extension | Installed from a `.vsix` | Nothing |
+| Our own model | Not built | Weights in `tmp/vstrudel-models/`, fetched once |
+| The model server for another extension | Not set up | llama.cpp or Ollama on the host, reached from the container as `host.docker.internal`, or a second container with the weights in a volume |
+| The completion extension itself | Installed from the Marketplace | Installed once while online, or its `.vsix` kept in the image |
+| Default sounds | Maps from the network at every start, audio on first play | Kept in the cache like remote packs |
+| Hydra | Loaded from unpkg.com | Bundled |
+| Soundfonts | From the network on first use | Kept in the cache |
+
+A container on this machine does not change where our model runs: the webview stays
+outside the container, on the real GPU. Docker is installed here. Ollama is not.
+
+### Open points
+
+- Runtime in the webview: transformers.js or WebLLM. The spike decides.
+- Which model for each job, by the measurements above.
+- The license of the weights. Gemma has its own terms of use, which are not an open
+  source license. We download weights, we do not ship them, but the terms still apply to
+  the user.
+- How to tell a good completion from a bad one. A small set of Strudel lines with the
+  end cut off, scored by whether the result evaluates.
+- The pack cache is in `.vstrudel/cache/` and the models go to `tmp/`. One place would
+  be simpler. See decision 5.
+- Whether the weights in `tmp/` are shared between projects or downloaded for each one.
+
+### Order of work
+
+1. Spike: one small model in the webview on this machine, WebGPU and WebAssembly,
+   numbers written into `doc/ARCHITECTURE.md`.
+2. Smart insert without a model (use 1).
+3. The reference as local examples.
+4. Search by meaning (use 2).
+5. Our own completion (use 3).
+6. The chat features (uses 4 to 8).
+7. The recommended completion extension and the offline container, as its own piece of
+   work, since it needs a server.
 ## Noted for later, not planned
 
 **Help and tutorials inside VS Code.** A structured manual beside the code: every
@@ -289,24 +446,6 @@ function with its parameters and examples, and the Strudel tutorial. The functio
 reference can come from `@strudel/reference` (the data behind the reference on
 strudel.cc). The tutorial is harder: upstream writes it as web pages with live
 examples, so it has to be converted, with each example as a snippet that can be played.
-
-**Smart insert with a local model.** A key opens a small prompt. You type free text and
-it offers the best matches from everything the panels know: sound names, drum machine
-banks, snippets (matched on their description), MIDI devices, functions. A model that
-runs in the webview ranks the matches, with the GPU when there is one (WebGPU works in
-the webview, measured) and without it otherwise.
-
-A first version needs no model: a VS Code quick pick with fuzzy search over the same
-lists gives most of the value, works the same in both editors, and costs no download.
-Then a small embedding model for matching by meaning, then a generative model such as
-Gemma for writing code. A generative model is a download of several hundred megabytes
-and is slow without a GPU.
-
-Proposed key: **Alt+I** ("insert"). It is free in VS Code, it does not depend on the
-keyboard layout, and it is not a character of the language. `/` is the divide sign and
-is used in mini-notation, Ctrl+Space is VS Code's own completion, Ctrl+I is its inline
-chat. A typed trigger as a second way in: `,,` followed by the text. Two commas in a
-row mean nothing in Strudel code and are easy to type on every layout.
 
 **Plugins on Strudel channels.** Load an audio plugin with something like
 `.vst("name")` and insert it on that pattern's orbit. In the Strudel editor the call

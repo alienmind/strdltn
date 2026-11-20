@@ -1097,6 +1097,7 @@ the Mixer next, and the engine work last, because it changes the architecture.
 | 8 | Phase 1b: previews in the Browser | - |
 | 9 | Phase 6: one engine, in the Browser, scheduler in a worker | E1, E2, E4, E5 |
 | 10 | Phase 7: the engine as a browser page | E3 |
+| 11 | Phase 11: Advanced sequencing, last | Q1, Q2 |
 
 The maintainer settled decision 14 with this order: the decks and the recording come
 after Devices and MIDI.
@@ -1319,6 +1320,58 @@ Size: 3 sessions.
 5. Export to plain Strudel, after A3.
 
 Size: 4 to 6 sessions.
+
+### Phase 11: Advanced sequencing
+
+Asked by the maintainer on 2026-11-20, last in the order of work. Designed here, nothing
+built and nothing measured.
+
+Some Strudel functions do what a device of Live does. For those, the extension can
+open a view that plays the part of the device: the user taps pads, clicks steps or plays
+keys, and the view writes the pattern into the code. The code stays the truth, as with
+the Mixer: the view reads the call it edits with the parser of `src/shared/chains.ts`
+and writes it back as one edit, so undo works and the song still plays on strudel.cc.
+
+| Device | Strudel functions | Like in Live | What the view does | What it writes |
+|---|---|---|---|---|
+| Drum pad | `s("bd ~ sd ~")`, `.bank()`, `sound:n` | Drum Rack | A pad per sound of a bank (from the Browser). Tap in time while the song plays; the taps are quantized to the grid | `s("bd ~ [sd bd] ~")` |
+| Step sequencer | `s("bd*4")`, `.struct("x ~ x x")`, `beat("0,4,8,11", 16)`, `euclid(3, 8)` | Drum Rack's step view on Push, the Rhythm and Euclidean generators of MIDI Tools | A grid, a row per sound, 16 steps (8, 12, 32 too). Click or tap steps. A row can switch to Euclid: pulses, steps, rotation | `beat("0,4,8,11", 16)` per row, or `euclidRot(3, 8, 2)` |
+| Piano roll | `note("c3 e3 g3")`, `n("0 2 4").scale("f:phrygian")`, `.legato()`, `.velocity()` | MIDI clip editor | Notes on a grid with a keyboard on the left, drawn or played on the computer keyboard (A to K, as Live's computer MIDI keyboard). With a `.scale()`, only the notes of the scale | `n("0 ~ 2 [4 5]").scale("f:phrygian")`, with `.velocity("...")` when the taps have velocity |
+| Chords | `chord("<C^7 Dm7>").voicing()`, `.arp("0 2 1")` | Chord, Arpeggiator, the Stacks generator | Pick chords per bar from the key of the song; an arp pattern below | `chord("<C^7 Dm7 G7>").voicing().arp("0 1 2")` |
+| Sample slicer | `.slice(8, "0 3 2 1")`, `.splice()`, `.chop()`, `.striate()` | Simpler in Slice mode | A waveform cut into N slices, a pad per slice, tapped in time | `s("break").slice(8, "0 3 [2 2] 1")` |
+| Groove | `.swingBy(1/3, 4)`, `.nudge()` | Groove Pool | A swing amount and a grid, per chain | `.swingBy(0.2, 8)` |
+| Chance | `.degradeBy(0.3)`, `.sometimesBy(0.5, x => ...)` | Chance per note, the Random MIDI effect | One knob per chain, or a chance per step in the step sequencer | `.degradeBy(0.3)`, or `?` on the steps of the mini-notation |
+| Note repeat | `.ply(2)`, `.fast()`, `"hh!16"` | Note Repeat of Push | Hold a pad and a rate, the repeats are written | `"hh*8"`, `"hh!4 [hh hh]"` |
+| Echo | `.echo(3, 1/8, 0.5)` | Note Echo | Count, time, feedback | `.echo(3, 0.125, 0.5)` |
+| Clip launch | `pick([a, b, c], "<0 1>")`, `.mask("<1 0>")`, `.rib(offset, cycles)` | Session view clips and scenes, loop brace | A grid of the parts of `pick()`, a click picks the one that plays from the next cycle | The index of `pick` |
+| Arrangement | `arrange([4, a], [8, b])` | Arrangement view | Phase 10 | - |
+| Modulation | `sine.range(200, 2000).slow(4)`, `perlin`, `saw` | LFO, automation lanes | Draw a curve over N cycles, or pick a shape and a rate | `.lpf(sine.range(200, 2000).slow(4))` |
+
+The names in the "Like in Live" column are from knowledge of Live 12, to check.
+
+**Tapping.** A tap is stamped with the time of the engine, not the time it reaches the
+host: the view asks the engine for its cycle when the tap happens (spike Q1). Recording
+runs for a loop of N cycles, the taps are quantized to the grid of the view (1/16 by
+default, off for free time), and a second pass adds to the first (overdub), as Live's
+loop record does. Without a MIDI controller (phase 5), the pads are the mouse, the
+touch screen and the computer keyboard.
+
+**Where the views live.** A device view opens from the Browser (a function row of the
+Functions category gets "Open device" when it has one) and from a code lens over the
+call it edits. It is a panel of the Devices view of phase 4, so it sits next to the
+firmware panels.
+
+Spikes:
+
+| # | Question | How | Answer goes to |
+|---|---|---|---|
+| Q1 | How exact is a tap from a view in the bottom panel, after the relay to the engine? | Tap on every beat of a click for 32 beats and log the offset of each tap from the beat, with and without the relay (D3) | ARCHITECTURE "Measured" |
+| Q2 | Can the parser write back a mini-notation string and keep the user's own spaces and comments around it? | Cases in a test file on `template/demo.strudel` and the examples | `src/shared/chains.test.ts` |
+
+Order inside the phase, best value first: step sequencer, drum pad, piano roll, sample
+slicer, the rest one by one.
+
+Size: unknown, at least one session per device.
 
 ## Decisions for the maintainer
 

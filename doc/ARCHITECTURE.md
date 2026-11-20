@@ -757,6 +757,10 @@ also held Firmware Hub, which 1.0.0 leaves out; its measurements are on the bran
 `vstrudel.editor.theme` only colors the Strudel editor and the stage, as built; the
 native editor keeps the VS Code theme.
 
+Full `pnpm test:vscode` for the release of 1.0.0, in VS Code 1.147.0 on Windows, build
+`v0.1.0-35-g4c54aec`: every step passed, the 27 template files played with no problem,
+the Files view listed 29 songs, and the Sounds view had no Firmware group.
+
 Full `pnpm test:vscode` for the release of 0.2.0, in VS Code 1.147.0 on Windows, build
 `v0.1.0-13-g37b76fc` with the version set to 0.2.0: every step of the test passed, the
 27 template files played with no problem, and the cache held 188,956,347 bytes in 459

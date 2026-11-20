@@ -19,6 +19,7 @@ Next in line:
 | 1 | MIDI: devices in the Sounds view, playing through them, mappings | Spike done, not built. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 3 | The hand test below | Waiting for the maintainer |
+| 4 | Firmware Hub: VIBE FM firmwares as synths in a song, with a Firmware view | Planned, not built. See "Firmware Hub" |
 
 ## Next: test by hand
 
@@ -65,6 +66,8 @@ Report the result by check number. When something fails, add the content of Outp
 | 10 | Marketplace: publisher id, token, and an icon without the VS Code logo (see "Publishing") | Waiting |
 | 11 | Should the test screenshots keep the debug text in the corner and the title "[Extension Development Host]"? | Kept |
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
+| 13 | Firmware Hub: write to the hub's author (zvenson@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
+| 14 | Firmware Hub: the call in a song. `s("vibe:obervave")` (a sound like any other), `.vibe("obervave")` (its own function), or both? | Plan uses both, `s()` first |
 
 ## MIDI
 
@@ -141,6 +144,173 @@ Receiving:
 The maintainer's `demo.strudel` was written for an "MPK mini 3" with eight knobs as a
 mixer. Its `midin` lines are commented out and sliders stand in for the knobs. When the
 bridge exists, that file is the first test.
+
+## Firmware Hub
+
+The goal: play the firmwares of The Firmware Hub (thefirmwarehub.com) as instruments in
+a song, in time with the rest of it. A Firmware view in the side bar lists them, and a
+click puts one in the song. This is a cheaper and better route than "Plugins on Strudel
+channels" and "Native VST3 on desktop" below: the firmwares are already wasm, built from
+source, and they run in a browser.
+
+### What we know
+
+Read from the hub's pages and from the VIBE FM SDK source
+(`github.com/Vibe-FM-SDK/vibe-fm-sdk`, Apache-2.0) on 2026-11-20. Nothing here is tested
+in vstrudel yet.
+
+- The hub hosts open firmware for the M-VAVE FM-1 and other small devices. For the FM-1
+  it builds each firmware from its own source into a VIBE FM firmware: one `.wasm` and a
+  `firmware.json`, packed in a `.zip` (for example `thefirmwarehub.com/fw/vibe/boom-native-vibe.zip`).
+  The same `.wasm` runs in the VIBE FM VST plugin (VST3, AU, CLAP), in the browser
+  Playground (`play.thefirmwarehub.com/?fw=<id>`) and on the VIBE FM hardware. It is not
+  an emulator of the FM-1 chip.
+- Licenses: most firmwares are GPL-3.0, some MPL-2.0, M-VAVE's own V15 is Apache-2.0.
+  Each zip carries its license and source. The SDK is Apache-2.0. The VIBE FM VST and the
+  browser emulator (`emulator/` in the SDK repo) are closed, all rights reserved: we may
+  not copy, embed or host them. vstrudel is AGPL-3.0.
+- The `.wasm` is freestanding: no libc, static memory, no code at load time. It imports
+  three functions from module `env`: `vibe_host_log(ptr, len)`, `vibe_host_request(what)`
+  and `vibe_host_store(op, name, nameLen, data, len)` (storage: 0 read, 1 write, 2 size,
+  3 delete, 4 list, 5 read at offset).
+- What a host calls (exports, from `sdk/src/vibe_sdk.c`): `vibe_sdk_version()`,
+  `vibe_wasm_init(sampleRate)`, `vibe_wasm_io()` (a pointer to four float buffers of
+  `VIBE_MAX_BLOCK` = 256: in, out_l, out_r, in2), `vibe_wasm_audio(frames, hasInput)`,
+  `vibe_wasm_event(type, id, down, value, midi)`, `vibe_wasm_param_count/info/value/set`,
+  `vibe_wasm_transport()`, `vibe_wasm_midi_out()`, `vibe_wasm_draw()` (480 x 320 RGB565).
+- Sample rate and block size belong to the host. `frames` may be 1 to 256 and the SDK
+  says to split blocks at events. So a note can start on its exact frame.
+- Events that matter for us: `VIBE_EV_MIDI = 5` (`midi` = the three raw bytes packed
+  little-endian), `VIBE_EV_NOTE = 9` (id = note, value = velocity 0..1, `midi[0]` =
+  channel), `VIBE_EV_PARAM = 10` (id = parameter index, value in min..max),
+  `VIBE_EV_TRANSPORT = 8` (play, stop, tempo). Firmwares with tracks, such as OBERVAVE
+  (4 tracks), take the track from the MIDI channel.
+- The Playground instantiates the `.wasm` inside an `AudioWorkletProcessor` and calls
+  `vibe_wasm_audio` from `process()`. It reads its list from `firmware/index.json` on
+  `play.thefirmwarehub.com`. We could not fetch that file, so its shape and its CORS
+  headers are unknown. The hub documents no public catalog API.
+- Our CSP already allows wasm (`'unsafe-eval'`) and AudioWorklets from `data:` and `blob:`.
+
+### Design
+
+Everything runs in the webview, so it works on desktop and in Codespaces alike, and
+needs no MIDI bridge. The extension host only downloads and caches.
+
+```
+Firmware view (host) --click--> types s("vibe:obervave") in the song
+packs-style cache (host): hub zip -> .vstrudel/cache/firmware/<id>/<version>/{fw.wasm, firmware.json, LICENSE}
+webview: asWebviewUri(fw.wasm) -> WebAssembly.compile -> VibeNode (AudioWorkletNode, our own processor)
+superdough: registerSound("vibe:<id>") -> onTrigger(t, value) posts {frame, note, on/off, vel, chan} to VibeNode
+VibeNode output -> the orbit's bus, so the firmware is in the same mix as everything else
+scheduler: cps -> VIBE_EV_TRANSPORT tempo, start/stop -> play/stop
+```
+
+Decisions inside the design:
+
+- **One node per firmware and orbit, not per note.** A firmware is a whole poly synth,
+  often with its own sequencer. superdough's `onTrigger` returns a node per hap and wires
+  it into that hap's effects chain. For a firmware the per-hap node is a silent stub, and
+  the firmware's own node goes to the orbit's bus. So orbit effects (`room`, `delay`,
+  ducking) apply, per-hap effects (`lpf`, `pan` per note) do not. The same limit as
+  MIDI synths in Strudel. To check in the spike: how superdough 1.3.0 exposes an orbit's
+  input to connect to.
+- **Sample-exact notes.** superdough schedules ahead by about 100 ms. The webview posts
+  each note with its target frame (`Math.round(t * sampleRate)`). The processor keeps a
+  queue sorted by frame and splits each 128-frame block at the events, calling
+  `vibe_wasm_audio` for each piece. Note off comes from the hap's duration.
+- **Our own processor.** Written from the SDK headers and `vibe_sdk.c` (Apache-2.0), not
+  from `emulator/js/worklet.js`, which is closed. Version one implements: the three
+  imports (log to our output channel, `request` ignored, store in memory), init, audio,
+  events, parameters. No display, media, SysEx, workers, CV.
+- **Version check.** Refuse a firmware whose `vibe_sdk_version()` we do not know, with a
+  message in the output channel, the same way the Playground does.
+
+### In a song
+
+```js
+// A firmware is a sound. Notes, velocity and channel go to it.
+note("c2 eb2 g2").s("vibe:obervave").velocity(0.8).midichan(2)
+
+// Its parameters by their id in vibe_params(), patternable
+note("<c3 g2>").s("vibe:obervave").vp({ cutoff: sine.range(0.2, 0.8) })
+
+// Virtual MIDI: the same firmware as a MIDI output, for code written for hardware
+note("c3 e3").midi("vibe:obervave")
+```
+
+`.midi("vibe:...")` belongs with the webview's own `.midi()` from "MIDI" above: names
+that start with `vibe:` go to the firmware in the webview, all others to the host bridge.
+CCs (`ccn`/`ccv`) and `midimaps` then work too, as `VIBE_EV_MIDI`. This also makes a
+firmware usable in Codespaces, where the MIDI bridge is not.
+
+### Firmware view
+
+A tree in the vstrudel side bar, next to Sounds and Snippets.
+
+- Groups: "In this project" (cached or in a `firmware/` folder of the workspace), then
+  the hub's list grouped by device (FM-1 native ports, VIBE FM native, other devices).
+- Each item: name, version, author, license as its description; the hub's description
+  as its tooltip; a cloud icon until it is downloaded.
+- Click: types `s("vibe:<id>")` at the cursor (with the same rule as a sound click, see
+  decision 2). The first use downloads the zip, with progress in the status bar.
+- Buttons on an item: open its page on the hub, open its cheat sheet, show its
+  parameters (to copy ids for `.vp()`), play a test note (with the preview button of
+  Sounds).
+- A filter box, like Snippets, on name, author and description.
+- "Add firmware..." in the title bar: pick a `.zip` or `.wasm` from disk, for a firmware
+  you built yourself. It is copied to `firmware/` in the workspace.
+- `samples()`-like line for songs that should load by themselves:
+  `vibe('github:<user>/<repo>')` or `vibe('https://thefirmwarehub.com/fw/vibe/x.zip')`,
+  cached the same way as packs.
+
+### Steps
+
+| # | Step | Done when |
+|---|---|---|
+| 0 | Spike in `tmp/`: our minimal processor plays `obervave.wasm` in a plain page (`pnpm smoke`) on one note | A note sounds, the processor has none of the closed code |
+| 1 | Catalog: find a list we may use. Try `play.thefirmwarehub.com/firmware/index.json` from Node, look at the hub's pages, ask the author (decision 13). Write the result in `doc/ARCHITECTURE.md` | We know the URL, the fields and how often it changes |
+| 2 | `src/extension/firmware.ts`: catalog fetch (cached for a day, works offline from the last copy), zip download and unpack into `.vstrudel/cache/firmware/`, SHA-256 check when the catalog has one. Unzip with a small MIT library (`fflate`), pinned | `pnpm test:unit` covers the unpack and the cache paths |
+| 3 | `src/webview/vibe-worklet.ts` and `vibe.ts`: the processor, the node, the event queue with frame-exact splitting | The spike's note plays from the extension |
+| 4 | `registerSound("vibe:<id>")` for each cached firmware, so the Sounds view lists them in a group "Firmware" with their own icon | `s("vibe:obervave")` plays in `demo.strudel` |
+| 5 | Transport and tempo from the scheduler | A firmware with its own sequencer (SLOOP) follows play, stop and cps |
+| 6 | `.vp()` for parameters, and `VIBE_EV_PARAM` | A slider moves a firmware parameter |
+| 7 | The Firmware view | The checks below pass |
+| 8 | `.midi("vibe:...")`, once the webview's `.midi()` exists | Code written for an FM-1 over MIDI plays the firmware |
+| 9 | Store: `vibe_host_store` written to `.vstrudel/firmware-store/<id>/` through the host, so a firmware's saved sounds survive a reload | Save a sound, reload, it is there |
+| 10 | A snippet `lib/firmware/` and an example in `template/examples/` that uses a GPL firmware by download, not by copy | Plays in `pnpm test:vscode` |
+| 11 | Docs: `doc/ARCHITECTURE.md` (the parts, the message protocol, measured CPU), README, `doc/ABOUT.md` | |
+| 12 | Later: the 480 x 320 display in the stage, from `vibe_wasm_draw` at 30 fps off the audio thread | |
+
+### Risks and open questions
+
+- Firmwares built with two flows (`VIBE_PARALLEL_AUDIO`) or worker jobs (`VIBE_JOBS`,
+  shared memory, `--enable-multi-thread`) may expect a host that calls draw and jobs on
+  other threads. Without workers we expect jobs to run inline. To check in the spike with
+  one of each.
+- CPU: the hub says "a few % of one core" per firmware in the plugin. In a webview, with
+  superdough beside it, unknown. Measure with 1, 2 and 4 firmwares.
+- An AudioWorklet's `process()` gets 128 frames. Splitting at events only makes the
+  pieces shorter, so latency stays one block. To measure: the offset between a firmware
+  note and a sample on the same beat, from a recording.
+- The catalog has no documented API (step 1). If none can be had, the view shows only
+  firmwares the user adds, plus a link to the hub.
+- Some firmwares make sound on their own (a sequencer that plays from start). That is
+  fine with transport, but a stopped song must send stop.
+- A firmware is GPL-3.0: we download it at run time into the user's cache and never ship
+  it inside the `.vsix`. The example in `template/` names it, it does not contain it.
+
+### Hand test, when built
+
+Target: **desktop VS Code, F5 on this repo**, and once in **Codespaces**.
+
+| # | Do this | Should happen |
+|---|---------|---------------|
+| 1 | Open the Firmware view | The hub's firmwares, grouped, with author and license |
+| 2 | Click OBERVAVE with the cursor in the code | `s("vibe:obervave")` is typed, the status bar shows the download |
+| 3 | Play `note("c2 eb2 g2").s("vibe:obervave")` with the demo's drums | It sounds, on the beat with the drums |
+| 4 | Change the tempo with `setcps` while it plays | The firmware's arp or sequencer follows |
+| 5 | Add `.room(0.5)` to the firmware's line | Reverb on the firmware |
+| 6 | Turn the network off, reload, play | It still plays from the cache |
 
 ## Sound card
 

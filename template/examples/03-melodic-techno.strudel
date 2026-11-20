@@ -4,8 +4,8 @@
 setcpm(124/4)
 
 const CHORDS = "<Dm7 Bbmaj7 F C>"
-const OPEN = slider(900, 200, 4000)
-const DRUMS = slider(.8, 0, 1)
+const OPEN = slider(4000, 200, 4000)
+const DRUMS = slider(1, 0, 1)
 
 $kick: s("bd*4").bank("RolandTR909")
   .duck(2).duckattack(.2).duckdepth(.7)

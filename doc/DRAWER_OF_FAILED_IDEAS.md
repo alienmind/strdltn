@@ -147,3 +147,31 @@ permission, so we did not copy those files. We copied what has a license (`coast
 from Strudel's own examples, "Array (Lil Data Edit)" under CC BY-NC-SA) and the
 maintainer's own song. For the rest we wrote our own snippets with the same techniques
 and put the name in `@credits`.
+
+## An engine of its own for the Sounds view
+
+Designed. The Sounds view was empty until a `.strudel` file was open, because the sound
+list lives in an engine and an engine lives in a webview. The idea was a webview that
+exists from the start, only to hold an engine for the list and for preview. VS Code has
+no hidden webview: a `WebviewPanel` is a visible tab, and a `WebviewView` is only
+created once its view is shown. A visible panel that the user did not ask for is worse
+than an empty list. We keep the last list in a file and show that, see "Sounds view" in
+`doc/ARCHITECTURE.md`. Preview still needs an open file.
+
+## Reading the map of `samples(map, base)` from the text of the song
+
+Designed. A pack loaded by name is found by a regular expression over the text, before
+the song plays. The same was the first idea for a map written in the song with a remote
+base. The map is code: it can span lines, hold comments, or be a variable built
+somewhere else. A regular expression cannot read that, and a parser would only cover the
+maps that are literals. The webview asks the host when the song runs instead, with the
+real map in hand. The cost is that such samples are not listed before the first play.
+
+## Keeping the squiggle of an error after an edit
+
+Designed. A diagnostic has a fixed range, and VS Code does not move it when the text
+changes. We cannot check the code again without playing it. Keeping the diagnostic would
+leave a squiggle on text that was not the error any more. Moving it along with the edits
+is possible in the webview (CodeMirror maps positions), but only for the Strudel editor,
+which shows no squiggle. So an edit removes the diagnostic, and the status bar keeps the
+message until the next evaluation.

@@ -74,12 +74,56 @@ export async function run(): Promise<void> {
 		steps.editorNeedsClick = has('editor', demo, 'click inside the webview');
 		await sleep(4000);
 		steps.editorStartedAfter4s = session('editor', demo)?.started;
+		steps.statusPlaying = api.status()?.text;
+		save();
+
+		// 2a. An error in the code: a problem of the file, and the status bar says so.
+		// The old pattern keeps playing, as on strudel.cc.
+		const clean = await text(demo);
+		const problemList = () =>
+			vscode.languages.getDiagnostics(demo).map((d) => `${d.range.start.line}:${d.range.start.character}-${d.range.end.character} ${d.source}: ${d.message}`);
+		const breakWith = async (line: string) => {
+			const edit = new vscode.WorkspaceEdit();
+			edit.insert(demo, new vscode.Position(0, 0), `${line}\n`);
+			await vscode.workspace.applyEdit(edit);
+			await sleep(500);
+			await vscode.commands.executeCommand('vstrudel.play');
+			await until(() => vscode.languages.getDiagnostics(demo).length > 0, 10000);
+			const seen = problemList();
+			const status = api.status();
+			await restore(demo, clean);
+			return { seen, status, goneAfterEdit: vscode.languages.getDiagnostics(demo).length === 0 };
+		};
+		steps.errorUnknownFunction = await breakWith('$: s("bd").lfpx(200)');
+		steps.errorSyntax = await breakWith('$: s("bd"))');
+		steps.errorMini = await breakWith('$: s("bd [sd")');
+		await vscode.commands.executeCommand('vstrudel.play');
+		steps.errorGoneAfterGoodPlay = await until(() => session('editor', demo)?.error === undefined, 10000);
+		steps.statusAfterFix = api.status()?.text;
+		save();
+
+		// 2a2. Theme and font size from the settings, without a reload.
+		const configuration = vscode.workspace.getConfiguration('vstrudel');
+		const settingsLine = () => last('editor', demo, 'settings:') ?? '';
+		steps.settingsAtStart = settingsLine();
+		await configuration.update('editor.theme', 'githubLight', vscode.ConfigurationTarget.Global);
+		await configuration.update('editor.fontSize', 22, vscode.ConfigurationTarget.Global);
+		steps.settingsApplied = await until(() => settingsLine().includes('theme=githubLight') && settingsLine().includes('size=22'), 5000);
+		steps.settingsAfter = settingsLine();
+		await sleep(1000);
+		await shot('theme');
+		await configuration.update('editor.theme', undefined, vscode.ConfigurationTarget.Global);
+		await configuration.update('editor.fontSize', undefined, vscode.ConfigurationTarget.Global);
+		steps.settingsBack = await until(() => settingsLine() === steps.settingsAtStart, 5000);
 		save();
 
 		// 2b. The Sounds view: the engine's own list, preview and insert.
 		const demoText = await text(demo);
 		steps.soundsArrived = await until(() => api.sounds().length > 50, 40000);
 		steps.soundGroups = api.soundGroups();
+		// The list is written to a file 2 seconds after it settles, for the next start.
+		await sleep(2500);
+		steps.rememberedSounds = await api.rememberedSounds();
 		const pick = (test: (s: { name: string; type: string; tag?: string; count: number }) => boolean) => api.sounds().find(test);
 		const picks = {
 			local: pick((s) => s.tag === 'local'),
@@ -130,6 +174,45 @@ export async function run(): Promise<void> {
 		} finally {
 			await vscode.workspace.fs.delete(zap, { recursive: true }).then(undefined, () => undefined);
 		}
+		save();
+
+		// 2d. Two songs play. Stop is for the one in front, then for the one that still
+		// plays in the other tab. Stop all is for both.
+		const second = vscode.Uri.joinPath(folder, 'examples', '01-chords-and-bass.strudel');
+		const playing = () => [session('editor', demo)?.started, session('editor', second)?.started];
+		await vscode.commands.executeCommand('vscode.openWith', second, EDITOR);
+		await until(() => has('editor', second, 'local samples'), 30000);
+		await vscode.commands.executeCommand('vstrudel.play');
+		await until(() => has('editor', second, 'report:'), 30000);
+		await sleep(1000);
+		steps.twoSongsPlaying = playing();
+		steps.statusSecondSong = api.status()?.text;
+		await vscode.commands.executeCommand('vstrudel.stop');
+		await sleep(500);
+		steps.afterStopInFront = playing();
+		const plain = await vscode.workspace.openTextDocument({ content: 'not a song', language: 'plaintext' });
+		await vscode.window.showTextDocument(plain);
+		await sleep(500);
+		steps.statusInAnotherTab = api.status()?.text;
+		await vscode.commands.executeCommand('vstrudel.stop');
+		await sleep(500);
+		steps.afterStopElsewhere = playing();
+		steps.statusNothingPlays = api.status()?.text ?? 'hidden';
+		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+		await vscode.commands.executeCommand('vscode.openWith', second, EDITOR);
+		await vscode.commands.executeCommand('vstrudel.play');
+		await vscode.commands.executeCommand('vscode.openWith', demo, EDITOR);
+		await vscode.commands.executeCommand('vstrudel.play');
+		await until(() => playing().every(Boolean), 10000);
+		steps.twoSongsPlayingAgain = playing();
+		await vscode.commands.executeCommand('vstrudel.stopAll');
+		await sleep(500);
+		steps.afterStopAll = playing();
+		await vscode.commands.executeCommand('vscode.openWith', second, EDITOR);
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		await vscode.commands.executeCommand('vscode.openWith', demo, EDITOR);
+		await vscode.commands.executeCommand('vstrudel.play');
+		await until(() => !!session('editor', demo)?.started, 10000);
 		save();
 
 		// 3. Hide the editor tab for a while. The engine should survive.
@@ -241,7 +324,36 @@ export async function run(): Promise<void> {
 		steps.packs = api.packs();
 		steps.packServedFromCache = await until(() => has('editor', coastline, 'github:eddyflux/crate (cached): registered'), 20000);
 		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+
+		// 7a2. A pack by its https address, and a map written in the song with a remote
+		// base. The first play of the map is from the network, the next from the cache.
+		// On a later run both are in the cache from the start.
+		const packSong = vscode.Uri.joinPath(folder, 'zz-pack-test.strudel');
+		const address = 'https://raw.githubusercontent.com/tidalcycles/uzu-drumkit/main/strudel.json';
+		const base = 'github:tidalcycles/dirt-samples';
+		const song = `samples('${address}')\nsamples({ zzbd: 'bd/BT0A0A7.wav' }, '${base}')\n$: s("zzbd*2")\n`;
+		try {
+			await vscode.workspace.fs.writeFile(packSong, new TextEncoder().encode(song));
+			await vscode.commands.executeCommand('vscode.openWith', packSong, EDITOR);
+			steps.httpsPackListed = await until(() => api.sounds().some((s) => s.tag === address), 40000);
+			steps.httpsPackCached = await until(() => api.packs().some((pack) => pack.source === address && pack.complete), 120000);
+			steps.httpsPackServedFromCache = await until(() => has('editor', packSong, `${address} (cached): registered`), 20000);
+			await vscode.commands.executeCommand('vstrudel.play');
+			await until(() => has('editor', packSong, 'report:'), 30000);
+			steps.baseFirstPlay = last('editor', packSong, `samples from ${base}`);
+			steps.baseFilesCached = await until(() => api.packs().some((pack) => pack.source === base && pack.complete), 60000);
+			await vscode.commands.executeCommand('vstrudel.play');
+			steps.baseServedFromCache = await until(() => has('editor', packSong, `samples from ${base}: cache`), 10000);
+			await sleep(2000);
+			steps.packSongProblems = problems('editor', packSong);
+			await vscode.commands.executeCommand('vstrudel.stop');
+			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		} finally {
+			await vscode.workspace.fs.delete(packSong).then(undefined, () => undefined);
 		}
+		steps.packs = api.packs();
+		}
+		steps.packCache = await api.packCache();
 		save();
 
 		// 7b. Every snippet and example of the template plays. This is what catches a

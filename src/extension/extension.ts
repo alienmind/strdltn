@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { SoundInfo } from '../shared/protocol';
-import { PackCache } from './packs';
-import { Session } from './session';
+import { formatBytes, PackCache, type CacheUsage } from './packs';
+import { Session, type SessionHost } from './session';
 import { SnippetsView, type Snippet } from './snippets';
 import { SoundsProvider, soundText, type SoundNode } from './sounds';
 
@@ -13,7 +13,13 @@ const STAGE_VIEW_TYPE = 'vstrudel.stage';
 
 /** What `activate` returns. Only the integration test in `src/test/` uses it. */
 export interface VstrudelApi {
-	sessions(): { mode: string; uri: string; started: boolean; logs: string[] }[];
+	sessions(): { mode: string; uri: string; started: boolean; error?: string; logs: string[] }[];
+	/** What the status bar item shows, or undefined while it is hidden. */
+	status(): { text: string; tooltip: string } | undefined;
+	/** What the caches of the open workspace folders hold. */
+	packCache(): Promise<CacheUsage>;
+	/** How many sounds the list holds that is kept for the next start. */
+	rememberedSounds(): Promise<number>;
 	sounds(): SoundInfo[];
 	soundGroups(): { label: string; count: number }[];
 	snippets(): string[];
@@ -51,10 +57,32 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		void vscode.commands.executeCommand('setContext', PREVIEW_KEY, on);
 	};
 	setPreview(previewSounds);
-	const sessionEvents = {
-		onDispose: (session: Session) => void sessions.delete(session),
+	const diagnostics = vscode.languages.createDiagnosticCollection('vstrudel');
+	// Right side, beside the language of the file: it is about the file in front.
+	const status = vscode.window.createStatusBarItem('vstrudel.status', vscode.StatusBarAlignment.Right, 101);
+	status.name = 'vstrudel';
+	status.command = 'vstrudel.togglePlay';
+	// The item cannot be asked whether it shows. The test wants to know.
+	let statusVisible = false;
+	const showStatus = (visible: boolean) => {
+		statusVisible = visible;
+		if (visible) status.show();
+		else status.hide();
+	};
+	const host: SessionHost = {
+		output,
+		packs,
+		diagnostics,
+		onDispose: (session) => {
+			sessions.delete(session);
+			updateStatus();
+		},
 		// Every engine loads the same packs, so the list of the engine that spoke last is the list.
-		onSounds: (list: SoundInfo[]) => sounds.setSounds(list),
+		onSounds: (list) => {
+			sounds.setSounds(list);
+			rememberSoundsSoon(list);
+		},
+		onState: () => updateStatus(),
 	};
 
 	const find = (uri: vscode.Uri, mode: Session['mode']) =>
@@ -63,6 +91,18 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	/** The session the user was in last. Focus is in a side bar view when this is asked. */
 	const lastSession = (mode?: Session['mode']) =>
 		[...sessions].filter((s) => !mode || s.mode === mode).sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
+	const isStrudel = (editor: vscode.TextEditor | undefined): editor is vscode.TextEditor => editor?.document.languageId === 'strudel';
+	/**
+	 * The session of the tab in front: the Strudel editor or the stage that is active, or
+	 * the stage of the native editor that is active. Undefined in any other tab.
+	 */
+	const frontSession = () => {
+		const native = vscode.window.activeTextEditor;
+		return [...sessions].find((s) => s.panel.active) ?? (isStrudel(native) ? find(native.document.uri, 'stage') : undefined);
+	};
+	/** A song that still plays in a tab that is not in front. The one the user was in last. */
+	const playingElsewhere = () =>
+		[...sessions].filter((s) => s.started).sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
 
 	const soundsView = vscode.window.createTreeView('vstrudel.sounds', { treeDataProvider: sounds, showCollapseAll: true });
 
@@ -75,7 +115,8 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 					// The Strudel editor replaces the stage of the same file. Two engines on
 					// one file would play the pattern twice.
 					find(document.uri, 'stage')?.panel.dispose();
-					sessions.add(new Session(context, document, panel, 'editor', output, sessionEvents, packs));
+					sessions.add(new Session(context, document, panel, 'editor', host));
+					updateStatus();
 				},
 			},
 			// Without retainContextWhenHidden the webview is destroyed when its tab is
@@ -83,6 +124,9 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			{ webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false },
 		),
 		soundsView,
+		diagnostics,
+		status,
+		vscode.window.onDidChangeActiveTextEditor(() => updateStatus()),
 		// The view keeps its page while hidden, so open cards and the filter survive a
 		// switch to another side bar view.
 		vscode.window.registerWebviewViewProvider('vstrudel.snippets', snippets, { webviewOptions: { retainContextWhenHidden: true } }),
@@ -91,7 +135,21 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			const session = activeEditorSession() ?? stageForActiveTextEditor() ?? onlySession();
 			session?.play();
 		}),
-		vscode.commands.registerCommand('vstrudel.stop', () => sessions.forEach((s) => s.stop())),
+		// Stop is for the song in front. With nothing playing there, it is for the song
+		// that plays in another tab, so the key always ends a sound you hear.
+		vscode.commands.registerCommand('vstrudel.stop', () => {
+			const front = frontSession();
+			(front?.started ? front : (playingElsewhere() ?? front))?.stop();
+		}),
+		vscode.commands.registerCommand('vstrudel.stopAll', () => sessions.forEach((s) => s.stop())),
+		// The click on the status bar item.
+		vscode.commands.registerCommand('vstrudel.togglePlay', () => {
+			const session = frontSession() ?? (isStrudel(vscode.window.activeTextEditor) ? undefined : playingElsewhere());
+			if (session?.started) return session.stop();
+			return vscode.commands.executeCommand('vstrudel.play');
+		}),
+		vscode.commands.registerCommand('vstrudel.showPackCache', showPackCache),
+		vscode.commands.registerCommand('vstrudel.clearPackCache', clearPackCache),
 		vscode.commands.registerCommand('vstrudel.openStage', () => stageForActiveTextEditor()),
 		vscode.commands.registerCommand('vstrudel.toggleMode', toggleMode),
 
@@ -133,6 +191,120 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 
 	watchFolders();
 	void snippets.refresh();
+
+	/**
+	 * The status bar item says what the song in front does: loading, stopped, playing,
+	 * waiting for a click, or an error in the code. It is hidden in a tab that is not a
+	 * Strudel file, unless a song still plays in the background. Then it names that song.
+	 */
+	function updateStatus(): void {
+		const native = vscode.window.activeTextEditor;
+		const front = frontSession();
+		const session = front ?? (isStrudel(native) ? undefined : playingElsewhere());
+		if (!session) {
+			// A Strudel file in the native editor that has not played yet has no stage.
+			if (!isStrudel(native)) return showStatus(false);
+			status.text = '$(debug-stop) vstrudel: stopped';
+			status.tooltip = 'Click to play. A stage opens beside the code.';
+			status.backgroundColor = undefined;
+			return showStatus(true);
+		}
+		const name = session.document.uri.path.split('/').pop();
+		const where = session === front ? '' : `${name} `;
+		const { started, audio, needsClick } = session.state;
+		let icon = started ? 'play' : 'debug-stop';
+		let text = started ? 'playing' : 'stopped';
+		if (!session.ready) [icon, text] = ['loading~spin', 'loading'];
+		else if (needsClick) [icon, text] = ['mute', `click in the ${session.mode === 'stage' ? 'stage' : 'editor'} for sound`];
+		else if (session.error) [icon, text] = ['error', started ? 'playing, error in the code' : 'error in the code'];
+		status.text = `$(${icon}) vstrudel: ${where}${text}`;
+		status.tooltip = [
+			`${name}: ${started ? 'playing' : 'stopped'}, audio ${audio}`,
+			...(session.error ? [`Error: ${session.error}`] : []),
+			...(needsClick ? ['A browser starts no sound without a click inside the page.'] : []),
+			`Click to ${started ? 'stop' : 'play'}.`,
+		].join('\n');
+		status.backgroundColor = session.error ? new vscode.ThemeColor('statusBarItem.errorBackground') : undefined;
+		showStatus(true);
+	}
+
+	// ---- the sound list between starts ----------------------------------------------
+	//
+	// The list lives in an engine, and an engine exists only while a .strudel file is
+	// open. So the last list is kept in a file and shown at the next start, before any
+	// file is open. The workspace keeps the whole list. A second copy without the
+	// sounds that belong to one workspace (its own samples, the packs of its songs) is
+	// for a workspace that has no list yet.
+
+	const soundFiles = () => ({
+		workspace: context.storageUri && vscode.Uri.joinPath(context.storageUri, 'sounds.json'),
+		global: vscode.Uri.joinPath(context.globalStorageUri, 'sounds.json'),
+	});
+	let rememberTimer: ReturnType<typeof setTimeout> | undefined;
+	let remembering: Promise<unknown> = Promise.resolve();
+	function rememberSoundsSoon(list: SoundInfo[]): void {
+		clearTimeout(rememberTimer);
+		rememberTimer = setTimeout(() => {
+			const write = async (file: vscode.Uri | undefined, kept: SoundInfo[]) => {
+				if (!file) return;
+				await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(file, '..'));
+				await vscode.workspace.fs.writeFile(file, new TextEncoder().encode(JSON.stringify(kept)));
+			};
+			const files = soundFiles();
+			const shared = list.filter((sound) => sound.tag !== 'local' && !/^(github:|https:)/.test(sound.tag ?? ''));
+			remembering = Promise.all([write(files.workspace, list), write(files.global, shared)]).catch((error: Error) =>
+				output.appendLine(`sound list not kept: ${error.message}`),
+			);
+		}, 2000);
+	}
+	async function readSounds(): Promise<SoundInfo[]> {
+		const files = soundFiles();
+		for (const file of [files.workspace, files.global]) {
+			if (!file) continue;
+			try {
+				const list = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(file)));
+				if (Array.isArray(list)) return list;
+			} catch {
+				// Never written, or not readable. Try the next one.
+			}
+		}
+		return [];
+	}
+	async function recallSounds(): Promise<void> {
+		const list = await readSounds();
+		// An engine may have answered while the file was read. Its list is the newer one.
+		if (list.length && !sounds.all().length) sounds.setSounds(list);
+	}
+
+	// ---- the cache of remote samples ------------------------------------------------
+
+	const workspaceUris = () => (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
+	const describe = (usage: CacheUsage) =>
+		`${formatBytes(usage.bytes)} in ${usage.files} files${usage.packs.length ? ` (${usage.packs.join(', ')})` : ''}`;
+
+	async function showPackCache(): Promise<void> {
+		const usage = await packs.usage(workspaceUris());
+		if (!usage.files) return void vscode.window.showInformationMessage('The sample pack cache is empty.');
+		const answer = await vscode.window.showInformationMessage(`Sample pack cache (.vstrudel/cache): ${describe(usage)}.`, 'Clear cache');
+		if (answer) await clearPackCache();
+	}
+
+	async function clearPackCache(): Promise<void> {
+		if (packs.busy) return void vscode.window.showWarningMessage('A sample pack is being downloaded. Clear the cache when it is done.');
+		const usage = await packs.usage(workspaceUris());
+		if (!usage.files) return void vscode.window.showInformationMessage('The sample pack cache is empty.');
+		const answer = await vscode.window.showWarningMessage(
+			'Delete the sample pack cache?',
+			{
+				modal: true,
+				detail: `${describe(usage)}, in .vstrudel/cache. A song that loads a pack downloads it again the next time it is opened or edited. To stop that, turn off the setting vstrudel.remoteSamples.cache.`,
+			},
+			'Delete',
+		);
+		if (answer !== 'Delete') return;
+		await packs.clear(workspaceUris());
+		void vscode.window.showInformationMessage(`Sample pack cache deleted: ${formatBytes(usage.bytes)}.`);
+	}
 
 	function previewSound(node: SoundNode): void {
 		if (node.kind === 'group' || node.kind === 'bank') return;
@@ -211,8 +383,9 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
 			{ retainContextWhenHidden: true },
 		);
-		const session = new Session(context, editor.document, panel, 'stage', output, sessionEvents, packs);
+		const session = new Session(context, editor.document, panel, 'stage', host);
 		sessions.add(session);
+		updateStatus();
 		return session;
 	}
 
@@ -248,9 +421,19 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 		}
 	}
 
+	// Last, when everything they use exists.
+	void recallSounds();
+	updateStatus();
+
 	return {
 		sessions: () =>
-			[...sessions].map((s) => ({ mode: s.mode, uri: s.document.uri.toString(), started: s.started, logs: [...s.logs] })),
+			[...sessions].map((s) => ({ mode: s.mode, uri: s.document.uri.toString(), started: s.started, error: s.error, logs: [...s.logs] })),
+		status: () => (statusVisible ? { text: status.text, tooltip: String(status.tooltip ?? '') } : undefined),
+		packCache: () => packs.usage(workspaceUris()),
+		rememberedSounds: async () => {
+			await remembering;
+			return (await readSounds()).length;
+		},
 		sounds: () => sounds.all(),
 		soundGroups: () => sounds.groups().map((group) => ({ label: group.label, count: group.sounds.length })),
 		snippets: () => snippets.all().map((snippet) => snippet.name),

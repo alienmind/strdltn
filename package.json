@@ -66,6 +66,22 @@
 				"icon": "$(debug-stop)"
 			},
 			{
+				"command": "vstrudel.stopAll",
+				"title": "vstrudel: Stop all"
+			},
+			{
+				"command": "vstrudel.togglePlay",
+				"title": "vstrudel: Play / Stop"
+			},
+			{
+				"command": "vstrudel.showPackCache",
+				"title": "vstrudel: Show sample pack cache size"
+			},
+			{
+				"command": "vstrudel.clearPackCache",
+				"title": "vstrudel: Clear sample pack cache"
+			},
+			{
 				"command": "vstrudel.toggleMode",
 				"title": "vstrudel: Toggle Strudel editor / native editor",
 				"icon": "$(arrow-swap)"
@@ -264,10 +280,67 @@
 					"default": "lib",
 					"description": "Workspace folder that holds reusable Strudel snippets."
 				},
+				"vstrudel.editor.theme": {
+					"type": "string",
+					"default": "strudelTheme",
+					"enum": [
+						"strudelTheme",
+						"algoboy",
+						"archBtw",
+						"androidstudio",
+						"atomone",
+						"aura",
+						"bbedit",
+						"blackscreen",
+						"bluescreen",
+						"bluescreenlight",
+						"CutiePi",
+						"darcula",
+						"dracula",
+						"duotoneDark",
+						"eclipse",
+						"fruitDaw",
+						"githubDark",
+						"githubLight",
+						"greenText",
+						"gruvboxDark",
+						"gruvboxLight",
+						"sonicPink",
+						"materialDark",
+						"materialLight",
+						"monokai",
+						"noctisLilac",
+						"nord",
+						"redText",
+						"solarizedDark",
+						"solarizedLight",
+						"sublime",
+						"teletext",
+						"tokyoNight",
+						"tokyoNightDay",
+						"tokyoNightStorm",
+						"vscodeDark",
+						"vscodeLight",
+						"whitescreen",
+						"xcodeLight"
+					],
+					"description": "Color theme of the Strudel editor and the stage. These are the themes of strudel.cc."
+				},
+				"vstrudel.editor.fontFamily": {
+					"type": "string",
+					"default": "",
+					"description": "Font of the Strudel editor. Empty: the font of the VS Code editor (editor.fontFamily)."
+				},
+				"vstrudel.editor.fontSize": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"description": "Font size of the Strudel editor in pixels. 0: the size of the VS Code editor (editor.fontSize)."
+				},
 				"vstrudel.remoteSamples.cache": {
 					"type": "boolean",
 					"default": true,
-					"description": "Keep a copy of the sample packs a song loads from GitHub (samples('github:user/repo')) in .vstrudel/cache of the workspace, so they play without the network."
+					"description": "Keep a copy of the remote samples a song loads (samples('github:user/repo'), samples('https://.../strudel.json'), or a map with such a base) in .vstrudel/cache of the workspace, so they play without the network."
 				},
 				"vstrudel.remoteSamples.maxFiles": {
 					"type": "number",

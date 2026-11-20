@@ -18,8 +18,28 @@ export interface SoundInfo {
 	count: number;
 }
 
+/** How the Strudel editor looks. From the settings `vstrudel.editor.*`, resolved by the host. */
+export interface EditorSettings {
+	/** The name of an upstream theme, as in `themes` of `@strudel/codemirror`. */
+	theme: string;
+	fontFamily: string;
+	/** In pixels. */
+	fontSize: number;
+}
+
+/** What a webview is doing, for the status bar. */
+export interface EngineState {
+	/** The scheduler runs. */
+	started: boolean;
+	/** `AudioContext.state`: 'running', 'suspended'... */
+	audio: string;
+	/** The overlay "Click to enable audio" is up. */
+	needsClick: boolean;
+}
+
 export type ToWebview =
-	| { type: 'init'; text: string; mode: Mode; samples: SampleMap }
+	| { type: 'init'; text: string; mode: Mode; samples: SampleMap; settings: EditorSettings }
+	| { type: 'settings'; settings: EditorSettings }
 	| { type: 'update'; text: string }
 	| { type: 'samples'; samples: SampleMap }
 	| { type: 'packs'; packs: PackInfo[] }
@@ -28,12 +48,18 @@ export type ToWebview =
 	| { type: 'preview'; name: string; index: number }
 	| { type: 'insert'; text: string }
 	/** Moves a slider of the stage, by its position in the list. The same as dragging it. */
-	| { type: 'slider'; index: number; value: number };
+	| { type: 'slider'; index: number; value: number }
+	/** The answer to `cacheFiles`. `base` is the address of the cached folder when every file is in it. */
+	| { type: 'cachedFiles'; id: number; base?: string };
 
 export type FromWebview =
 	| { type: 'ready' }
 	| { type: 'edit'; text: string }
-	| { type: 'started'; started: boolean }
+	| { type: 'state'; state: EngineState }
+	/** An evaluation ended. Without `error` it went well. `from` and `to` are offsets in the code. */
+	| { type: 'evaluated'; error?: { message: string; from?: number; to?: number } }
+	/** A song called `samples(map, base)` with a remote base. The host says whether it has these files. */
+	| { type: 'cacheFiles'; id: number; base: string; files: string[] }
 	| { type: 'sounds'; sounds: SoundInfo[] }
 	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string };
 

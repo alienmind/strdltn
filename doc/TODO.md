@@ -8,9 +8,14 @@ from here.
 **Released:** 0.1.0, tag `v0.1.0` on `main`. The GitHub release has the `.vsix`, the
 maintainer's own VS Code runs that build (`pnpm promote`), and the home page shows it.
 
-**In flight:** nothing. New work starts on a new feature branch and reaches `main`
-through a pull request. The version stays 0.1.0 until the maintainer asks for a
-release.
+**In flight:** the branch `feat/m1-solid-core`, not merged and not released. It holds:
+errors in the code as problems of the file, a status bar item, settings for theme and
+font, stop for the song in front, the sound list before a file is open, and the cache
+for `https://` packs and for maps with a remote base, with commands to see its size and
+to clear it. The version stays 0.1.0 until the maintainer asks for a release.
+
+`README.md` and `doc/ABOUT.md` still describe 0.1.0. They get these features at the
+release (step 1 of "Release" in `doc/ARCHITECTURE.md`).
 
 Next in line:
 
@@ -22,7 +27,7 @@ Next in line:
 
 ## Next: test by hand
 
-`pnpm test:vscode` passes in VS Code 1.130 and we looked at its screenshots. It cannot
+`pnpm test:vscode` passes in VS Code 1.147 and we looked at its screenshots. It cannot
 hear, and it cannot feel whether a click does what you expect.
 
 Target: **desktop VS Code, F5 on this repo** (opens `template/`).
@@ -43,6 +48,17 @@ Target: **desktop VS Code, F5 on this repo** (opens `template/`).
 | 13 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage lists Sliders (kick vol, snare vol...) and Visuals (kick, snare...), each with its name |
 | 14 | Drag a slider in the stage | The part gets louder or quieter, and the number in the code changes |
 | 12 | Play it, then turn the network off, reload the window and play it again | It still plays |
+| 15 | In the native editor, add the line `$: s("bd").lfpx(200)` and press Ctrl+Enter | A red squiggle under `lfpx`, one entry in Problems, and the status bar item is red: "vstrudel: playing, error in the code". The song keeps playing |
+| 16 | Type a space on another line | The squiggle goes. The status bar stays red, with the message in its tooltip |
+| 17 | Remove the line and press Ctrl+Enter | The status bar says "vstrudel: playing" |
+| 18 | Click the status bar item twice | The song stops, then plays |
+| 19 | Look at the font of the Strudel editor | The same font and size as the native editor |
+| 20 | In Settings set `vstrudel.editor.theme` to `githubLight` | The Strudel editor turns light at once, without a reload |
+| 21 | Play `demo.strudel` and an example in two tabs. Press Ctrl+. twice | The first press stops only the song in front. The second stops the other |
+| 22 | Play both again and run "vstrudel: Stop all" | Both stop |
+| 23 | Run "Developer: Reload Window", close every tab, and open the Sounds view | The list is there before a file is open |
+| 24 | Run "vstrudel: Show sample pack cache size" | A message with the size, the number of files and the pack names, and a "Clear cache" button |
+| 25 | Press "Clear cache", then "Delete" in the dialog | `.vstrudel/cache` is gone. An open song that uses a pack still plays, from the network |
 
 Expected still broken: sound stops on every mode switch, no MIDI.
 
@@ -63,8 +79,14 @@ Report the result by check number. When something fails, add the content of Outp
 | 8 | Sound across a mode switch (see "Open design questions") | Sound stops |
 | 9 | Default editor for `.strudel`: the Strudel editor, or the native one with the stage? | The Strudel editor |
 | 10 | Marketplace: publisher id, token, and an icon without the VS Code logo (see "Publishing") | Waiting |
-| 11 | Should the test screenshots keep the debug text in the corner and the title "[Extension Development Host]"? | Kept |
+| 11 | Should the test screenshots keep the title "[Extension Development Host]"? The debug text in the corner is gone, the status bar item replaced it | Kept |
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
+
+| 13 | The Strudel editor now takes its font and size from VS Code (`editor.fontFamily`, `editor.fontSize`) unless `vstrudel.editor.*` says otherwise. Before it was Strudel's own 18 px monospace. OK as the default? | VS Code's font |
+| 14 | The theme stays Strudel's own (`strudelTheme`) by default. Should it follow a light or dark VS Code theme, for example `vscodeLight` and `vscodeDark`? | Does not follow |
+| 15 | Ctrl+. stops the song in front, and the song in another tab when nothing plays in front. "Stop all" has no key. Should it have one? | No key |
+| 16 | An edit removes the squiggle of an error, and the status bar keeps the message (see the drawer). OK? | Removed on edit |
+| 17 | After "Clear sample pack cache", a pack is downloaded again the next time a song that loads it is opened or edited. Or should a cleared pack stay away until asked for? | Downloaded again |
 
 ## MIDI
 
@@ -217,23 +239,32 @@ planned yet.
 - Cursor and scroll position are not carried across a mode switch.
 - Notes that are playing are not highlighted in the native editor.
 - A sample that was deleted stays in the Sounds view until the editor is reloaded.
-- The Sounds view is empty until a `.strudel` file is open.
+- Before a `.strudel` file is open, the Sounds view shows the list the last engine
+  reported. It can name a sample that was deleted since, and preview needs an open
+  file.
+- An error in the code shows no squiggle in the Strudel editor, only in the Problems
+  view and in the status bar.
+- The place of an error is found by rule from its message. For a name that is written
+  more than once it can be the wrong place. An error no rule places is on line 1.
+- A sound that is not found while the pattern plays is not a problem of the file. It
+  only goes to Output > `vstrudel`.
+- The theme of the Strudel editor does not follow the VS Code theme.
+- The list of themes in `package.json` is a copy of upstream's. Nothing checks it when
+  `@strudel/codemirror` is updated.
 - A sound with more than 64 variations only shows the first 64.
 - The Sounds view has no search box of its own. The tree filter of VS Code (Ctrl+F in
   the view) works.
 - A snippet is a whole file. Several snippets in one file are not possible.
-- The pack cache only knows `samples('github:...')`. A full `https://` address, and a
-  `github:` name as the second argument of `samples()`, stay on the network.
-- The pack cache has no way to see its size or to clear it, other than deleting
-  `.vstrudel/`.
+- The samples of a map written in the song (`samples({...}, 'github:...')`) are not
+  listed and not cached before the song has played once.
+- Not cached: a map where a sound has its own `_base`, an address with a query (what
+  `shabda:` resolves to), and a pack over the file limit. See "What is not cached" in
+  `doc/ARCHITECTURE.md`.
+- The integration test does not clear the pack cache. Clearing is only tested by hand.
 - A kick that ducks an orbit logs "duck target orbit 2 does not exist" once, when it
   hits before anything has played on that orbit. It comes from upstream and is harmless.
-- `stop` stops every session, not only the active one.
 - The grammar only reuses JavaScript highlighting. Mini-notation is not highlighted in
   the native editor.
-- The editor font and theme are Strudel's defaults, not VS Code's.
-- The status text in the corner of the editor ("editor | audio running | playing") is a
-  debugging aid and should become a status bar item.
 - The integration test does not run in CI. A runner has no sound card and needs a
   virtual display. It also takes about ten minutes now, because it plays every file of
   the template.
@@ -246,7 +277,6 @@ planned yet.
 
 | Milestone | Content |
 |---|---|
-| M1 | Solid core: settings for theme and font, eval errors as diagnostics, status bar |
 | M2 | Native mode feedback: note highlighting through decorations, sliders in the stage with write-back, one undo history |
 | M3 | MIDI through the bridge, sound card choice, the Strudel reference in the side bar |
 | M4 | Language support in the native editor: completion, hover, signature help, mini-notation grammar and diagnostics |

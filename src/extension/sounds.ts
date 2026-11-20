@@ -38,8 +38,8 @@ function splitBank(name: string): { bank: string; sound: string } | undefined {
 
 /**
  * The Sounds view. It shows what the engine in the webview reports, so it lists exactly
- * the sounds that can be played, including the ones of the workspace. It is empty until
- * a .strudel file has been opened, because only then does an engine exist.
+ * the sounds that can be played, including the ones of the workspace. Before a .strudel
+ * file is open there is no engine, and the view shows the list of the last one.
  */
 export class SoundsProvider implements vscode.TreeDataProvider<SoundNode> {
 	private sounds: SoundInfo[] = [];
@@ -81,9 +81,10 @@ export class SoundsProvider implements vscode.TreeDataProvider<SoundNode> {
 
 	groups(): { label: string; icon: string; banks: boolean; sounds: SoundInfo[] }[] {
 		const rest = new Set(this.sounds);
-		// A pack that a song loads from GitHub is tagged with its name by the webview
-		// and gets a group of its own, after the user's samples.
-		const packTags = [...new Set(this.sounds.flatMap((s) => (s.tag?.startsWith('github:') ? [s.tag] : [])))].sort();
+		// A pack that a song loads by name (`github:...` or an `https://` address) is
+		// tagged with that name by the webview and gets a group of its own, after the
+		// user's samples.
+		const packTags = [...new Set(this.sounds.flatMap((s) => (s.tag && /^(github:|https:\/\/)/.test(s.tag) ? [s.tag] : [])))].sort();
 		// Packs name their sounds `<bank>_<sound>` too (`crate_bd`), so they get the bank level.
 		const packGroups = packTags.map((tag) => ({ label: tag, icon: 'sample', banks: true, test: (s: SoundInfo) => s.tag === tag }));
 		return [GROUPS[0], ...packGroups, ...GROUPS.slice(1)].map(({ label, icon, banks, test }) => {

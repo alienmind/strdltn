@@ -14,7 +14,8 @@ import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
 import { sliderLabel, visualLabel } from '../shared/context';
 import { githubBase, type PackInfo } from '../shared/packs';
-import { diffText, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { diffText, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { initFirmware, registerFirmware, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
@@ -46,10 +47,13 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 	const message = event.data;
 	switch (message.type) {
 		case 'init':
-			init(message.text, message.mode, message.samples);
+			init(message.text, message.mode, message.samples, message.firmware);
 			break;
 		case 'update':
 			applyRemoteText(message.text);
+			break;
+		case 'firmware':
+			registerFirmware(message.firmware);
 			break;
 		case 'samples':
 			void loadLocalSamples(message.samples);
@@ -77,10 +81,18 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 
 post({ type: 'ready' });
 
-function init(text: string, initialMode: Mode, samples: SampleMap): void {
+function init(text: string, initialMode: Mode, samples: SampleMap, firmware: FirmwareInfo[]): void {
 	mode = initialMode;
 	document.body.classList.toggle('stage', mode === 'stage');
 	reportEnvironment();
+
+	initFirmware({
+		log,
+		clock: () => {
+			const scheduler = mirror?.repl?.scheduler;
+			return { cycle: scheduler?.started ? scheduler.now() : 0, cps: scheduler?.cps ?? 0.5, playing: !!scheduler?.started };
+		},
+	});
 
 	mirror = new strudelCodemirror.StrudelMirror({
 		id: REPL_ID,
@@ -114,6 +126,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap): void {
 			]);
 			strudelWebaudio.registerSamplesPrefix('github:', resolveGithubPack);
 			await loadLocalSamples(samples);
+			registerFirmware(firmware);
 			log('info', `local samples: ${Object.keys(samples).join(', ') || 'none'}`);
 			// The first play waits for the default packs, or "bd" is not found yet (measured
 			// on a slow network). The wait is capped so that offline use still starts.
@@ -129,6 +142,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap): void {
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
 		},
 		onToggle: (started: boolean) => {
+			transport(started);
 			post({ type: 'started', started });
 			updateStatus();
 		},

@@ -116,7 +116,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			const text = soundText(node);
 			if (text) return vscode.env.clipboard.writeText(text);
 		}),
-		vscode.commands.registerCommand('vstrudel.refreshSounds', () => Promise.all([...sessions].map((s) => s.refreshSamples()))),
+		vscode.commands.registerCommand('vstrudel.refreshSounds', () => Promise.all([...sessions].flatMap((s) => [s.refreshSamples(), s.refreshFirmware()]))),
 		// The header of a snippet describes it. Only the code goes into the song.
 		vscode.commands.registerCommand('vstrudel.insertSnippet', (snippet: Pick<Snippet, 'name'>) => {
 			const found = snippets.find(snippet.name);
@@ -167,14 +167,24 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			clearTimeout(samplesTimer);
 			samplesTimer = setTimeout(() => sessions.forEach((s) => void s.refreshSamples()), 500);
 		};
+		let firmwareTimer: ReturnType<typeof setTimeout> | undefined;
+		const firmwareChanged = () => {
+			clearTimeout(firmwareTimer);
+			firmwareTimer = setTimeout(() => sessions.forEach((s) => void s.refreshFirmware()), 500);
+		};
 		const create = () => {
 			watchers.forEach((w) => w.dispose());
 			const configuration = vscode.workspace.getConfiguration('vstrudel');
 			const samplesWatcher = vscode.workspace.createFileSystemWatcher(`**/${configuration.get('samplesFolder', 'samples')}/**`);
 			const libWatcher = vscode.workspace.createFileSystemWatcher(`**/${SnippetsView.folderName()}/**/*.strudel`);
+			const firmwareWatcher = vscode.workspace.createFileSystemWatcher(`**/${configuration.get('firmwareFolder', 'firmware')}/**`);
 			watchers = [
 				samplesWatcher,
 				libWatcher,
+				firmwareWatcher,
+				firmwareWatcher.onDidCreate(firmwareChanged),
+				firmwareWatcher.onDidDelete(firmwareChanged),
+				firmwareWatcher.onDidChange(firmwareChanged),
 				samplesWatcher.onDidCreate(samplesChanged),
 				samplesWatcher.onDidDelete(samplesChanged),
 				libWatcher.onDidCreate(() => snippets.refresh()),

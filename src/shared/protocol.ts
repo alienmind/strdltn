@@ -18,10 +18,24 @@ export interface SoundInfo {
 	count: number;
 }
 
+/** A VIBE FM firmware the song can play as `s("vibe_<id>")`. */
+export interface FirmwareInfo {
+	/** The firmware's own id, lower case. The sound name is made from it (firmwareSound). */
+	id: string;
+	name: string;
+	author?: string;
+	version?: string;
+	license?: string;
+	description?: string;
+	/** The .wasm, as a webview URL. */
+	url: string;
+}
+
 export type ToWebview =
-	| { type: 'init'; text: string; mode: Mode; samples: SampleMap }
+	| { type: 'init'; text: string; mode: Mode; samples: SampleMap; firmware: FirmwareInfo[] }
 	| { type: 'update'; text: string }
 	| { type: 'samples'; samples: SampleMap }
+	| { type: 'firmware'; firmware: FirmwareInfo[] }
 	| { type: 'packs'; packs: PackInfo[] }
 	| { type: 'play' }
 	| { type: 'stop' }

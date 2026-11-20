@@ -21,7 +21,7 @@ window.__messages = [];
 window.acquireVsCodeApi = () => ({ postMessage(m) {
   window.__messages.push(m); console.log('[smoke]', JSON.stringify(m));
   if (m.type === 'ready') fetch('/template/demo.strudel').then(r => r.text()).then(text =>
-    window.postMessage({ type: 'init', text, mode, samples: { blip: [location.origin + '/template/samples/blip/blip.wav'] } }, '*'));
+    window.postMessage({ type: 'init', text, mode, samples: { blip: [location.origin + '/template/samples/blip/blip.wav'] }, firmware: [] }, '*'));
 }});
 </script>
 <script type="module" src="/dist/webview.js"></script></body></html>

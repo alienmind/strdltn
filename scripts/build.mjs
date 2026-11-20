@@ -48,6 +48,15 @@ const builds = [
 	},
 	{
 		...shared,
+		// Loaded with audioWorklet.addModule() from beside webview.js. A worklet scope has no modules to import.
+		entryPoints: ['src/webview/vibe/worklet.ts'],
+		outfile: 'dist/vibe-worklet.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
+	{
+		...shared,
 		entryPoints: ['src/snippets-view/main.ts'],
 		outfile: 'dist/snippets-view.js',
 		platform: 'browser',

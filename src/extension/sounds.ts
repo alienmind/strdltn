@@ -19,6 +19,7 @@ const GROUPS: { label: string; icon: string; banks?: boolean; test: (sound: Soun
 	{ label: 'Drum machines', icon: 'drum', banks: true, test: (s) => s.tag === 'drum-machines' },
 	{ label: 'Synths', icon: 'keyboard', test: (s) => s.type === 'synth' },
 	{ label: 'Soundfonts', icon: 'note', test: (s) => s.type === 'soundfont' },
+	{ label: 'Firmware', icon: 'midi', test: (s) => s.type === 'firmware' },
 	{ label: 'Wavetables', icon: 'keyboard', test: (s) => s.type === 'wavetable' },
 	{ label: 'Other', icon: 'sample', test: () => true },
 ];

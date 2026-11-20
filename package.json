@@ -259,6 +259,11 @@
 					"default": "samples",
 					"description": "Workspace folder that holds your samples. Each subfolder becomes a sound name."
 				},
+				"vstrudel.firmwareFolder": {
+					"type": "string",
+					"default": "firmware",
+					"description": "Workspace folder that holds VIBE FM firmwares (.wasm) from thefirmwarehub.com. Each one plays as s(\"vibe_<id>\")."
+				},
 				"vstrudel.libFolder": {
 					"type": "string",
 					"default": "lib",

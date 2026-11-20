@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { diffText, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { findPackSources } from '../shared/packs';
 import type { PackCache } from './packs';
+import { scanFirmware } from './firmware';
 import { scanSamples } from './samples';
 
 /**
@@ -111,6 +112,12 @@ export class Session {
 		this.post({ type: 'samples', samples: await scanSamples(await this.samplesFolder(), this.panel.webview) });
 	}
 
+	/** Scans the firmware folder again, after files were added or removed. */
+	async refreshFirmware(): Promise<void> {
+		if (!this.ready) return;
+		this.post({ type: 'firmware', firmware: await scanFirmware(await this.firmwareFolder(), this.panel.webview) });
+	}
+
 	play(): void {
 		if (this.ready) this.post({ type: 'play' });
 		else this.playWhenReady = true;
@@ -128,8 +135,9 @@ export class Session {
 		switch (message.type) {
 			case 'ready': {
 				const samples = await scanSamples(await this.samplesFolder(), this.panel.webview);
+				const firmware = await scanFirmware(await this.firmwareFolder(), this.panel.webview);
 				this.known = this.document.getText();
-				this.post({ type: 'init', text: this.known, mode: this.mode, samples });
+				this.post({ type: 'init', text: this.known, mode: this.mode, samples, firmware });
 				this.ready = true;
 				void this.sendPacks();
 				if (this.playWhenReady) {
@@ -161,8 +169,16 @@ export class Session {
 	 * the workspace root. A song in a subfolder of a bigger repo then still finds the
 	 * samples that belong to it.
 	 */
-	private async samplesFolder(): Promise<vscode.Uri> {
-		const name = vscode.workspace.getConfiguration('vstrudel').get<string>('samplesFolder', 'samples');
+	private samplesFolder(): Promise<vscode.Uri> {
+		return this.nearestFolder(vscode.workspace.getConfiguration('vstrudel').get<string>('samplesFolder', 'samples'));
+	}
+
+	/** The firmware folder nearest to the file, found the same way as the samples. */
+	private firmwareFolder(): Promise<vscode.Uri> {
+		return this.nearestFolder(vscode.workspace.getConfiguration('vstrudel').get<string>('firmwareFolder', 'firmware'));
+	}
+
+	private async nearestFolder(name: string): Promise<vscode.Uri> {
 		const root = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
 		let folder = vscode.Uri.joinPath(this.document.uri, '..');
 		for (;;) {

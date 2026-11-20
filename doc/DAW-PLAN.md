@@ -558,6 +558,24 @@ takes it back.
 A cable is never stored. After the edit the model is built again from the text and the
 cables are drawn from the model.
 
+**Jacks.** Every end of a cable sits in a jack: a round socket drawn in SVG with a hole
+that looks sunk into the strip, like the socket of a patch bay. The design is in
+`doc/jack.svg`, with its four states side by side:
+
+![The four states of a jack](jack.svg)
+
+| State | Look |
+|---|---|
+| Empty | Metal bezel, a darker bevel inside it, and the hole. The light comes from the top left: the bezel is lit there, the inner wall of the hole is dark there and lit at the bottom right, which makes the hole read as deep. A soft shadow under the bezel lifts it off the strip |
+| Hover, or a cable being dragged over it | A ring in the focus color of the theme (`--vscode-focusBorder`) around the bezel. A jack that would refuse the cable gets the ring in the error color instead |
+| Plugged | The head of the plug fills the hole, in the color of the cable's kind, with a highlight at the top left and two rings, so it reads as a round plug pushed in. The cable leaves from its center |
+
+The jack is one `<symbol>` in the Mixer's page, used by every strip, 24 pixels across at
+the normal zoom. The metal is gray tones that work on dark and light themes; the colors
+of the plug and the hover ring come from the theme variables, so a theme change needs no
+new drawing. When a plug is pulled out, the hole shows again under the moving end of the
+cable, so it looks like the plug left it.
+
 **How cables are drawn.** Ported from ableton-rackutils as `src/webview/cables.ts`,
 plain TypeScript and SVG, no framework: the physics, constants, sleeping loop and
 pointer handling listed under "The cables of ableton-rackutils". One fixed SVG layer over
@@ -788,7 +806,8 @@ Size: 4 to 6 sessions.
    (the table under "Mixer panel") and the examples.
 2. The Mixer webview: `src/mixer/` as a third bundle. Strips, fold and unfold, faders
    with labels and values, the "global" strip.
-3. `src/webview/cables.ts`: the duck cables drawn from the model, with the spring.
+3. `src/webview/cables.ts`: the duck cables drawn from the model, with the spring, and
+   the jack of `doc/jack.svg` at both ends.
 4. The stage loses its slider rows.
 5. The integration test records the model of `demo.strudel` and takes a screenshot with
    every strip folded and one with bass unfolded.

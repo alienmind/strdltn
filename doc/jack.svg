@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="96" viewBox="0 0 160 48">
+	<!--
+		Design reference for the jacks of the Mixer (doc/DAW-PLAN.md, "Jacks").
+		Four states, left to right: empty, hover, plugged with a sidechain cable,
+		plugged with a MIDI cable. The light comes from the top left. The hole looks
+		sunk because its inner wall is dark at the top left and lit at the bottom right,
+		the opposite of the bezel around it.
+	-->
+	<defs>
+		<linearGradient id="bezel" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#9aa0a8"/>
+			<stop offset="0.5" stop-color="#5c6168"/>
+			<stop offset="1" stop-color="#2a2d31"/>
+		</linearGradient>
+		<linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#25282c"/>
+			<stop offset="1" stop-color="#7d838b"/>
+		</linearGradient>
+		<radialGradient id="hole" cx="0.62" cy="0.62" r="0.7">
+			<stop offset="0" stop-color="#000"/>
+			<stop offset="0.55" stop-color="#050506"/>
+			<stop offset="0.85" stop-color="#1b1d20"/>
+			<stop offset="1" stop-color="#3a3e44"/>
+		</radialGradient>
+		<radialGradient id="shadow" cx="0.5" cy="0.5" r="0.5">
+			<stop offset="0.7" stop-color="#000" stop-opacity="0.45"/>
+			<stop offset="1" stop-color="#000" stop-opacity="0"/>
+		</radialGradient>
+		<radialGradient id="plug" cx="0.35" cy="0.3" r="0.8">
+			<stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+			<stop offset="0.35" stop-color="#fff" stop-opacity="0"/>
+			<stop offset="1" stop-color="#000" stop-opacity="0.45"/>
+		</radialGradient>
+		<g id="socket">
+			<circle r="11.5" fill="url(#shadow)" transform="translate(1 1.2)"/>
+			<circle r="10" fill="url(#bezel)"/>
+			<circle r="7.6" fill="url(#bevel)"/>
+			<circle r="5.6" fill="url(#hole)"/>
+			<circle r="5.6" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="0.6"/>
+			<path d="M -6.6 -3.2 A 7.4 7.4 0 0 1 -1.8 -7.2" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="0.8" stroke-linecap="round"/>
+		</g>
+		<g id="plugged">
+			<circle r="7.2" fill="currentColor"/>
+			<circle r="7.2" fill="url(#plug)"/>
+			<circle r="4.6" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="0.7"/>
+			<circle r="2.4" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="0.7"/>
+		</g>
+	</defs>
+	<rect width="160" height="48" fill="#1e1e1e"/>
+	<g transform="translate(20 24)"><use href="#socket"/></g>
+	<g transform="translate(60 24)">
+		<circle r="11.5" fill="none" stroke="#3794ff" stroke-width="1.2" stroke-opacity="0.9"/>
+		<use href="#socket"/>
+	</g>
+	<g transform="translate(100 24)" color="#d18616"><use href="#socket"/><use href="#plugged"/></g>
+	<g transform="translate(140 24)" color="#b180d7"><use href="#socket"/><use href="#plugged"/></g>
+</svg>

@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import { diffText, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { findPackSources } from '../shared/packs';
 import type { PackCache } from './packs';
-import { scanFirmware } from './firmware';
+import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
+import { type FirmwareCache, scanFirmware } from './firmware';
 import { scanSamples } from './samples';
 
 /**
@@ -34,6 +35,7 @@ export class Session {
 		private readonly output: vscode.OutputChannel,
 		private readonly events: { onDispose(session: Session): void; onSounds(sounds: SoundInfo[]): void },
 		private readonly packs: PackCache,
+		private readonly firmwareCache: FirmwareCache,
 	) {
 		this.known = document.getText();
 		const workspaceFolders = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
@@ -59,6 +61,7 @@ export class Session {
 			}),
 			// A pack finished downloading: the webview can now play it from the cache.
 			packs.onDidChange(() => void this.sendPacks()),
+			firmwareCache.onDidChange(() => void this.sendFirmwareCache()),
 		);
 		this.disposables.push(
 			panel.onDidChangeViewState(() => {
@@ -89,7 +92,10 @@ export class Session {
 	/** After an edit, wait until the typing stops. A half typed `samples('github:...` is not a pack. */
 	private sendPacksSoon(): void {
 		clearTimeout(this.packsTimer);
-		this.packsTimer = setTimeout(() => void this.sendPacks(), 1500);
+		this.packsTimer = setTimeout(() => {
+			void this.sendPacks();
+			void this.sendFirmwareCache();
+		}, 1500);
 	}
 
 	/**
@@ -104,6 +110,22 @@ export class Session {
 		const packs = await Promise.all(sources.map((source) => this.packs.info(source, folder, this.panel.webview)));
 		this.post({ type: 'packs', packs });
 		for (const pack of packs) if (!pack.cached) void this.packs.ensure(pack.source, folder);
+	}
+
+	/**
+	 * Tells the webview which firmware addresses of the song are cached, with the URL of each copy, and starts the
+	 * download of the others. The webview loads a cached one from the copy and the rest from the network.
+	 */
+	private async sendFirmwareCache(): Promise<void> {
+		const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
+		if (!this.ready || !folder) return;
+		const map: FirmwareCacheMap = {};
+		for (const url of findFirmwareUrls(this.document.getText())) {
+			const cached = await this.firmwareCache.cached(url, folder, this.panel.webview);
+			if (cached) map[url] = cached;
+			else void this.firmwareCache.ensure(url, folder);
+		}
+		this.post({ type: 'firmwareCache', map });
 	}
 
 	/** Scans the samples folder again, after files were added or removed. */
@@ -140,6 +162,7 @@ export class Session {
 				this.post({ type: 'init', text: this.known, mode: this.mode, samples, firmware });
 				this.ready = true;
 				void this.sendPacks();
+				void this.sendFirmwareCache();
 				if (this.playWhenReady) {
 					this.playWhenReady = false;
 					this.post({ type: 'play' });

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { SoundInfo } from '../shared/protocol';
+import { FirmwareCache } from './firmware';
 import { PackCache } from './packs';
 import { Session } from './session';
 import { SnippetsView, type Snippet } from './snippets';
@@ -39,6 +40,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 	output.appendLine(identity);
 	const sessions = new Set<Session>();
 	const packs = new PackCache(output);
+	const firmwareCache = new FirmwareCache(output);
 	const sounds = new SoundsProvider(context.extensionUri);
 	const snippets = new SnippetsView(context.extensionUri);
 	// Whether a click on a sound also plays it. A button at the top of the Sounds view
@@ -75,7 +77,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 					// The Strudel editor replaces the stage of the same file. Two engines on
 					// one file would play the pattern twice.
 					find(document.uri, 'stage')?.panel.dispose();
-					sessions.add(new Session(context, document, panel, 'editor', output, sessionEvents, packs));
+					sessions.add(new Session(context, document, panel, 'editor', output, sessionEvents, packs, firmwareCache));
 				},
 			},
 			// Without retainContextWhenHidden the webview is destroyed when its tab is
@@ -221,7 +223,7 @@ export function activate(context: vscode.ExtensionContext): VstrudelApi {
 			{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
 			{ retainContextWhenHidden: true },
 		);
-		const session = new Session(context, editor.document, panel, 'stage', output, sessionEvents, packs);
+		const session = new Session(context, editor.document, panel, 'stage', output, sessionEvents, packs, firmwareCache);
 		sessions.add(session);
 		return session;
 	}

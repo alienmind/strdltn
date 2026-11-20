@@ -15,7 +15,7 @@ import * as strudelWebaudio from '@strudel/webaudio';
 import { sliderLabel, visualLabel } from '../shared/context';
 import { githubBase, type PackInfo } from '../shared/packs';
 import { diffText, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
-import { addFirmware, initFirmware, registerFirmware, transport } from './vibe';
+import { addFirmware, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
@@ -54,6 +54,9 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'firmware':
 			registerFirmware(message.firmware);
+			break;
+		case 'firmwareCache':
+			setFirmwareCache(message.map);
 			break;
 		case 'samples':
 			void loadLocalSamples(message.samples);

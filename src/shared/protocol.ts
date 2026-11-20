@@ -1,4 +1,5 @@
 // Messages between the extension host and a webview. Both sides import this file.
+import type { FirmwareCacheMap } from './firmware';
 import type { PackInfo } from './packs';
 
 /** 'editor': the webview is the editor of the file. 'stage': code hidden, visuals only. */
@@ -38,6 +39,8 @@ export type ToWebview =
 	| { type: 'update'; text: string }
 	| { type: 'samples'; samples: SampleMap }
 	| { type: 'firmware'; firmware: FirmwareInfo[] }
+	/** Which `firmware('https://...')` addresses of the song have a cached copy, and its URL. */
+	| { type: 'firmwareCache'; map: FirmwareCacheMap }
 	| { type: 'packs'; packs: PackInfo[] }
 	| { type: 'play' }
 	| { type: 'stop' }

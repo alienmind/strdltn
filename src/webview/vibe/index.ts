@@ -5,6 +5,7 @@
 // AudioWorkletNode per firmware and orbit, and each hap only sends it notes.
 import * as strudelWebaudio from '@strudel/webaudio';
 import { unzipSync } from 'fflate';
+import type { FirmwareCacheMap } from '../../shared/firmware';
 import type { FirmwareInfo } from '../../shared/protocol';
 import type { VibeEvent } from './core';
 import type { FromVibeWorklet, ToVibeWorklet } from './worklet';
@@ -37,6 +38,8 @@ let order: string[] = [];
 /** Ids already reported as unknown, so a pattern does not log the same line on every note. */
 const reported = new Set<string>();
 let lastLogged = '';
+/** Cached copies of firmwares from an address, kept by the extension host. */
+let cache: FirmwareCacheMap = {};
 const modules = new Map<string, Promise<WebAssembly.Module>>();
 const instances = new Map<string, Promise<Instance | undefined>>();
 let workletLoaded: Promise<void> | undefined;
@@ -73,6 +76,11 @@ export function addFirmware(spec: string | Record<string, string>): void {
 		remote.set(key, { id: key, name: id, url });
 	}
 	apply();
+}
+
+/** The host has cached copies. A firmware not loaded yet is loaded from its copy. One already running keeps running. */
+export function setFirmwareCache(map: FirmwareCacheMap): void {
+	cache = map;
 }
 
 function idFromUrl(url: string): string {
@@ -221,10 +229,7 @@ function moduleFor(id: string): Promise<WebAssembly.Module> {
 	if (!module) {
 		const fw = firmware.get(id);
 		if (!fw) return Promise.reject(new Error('not registered'));
-		module = fetch(fw.url).then(async (response) => {
-			if (!response.ok) throw new Error(`${response.status} for ${fw.url}`);
-			return WebAssembly.compile(wasmOf(new Uint8Array(await response.arrayBuffer()), fw.url));
-		});
+		module = load(fw.url).then((bytes) => WebAssembly.compile(wasmOf(bytes, fw.url)));
 		// A failed download may work on the next try. A file that is not a firmware will not, so it stays failed.
 		module.catch((error) => {
 			if (!(error instanceof NotFirmware)) modules.delete(id);
@@ -232,6 +237,22 @@ function moduleFor(id: string): Promise<WebAssembly.Module> {
 		modules.set(id, module);
 	}
 	return module;
+}
+
+/** The bytes of a firmware: from the host's cached copy when there is one, else from the address. */
+async function load(url: string): Promise<Uint8Array> {
+	const copy = cache[url];
+	if (copy) {
+		try {
+			const response = await fetch(copy);
+			if (response.ok) return new Uint8Array(await response.arrayBuffer());
+		} catch {
+			// The copy was deleted. The address may still work.
+		}
+	}
+	const response = await fetch(url);
+	if (!response.ok) throw new Error(`${response.status} for ${url}`);
+	return new Uint8Array(await response.arrayBuffer());
 }
 
 /** The firmware's .wasm: the file itself, or the one inside a package .zip from the hub. */

@@ -60,6 +60,9 @@ What to know about the real test:
   a pull request that the maintainer merges.
 - **One feature branch at a time.** When a feature branch is already in use, add to it.
   Do not open a second branch or a worktree for a side task, not even for docs.
+- **`main` is the stable line, `experimental` is the maintainer's.** `experimental`
+  (1.0.0-b1) holds Firmware Hub and the SHRUB panel, which 1.0.0 left out, for a fork.
+  Never merge it into `main`, and do not work on it unless asked.
 - **Several agent sessions may share this folder.** Look at `git status` and the last
   commits before you write. Commit only the files you changed, by name, and leave the
   uncommitted changes of another session alone.

@@ -23,9 +23,9 @@ Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Co
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
 from a browser on any machine, with nothing installed.
 
-> **Version 0.2.0.** Errors in the code are shown where they are, a status bar says
-> what plays, the side bar has a Files view and new Snippets, and AI assistants know how
-> to edit a song. See "What is missing" at the end.
+> **Version 1.0.0.** The first stable release. Errors in the code are shown where they
+> are, a status bar says what plays, the side bar has a Files view and new Snippets, and
+> AI assistants know how to edit a song. See "What is missing" at the end.
 
 ---
 
@@ -213,7 +213,7 @@ On a Mac use Cmd in place of Ctrl.
 
 - **"Click to enable audio."** A browser does not start sound without a click. When you
   press play from a button or from the native editor, the page may ask for one click
-  first. Playing with Ctrl+Enter inside the Strudel editor does not need it.
+  first. Pressing Ctrl+Enter inside the Strudel editor counts as that click.
 - **The network.** The default sounds and Hydra are downloaded when they are used.
   Offline, the synths, your own samples and the packs already copied still play.
 - **Disk space.** A pack is copied whole. Some are large. "vstrudel: Show sample pack

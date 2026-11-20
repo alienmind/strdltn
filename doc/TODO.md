@@ -5,7 +5,7 @@ from here.
 
 ## State
 
-**`main` holds everything, version 1.0.0 in `package.json`.** The branch
+**`main` holds everything, version 0.0.1.** The version starts again for this project. The branch
 `experimental` was merged into it: Firmware Hub (VIBE FM firmwares from a `firmware/`
 folder or an address, played as `vibefm1:<id>`, with `.progNum()` and a cache) and the
 experimental SHRUB editor panel are back on `main`. The tag 1.0.0 is the vstrudel release

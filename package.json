@@ -2,7 +2,7 @@
 	"name": "vstrudel",
 	"displayName": "vstrudel",
 	"description": "Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "1.0.0",
+	"version": "0.0.1",
 	"private": true,
 	"publisher": "vstrudel",
 	"license": "AGPL-3.0-or-later",

@@ -48,17 +48,6 @@ Target: **desktop VS Code, F5 on this repo** (opens `template/`).
 | 13 | Switch `demo.strudel` to the native editor and press Ctrl+Enter | The stage lists Sliders (kick vol, snare vol...) and Visuals (kick, snare...), each with its name |
 | 14 | Drag a slider in the stage | The part gets louder or quieter, and the number in the code changes |
 | 12 | Play it, then turn the network off, reload the window and play it again | It still plays |
-| 15 | In the native editor, add the line `$: s("bd").lfpx(200)` and press Ctrl+Enter | A red squiggle under `lfpx`, one entry in Problems, and the status bar item is red: "vstrudel: playing, error in the code". The song keeps playing |
-| 16 | Type a space on another line | The squiggle goes. The status bar stays red, with the message in its tooltip |
-| 17 | Remove the line and press Ctrl+Enter | The status bar says "vstrudel: playing" |
-| 18 | Click the status bar item twice | The song stops, then plays |
-| 19 | Look at the font of the Strudel editor | The same font and size as the native editor |
-| 20 | In Settings set `vstrudel.editor.theme` to `githubLight` | The Strudel editor turns light at once, without a reload |
-| 21 | Play `demo.strudel` and an example in two tabs. Press Ctrl+. twice | The first press stops only the song in front. The second stops the other |
-| 22 | Play both again and run "vstrudel: Stop all" | Both stop |
-| 23 | Run "Developer: Reload Window", close every tab, and open the Sounds view | The list is there before a file is open |
-| 24 | Run "vstrudel: Show sample pack cache size" | A message with the size, the number of files and the pack names, and a "Clear cache" button |
-| 25 | Press "Clear cache", then "Delete" in the dialog | `.vstrudel/cache` is gone. An open song that uses a pack still plays, from the network |
 
 Expected still broken: sound stops on every mode switch, no MIDI.
 

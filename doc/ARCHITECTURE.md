@@ -585,9 +585,19 @@ In VS Code 1.147.0 on Windows, with `pnpm test:vscode`, on the branch `feat/m1-s
 | `samples({ zzbd: 'bd/BT0A0A7.wav' }, 'github:tidalcycles/dirt-samples')` | First play from the network, the file is cached, the next play is from the cache |
 | The cache size the command reports | 188,956,347 bytes in 459 files, the same as the disk |
 
-Not measured: what a restart shows in the Sounds view (the test has a new profile on
-every run, it only reads the file back), clearing the cache, and a light theme with a
-song that has no full page visual. In the screenshot `theme.png` the demo song paints
+By hand, on 2026-11-20, in the maintainer's VS Code with the promoted build
+`0.1.0-dev.20261120062215`: the maintainer ran the eleven checks for this branch and
+reported that all work. They were: the squiggle, the Problems entry and the red status
+bar for an error, the squiggle gone after an edit, play and stop from the status bar
+item, the font of VS Code in the Strudel editor, a theme change without a reload, stop
+for the song in front and then for the other, stop all, the sound list in the Sounds
+view after a window reload with no file open, the cache size message, and clearing the
+cache with an open song still playing from the network.
+
+Not measured by the test: what a restart shows in the Sounds view (the test has a new
+profile on every run, it only reads the file back), clearing the cache, and a light
+theme with a song that has no full page visual. The hand test above covers the first
+two. In the screenshot `theme.png` the demo song paints
 the page black, so only the gutter and the font size show the change.
 
 The test cannot hear or see. "Works" for audio means the `AudioContext` is running, the

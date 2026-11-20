@@ -278,6 +278,33 @@ editor the host reads the text around the cursor; in the Strudel editor the webv
 button that swaps the name under the cursor. `src/shared/context.ts` already finds what
 is around a position.
 
+**Songs as files.** Asked by the maintainer on 2026-11-20, planned, not built. The Songs
+of the Browser should work like the Explorer for `.strudel` files, so a user never has to
+leave the Browser to start, name or remove a track.
+
+| Gesture | Does | How |
+|---|---|---|
+| A `+` button "Create new track", in the title bar of the Browser left of "Refresh the Browser" | Opens Library > Songs, creates `New Track.strudel` (`New Track 2.strudel` when the name is taken), selects its row and puts the row in rename mode | A command `strdltn.newTrack` with `$(add)`, `navigation@1` in `view/title`. The host writes the file with `workspace.fs.writeFile` and opens it in the default editor |
+| Rename: F2, the menu, or right after "Create new track" | The row's name becomes a text field. Enter renames, Esc cancels. The `.strudel` ending is kept and not shown in the field | `WorkspaceEdit.renameFile`, so an open editor of the song follows the new name and undo works as in the Explorer. A name that exists or has a `/` is refused under the field, as the Explorer does |
+| Double click or Enter | Opens the song | As today |
+| Right click | Open, Rename... (F2), Reveal in Explorer, Reveal in File Explorer, Copy path, Remove (Delete key) | Reveal: `revealInExplorer` and `revealFileInOS` |
+| Remove | Asks first, then moves the file to the trash | `workspace.fs.delete(uri, { useTrash: true })`, with a modal like the Explorer's. A song that plays is stopped first |
+
+Where the file goes: the Songs category is not a folder, so a new track goes into the
+folder of the heading that is selected under Songs (`examples/`), else the root of the
+first workspace folder. What the new file holds: a short header (`// @title New Track`)
+and one line that plays, so Ctrl+Enter makes a sound at once. The text is to be agreed.
+
+Open questions for the maintainer: does "Locate in browser" mean Reveal in Explorer (VS
+Code's side bar), Reveal in File Explorer (Windows), or both as above? Should a new
+track start from the empty header or from a template song? Should the same menu work
+for snippets in `lib/` (create, rename, remove)?
+
+Steps: the command and the button; the row in rename mode in `src/browser/main.ts`; the
+messages `newTrack`, `rename {id, name}`, `remove {id}`, `reveal {id, where}` in
+`src/shared/browser.ts`; the handlers in `src/extension/browser.ts`; a case in the
+integration test that creates, renames and removes a track in `tmp/`; README.
+
 ### Index and tags
 
 Every item of the browser has an id and a record in an index. The index is JSON.

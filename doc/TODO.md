@@ -30,9 +30,10 @@ in a webview view. The SDK headers are cloned in `tmp/sdk/` (gitignored).
 Phase 4 is built: the Devices view in the bottom panel, a panel per firmware copy with its
 own display, F1 to F6, the DATA wheel and its parameters; fold, maximize and take out into a
 tab; the SHRUB panel behind its setting; and the integration test records the devices
-(ARCHITECTURE "Devices"). Steps 1 to 4 passed the hand test. Next: the hand test below, one
-run of `pnpm test:vscode`, and the pull request. The `fm1emu:` way and the coverage of the
-hub wait (see "Firmware Hub").
+(ARCHITECTURE "Devices"). Steps 1 to 4 passed the hand test, and `pnpm test:vscode` passed
+on 2026-11-21. The branch is pull request #6, which waits for the maintainer to merge.
+Next: the hand test below for maximize, take out and SHRUB. The `fm1emu:` way and the
+coverage of the hub wait (see "Firmware Hub").
 
 Next in line:
 

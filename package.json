@@ -351,12 +351,6 @@
 		"views": {
 			"strdltn": [
 				{
-					"id": "strdltn.controls",
-					"name": "Music Controls",
-					"type": "webview",
-					"initialSize": 1
-				},
-				{
 					"id": "strdltn.browser",
 					"name": "Library",
 					"type": "webview",

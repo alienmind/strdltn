@@ -8,6 +8,7 @@ import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, PL
 import type { PreviewPlan } from '../shared/preview.ts';
 import { chipGroups, filterItems, groupItems } from '../shared/search.ts';
 import { TAG_GROUPS } from '../shared/tags.ts';
+import { createControls } from './controls.ts';
 import { icon } from './icons.ts';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): unknown; setState(state: unknown): void };
@@ -79,6 +80,9 @@ const ownItems = () => items.filter((item) => pageOf(item) === page);
 const app = document.getElementById('app')!;
 // Nothing shows before `init` says which view this is.
 app.hidden = true;
+// Music Controls on top of the Library, then the search.
+const controlsBox = app.appendChild(el('div'));
+const showControls = createControls(controlsBox, post);
 const searchbar = app.appendChild(el('div', 'searchbar'));
 const searchBox = searchbar.appendChild(el('div', 'search'));
 searchBox.innerHTML = icon('search');
@@ -886,7 +890,7 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			preview = message.preview;
 			// Library: search, colors, categories. Songs and Snippets, Reference:
 			// their categories. Results: chips, results, details.
-			searchbar.hidden = colorbar.hidden = page !== 'library';
+			searchbar.hidden = colorbar.hidden = controlsBox.hidden = page !== 'library';
 			nav.hidden = page === 'results';
 			chips.hidden = resultbar.hidden = resultsBox.hidden = details.hidden = page !== 'results';
 			document.body.dataset.page = page;
@@ -904,6 +908,8 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			return update();
 		case 'focusSearch':
 			return focusSearch();
+		case 'controls':
+			return showControls(message.state);
 		case 'playPreview':
 			return void playPreview(message.plan);
 		case 'filter':

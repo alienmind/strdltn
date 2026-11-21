@@ -82,6 +82,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const browser = new BrowserView(context, snippets, songs, output, {
 		preview: (name, index) => previewSound(name, index),
 		playing: () => [...sessions].some((s) => s.started),
+		control: (message) => mixer.control(message),
 		insert: (text, bare) => insertText(text, bare),
 	});
 	const mixer = new MixerView(context, output, {
@@ -101,6 +102,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			if (action === 'play') void vscode.commands.executeCommand('vscode.open', document.uri).then(() => vscode.commands.executeCommand('strdltn.play'));
 		},
 		isPlaying: (document) => [...sessions].some((s) => s.document === document && s.started),
+		controls: (state) => browser.setControls(state),
 	});
 	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
 	const mixerPlace = new Place(mixer, { viewId: 'strdltn.mixer', tabType: 'strdltn.mixerTab', title: 'Mixer', contextKey: 'strdltn.mixerFloating' });
@@ -189,7 +191,6 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.window.registerWebviewViewProvider('strdltn.results', browser.provider('results'), { webviewOptions: { retainContextWhenHidden: true } }),
 		// The Mixer keeps its page too, so its strips stay unfolded behind the Terminal tab.
 		vscode.window.registerWebviewViewProvider('strdltn.mixer', mixerPlace, { webviewOptions: { retainContextWhenHidden: true } }),
-		vscode.window.registerWebviewViewProvider('strdltn.controls', mixer.controlsProvider(), { webviewOptions: { retainContextWhenHidden: true } }),
 		vscode.commands.registerCommand('strdltn.mixer.float', () => mixerPlace.float()),
 		vscode.commands.registerCommand('strdltn.mixer.dock', () => mixerPlace.dock()),
 		diagnostics,

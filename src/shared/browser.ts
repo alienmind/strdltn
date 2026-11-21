@@ -1,5 +1,6 @@
 // Messages between the extension host and the Browser's views. Both sides import this file.
 import type { CatalogItem, CategoryId, PlaceId, SavedSearch, UserIndex } from './catalog.ts';
+import type { ControlsState, FromControls } from './controls.ts';
 import type { PreviewPlan } from './preview.ts';
 
 /**
@@ -45,6 +46,8 @@ export type ToBrowser =
 	| { type: 'user'; user: UserIndex }
 	| { type: 'preview'; on: boolean }
 	| { type: 'focusSearch' }
+	/** What Music Controls show, at the top of the Library. */
+	| { type: 'controls'; state: ControlsState }
 	/** Plays a preview in this page, without the engine. */
 	| { type: 'playPreview'; plan: PreviewPlan }
 	/** The filter changed in another view, or by a command. `open` opens headings in Results, for the integration test. */
@@ -52,6 +55,8 @@ export type ToBrowser =
 
 export type FromBrowser =
 	| { type: 'ready' }
+	/** Play, Stop or BPM of Music Controls. */
+	| FromControls
 	/** `index` picks a numbered variation of a sound. */
 	| { type: 'play'; id: string; index?: number }
 	| { type: 'insert'; id: string; index?: number }

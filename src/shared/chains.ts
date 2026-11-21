@@ -103,7 +103,7 @@ export interface Tempo {
 	to: number;
 }
 
-export { DEFAULT_BPM } from './mixer.ts';
+export { DEFAULT_BPM } from './controls.ts';
 const TEMPO_CALLS: Record<string, number> = { setcpm: 4, setCpm: 4, setcps: 240, setCps: 240 };
 
 /** The last top-level `setcpm(...)` or `setcps(...)`; the last one is what the song plays at. */

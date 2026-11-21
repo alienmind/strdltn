@@ -1,14 +1,14 @@
-// The Mixer and Music Controls, one page in two views (see `setRole`). Music Controls: Play,
-// Stop and the BPM. The Mixer: one strip per chain, side by side as in the Session view of
+// The Mixer: one strip per chain, side by side as in the Session view of
 // Live, with the sliders as faders and the sidechain as cables. The host sends the model
 // it read from the code; this page draws it and keeps which strips are unfolded. See
 // "Mixer panel" in doc/DAW-PLAN.md.
 //
 // A fader changes the sound at once and the number in the code after a moment. M, S, G,
-// the BPM box and the transport buttons are edits or commands the host carries out.
+// the scope boxes and the cables are edits the host carries out. Play, Stop and BPM are
+// in Music Controls, at the top of the Library (src/browser/controls.ts).
 import './mixer.css';
 import type { MixerChain, MixerModel, MixerSlider } from '../shared/chains.ts';
-import { DEFAULT_BPM, type FromMixer, type MixerRole, type ToMixer } from '../shared/mixer.ts';
+import type { FromMixer, ToMixer } from '../shared/mixer.ts';
 import type { ScopeFrame } from '../shared/protocol.ts';
 import { type CableSpec, CableLayer } from './cables.ts';
 
@@ -34,65 +34,8 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
 const app = document.getElementById('app')!;
 app.insertAdjacentHTML('beforeend', jackSymbols());
 const bar = app.appendChild(el('div', 'bar'));
-// The top bar is made once and updated in place: a redraw while the BPM is typed must not
-// take the field away. Record and record automation come here later.
-const transport = bar.appendChild(el('div', 'transport'));
-const playButton = transport.appendChild(el('button', 'play'));
-playButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>';
-playButton.title = 'Play / update (Ctrl+Enter in the editor)';
-playButton.addEventListener('click', () => post({ type: 'transport', action: 'play' }));
-const stopButton = transport.appendChild(el('button', 'stop'));
-stopButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><rect x="3" y="3" width="10" height="10" fill="currentColor"/></svg>';
-stopButton.title = 'Stop (Ctrl+.)';
-stopButton.addEventListener('click', () => post({ type: 'transport', action: 'stop' }));
-// Record (a filled red circle) and Record Automation (an empty one), as Live has them. Not
-// built yet: see "Recording and arrangement" in doc/DAW-PLAN.md.
-const recordButton = transport.appendChild(el('button', 'record'));
-recordButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="5" fill="currentColor"/></svg>';
-recordButton.title = 'Record: not built yet';
-recordButton.disabled = true;
-const automationButton = transport.appendChild(el('button', 'record'));
-automationButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
-automationButton.title = 'Record automation: not built yet';
-automationButton.disabled = true;
-const bpmBox = bar.appendChild(el('label', 'bpm'));
-bpmBox.appendChild(el('span', '', 'BPM'));
-const bpmInput = bpmBox.appendChild(el('input'));
-bpmInput.inputMode = 'decimal';
-bpmInput.size = 5;
 const songName = bar.appendChild(el('span', 'song'));
 const staleNote = bar.appendChild(el('span', 'stale', 'code does not parse, showing the last good state'));
-/** What the BPM field shows when it is not being typed in. */
-function showTempo(): void {
-	const tempo = model?.tempo;
-	bpmInput.classList.toggle('default', !tempo);
-	bpmInput.disabled = !model || (!!tempo && tempo.bpm === undefined);
-	bpmInput.title = !tempo
-		? `Strudel's default, ${DEFAULT_BPM}: the song has no setcpm(). Type a number to write one`
-		: tempo.bpm === undefined
-			? 'The song sets its tempo with something that is not a plain number. Change it in the code'
-			: 'Type a number and press Enter to write setcpm(<bpm>/4). Double click: back to the default';
-	if (document.activeElement !== bpmInput) bpmInput.value = String(tempo ? (tempo.bpm ?? '?') : DEFAULT_BPM);
-}
-function commitTempo(): void {
-	const bpm = Number(bpmInput.value.replace(',', '.'));
-	const now = model?.tempo ? model.tempo.bpm : DEFAULT_BPM;
-	if (Number.isFinite(bpm) && bpm > 0 && bpm !== now) post({ type: 'tempo', bpm });
-	else showTempo();
-}
-bpmInput.addEventListener('keydown', (event) => {
-	if (event.key === 'Enter') bpmInput.blur();
-	if (event.key === 'Escape') {
-		bpmInput.value = '';
-		bpmInput.blur();
-	}
-});
-bpmInput.addEventListener('change', () => commitTempo());
-bpmInput.addEventListener('blur', () => showTempo());
-bpmInput.addEventListener('dblclick', () => {
-	bpmInput.blur();
-	if (model?.tempo) post({ type: 'tempo' });
-});
 const strips = app.appendChild(el('div', 'strips'));
 const cables = new CableLayer(strips);
 
@@ -129,9 +72,6 @@ function formatValue(value: number, slider: MixerSlider): string {
 window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 	const message = event.data;
 	switch (message.type) {
-		case 'role':
-			setRole(message.role);
-			break;
 		case 'model':
 			song = message.song;
 			model = message.model;
@@ -140,7 +80,6 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 			else draw();
 			break;
 		case 'playing':
-			playButton.classList.toggle('on', message.on);
 			if (!message.on) clearScopes();
 			break;
 		case 'scopes':
@@ -161,7 +100,6 @@ function draw(): void {
 	songName.textContent = song ?? 'No song';
 	staleNote.hidden = !error;
 	staleNote.title = error ?? '';
-	showTempo();
 	strips.classList.toggle('old', !!error);
 	strips.querySelectorAll('.strip, .empty').forEach((node) => node.remove());
 	if (!model) {
@@ -232,18 +170,6 @@ function drawWave(canvas: HTMLCanvasElement, wave: number[]): void {
 
 function clearScopes(): void {
 	strips.querySelectorAll<HTMLCanvasElement>('canvas.scope').forEach((canvas) => drawWave(canvas, []));
-}
-
-// ---- the two views ----------------------------------------------------------------------
-
-/**
- * Mixer: the song's name and the strips. Music Controls: Play, Stop, Record, BPM and the
- * song's name, at the top of the side bar. One page, so both show the same model.
- */
-function setRole(role: MixerRole): void {
-	document.body.dataset.role = role;
-	transport.hidden = bpmBox.hidden = role !== 'controls';
-	strips.hidden = role === 'controls';
 }
 
 // ---- cable drags ------------------------------------------------------------------------

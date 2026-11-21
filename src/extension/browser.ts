@@ -17,6 +17,7 @@ import { filterItems } from '../shared/search';
 import { setSnippetTags } from '../shared/snippet';
 import type { SongList } from './files';
 import type { SnippetLibrary } from './snippets';
+import type { ControlsState, FromControls } from '../shared/controls';
 import { previewPlan } from '../shared/preview';
 import { setPage } from './surface';
 
@@ -29,6 +30,8 @@ export interface BrowserActions {
 	preview(name: string, index: number): void;
 	/** True while a song plays: then the engine plays previews, on its beat. */
 	playing(): boolean;
+	/** Play, Stop or BPM of Music Controls, for the song the Mixer shows. */
+	control(message: FromControls): void;
 	/** `bare` goes in instead when the cursor is inside a string. */
 	insert(text: string, bare?: string): Promise<void>;
 }
@@ -153,6 +156,14 @@ export class BrowserView {
 		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
 	}
 
+	/** What Music Controls show, kept for a Library page that starts later. */
+	private controls?: ControlsState;
+
+	setControls(state: ControlsState): void {
+		this.controls = state;
+		this.post({ type: 'controls', state }, 'library');
+	}
+
 	/** The filter changed in one view: the others follow, and Results opens to show it. */
 	private setFilter(filter: BrowserFilterState, from?: BrowserPage, open?: string[]): void {
 		this.filter = filter;
@@ -187,7 +198,9 @@ export class BrowserView {
 	async handle(message: FromBrowser, page: BrowserPage = 'results'): Promise<void> {
 		switch (message.type) {
 			case 'ready': {
-				return this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter }, page);
+				this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter }, page);
+				if (page === 'library' && this.controls) this.post({ type: 'controls', state: this.controls }, page);
+				return;
 			}
 			case 'play': {
 				const item = this.item(message.id);
@@ -257,6 +270,9 @@ export class BrowserView {
 				return this.setFilter(message.filter, page);
 			case 'focusSearch':
 				return this.focusSearch();
+			case 'transport':
+			case 'tempo':
+				return this.actions.control(message);
 			case 'log':
 				this.output.appendLine(`browser: ${message.message}`);
 				if (message.message.startsWith('preview:')) this.previews.push(message.message);

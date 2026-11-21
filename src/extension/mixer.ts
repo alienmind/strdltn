@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, scopeEdit, tempoEdit, unduckEdits } from '../shared/chains';
-import type { FromMixer, MixerRole, ToMixer } from '../shared/mixer';
+import type { ControlsState, FromControls } from '../shared/controls';
+import type { FromMixer, ToMixer } from '../shared/mixer';
 import type { ScopeFrame } from '../shared/protocol';
 import { lf, lineColumn } from '../shared/sync';
 import { setPage, type Surface } from './surface';
@@ -18,6 +19,8 @@ export interface MixerActions {
 	/** Plays or stops the song, as the buttons of the editor's title do. */
 	transport(document: vscode.TextDocument, action: 'play' | 'stop'): void;
 	isPlaying(document: vscode.TextDocument): boolean;
+	/** What Music Controls show changed. */
+	controls(state: ControlsState): void;
 }
 
 /** How long a fader waits after its last move before it writes the code, when no engine has the song. As the stage's sliders did. */
@@ -36,8 +39,8 @@ const PAUSE = 300;
  * last song, the way the Outline view does.
  */
 export class MixerView implements Surface {
-	/** The Mixer's page (docked or floating) and the Music Controls' page. Both get every message. */
-	private readonly webviews = new Map<MixerRole, vscode.Webview>();
+	/** The Mixer's page, docked or floating. */
+	private webview?: vscode.Webview;
 	private document?: vscode.TextDocument;
 	private model?: MixerModel;
 	private error?: string;
@@ -75,13 +78,13 @@ export class MixerView implements Surface {
 	}
 
 	/** Gives the Mixer a page, docked or floating (see `Place`). It sends the model at once and again on `ready`. */
-	attach(webview: vscode.Webview, role: MixerRole = 'mixer'): vscode.Disposable {
-		this.webviews.set(role, webview);
+	attach(webview: vscode.Webview): vscode.Disposable {
+		this.webview = webview;
 		setPage(this.context, webview, 'mixer');
-		const listener = webview.onDidReceiveMessage((message: FromMixer) => this.handle(message, role));
+		const listener = webview.onDidReceiveMessage((message: FromMixer) => this.handle(message));
 		return new vscode.Disposable(() => {
 			listener.dispose();
-			if (this.webviews.get(role) === webview) this.webviews.delete(role);
+			if (this.webview === webview) this.webview = undefined;
 		});
 	}
 
@@ -108,23 +111,25 @@ export class MixerView implements Surface {
 	}
 
 	/**
-	 * The provider of Music Controls, a view of the side bar: the same page as the Mixer, in
-	 * its other role. The maintainer wanted the controls and the mixer apart, each movable.
+	 * Music Controls, at the top of the Library view, act on the song the Mixer shows: its
+	 * Play, Stop and BPM come here (from the Browser's host) and its state goes back through
+	 * `actions.controls`.
 	 */
-	controlsProvider(): vscode.WebviewViewProvider {
-		return {
-			resolveWebviewView: (view) => {
-				const attached = this.attach(view.webview, 'controls');
-				view.onDidDispose(() => attached.dispose());
-			},
-		};
+	control(message: FromControls): void {
+		if (message.type === 'tempo') return void this.setTempo(message.bpm);
+		if (this.document) this.actions.transport(this.document, message.action);
 	}
 
-	private handle(message: FromMixer, role: MixerRole = 'mixer'): void {
+	/** What Music Controls show. Sent on every change of the song, its model or its playing. */
+	private sendControls(): void {
+		const song = this.document?.uri.path.split('/').pop();
+		this.actions.controls({ song, known: !!this.model, tempo: this.model?.tempo && { bpm: this.model.tempo.bpm }, playing: this.playing });
+	}
+
+	private handle(message: FromMixer): void {
 		switch (message.type) {
 			case 'ready':
-				if (role === 'mixer') this.pages++;
-				this.post({ type: 'role', role }, role);
+				this.pages++;
 				this.send();
 				this.post({ type: 'playing', on: this.playing });
 				// A page made by a move between dock and float starts with every strip folded.
@@ -139,16 +144,10 @@ export class MixerView implements Surface {
 				return this.moveSlider(message.index, message.value);
 			case 'toggle':
 				return void this.toggle(message.chain, message.button);
-			case 'tempo':
-				return void this.setTempo(message.bpm);
 			case 'duck':
 			case 'unduck':
 				return void this.handleAsync(message);
-			case 'transport':
-				if (this.document) this.actions.transport(this.document, message.action);
-				return;
 			case 'state':
-				if (role !== 'mixer') return;
 				this.lastState = message;
 				if (message.strips.length) this.unfolded = message.strips.filter((strip) => strip.unfolded).map((strip) => strip.name);
 				return;
@@ -226,7 +225,7 @@ export class MixerView implements Surface {
 		if (document !== this.document) return;
 		this.scopeFrames++;
 		this.lastScopes = scopes.length;
-		this.post({ type: 'scopes', scopes }, 'mixer');
+		this.post({ type: 'scopes', scopes });
 	}
 
 	/** Says whether a song plays. The Play and Stop buttons show it when it is the song in front. */
@@ -234,6 +233,7 @@ export class MixerView implements Surface {
 		if (document !== this.document) return;
 		this.playing = on;
 		this.post({ type: 'playing', on });
+		this.sendControls();
 	}
 	private playing = false;
 
@@ -305,10 +305,10 @@ export class MixerView implements Surface {
 	private send(): void {
 		const song = this.document?.uri.path.split('/').pop();
 		this.post({ type: 'model', song, model: this.model, error: this.error });
+		this.sendControls();
 	}
 
-	/** To one view, or to both. */
-	private post(message: ToMixer, role?: MixerRole): void {
-		for (const [id, webview] of this.webviews) if (!role || id === role) void webview.postMessage(message);
+	private post(message: ToMixer): void {
+		void this.webview?.postMessage(message);
 	}
 }

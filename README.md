@@ -198,8 +198,10 @@ Everything you set, in any of them, acts on Results.
   collection, a "Tags..." button, its tags (a click filters by one), its description, code
   or parameters.
 
-The speaker button beside the search turns preview on click on or off. While a song
-plays, a preview waits for the next beat of the song.
+The speaker button beside the search turns preview on click on or off. Samples, drum
+machines and the plain waves play at once, with no song open. While a song plays, a
+preview waits for the next beat of the song. Soundfonts, supersaw and firmwares need a
+song open.
 
 Colors, your own tags and saved searches are kept in `strdltn.index.json` at the root of
 your project. Commit it and they travel with your songs.

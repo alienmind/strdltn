@@ -63,8 +63,9 @@ an older build left.
 | 4 | Click Functions in the Reference, click it again, then click All in the Library | Results: only functions, then everything, then only sounds |
 | 5 | Click Built-in three times | Results: only built in, then only your project and packs, then everything. The button says which |
 | 6 | Click into Songs and Snippets, press Ctrl+F | The cursor goes to the Library's search field |
-| 7 | Select a row in Results, press 1; click the red dot | The row gets a red square; Results shows the red items, from every view |
-| 8 | Library > Drums, open `rolandtr909` in Results, click `bd` | It plays. The details pane shows Drums/Kick, Maker/Roland |
+| 7 | Select a row in Results, press 1, then 2 to 7 | The row shows a square for every color it has, all seven |
+| 8 | Close every song and the stage. Library > Drums, open `rolandtr909`, click `bd`; then click `sawtooth` in Sounds | Both play at once, with no song open and no "Enable sound". Details show Drums/Kick, Maker/Roland |
+| 8a | Play a song, click `bd` again | It plays on the next beat of the song |
 | 9 | Put the cursor in the code, select `sawtooth` in Results, press Enter | `note("c3").s("sawtooth")` is typed |
 | 10 | Songs and Snippets > Songs, click a song in Results | It opens |
 | 11 | Right click a snippet in Results > Edit tags..., add `test` | The file gets `// @tags ..., test`, the chip Tag > test exists |
@@ -78,6 +79,7 @@ an older build left.
 | 14 | Look at the editor's title bar | Play is a green triangle, Stop a red square |
 | 15 | Switch the panel to Terminal, then play the song | The Music tab comes to the front, the cursor stays in the editor. Play in the top bar is lit |
 | 16 | Press Stop in the top bar, then Play | The song stops, then plays |
+| 16a | Look right of Stop | A red filled circle (Record) and an empty red circle (Record automation), both grayed: not built yet |
 | 17 | Look at BPM for `demo.strudel` | Its own tempo, from its `setcpm` or `setcps`. A song without one shows 120 in gray |
 | 18 | Type 128 in BPM, Enter | `setcpm(128/4)` is in the code (in place of the old call, or after the header comments), and the song speeds up |
 | 19 | Double click BPM | The `setcpm` line is gone, BPM shows 120 in gray |

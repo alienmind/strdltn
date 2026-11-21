@@ -229,6 +229,31 @@ that goes round three states: everything, only what comes with Strudel ("Built-i
 and only what does not ("Not built-in": the project and the packs it loads). It is the
 filter's `builtin`, read by `filterItems` from the item's `place`.
 
+**Previews without a song.** The maintainer found that a click on a sound played nothing
+unless a song was open, the stage was open and "Enable sound" had been clicked, and
+wanted previews to work at once. Now, when no song plays, the page that was clicked plays
+the preview itself with plain Web Audio (`playPreview` in `src/browser/main.ts`): the
+click on the row is a click inside that page, which is what a webview needs to start
+sound. The host decides what to play (`previewPlan` in `src/shared/preview.ts`):
+
+| Sound | Played by the page as |
+|---|---|
+| Samples, drum machines, the project's `samples/`, packs | The file, fetched and decoded; variation `n` wraps as in superdough |
+| Wavetables (`wt_...`) | Its one cycle, looped at A3 |
+| `sine`, `square`, `sawtooth`/`saw`, `triangle`/`tri` | An `OscillatorNode` at A3 |
+| `white`, `pink`, `brown` | Half a second of noise |
+| Soundfonts, `supersaw` and the other synths, firmwares | Not: they go to the engine of a song as before, or a message says to open one |
+
+The addresses come from superdough: the engine sends `urls` with each sound of its list
+(`sampleUrls` in `src/webview/main.ts`; a pitched map gives its note closest to A3). They
+stay in the host and are cached with the sound list. A list cached by an older build has
+none, so samples need one song opened once after the update. The Browser's pages may read
+the workspace folders (the project's samples and `.strdltn/cache`) and fetch over https
+(`connect-src`). While a song plays, the engine still plays the preview, on the next beat
+of the song. Expected, not yet heard by the maintainer: the integration test sends the
+click as a message, which is not a click, so it only shows that the page fetched, decoded
+and started the sound.
+
 **Heights.** VS Code gives the views of a side bar equal heights unless `initialSize`
 says otherwise, and with four views the Library's categories were cut off under the logo
 (seen in the screenshot of the integration test). `package.json` sets 4, 2, 2 and 6.

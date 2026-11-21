@@ -184,38 +184,48 @@ One run without retries lost every pack until the window was closed.
 
 ## Browser
 
-The side bar is laid out like the browser of Ableton Live, in one column per view: the
-logo and the search field (Library only), Collections (seven colors and saved
-searches), Categories, Places, tag chips, the results, and a details pane for
-the selected row. It replaced four views: the logo, Files, Sounds and Snippets. A tree
-cannot draw color squares, chips or a search field, and a webview between trees looked
-out of place (see "Snippet cards in a webview" in the drawer), so the side bar is
-webviews only now. The plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
+The side bar is the browser of Ableton Live split into its parts, as four views. It
+replaced four other views: the logo, Files, Sounds and Snippets. A tree cannot draw color
+squares, chips or a search field, and a webview between trees looked out of place (see
+"Snippet cards in a webview" in the drawer), so the side bar is webviews only now. The
+plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
 
-**Three views.** The Browser is three views of the side bar, each folding and moving on
-its own, as vstrudel had separate views:
+**Four views.** Each folds and moves on its own, as vstrudel had separate views. The
+maintainer asked for them on 2026-11-21: one search, one set of colors, one list of
+results, and the categories of each kind of thing apart.
 
-| View | id | Items |
+| View | id | Shows |
 |---|---|---|
-| Library | `strdltn.browser` | Sounds: Sounds, Drums, Samples, Instruments. It has the logo and the search field |
-| Songs and Snippets | `strdltn.songs` | Songs and snippets |
-| Reference | `strdltn.reference` | Functions, later the tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
+| Library | `strdltn.browser` | The logo, the search field, Collections (seven colors, the Built-in button, saved searches), and the categories of sounds: All, Sounds, Drums, Samples, Instruments |
+| Songs and Snippets | `strdltn.songs` | Its categories: All, Snippets, Songs |
+| Reference | `strdltn.reference` | Its categories: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
+| Results | `strdltn.results` | The chips, the result bar, the results of all views in one list, and the details pane |
 
-All three are the same page (`dist/browser.js`) and the same host object:
-`BrowserView.provider(page)` gives the provider of each view, `pageOf(item)` says where an
-item goes, and the host sends each page its own items. They share the user file, so a
-color or a tag set in one shows in the others. A saved search shows in the view that has
-its category. The Reference has no Places, since everything in it is built in. The
-Library keeps the view id `strdltn.browser` it had as the whole Browser.
+The categories have no heading: the rows start at the top of their view. A click on a
+category picks it for Results; "All" of a view picks everything of that view (the
+filter's `scope`); a click on the row that is picked goes back to everything of every
+view. The Library keeps the view id `strdltn.browser` it had as the whole Browser.
 
-**One search for all.** Only the Library has a search field. Three fields took room and
-could disagree, so the Library's field, at the top of the side bar, searches all three:
-the host keeps the text and sends it to the other pages (`show`). Ctrl+F in another view
-puts the cursor in the Library's field. A page reports `typed` with its state when the
-text changed by the user's hand there; the host takes the text only then, so a late
-report of one page cannot undo typing in another. Each result bar says how many items
-the other views have for the same text ("3 in Reference"), and a click on it opens that
-view. A view dragged elsewhere still follows the field.
+**One filter.** All four views are the same page (`dist/browser.js`) and the same host
+object: `BrowserView.provider(page)` gives the provider of each, and every page gets
+every item. The host keeps one filter (search text, category, scope, color, built-in,
+chips) for all views and stores it per workspace. A view that changes it sends `filter`
+to the host, which sends it to the other three; the view that made the change already
+shows it, so typing is never undone by an echo. Ctrl+F in a view without the search
+field puts the cursor in the Library's. Colors, tags and saved searches come from the
+one user file.
+
+**Built-in.** Places (project, packs, built in) is gone. The maintainer sees where an
+item comes from as one more condition, so the Library has one button under the colors
+that goes round three states: everything, only what comes with Strudel ("Built-in"),
+and only what does not ("Not built-in": the project and the packs it loads). It is the
+filter's `builtin`, read by `filterItems` from the item's `place`.
+
+**Heights.** VS Code gives the views of a side bar equal heights unless `initialSize`
+says otherwise, and with four views the Library's categories were cut off under the logo
+(seen in the screenshot of the integration test). `package.json` sets 4, 2, 2 and 6.
+VS Code only uses these the first time; a window that has shown the views before keeps
+the sizes it had, until "View: Reset View Locations".
 
 **Parts.**
 
@@ -335,9 +345,13 @@ samples and the packs of its songs, and is for a workspace that has no list yet.
 of a running engine always replaces the kept one. Preview needs an engine and says so.
 We chose a kept list over an engine of its own, see the drawer.
 
-**Logo and icons.** The logo at the top of the Browser is `media/logo.jpg`, the middle
-band of `doc/logo.jpg` at 640 by 149 pixels (16 KB). `doc/` is not in the `.vsix`,
-`media/` is. When `doc/logo.jpg` changes, cut it again.
+**Logo and icons.** The Browser has no logo any more: the maintainer took it out on
+2026-11-21 (its colors did not match the theme and it took room), and `media/logo.jpg`
+went with it. `doc/logo.jpg` stays for the README and `doc/ABOUT.md`.
+
+Play and Stop in the editor's title are `media/play.svg` (green) and `media/stop.svg`
+(a red square), fixed colors, because a codicon (`$(play)`) is drawn in the theme's one
+color.
 
 The extension has two icons, both two lines of the logo: `[str]` and `[code]` in
 Consolas Bold, stretched tall to fill the square (the width is set by `[code]`, so the
@@ -367,8 +381,25 @@ gives 6.
 
 ## Mixer
 
-A webview view, `strdltn.mixer`, in a container of its own in the bottom panel (next to
-Terminal and Problems), or floating in a window of its own (see "Dock and float").
+The Music panel: a webview view, `strdltn.mixer`, in a container of its own in the bottom
+panel (next to Terminal and Problems), or floating in a window of its own (see "Dock and
+float"). The maintainer named it Music on 2026-11-21: it is the control panel of the song,
+with the mixer as one part. The ids keep "mixer", so nothing else had to change.
+
+**Top bar.** Play (green) and Stop (a red square) play the song the panel shows, through
+its engine; with none, Play opens the song and plays it. Play is lit while the song
+plays. Then the BPM box: the song's `setcpm()` or `setcps()` as beats a minute at 4 beats
+a cycle (`readChains` gives `tempo`), or 120 in gray when the song has none, which is
+Strudel's default (`cps = 0.5` in cyclist.mjs of @strudel/core 1.2.6). Typing a number and
+Enter writes `setcpm(<bpm>/4)`, upstream's own form for BPM, in place of the call or as the
+first statement after the header comments (`tempoEdit`). A double click takes the call
+out, line and all. A tempo that is not plain arithmetic (a slider) disables the box. The
+bar is built once and updated in place, so a redraw while typing keeps the field.
+Record and record automation come here later (see "Recording" in `doc/DAW-PLAN.md`).
+
+**Layout.** Faders are as tall as the panel allows, from 48 up to 400 pixels. In a panel
+at least 420 pixels tall, M, S and G sit in a row above the fader; lower, they stand
+beside it and take no height (a CSS media query on the page's height).
 Phase 2 of `doc/DAW-PLAN.md`, and phase 3 in progress.
 
 **Dock and float.** The button with the window icon in the Mixer's title floats it:
@@ -392,6 +423,19 @@ the version and the options upstream's transpiler uses (`ecmaVersion: 2022`,
 `name: ...`), which is what the transpiler turns into `.p('name')`. Mute and solo follow
 upstream's `Pattern.prototype.p` in `@strudel/core` 1.2.6: a label that starts or ends
 with `_` is muted, one that starts with `S` and is longer than one letter is a solo.
+
+**Bare chain.** A song without labels plays the value of its last expression, and most
+snippets are written that way. Then that expression is the one chain (`bare`), found by
+`findChains`: the last top-level expression that is not `await` and not a setup call
+(`samples`, `setcps`, `initHydra`...). Its strip takes the file's name. M and S are
+disabled on it, since there is no label to write on; G works. A song with at least one
+label has only the labeled chains, as the transpiler plays them. Measured over
+`template/lib/`: every snippet has a strip now; before, 17 of 22 said "no chains".
+
+**Shown on play.** When a song goes from stopped to playing, the Mixer comes to the
+front (`Place.reveal`): `view.show(true)` for a view that exists, the floating tab's
+`reveal(undefined, true)`, or the view's focus command and the focus back to the editor
+for a view never opened. The cursor stays in the editor in the first two cases.
 
 **M, S and G.** Three buttons stacked on the left of each strip, blue when on. Each
 click is an edit of the code made by the host from the text as it is at that moment

@@ -25,8 +25,9 @@ the duck cables. The stage has no slider rows any more. On the same branch: the 
 sync between the editor and the document was rewritten (text was corrupted, worst on
 files with `\r\n` line endings), and clicks in the Strudel editor land where clicked.
 Both were reproduced and are checked by the integration test with real input. The hand
-test is below. M, S and G edit the code, and the Mixer can float in a window of its
-own. Next in phase 3: cable drags.
+test is below. The bottom panel is now called Music: a top bar with Play, Stop and BPM,
+then the mixer, whose M, S and G edit the code and which can float. The side bar is four
+views with one filter. Next in phase 3: cable drags.
 
 Next in line:
 
@@ -47,67 +48,56 @@ Next in line:
 
 ## Next: test by hand
 
-### Mixer
+The branch `feat/mixer`. Test on **desktop, launched with F5** on `template/`. If the side
+bar views look cut off, run "View: Reset View Locations" once: VS Code keeps the heights
+an older build left.
 
-The Mixer, on the branch `feat/mixer`. Test on **desktop, launched with F5** on
-`template/`.
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Open `demo.strudel`, then the panel (Ctrl+J) and its tab Mixer | Strips vocals, kick, snare, hh, hhr, bass, lowendbass, riser. Each with M, S, G, a gain fader with its value, and its orbit. riser has a gray fader that cannot move |
-| 2 | Look under the strips | Three dashed orange cables from the jack of kick to bass, lowendbass and riser, labeled orbit 2, 3, 4. They swing a little and come to rest |
-| 3 | Click the triangle of bass | It widens: gain and lpenv side by side. The cables follow and swing |
-| 4 | Drag the slider `BASS_VOL` in the code (Strudel editor) | The fader of bass follows after a moment |
-| 4a | Play the song, drag the gain fader of kick in the Mixer | The kick gets louder and softer while you drag. The number after `KICK_VOL=slider(` follows a moment after you let go |
-| 4b | Drag the inline slider of `KICK_VOL` in the code after that | It starts from the new number and the code stays intact |
-| 4c | Open `track.strudel` (its line endings are `\r\n`), type a few lines in different places, click around while it plays | Every click puts the cursor where you clicked. The text stays as typed. Save, close and reopen: the same text |
-| 5 | Type `$hat: s("hh*8").gain(slider(.3))` on a new line | A strip hat appears with a gain fader |
-| 6 | Delete a closing bracket in the code | The strips dim and the bar says the code does not parse. Undo brings them back |
-| 7 | Click the name kick | The cursor goes to the `$kick:` line |
-| 8 | Rename `$kick:` to `_$kick:`, then `S$kick:` | M turns blue, then S turns blue |
-| 8a | Play the song, click M of kick, then again | The kick stops at once and the label reads `_$kick:`. Again: it plays and the label is back |
-| 8b | Click S of bass, then M of bass | Only the bass plays (`S$bass:`). Then nothing of it (`S$bass_:`) |
-| 8c | Click G of riser | `.gain(slider(1, 0, 1))` appears at the end of the riser line and its fader can move. G again takes it out |
-| 8d | Look at the strips | M, S, G stacked on the left of each strip, every strip the same height, riser too. A chain without a gain slider shows a gray fader |
-| 9 | Click into a markdown file | The Mixer keeps showing demo.strudel |
-| 10 | Make the panel low, then tall | The faders get shorter and longer. Nothing runs out of a strip |
-| 11 | Switch to a light theme | The Mixer follows the theme. The jacks stay readable |
-| 12 | Press the window button in the Mixer's title | The Mixer opens in a window of its own, with the same strips unfolded. Its tab is gone from the bottom panel |
-| 13 | Drag a fader in the floating Mixer while the song plays | The sound follows, the code follows after you let go, as in 4a |
-| 14 | Press the dock button in the floating tab's title. Float again and close the window instead | Both times the Mixer is back in the bottom panel |
-
-Expected still broken: a fader only moves the sound
-once the song has been evaluated after the slider was written.
-
-### Browser
-
-The Browser, merged in PR #4, split into three views on `feat/mixer`. Test on
-**desktop, launched with F5** on `template/` (or `pnpm promote` if the maintainer asks
-for it).
+### Side bar
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 0 | Look at the activity bar | The icon reads `[str]` over `dltn`, in the fonts of the logo |
-| 1 | Open the side bar of [str]dltn Live[code] | Three views: Library (logo, search, sounds), Songs and Snippets, Reference. Only the Library has a search field |
-| 1a | Type `lpf` in the search | Each view filters by it. The Library's result bar says "N in Songs and Snippets" and "N in Reference". A click on one opens that view |
-| 1b | Click into the Reference, press Ctrl+F | The cursor goes to the Library's search field |
-| 1c | Color a function red in the Reference, then click the red dot in the Library | The color stays on the function. The Library shows its own red rows only |
-| 2 | Library > Drums, open the heading `rolandtr909`, click `bd` | It plays. Nothing is typed. The details pane shows Drums/Kick, Maker/Roland |
-| 3 | Type `909 bd` in the search | About 6 results, under their categories |
-| 4 | Clear the search. In Drums, click the chip Kick, then Ctrl+click Snare, then click Roland | Kicks, then kicks and snares, then only the Roland ones |
-| 5 | Select a row, press 1, then 3. Then click the tag button of another row and pick green, and click the blue dot in the details pane | Color squares on both rows. `strdltn.index.json` appears in the project with both ids and their colors |
-| 6 | Click the red dot under Collections | Only the rows colored red |
-| 7 | Right click a snippet > Edit tags..., add `test` | The snippet's file gets `// @tags ..., test`. The chip Tag > test exists |
-| 8 | With a filter set, press the save button in the bar above the results, name it | A row with that name under Collections. A click on it brings the filter back |
-| 9 | Play `demo.strudel`, then click a synth in Sounds (`sawtooth`) a few times | Each preview lands on a beat of the song |
-| 10 | Put the cursor in the code, select `sawtooth`, press Enter. Then put the cursor inside `s("bd <here>")` and insert `sd` | `note("c3").s("sawtooth")` is typed. Inside the string only `sd` |
-| 11 | Songs and Snippets: click a song | It opens |
-| 12 | Reference: search `lpf`, select it | The details pane shows its description, parameters and an example |
-| 13 | Press Ctrl+Alt+F in the editor | The search field of the Browser gets the cursor |
-| 14 | Switch to a light theme | The Browser follows the theme |
+| 1 | Look at the activity bar and open [str]dltn Live[code] | Icon `[str]` over `dltn`. Four views: Library, Songs and Snippets, Reference, Results. No big logo, no "Categories" or "Places" headings |
+| 2 | Library | Search field, the seven color dots, the Built-in button, then All, Sounds, Drums, Samples, Instruments |
+| 3 | Type `lpf` in the search | Results lists sounds, snippets, songs and functions in one list |
+| 4 | Click Functions in the Reference, click it again, then click All in the Library | Results: only functions, then everything, then only sounds |
+| 5 | Click Built-in three times | Results: only built in, then only your project and packs, then everything. The button says which |
+| 6 | Click into Songs and Snippets, press Ctrl+F | The cursor goes to the Library's search field |
+| 7 | Select a row in Results, press 1; click the red dot | The row gets a red square; Results shows the red items, from every view |
+| 8 | Library > Drums, open `rolandtr909` in Results, click `bd` | It plays. The details pane shows Drums/Kick, Maker/Roland |
+| 9 | Put the cursor in the code, select `sawtooth` in Results, press Enter | `note("c3").s("sawtooth")` is typed |
+| 10 | Songs and Snippets > Songs, click a song in Results | It opens |
+| 11 | Right click a snippet in Results > Edit tags..., add `test` | The file gets `// @tags ..., test`, the chip Tag > test exists |
+| 12 | With a filter set, press the save button in Results' bar, name it | A row with that name under the colors. A click brings the filter back |
 
-Expected still broken: a row cannot be dragged into the editor; the side bar title shows
-as "[Str]Dltn Live[Code]".
+### Music panel
+
+| # | Do this | Should happen |
+|---|---------|---------------|
+| 13 | Open `demo.strudel`, then the panel (Ctrl+J) | Its tab says Music. Top bar: green Play, red square Stop, BPM, song name. 8 strips of the same height; M, S, G on each |
+| 14 | Look at the editor's title bar | Play is a green triangle, Stop a red square |
+| 15 | Switch the panel to Terminal, then play the song | The Music tab comes to the front, the cursor stays in the editor. Play in the top bar is lit |
+| 16 | Press Stop in the top bar, then Play | The song stops, then plays |
+| 17 | Look at BPM for `demo.strudel` | Its own tempo, from its `setcpm` or `setcps`. A song without one shows 120 in gray |
+| 18 | Type 128 in BPM, Enter | `setcpm(128/4)` is in the code (in place of the old call, or after the header comments), and the song speeds up |
+| 19 | Double click BPM | The `setcpm` line is gone, BPM shows 120 in gray |
+| 20 | Make the panel tall, then low | Tall: faders long (up to 400 px), M S G in a row above each fader. Low: faders short, M S G beside them |
+| 21 | Click M of kick while playing, then again | Kick stops at once, the label reads `_$kick:`. Again: back |
+| 22 | Click S of bass, then M of bass | Only bass plays (`S$bass:`), then not even bass (`S$bass_:`) |
+| 23 | Click G of riser, move its fader, click G again | `.gain(slider(1, 0, 1))` appears and works, then goes |
+| 24 | Drag the kick fader while playing | The sound follows; the number in the code follows after you let go |
+| 25 | Open `lib/bass/sub-pulse.strudel` | One strip named sub-pulse; M and S grayed, G works |
+| 26 | Press the window button in the Music title, drag a fader there, then press dock | Music in its own window, same strips; the fader works; back in the panel |
+| 27 | Open `track.strudel` (`\r\n` line endings), type and click while it plays, save, reopen | Clicks land where clicked, the text stays as typed |
+| 28 | Switch to a light theme | Side bar and Music follow it; the icon stays readable |
+
+Expected still broken: a fader moves the sound only after the song has been evaluated
+since its slider was written into the code.
+
+A lead, not a known bug: the integration test case `typingWhileAFaderMoves` on the
+`
+` song once (1 of 7 runs, 2026-11-21) ended with one extra line break at the end of
+the file. The next run passed. If it comes back, look at the slider write of the webview
+(`moveSlider` in `src/webview/main.ts`) racing the typed text.
 
 ## Decisions waiting for the maintainer
 

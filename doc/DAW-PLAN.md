@@ -320,10 +320,10 @@ the name.
 
 ### Reference and tutorial
 
-The side bar is three views now: Library (sounds), Songs and Snippets, and Reference
-(functions). They share the search field of the Library and the user's colors and tags.
-Built: see "Browser" in `doc/ARCHITECTURE.md`. The tutorial is the second category of the
-Reference. Planned, not built.
+The side bar is four views now: Library (sounds, with the search and the colors), Songs
+and Snippets, Reference (functions), and Results, which shows what the other three pick
+in one list. Built: see "Browser" in `doc/ARCHITECTURE.md`. The tutorial is the second
+category of the Reference, and its lessons show in Results. Planned, not built.
 
 **Source.** The workshop of strudel.cc (`strudel.cc/workshop/getting-started` and the
 pages after it) and the "learn" pages. We do not scrape the rendered site: its pages are
@@ -1161,6 +1161,10 @@ controller, which is how a DJ will want to use them.
 | host -> engine | `startAt {wallTime}` | Start playing so that cycle 0 is heard then |
 
 ### Recording and arrangement
+
+**Where the buttons go.** The maintainer placed them on 2026-11-21: in the top bar of
+the Music panel, after Play, Stop and BPM. Record is a red filled circle, Record
+Automation an empty red circle.
 
 The maintainer wants a Record button. While it is on, everything the performer does is
 recorded against the beat: code typed and evaluated, comments added, a part added or

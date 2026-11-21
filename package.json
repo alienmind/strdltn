@@ -2,7 +2,7 @@
 	"name": "strdltn",
 	"displayName": "[str]dltn Live[code]",
 	"description": "Your IDE is your DAW. Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "0.0.1",
+	"version": "0.2.0",
 	"private": true,
 	"publisher": "strdltn",
 	"license": "AGPL-3.0-or-later",

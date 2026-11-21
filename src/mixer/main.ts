@@ -172,11 +172,80 @@ function draw(): void {
 		jacks.in[index] = input!;
 		strips.appendChild(strip);
 	});
-	const specs: CableSpec[] = model.ducks
+	outJacks = jacks.out;
+	drawnCables = model.ducks
 		.filter((duck) => duck.to !== undefined && jacks.out[duck.from] && jacks.in[duck.to])
-		.map((duck) => ({ key: `${model!.chains[duck.from].name}>${model!.chains[duck.to!].name}@${duck.orbit}`, from: jacks.out[duck.from], to: jacks.in[duck.to!], kind: 'sidechain', label: `orbit ${duck.orbit}` }));
-	cables.set(specs);
+		.map((duck) => ({ key: cableKey(duck.from, duck.to!, duck.orbit), from: jacks.out[duck.from], to: jacks.in[duck.to!], kind: 'sidechain', label: `orbit ${duck.orbit}` }));
+	drawCables();
 	report();
+}
+
+// ---- cable drags ------------------------------------------------------------------------
+
+const cableKey = (from: number, to: number, orbit: number) => `${model!.chains[from]?.name}>${model!.chains[to]?.name}@${orbit}`;
+let outJacks: Element[] = [];
+let drawnCables: CableSpec[] = [];
+/**
+ * The cable in the hand. `pulled`: a cable taken off its strip, which is hidden while it
+ * is held and leaves its orbit when dropped on nothing. The loose end is `ghost`, a
+ * marker under the pointer, so the cable layer draws it like any cable.
+ */
+let held: { from: number; pulled?: { orbit: number; to: number }; ghost: HTMLElement; over?: number; ok: boolean } | undefined;
+
+/** The cables of the model, without the one in the hand, and the one in the hand. */
+function drawCables(): void {
+	const hidden = held?.pulled && cableKey(held.from, held.pulled.to, held.pulled.orbit);
+	const specs = drawnCables.filter((spec) => spec.key !== hidden);
+	if (held && outJacks[held.from]) specs.push({ key: 'drag', from: outJacks[held.from], to: held.ghost, kind: 'drag' });
+	cables.set(specs);
+}
+
+/** Whether the strip of `to` takes a cable from `from`, by the same rules the host edits by. */
+function accepts(from: number, to: number): boolean {
+	const ducker = model?.chains[from];
+	const target = model?.chains[to];
+	return !!ducker && !!target && from !== to && !ducker.duckUnknown && target.orbit !== undefined;
+}
+
+function startDrag(event: PointerEvent, from: number, pulled?: { orbit: number; to: number }): void {
+	if (event.button !== 0 || !model || error) return;
+	event.preventDefault();
+	event.stopPropagation();
+	held = { from, pulled, ghost: strips.appendChild(el('div', 'ghost')), ok: false };
+	// Redraws of the model wait until the cable is dropped, as they do for a fader.
+	dragging = true;
+	moveDrag(event);
+	window.addEventListener('pointermove', moveDrag);
+	window.addEventListener('pointerup', endDrag, { once: true });
+}
+
+function moveDrag(event: PointerEvent): void {
+	if (!held) return;
+	const box = strips.getBoundingClientRect();
+	held.ghost.style.left = `${event.clientX - box.left + strips.scrollLeft}px`;
+	held.ghost.style.top = `${event.clientY - box.top + strips.scrollTop}px`;
+	const strip = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.strip[data-chain]');
+	held.over = strip ? Number(strip.dataset.chain) : undefined;
+	held.ok = held.over !== undefined && accepts(held.from, held.over);
+	strips.querySelectorAll('.drop-ok, .drop-refused').forEach((node) => node.classList.remove('drop-ok', 'drop-refused'));
+	if (strip && held.over !== held.from) strip.classList.add(held.ok ? 'drop-ok' : 'drop-refused');
+	strips.classList.toggle('refusing', strip !== null && held.over !== held.from && !held.ok);
+	drawCables();
+}
+
+function endDrag(): void {
+	window.removeEventListener('pointermove', moveDrag);
+	const done = held;
+	held = undefined;
+	done?.ghost.remove();
+	strips.querySelectorAll('.drop-ok, .drop-refused').forEach((node) => node.classList.remove('drop-ok', 'drop-refused'));
+	strips.classList.remove('refusing');
+	if (done) {
+		const back = done.pulled && done.over === done.pulled.to;
+		if (done.over !== undefined && done.ok && !back) post({ type: 'duck', from: done.from, to: done.over, move: done.pulled?.orbit });
+		else if (done.over === undefined && done.pulled) post({ type: 'unduck', from: done.from, orbit: done.pulled.orbit });
+	}
+	drawCables();
 }
 
 function globalStrip(m: MixerModel): HTMLElement {
@@ -243,16 +312,27 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 	let out: Element | undefined;
 	let input: Element | undefined;
 	if (isDucked) {
-		input = foot.appendChild(jack(true, 'in: ducked by a sidechain'));
+		input = foot.appendChild(jack(true, 'in: ducked by a sidechain. Drag the plug away to pull the cable off'));
+		input.classList.add('in');
+		// Pull a cable off by its end. With several cables in, the first one comes.
+		input.addEventListener('pointerdown', (event) => {
+			const cable = m.ducks.find((d) => d.to === index);
+			if (cable) startDrag(event as PointerEvent, cable.from, { orbit: cable.orbit, to: index });
+		});
 	}
-	if (chain.ducks?.length || chain.duckUnknown) {
-		const ducks = chain.ducks ?? [];
-		out = foot.appendChild(jack(ducks.some((orbit) => m.ducks.some((d) => d.from === index && d.orbit === orbit && d.to !== undefined)), `duck: ${ducks.length ? `orbits ${ducks.join(', ')}` : 'orbits not readable'}`));
-		out.classList.add('out');
-		const empty = m.ducks.filter((d) => d.from === index && d.to === undefined).map((d) => `orbit ${d.orbit} (empty)`);
-		if (chain.duckUnknown) empty.push('orbits not readable');
-		if (empty.length) foot.appendChild(el('div', 'note', empty.join(', ')));
-	}
+	// Every strip has a duck jack, so any chain can start a sidechain.
+	const ducks = chain.ducks ?? [];
+	out = foot.appendChild(
+		jack(
+			ducks.some((orbit) => m.ducks.some((d) => d.from === index && d.orbit === orbit && d.to !== undefined)),
+			chain.duckUnknown ? 'duck: orbits not readable, edit them in the code' : `duck${ducks.length ? `: orbits ${ducks.join(', ')}` : ''}. Drag onto another strip to duck it`,
+		),
+	);
+	out.classList.add('out');
+	out.addEventListener('pointerdown', (event) => startDrag(event as PointerEvent, index));
+	const empty = m.ducks.filter((d) => d.from === index && d.to === undefined).map((d) => `orbit ${d.orbit} (empty)`);
+	if (chain.duckUnknown) empty.push('orbits not readable');
+	if (empty.length) foot.appendChild(el('div', 'note', empty.join(', ')));
 	return { strip, out, input };
 }
 

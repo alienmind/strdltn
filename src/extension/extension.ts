@@ -58,6 +58,8 @@ export interface StrdltnApi {
 	mixerToggle(chain: number, button: 'mute' | 'solo' | 'gain'): Promise<void>;
 	/** The BPM box: a number, or undefined as a double click. */
 	mixerTempo(bpm: number | undefined): Promise<void>;
+	/** A sidechain cable dropped on a strip, or pulled off onto nothing. */
+	mixerCable(from: number, drop: { to: number; move?: number } | { orbit: number }): Promise<void>;
 	/** The remote sample packs seen so far and whether they are in the cache. */
 	packs(): { source: string; files: number; complete: boolean; note?: string }[];
 	previewSounds(): boolean;
@@ -582,6 +584,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		mixerSlider: (index, value) => mixer.moveSlider(index, value),
 		mixerToggle: (chain, button) => mixer.toggle(chain, button),
 		mixerTempo: (bpm) => mixer.setTempo(bpm),
+		mixerCable: (from, drop) => mixer.cable(from, drop),
 		mixerPlace: async (where) => {
 			if (where === 'dock') await mixerPlace.dock();
 			else await mixerPlace.float(where === 'float');

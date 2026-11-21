@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { gainEdit, labelEdit, type MixerModel, readChains, tempoEdit } from '../shared/chains';
+import { duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, tempoEdit, unduckEdits } from '../shared/chains';
 import type { FromMixer, ToMixer } from '../shared/mixer';
 import { lf, lineColumn } from '../shared/sync';
 import { setPage, type Surface } from './surface';
@@ -122,6 +122,9 @@ export class MixerView implements Surface {
 				return void this.toggle(message.chain, message.button);
 			case 'tempo':
 				return void this.setTempo(message.bpm);
+			case 'duck':
+			case 'unduck':
+				return void this.handleAsync(message);
 			case 'transport':
 				if (this.document) this.actions.transport(this.document, message.action);
 				return;
@@ -179,6 +182,11 @@ export class MixerView implements Surface {
 		await this.write(document, text, button === 'gain' ? gainEdit(text, chain) : labelEdit(text, chain, button));
 	}
 
+	/** A cable dropped (`to`) or pulled off onto nothing (`orbit`), as the page sends it. For the integration test. */
+	async cable(from: number, drop: { to: number; move?: number } | { orbit: number }): Promise<void> {
+		await this.handleAsync('to' in drop ? { type: 'duck', from, to: drop.to, move: drop.move } : { type: 'unduck', from, orbit: drop.orbit });
+	}
+
 	/** The BPM box: `setcpm(<bpm>/4)` written, or taken out for Strudel's default. Heard at once when playing. */
 	async setTempo(bpm: number | undefined): Promise<void> {
 		const document = this.document;
@@ -195,13 +203,32 @@ export class MixerView implements Surface {
 	}
 	private playing = false;
 
+	private async handleAsync(message: Extract<FromMixer, { type: 'duck' | 'unduck' }>): Promise<void> {
+		const document = this.document;
+		if (!document) return;
+		const text = lf(document.getText());
+		const result = message.type === 'duck' ? duckEdits(text, message.from, message.to, message.move) : unduckEdits(text, message.from, message.orbit);
+		await this.writeAll(document, text, result);
+	}
+
 	/** One edit of the song, by line and column of its `\n` text, then evaluated if it plays. */
 	private async write(document: vscode.TextDocument, text: string, change: { from: number; to: number; insert: string } | undefined): Promise<void> {
-		if (!change) return;
-		const from = lineColumn(text, change.from);
-		const to = lineColumn(text, change.to);
+		if (change) await this.writeAll(document, text, { edits: [change] });
+	}
+
+	/**
+	 * Several edits as one, so one undo takes back a cable with the orbit it gave its target.
+	 * All offsets are of `text`, as it was read. A refused cable says why in the status bar.
+	 */
+	private async writeAll(document: vscode.TextDocument, text: string, result: Edits): Promise<void> {
+		if ('refused' in result) return void vscode.window.setStatusBarMessage(`strdltn: ${result.refused}`, 5000);
+		if (!result.edits.length) return;
 		const edit = new vscode.WorkspaceEdit();
-		edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+		for (const change of result.edits) {
+			const from = lineColumn(text, change.from);
+			const to = lineColumn(text, change.to);
+			edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+		}
 		if (await vscode.workspace.applyEdit(edit)) this.actions.evaluate(document);
 	}
 

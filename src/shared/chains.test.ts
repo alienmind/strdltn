@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { DEFAULT_BPM, gainEdit, labelEdit, type MixerModel, readChains, tempoEdit, toggledLabel } from './chains.ts';
+import { DEFAULT_BPM, duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, tempoEdit, toggledLabel, unduckEdits } from './chains.ts';
 
 function model(code: string): MixerModel {
 	const result = readChains(code);
@@ -238,4 +238,32 @@ test('the BPM box reads and writes setcpm, and its default is 120', () => {
 	assert.equal(apply('// @title x\nsetcpm(128/4)\n$: s("bd")', undefined), '// @title x\n$: s("bd")');
 	assert.equal(tempoEdit('$: s("bd")', undefined), undefined);
 	assert.equal(tempoEdit('$: s("bd")', -3), undefined);
+});
+
+test('a cable dropped on a strip writes the duck, and a new orbit when the target has none', () => {
+	const apply = (code: string, result: Edits) => {
+		if ('refused' in result) throw new Error(result.refused);
+		// The edits come last first, so each keeps the offsets of the ones before it.
+		return result.edits.reduce((text, e) => text.slice(0, e.from) + e.insert + text.slice(e.to), code);
+	};
+	const song = '$kick: s("bd*4")\n$bass: note("c2").s("saw").orbit(2)\n$pad: note("c4").s("sine")\n';
+	// Onto a chain with its own orbit: .duck("2") on the kick.
+	const one = apply(song, duckEdits(song, 0, 1));
+	assert.equal(one, '$kick: s("bd*4").duck("2")\n$bass: note("c2").s("saw").orbit(2)\n$pad: note("c4").s("sine")\n');
+	// Onto a chain on orbit 1 by default: it gets orbit 3, the next free one, and the list grows.
+	const two = apply(one, duckEdits(one, 0, 2));
+	assert.equal(two, '$kick: s("bd*4").duck("2,3")\n$bass: note("c2").s("saw").orbit(2)\n$pad: note("c4").s("sine").orbit(3)\n');
+	assert.deepEqual(model(two).ducks.map((d) => `${d.from}>${d.to}@${d.orbit}`), ['0>1@2', '0>2@3']);
+	// Again on the same target changes nothing.
+	assert.deepEqual(duckEdits(two, 0, 1), { edits: [] });
+	// Pulled off: the orbit leaves the list, and .duck() goes with the last one.
+	const three = apply(two, unduckEdits(two, 0, 2));
+	assert.equal(three.split('\n')[0], '$kick: s("bd*4").duck("3")');
+	assert.equal(apply(three, unduckEdits(three, 0, 3)).split('\n')[0], '$kick: s("bd*4")');
+	// Moved from the pad to the bass: one edit of the list.
+	assert.equal(apply(three, duckEdits(three, 0, 1, 3)).split('\n')[0], '$kick: s("bd*4").duck("2")');
+	// Refused: itself, an orbit that is not a plain number, a duck that is a pattern.
+	assert.ok('refused' in duckEdits(song, 0, 0));
+	assert.ok('refused' in duckEdits('$a: s("bd")\n$b: s("hh").orbit(pick([1,2], 0))', 0, 1));
+	assert.ok('refused' in duckEdits('$a: s("bd").duck("<2 3>")\n$b: s("hh").orbit(2)', 0, 1));
 });

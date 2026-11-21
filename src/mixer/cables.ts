@@ -6,14 +6,16 @@
 //
 // The physics and the constants are those of the cables that stay plugged in there (see
 // "The cables of ableton-rackutils" in doc/DAW-PLAN.md). Written again without React.
-// Dragging a cable comes with the editing of the Mixer, not here.
+// A cable being dragged is one more cable whose loose end is a marker under the pointer
+// (see main.ts), so it swings like the others.
 
 export interface CableSpec {
 	/** Stable across redraws, so a spring keeps its motion when the model is sent again. */
 	key: string;
 	from: Element;
 	to: Element;
-	kind: 'sidechain';
+	/** `drag`: the cable in the hand, from a jack to the pointer. */
+	kind: 'sidechain' | 'drag';
 	label?: string;
 }
 

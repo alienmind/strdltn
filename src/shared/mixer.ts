@@ -23,6 +23,10 @@ export type FromMixer =
 	| { type: 'tempo'; bpm?: number }
 	/** The Play and Stop buttons of the top bar. */
 	| { type: 'transport'; action: 'play' | 'stop' }
+	/** A cable from the duck jack of `from` dropped on the strip of `to`. `move`: the orbit of a cable pulled off another strip. */
+	| { type: 'duck'; from: number; to: number; move?: number }
+	/** A cable pulled off its strip and dropped on nothing. */
+	| { type: 'unduck'; from: number; orbit: number }
 	/** M or S of a chain clicked: the host flips `_` or `S` in its label. */
 	| { type: 'toggle'; chain: number; button: 'mute' | 'solo' | 'gain' }
 	/** A fader moved: the slider by its index in the model, and the number as it is to be written. */

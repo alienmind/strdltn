@@ -61,6 +61,8 @@ export interface MixerChain {
 	ducks?: number[];
 	/** It ducks, but the orbits are not a literal we can read. */
 	duckUnknown?: boolean;
+	/** True when the chain names its orbit itself (`.orbit(2)`); else it plays on orbit 1, everyone's default. */
+	orbitSet?: boolean;
 	/** The slider of its `.gain()`, the one fader a folded strip shows. */
 	gain?: number;
 	/** Every other slider it uses, in the order of the code. */
@@ -230,6 +232,72 @@ export function gainEdit(code: string, chain: number): { from: number; to: numbe
 	return { from: gainCall.callee.object.end, to: gainCall.end, insert: '' };
 }
 
+export type Edits = { edits: { from: number; to: number; insert: string }[] } | { refused: string };
+
+/** The last call of a method on the chain's own spine, `a.b().c()`: the one that counts. */
+function spineCall(expression: Node, names: string[]): Node | undefined {
+	for (let node = expression; node?.type === 'CallExpression' && node.callee.type === 'MemberExpression'; node = node.callee.object) {
+		if (names.includes(node.callee.property?.name)) return node;
+	}
+	return undefined;
+}
+
+/**
+ * A cable dropped from the duck jack of chain `from` onto chain `to` (see "Editing a
+ * sidechain by cable" in doc/DAW-PLAN.md). The orbit of `to` joins the duck list of
+ * `from`. A target on no orbit of its own plays on orbit 1 with most of the song, so it
+ * gets the next free orbit first. `move` is the orbit of a cable that was pulled off
+ * another strip and dropped here: it leaves the list in the same edit.
+ */
+export function duckEdits(code: string, from: number, to: number, move?: number): Edits {
+	const model = readChains(code);
+	if ('error' in model) return { refused: 'The code does not parse right now' };
+	const ducker = model.chains[from];
+	const target = model.chains[to];
+	const statements = chainStatements(code);
+	if (!ducker || !target || !statements[from] || !statements[to]) return { refused: 'No such chain' };
+	if (from === to) return { refused: 'A chain cannot duck itself' };
+	if (ducker.duckUnknown) return { refused: `The .duck() of ${ducker.name} is not a plain list of orbits` };
+	if (target.orbit === undefined) return { refused: `The .orbit() of ${target.name} is not a plain number` };
+	const edits: { from: number; to: number; insert: string }[] = [];
+	let orbit = target.orbit;
+	if (!target.orbitSet) {
+		const used = [1, ...model.chains.flatMap((chain) => [chain.orbit ?? 1, ...(chain.ducks ?? [])])];
+		orbit = Math.max(...used) + 1;
+		const end = expressionOf(statements[to]).end;
+		edits.push({ from: end, to: end, insert: `.orbit(${orbit})` });
+	}
+	const list = (ducker.ducks ?? []).filter((n) => n !== move);
+	if (list.includes(orbit) && move === undefined) return { edits: [] };
+	const next = [...new Set([...list, orbit])].sort((a, b) => a - b);
+	const call = spineCall(expressionOf(statements[from]), ['duck', 'duckorbit']);
+	if (call) {
+		const argument = call.arguments[0] as Node;
+		edits.push({ from: argument.start, to: argument.end, insert: `"${next.join(',')}"` });
+	} else {
+		const end = expressionOf(statements[from]).end;
+		edits.push({ from: end, to: end, insert: `.duck("${next.join(',')}")` });
+	}
+	return { edits: edits.sort((a, b) => b.from - a.from) };
+}
+
+/** A cable pulled off and dropped on nothing: its orbit leaves the duck list, and `.duck()` goes with the last one. */
+export function unduckEdits(code: string, from: number, orbit: number): Edits {
+	const model = readChains(code);
+	if ('error' in model) return { refused: 'The code does not parse right now' };
+	const ducker = model.chains[from];
+	const statement = chainStatements(code)[from];
+	if (!ducker || !statement || ducker.duckUnknown) return { refused: 'Not a plain list of orbits' };
+	const call = spineCall(expressionOf(statement), ['duck', 'duckorbit']);
+	if (!call || !ducker.ducks?.includes(orbit)) return { edits: [] };
+	const next = ducker.ducks.filter((n) => n !== orbit);
+	if (next.length) {
+		const argument = call.arguments[0] as Node;
+		return { edits: [{ from: argument.start, to: argument.end, insert: `"${next.join(',')}"` }] };
+	}
+	return { edits: [{ from: call.callee.object.end, to: call.end, insert: '' }] };
+}
+
 /** The labeled statements that are chains, in the order of the code, as `readChains` finds them. */
 function chainStatements(code: string): Node[] {
 	const program = parse(code, { ecmaVersion: 2022, allowAwaitOutsideFunction: true, sourceType: 'script' }) as unknown as Node;
@@ -395,7 +463,7 @@ function chainName(label: string): string | undefined {
  * spine `a.b().c().d()`. One inside a function (`.sometimes(x => x.orbit(3))`) makes the
  * value unknown, because it changes from event to event.
  */
-function routing(expression: Node): Pick<MixerChain, 'orbit' | 'ducks' | 'duckUnknown'> {
+function routing(expression: Node): Pick<MixerChain, 'orbit' | 'orbitSet' | 'ducks' | 'duckUnknown'> {
 	const spine = new Set<Node>();
 	for (let node = expression; node?.type === 'CallExpression' && node.callee.type === 'MemberExpression'; node = node.callee.object) spine.add(node);
 	let orbit: number | undefined;
@@ -415,7 +483,7 @@ function routing(expression: Node): Pick<MixerChain, 'orbit' | 'ducks' | 'duckUn
 			else duckUnknown = true;
 		}
 	});
-	return { orbit: orbitUnknown ? undefined : (orbit ?? 1), ...(ducks ? { ducks } : {}), ...(duckUnknown ? { duckUnknown } : {}) };
+	return { orbit: orbitUnknown ? undefined : (orbit ?? 1), ...(orbit !== undefined && !orbitUnknown ? { orbitSet: true } : {}), ...(ducks ? { ducks } : {}), ...(duckUnknown ? { duckUnknown } : {}) };
 }
 
 /** `2` or `"2"`. */

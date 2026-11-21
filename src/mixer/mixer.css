@@ -138,6 +138,15 @@ button:disabled { cursor: default; opacity: .35; }
 .cable.sidechain path { stroke: var(--sidechain); stroke-dasharray: 7 5; }
 .cable.sidechain circle { fill: var(--sidechain); }
 .cable text { fill: var(--sidechain); font-size: 10px; text-anchor: middle; }
+/* The cable in the hand: orange while it can be dropped, red where it would be refused. */
+.cable.drag path { stroke: var(--sidechain); stroke-dasharray: 7 5; }
+.cable.drag circle { fill: var(--sidechain); }
+.refusing .cable.drag path { stroke: var(--vscode-errorForeground, #f14c4c); }
+.refusing .cable.drag circle { fill: var(--vscode-errorForeground, #f14c4c); }
+.ghost { position: absolute; width: 1px; height: 1px; pointer-events: none; }
+.jack.out, .jack.in { cursor: grab; }
+.strip.drop-ok { outline: 2px solid var(--vscode-focusBorder, #3794ff); outline-offset: -1px; }
+.strip.drop-refused { outline: 2px solid var(--vscode-errorForeground, #f14c4c); outline-offset: -1px; }
 
 /* A tall panel: M, S and G in a row above the fader, as on a mixing desk. A low panel keeps
    them beside it, where they take no height. */

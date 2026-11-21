@@ -339,6 +339,14 @@ export async function run(): Promise<void> {
 				results.tempo128 = { line: (await textLf(uri)).split('\n')[1], bpm: api.mixer().model?.tempo?.bpm };
 				await api.mixerTempo(undefined);
 				await sleep(600);
+				// Cables, as a drop sends them: kick onto riser (orbit 4, its own), then pulled off.
+				const cable = async (name: string, drop: { to: number; move?: number } | { orbit: number }) => {
+					await api.mixerCable(0, drop);
+					await sleep(600);
+					results[name] = { lines: (await textLf(uri)).split('\n').slice(1, 3), ducks: api.mixer().model?.ducks.map((d) => `${d.from}>${d.to}@${d.orbit}`) };
+				};
+				await cable('duckRiser', { to: 1 });
+				await cable('pullOff', { orbit: 4 });
 				results.tempoDefault = { lines: (await textLf(uri)).split('\n').length, tempo: api.mixer().model?.tempo ?? 'none' };
 				await api.mixerShow([]);
 				await shot('mixer-buttons');

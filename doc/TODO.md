@@ -19,7 +19,9 @@ sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRU
 two decks to DJ with, recorded automation and an arrangement view)
 is in `doc/DAW-PLAN.md`, with the order of work the maintainer set ("Order of work"):
 the Mixer next (phases 2 and 3), the engine in a worker last. Phase 1, the Browser, is
-merged (PR #4). Phase 2, the Mixer, is built on the branch `feat/mixer`: a strip per
+merged (PR #4). Phases 2 and 3 (the Music panel with its mixer, and the Browser in
+four views) are version 0.2.0 on the branch `feat/mixer`, in pull request #5, which
+waits for the maintainer to merge; then tag `v0.2.0`. On that branch: a strip per
 chain of the song in front, faders that move the sound and write the code, M and S, and
 the duck cables. The stage has no slider rows any more. On the same branch: the text
 sync between the editor and the document was rewritten (text was corrupted, worst on

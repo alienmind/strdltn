@@ -694,13 +694,14 @@ function mapSliders(changes: { mapPos(position: number, assoc?: number): number 
  * (`.analyze(id)` in scope.mjs of @strudel/webaudio 1.3.0), and `getAnalyzerData` reads it.
  * `at` is where the call ends, moved along with every edit since.
  */
-let liveScopes: { id: string; at: number }[] = [];
+let liveScopes: { index: number; at: number }[] = [];
+let scopeKeysLogged = false;
 let scopeTimer: ReturnType<typeof setInterval> | undefined;
 /** Points per wave sent to the Mixer: enough for a strip 60 pixels wide. */
 const SCOPE_POINTS = 64;
 
 function rememberScopes(widgets: any[]): void {
-	liveScopes = widgets.filter((widget) => widget.type === '_scope').map((widget) => ({ id: getWidgetID(widget), at: widget.to }));
+	liveScopes = widgets.filter((widget) => widget.type === '_scope').map((widget) => ({ index: widget.index, at: widget.to }));
 	sendScopes();
 }
 
@@ -714,8 +715,18 @@ function sendScopes(): void {
 	}
 	scopeTimer ??= setInterval(() => {
 		if (!mirror?.repl?.scheduler?.started) return sendScopes();
-		const scopes = liveScopes.map(({ id, at }) => {
-			const data = strudelWebaudio.getAnalyzerData('time', id) as Float32Array | undefined;
+		// The analysers by superdough's own keys, matched on the scope's number: the id built
+		// here from the widget did not match upstream's (every frame read silence, measured on
+		// 2026-11-21), and the number is the part both agree on.
+		const keys = Object.keys((strudelWebaudio as unknown as { analysers: Record<string, unknown> }).analysers ?? {});
+		const keyOf = (index: number) => keys.find((key) => key.endsWith(`_scope_${index}`));
+		if (!scopeKeysLogged && liveScopes.some(({ index }) => !keyOf(index))) {
+			scopeKeysLogged = true;
+			log('info', `scopes: no analyser for some _scope widgets; analysers: ${keys.join(', ') || 'none'}`);
+		}
+		const scopes = liveScopes.map(({ index, at }) => {
+			const key = keyOf(index);
+			const data = key ? (strudelWebaudio.getAnalyzerData('time', key) as Float32Array | undefined) : undefined;
 			const wave: number[] = [];
 			if (data?.length) {
 				const step = data.length / SCOPE_POINTS;

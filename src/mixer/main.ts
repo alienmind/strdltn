@@ -136,7 +136,12 @@ function drawScopes(frames: ScopeFrame[]): void {
 	if (!model) return;
 	const drawn = new Set<number>();
 	for (const frame of frames) {
-		const chain = model.chains.findIndex((c) => frame.at >= c.from && frame.at <= c.to);
+		// The last chain that starts before the scope. A scope just added sits a few characters
+		// past the end of a chain in a model read a moment earlier (seen in the log).
+		let chain = -1;
+		model.chains.forEach((c, i) => {
+			if (c.from <= frame.at) chain = i;
+		});
 		if (chain < 0 && Date.now() - unmatchedLogged > 2000) {
 			// An investigation aid: a scope whose place in the code is in no chain is not drawn.
 			unmatchedLogged = Date.now();

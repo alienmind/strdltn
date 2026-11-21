@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { type MixerModel, readChains } from './chains.ts';
+import { gainEdit, labelEdit, type MixerModel, readChains, toggledLabel } from './chains.ts';
 
 function model(code: string): MixerModel {
 	const result = readChains(code);
@@ -155,4 +155,51 @@ test('a top level await and comments in a chain parse', () => {
 	const m = model('await initHydra()\n$kick: s("bd")\n  // a comment\n  .gain(slider(.5))\n.duck("2")');
 	assert.equal(m.chains[0].gain, 0);
 	assert.deepEqual(m.chains[0].ducks, [2]);
+});
+
+test('M and S write upstream labels and keep each other', () => {
+	const cases: [string, 'mute' | 'solo', string][] = [
+		['$kick', 'mute', '_$kick'],
+		['_$kick', 'mute', '$kick'],
+		['kick_', 'mute', 'kick'],
+		['$kick', 'solo', 'S$kick'],
+		['S$kick', 'solo', '$kick'],
+		['_$kick', 'solo', 'S$kick_'],
+		['S$kick', 'mute', 'S$kick_'],
+		['S$kick_', 'mute', 'S$kick'],
+		['S$kick_', 'solo', '_$kick'],
+		['$', 'mute', '_$'],
+		['$', 'solo', 'S$'],
+		['lowendbass', 'solo', 'Slowendbass'],
+	];
+	for (const [label, button, expected] of cases) assert.equal(toggledLabel(label, button), expected, `${label} ${button}`);
+	// What upstream reads from the result, by the parser's own rules.
+	const both = model('S$kick_: s("bd")');
+	assert.deepEqual([both.chains[0].muted, both.chains[0].solo], [true, true]);
+});
+
+test('a click on M edits the label of that chain only', () => {
+	const code = '$kick: s("bd*4")\n$hat: s("hh*8")\n';
+	const edit = labelEdit(code, 1, 'mute');
+	assert.deepEqual(edit, { from: 17, to: 21, insert: '_$hat' });
+	assert.equal(labelEdit('$kick: s("bd"', 0, 'mute'), undefined);
+});
+
+test('G adds a gain fader and takes it out again', () => {
+	const apply = (code: string, e?: { from: number; to: number; insert: string }) => (e ? code.slice(0, e.from) + e.insert + code.slice(e.to) : code);
+	// No gain: one at the end of the chain, before the semicolon.
+	const plain = '$riser: s("pulse").orbit(4);\n';
+	const on = apply(plain, gainEdit(plain, 0));
+	assert.equal(on, '$riser: s("pulse").orbit(4).gain(slider(1, 0, 1));\n');
+	assert.notEqual(model(on).chains[0].gain, undefined);
+	// Off again gives the text back.
+	assert.equal(apply(on, gainEdit(on, 0)), plain);
+	// A fixed gain keeps its level as the slider's.
+	assert.equal(apply('$a: s("bd").gain(0.8)', gainEdit('$a: s("bd").gain(0.8)', 0)), '$a: s("bd").gain(slider(0.8, 0, 1))');
+	// A constant: the call goes, the const stays.
+	const constant = 'const V = slider(0.5)\n$a: s("bd")\n  .gain(V)\n  .room(0.2)\n';
+	assert.equal(apply(constant, gainEdit(constant, 0)), 'const V = slider(0.5)\n$a: s("bd")\n  .room(0.2)\n');
+	// A gain inside a function is not the chain's own.
+	const inner = '$a: s("bd").sometimes(x => x.gain(slider(0.5)))';
+	assert.equal(model(inner).chains[0].gain === undefined || gainEdit(inner, 0) === undefined, true);
 });

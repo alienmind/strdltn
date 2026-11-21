@@ -28,6 +28,7 @@ svg { display: block; flex: none; }
 .banner { flex: none; }
 .banner img { display: block; width: 100%; height: auto; max-height: 72px; object-fit: contain; background: #000; }
 
+.searchbar[hidden] { display: none; }
 .searchbar { flex: none; display: flex; align-items: center; gap: 4px; padding: 6px 8px; }
 .search {
 	flex: 1;
@@ -104,6 +105,8 @@ svg { display: block; flex: none; }
 	cursor: row-resize;
 }
 .resultbar .summary { flex: 1; color: var(--vscode-descriptionForeground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resultbar .elsewhere { background: none; border: 0; padding: 0 4px; color: var(--vscode-textLink-foreground); cursor: pointer; white-space: nowrap; font: inherit; }
+.resultbar .elsewhere:hover { text-decoration: underline; }
 
 .results { flex: 1; min-height: 60px; overflow-y: auto; position: relative; outline: none; }
 .results:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }

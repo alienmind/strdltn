@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { type MixerModel, readChains } from '../shared/chains';
+import { gainEdit, labelEdit, type MixerModel, readChains } from '../shared/chains';
 import type { FromMixer, ToMixer } from '../shared/mixer';
 import { lf, lineColumn } from '../shared/sync';
+import { setPage, type Surface } from './surface';
 
 export interface MixerActions {
 	/** Puts the cursor at an offset of a song, in whichever editor shows it. */
@@ -11,6 +12,8 @@ export interface MixerActions {
 	 * and writes the number. False when no engine has it: then the Mixer writes the code.
 	 */
 	moveSlider(document: vscode.TextDocument, index: number, from: number | undefined, value: string): boolean;
+	/** Evaluates the song again when it is playing, so a mute or solo is heard at once. */
+	evaluate(document: vscode.TextDocument): void;
 }
 
 /** How long a fader waits after its last move before it writes the code, when no engine has the song. As the stage's sliders did. */
@@ -20,7 +23,7 @@ const WRITE_PAUSE = 150;
 const PAUSE = 300;
 
 /**
- * The Mixer: a webview view in the bottom panel with one strip per chain of the song in
+ * The Mixer: a page in the bottom panel, or floating in a window of its own, with one strip per chain of the song in
  * front, its sliders as faders, and the sidechain cables. The host reads the model from
  * the text with `readChains`; the webview draws it. See "Mixer panel" in doc/DAW-PLAN.md.
  *
@@ -28,13 +31,17 @@ const PAUSE = 300;
  * focus goes to something else (the Mixer itself, a terminal, a stage) the Mixer keeps the
  * last song, the way the Outline view does.
  */
-export class MixerView implements vscode.WebviewViewProvider {
-	private view?: vscode.WebviewView;
+export class MixerView implements Surface {
+	private webview?: vscode.Webview;
 	private document?: vscode.TextDocument;
 	private model?: MixerModel;
 	private error?: string;
 	private timer?: ReturnType<typeof setTimeout>;
 	private lastState?: Extract<FromMixer, { type: 'state' }>;
+	/** The strips the page last reported unfolded, kept here so a new page shows the same. */
+	private unfolded?: string[];
+	/** How many pages have said `ready`. A move between dock and float that keeps its page does not count up. */
+	pages = 0;
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -59,26 +66,20 @@ export class MixerView implements vscode.WebviewViewProvider {
 		this.follow();
 	}
 
-	resolveWebviewView(view: vscode.WebviewView): void {
-		this.view = view;
-		const dist = vscode.Uri.joinPath(this.context.extensionUri, 'dist');
-		view.webview.options = { enableScripts: true, localResourceRoots: [dist] };
-		const nonce = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
-		const script = view.webview.asWebviewUri(vscode.Uri.joinPath(dist, 'mixer.js'));
-		const style = view.webview.asWebviewUri(vscode.Uri.joinPath(dist, 'mixer.css'));
-		const csp = [`default-src 'none'`, `script-src 'nonce-${nonce}'`, `style-src ${view.webview.cspSource} 'unsafe-inline'`, `img-src ${view.webview.cspSource} data:`].join('; ');
-		view.webview.html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="${csp}">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="${style}"></head>
-<body><div id="app"></div><script nonce="${nonce}" src="${script}"></script></body></html>`;
-		view.webview.onDidReceiveMessage((message: FromMixer) => this.handle(message));
-		view.onDidDispose(() => (this.view = undefined));
+	/** Gives the Mixer a page, docked or floating (see `Place`). It sends the model at once and again on `ready`. */
+	attach(webview: vscode.Webview): vscode.Disposable {
+		this.webview = webview;
+		setPage(this.context, webview, 'mixer');
+		const listener = webview.onDidReceiveMessage((message: FromMixer) => this.handle(message));
+		return new vscode.Disposable(() => {
+			listener.dispose();
+			if (this.webview === webview) this.webview = undefined;
+		});
 	}
 
 	/** The model of the song in front, as the parser read it last. For the integration test. */
-	current(): { song?: string; model?: MixerModel; error?: string } {
-		return { song: this.document && vscode.workspace.asRelativePath(this.document.uri), model: this.model, error: this.error };
+	current(): { song?: string; model?: MixerModel; error?: string; state?: Extract<FromMixer, { type: 'state' }>; pages: number } {
+		return { song: this.document && vscode.workspace.asRelativePath(this.document.uri), model: this.model, error: this.error, state: this.lastState, pages: this.pages };
 	}
 
 	/** Unfolds the named strips and folds the others, and returns what the page reports after it has drawn. */
@@ -101,7 +102,11 @@ export class MixerView implements vscode.WebviewViewProvider {
 	private handle(message: FromMixer): void {
 		switch (message.type) {
 			case 'ready':
-				return this.send();
+				this.pages++;
+				this.send();
+				// A page made by a move between dock and float starts with every strip folded.
+				if (this.unfolded) this.post({ type: 'show', unfold: this.unfolded });
+				return;
 			case 'reveal': {
 				const chain = this.model?.chains[message.chain];
 				if (chain && this.document) this.actions.reveal(this.document, chain.from);
@@ -109,8 +114,11 @@ export class MixerView implements vscode.WebviewViewProvider {
 			}
 			case 'slider':
 				return this.moveSlider(message.index, message.value);
+			case 'toggle':
+				return void this.toggle(message.chain, message.button);
 			case 'state':
 				this.lastState = message;
+				if (message.strips.length) this.unfolded = message.strips.filter((strip) => strip.unfolded).map((strip) => strip.name);
 				return;
 			case 'log':
 				this.output.appendLine(`mixer: ${message.message}`);
@@ -148,6 +156,25 @@ export class MixerView implements vscode.WebviewViewProvider {
 		}, WRITE_PAUSE);
 	}
 	private writeTimer?: ReturnType<typeof setTimeout>;
+
+	/**
+	 * M or S clicked: the label of the chain gets or loses `_` or `S` (decision 5 of
+	 * doc/DAW-PLAN.md). G clicked: the chain gets or loses its `.gain(slider(...))`. Read from the text as it is now, written into the document, which
+	 * the editor follows like any edit from outside. A song that plays is evaluated again
+	 * at once, as Live mutes at once.
+	 */
+	async toggle(chain: number, button: 'mute' | 'solo' | 'gain'): Promise<void> {
+		const document = this.document;
+		if (!document) return;
+		const text = lf(document.getText());
+		const change = button === 'gain' ? gainEdit(text, chain) : labelEdit(text, chain, button);
+		if (!change) return;
+		const from = lineColumn(text, change.from);
+		const to = lineColumn(text, change.to);
+		const edit = new vscode.WorkspaceEdit();
+		edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+		if (await vscode.workspace.applyEdit(edit)) this.actions.evaluate(document);
+	}
 
 	/** Finds the song of the active tab. Anything that is not a song keeps the last one. */
 	private follow(): void {
@@ -189,6 +216,6 @@ export class MixerView implements vscode.WebviewViewProvider {
 	}
 
 	private post(message: ToMixer): void {
-		void this.view?.webview.postMessage(message);
+		void this.webview?.postMessage(message);
 	}
 }

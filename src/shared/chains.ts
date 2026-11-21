@@ -78,6 +78,77 @@ export interface MixerModel {
 	global: number[];
 }
 
+/**
+ * The label a chain gets when its M or S button is clicked, in upstream's own syntax
+ * (decision 5 of doc/DAW-PLAN.md): muted `_kick`, soloed `Skick`, both `Skick_`. Upstream
+ * silences a label that starts or ends with `_` before it looks at the solo, so the last
+ * form is muted, as a muted and soloed track of Live is. The button flips one of the two
+ * and keeps the other.
+ *
+ * The catch of upstream's rule: any label that starts with `S` is a solo, so `Snare` shows
+ * as soloed and S off turns it into `nare`. The Mixer shows what upstream does.
+ */
+export function toggledLabel(label: string, button: 'mute' | 'solo'): string {
+	const muted = label.startsWith('_') || label.endsWith('_');
+	let base = label.replace(/^_+|_+$/g, '');
+	const solo = base.length > 1 && base.startsWith('S');
+	if (solo) base = base.slice(1);
+	const mute = button === 'mute' ? !muted : muted;
+	const soloed = button === 'solo' ? !solo : solo;
+	if (soloed) return `S${base}${mute ? '_' : ''}`;
+	return mute ? `_${base}` : base;
+}
+
+/** The edit of the code that a click on M or S of a chain makes: the label, replaced. */
+export function labelEdit(code: string, chain: number, button: 'mute' | 'solo'): { from: number; to: number; insert: string } | undefined {
+	const model = readChains(code);
+	if ('error' in model) return undefined;
+	const target = model.chains[chain];
+	if (!target || code.slice(target.from, target.from + target.label.length) !== target.label) return undefined;
+	return { from: target.from, to: target.from + target.label.length, insert: toggledLabel(target.label, button) };
+}
+
+/**
+ * The edit a click on G of a chain makes. G on gives the chain a gain fader: a
+ * `.gain(0.8)` of its own spine becomes `.gain(slider(0.8, 0, 1))`, so the level stays,
+ * else `.gain(slider(1, 0, 1))` goes at the end. G off takes the `.gain(...)` call with the
+ * fader out of the spine; a `const` it names stays where it is. A gain inside a function
+ * (`.sometimes(x => x.gain(...))`) is not the chain's own, so G off does nothing then.
+ */
+export function gainEdit(code: string, chain: number): { from: number; to: number; insert: string } | undefined {
+	const model = readChains(code);
+	if ('error' in model) return undefined;
+	const target = model.chains[chain];
+	const statement = target && chainStatements(code)[chain];
+	if (!statement) return undefined;
+	const expression = statement.body.expression as Node;
+	let gainCall: Node | undefined;
+	for (let node = expression; node?.type === 'CallExpression' && node.callee.type === 'MemberExpression'; node = node.callee.object) {
+		if (node.callee.property?.name === 'gain') gainCall = node;
+	}
+	if (target.gain === undefined) {
+		const argument = gainCall?.arguments?.length === 1 ? (gainCall.arguments[0] as Node) : undefined;
+		if (argument?.type === 'Literal' && typeof argument.value === 'number') {
+			const level = argument.value as number;
+			return { from: argument.start, to: argument.end, insert: `slider(${code.slice(argument.start, argument.end)}, 0, ${Math.max(1, level)})` };
+		}
+		return { from: expression.end, to: expression.end, insert: '.gain(slider(1, 0, 1))' };
+	}
+	const slider = model.sliders[target.gain];
+	if (!gainCall || !slider) return undefined;
+	// Only the spine's own gain, the one that holds the fader: its slider, or the constant it names.
+	const inside = code.slice(gainCall.callee.property.end, gainCall.end);
+	const holds = (slider.from >= gainCall.start && slider.from < gainCall.end) || (slider.constant !== undefined && new RegExp(`\\b${slider.constant}\\b`).test(inside));
+	if (!holds) return undefined;
+	return { from: gainCall.callee.object.end, to: gainCall.end, insert: '' };
+}
+
+/** The labeled statements that are chains, in the order of the code, as `readChains` finds them. */
+function chainStatements(code: string): Node[] {
+	const program = parse(code, { ecmaVersion: 2022, allowAwaitOutsideFunction: true, sourceType: 'script' }) as unknown as Node;
+	return ((program.body as Node[]) ?? []).filter((statement) => statement.type === 'LabeledStatement' && statement.body?.type === 'ExpressionStatement');
+}
+
 /** The model of a song, or the error of the parser when the code does not parse (half typed). */
 export function readChains(code: string): MixerModel | { error: string } {
 	let program: Node;

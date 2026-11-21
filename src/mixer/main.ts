@@ -123,7 +123,7 @@ function globalStrip(m: MixerModel): HTMLElement {
 	const head = strip.appendChild(el('header'));
 	head.appendChild(el('span', 'name', 'global'));
 	head.title = 'Sliders that act on no chain: in setcps(), or not used';
-	const faders = strip.appendChild(el('div', 'faders'));
+	const faders = strip.appendChild(el('div', 'body')).appendChild(el('div', 'faders'));
 	for (const index of m.global) faders.appendChild(fader(m.sliders[index]));
 	strip.appendChild(el('footer'));
 	return strip;
@@ -149,18 +149,23 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 	name.title = `${chain.label}:  -  click to show it in the code${chain.nameRule !== 'label' ? `\n(named from: ${chain.nameRule})` : ''}`;
 	name.addEventListener('click', () => post({ type: 'reveal', chain: index }));
 
-	const badges = strip.appendChild(el('div', 'badges'));
-	const badge = (text: string, on: boolean, title: string) => {
-		const b = badges.appendChild(el('span', `badge${on ? ' on' : ''}`, text));
+	// M, S and G stacked beside the faders, as the track buttons of Live's mixer.
+	const body = strip.appendChild(el('div', 'body'));
+	const badges = body.appendChild(el('div', 'badges'));
+	const badge = (text: string, on: boolean, title: string, button: 'mute' | 'solo' | 'gain') => {
+		const b = badges.appendChild(el('button', `badge${on ? ' on' : ''}`, text));
 		b.title = title;
+		b.addEventListener('click', () => post({ type: 'toggle', chain: index, button }));
 	};
-	badge('M', chain.muted, chain.muted ? `Muted: the label ${chain.label} starts or ends with _` : 'Not muted. Mute writes _ in front of the label (not built yet)');
-	badge('S', chain.solo, chain.solo ? `Solo: the label ${chain.label} starts with S` : 'Not soloed. Solo writes S in front of the label (not built yet)');
+	badge('M', chain.muted, chain.muted ? `Muted: the label ${chain.label} starts or ends with _. Click to unmute` : 'Mute: writes _ in front of the label', 'mute');
+	badge('S', chain.solo, chain.solo ? `Solo: the label ${chain.label} starts with S. Click to end the solo` : 'Solo: writes S in front of the label', 'solo');
+	badge('G', chain.gain !== undefined, chain.gain !== undefined ? 'Gain fader on. Click to take it out of the code' : 'No gain fader. Click to add one to the code', 'gain');
 
-	const faders = strip.appendChild(el('div', 'faders'));
+	const faders = body.appendChild(el('div', 'faders'));
 	const shown = open ? sliders : chain.gain !== undefined ? [chain.gain] : [];
 	for (const i of shown) faders.appendChild(fader(m.sliders[i!]));
-	if (!shown.length) faders.appendChild(el('div', 'none', sliders.length ? `${sliders.length} slider${sliders.length > 1 ? 's' : ''}` : 'no slider'));
+	// No gain slider: a fader that cannot move, until G puts one in the code.
+	if (!shown.length) faders.appendChild(disabledFader(sliders.length));
 
 	const foot = strip.appendChild(el('footer'));
 	const route = foot.appendChild(el('div', 'route'));
@@ -204,6 +209,20 @@ function fader(slider: MixerSlider): HTMLElement {
 		for (const out of strips.querySelectorAll(`output[data-slider="${slider.index}"]`)) out.textContent = value;
 		post({ type: 'slider', index: slider.index, value });
 	});
+	return box;
+}
+
+function disabledFader(others: number): HTMLElement {
+	const box = el('div', 'fader off');
+	const input = box.appendChild(el('input'));
+	input.type = 'range';
+	input.min = '0';
+	input.max = '1';
+	input.value = '1';
+	input.disabled = true;
+	box.title = `No gain slider in this chain${others ? ` (${others} other slider${others > 1 ? 's' : ''}: unfold to see them)` : ''}. G adds one.`;
+	box.appendChild(el('span', 'label', 'gain'));
+	box.appendChild(el('output', 'value', 'off'));
 	return box;
 }
 

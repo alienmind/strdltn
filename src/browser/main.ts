@@ -2,7 +2,7 @@
 // column, like the browser of Live. The host sends the items and does what a row asks;
 // this page keeps what is on screen. See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
-import type { BrowserFilterState, FromBrowser, ToBrowser } from '../shared/browser.ts';
+import { BROWSER_PAGES, type BrowserFilterState, type BrowserPage, type FromBrowser, type ToBrowser } from '../shared/browser.ts';
 import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
 import { chipGroups, filterItems, groupItems } from '../shared/search.ts';
 import { TAG_GROUPS } from '../shared/tags.ts';
@@ -36,6 +36,12 @@ let items: CatalogItem[] = [];
 let user: UserIndex = emptyUserIndex();
 let preview = true;
 let logo = '';
+/** The Browser, or the Reference: the same page with the functions only. */
+let page: BrowserPage = 'library';
+/** The search text as last reported to the host or set by it. */
+let syncedQuery = '';
+/** Matches of the search text in the other pages, as the host counted them. */
+let elsewhere: { page: BrowserPage; count: number }[] = [];
 let filter: BrowserFilterState = saved?.filter ?? { category: 'all', query: '', chips: [] };
 const sections: Record<string, boolean> = saved?.sections ?? { collections: true, library: true, places: false };
 /** Headings the user opened or closed, by category and key. Cleared when the search changes. */
@@ -109,7 +115,8 @@ search.addEventListener('keydown', (event) => {
 document.addEventListener('keydown', (event) => {
 	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
 		event.preventDefault();
-		focusSearch();
+		if (page !== 'library') post({ type: 'focusSearch' });
+		else focusSearch();
 	}
 	if (event.key === 'Escape') closePopups();
 });
@@ -154,7 +161,10 @@ function update(): void {
 	drawResultbar();
 	drawRows();
 	drawDetails();
-	post({ type: 'state', filter, results: results.length, rows: rows.length, chips: shown });
+	// Typed here, not set by the host: only then does the other view follow.
+	const typed = filter.query !== syncedQuery;
+	syncedQuery = filter.query;
+	post({ type: 'state', filter, results: results.length, rows: rows.length, chips: shown, typed });
 }
 
 function section(id: string, title: string, body: (into: HTMLElement) => void): HTMLElement {
@@ -186,7 +196,8 @@ function drawNav(): void {
 					openMenu(event, [{ label: `Rename "${user.colorNames[color - 1]}"...`, run: () => renameColor(color) }]);
 				});
 			}
-			for (const saved of user.searches) {
+			// A saved search belongs to the view that has its category.
+			for (const saved of user.searches.filter((s) => s.category === 'all' || items.some((item) => item.category === s.category))) {
 				const row = body.appendChild(navRow('save', saved.name, undefined, isSaved(saved)));
 				row.title = describeSearch(saved);
 				row.addEventListener('click', () => applySearch(saved));
@@ -196,7 +207,7 @@ function drawNav(): void {
 				});
 			}
 		}),
-		section('library', 'Library', (body) => {
+		section('library', 'Categories', (body) => {
 			for (const category of CATEGORIES) {
 				const count = category.id === 'all' ? items.length : items.filter((item) => item.category === category.id).length;
 				if (category.id !== 'all' && !count) continue;
@@ -204,14 +215,19 @@ function drawNav(): void {
 				row.addEventListener('click', () => setFilter({ category: category.id, chips: [] }));
 			}
 		}),
-		section('places', 'Places', (body) => {
-			for (const place of PLACES) {
-				const count = items.filter((item) => item.place === place.id).length;
-				if (!count) continue;
-				const row = body.appendChild(navRow(place.icon, place.label, count, filter.place === place.id));
-				row.addEventListener('click', () => setFilter({ place: filter.place === place.id ? undefined : place.id }));
-			}
-		}),
+		// Every item of the Reference is built in, so Places would say nothing there.
+		...(page === 'reference'
+			? []
+			: [
+					section('places', 'Places', (body) => {
+						for (const place of PLACES) {
+							const count = items.filter((item) => item.place === place.id).length;
+							if (!count) continue;
+							const row = body.appendChild(navRow(place.icon, place.label, count, filter.place === place.id));
+							row.addEventListener('click', () => setFilter({ place: filter.place === place.id ? undefined : place.id }));
+						}
+					}),
+				]),
 	);
 }
 
@@ -267,6 +283,13 @@ function drawResultbar(): void {
 	if (filter.color) parts.push(user.colorNames[filter.color - 1]);
 	if (filter.place) parts.push(PLACES.find((p) => p.id === filter.place)?.label ?? '');
 	resultbar.appendChild(el('span', 'summary', parts.filter(Boolean).join(' ')));
+	for (const { page: other, count } of filter.query ? elsewhere : []) {
+		if (!count) continue;
+		const title = BROWSER_PAGES.find((p) => p.page === other)?.title ?? other;
+		const link = resultbar.appendChild(el('button', 'elsewhere', `${count} in ${title}`));
+		link.title = `Show "${filter.query}" in ${title}`;
+		link.addEventListener('click', () => post({ type: 'searchIn', page: other, query: filter.query }));
+	}
 	if (filtered()) {
 		resultbar.appendChild(button('save', 'Save this search under Collections', () => saveSearch()));
 		resultbar.appendChild(button('close', 'Clear the search and the filters', () => {
@@ -762,10 +785,16 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 	const message = event.data;
 	switch (message.type) {
 		case 'init':
+			page = message.page;
+			// Only the Library has a search field. The other views follow it: three fields
+			// took room and could disagree.
+			searchbar.hidden = page !== 'library';
 			items = message.items;
 			user = message.user;
 			preview = message.preview;
 			logo = message.logo;
+			// A category saved before the functions moved to the Reference may be empty here now.
+			if (filter.category !== 'all' && !items.some((item) => item.category === filter.category)) filter = { ...filter, category: 'all', chips: [] };
 			banner.replaceChildren();
 			if (logo) {
 				const img = banner.appendChild(el('img'));
@@ -784,8 +813,12 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			return update();
 		case 'focusSearch':
 			return focusSearch();
+		case 'elsewhere':
+			elsewhere = message.counts;
+			return drawResultbar();
 		case 'show':
 			filter = { ...filter, ...message.filter };
+			syncedQuery = filter.query;
 			searchbarSync();
 			headings = {};
 			for (const key of message.open ?? []) headings[`${filter.category}|${key}`] = true;

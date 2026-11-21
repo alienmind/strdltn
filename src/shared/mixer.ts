@@ -14,6 +14,8 @@ export type FromMixer =
 	| { type: 'ready' }
 	/** Put the cursor of the editor at the start of a chain. */
 	| { type: 'reveal'; chain: number }
+	/** M or S of a chain clicked: the host flips `_` or `S` in its label. */
+	| { type: 'toggle'; chain: number; button: 'mute' | 'solo' | 'gain' }
 	/** A fader moved: the slider by its index in the model, and the number as it is to be written. */
 	| { type: 'slider'; index: number; value: string }
 	/** What the page shows, after it has drawn. For the integration test. */

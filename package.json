@@ -125,6 +125,16 @@
 				"command": "strdltn.refreshBrowser",
 				"title": "strdltn: Refresh the Browser",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "strdltn.mixer.float",
+				"title": "strdltn: Float the Mixer in its own window",
+				"icon": "$(window)"
+			},
+			{
+				"command": "strdltn.mixer.dock",
+				"title": "strdltn: Dock the Mixer in the panel",
+				"icon": "$(layout-panel)"
 			}
 		],
 		"menus": {
@@ -143,6 +153,11 @@
 					"command": "strdltn.toggleMode",
 					"when": "activeCustomEditorId == strdltn.editor || resourceExtname == .strudel",
 					"group": "navigation@3"
+				},
+				{
+					"command": "strdltn.mixer.dock",
+					"when": "activeWebviewPanelId == strdltn.mixerTab",
+					"group": "navigation@1"
 				}
 			],
 			"view/title": [
@@ -155,6 +170,11 @@
 					"command": "strdltn.openShrubEditor",
 					"when": "view == strdltn.browser && config.strdltn.experimental.shrubEditor",
 					"group": "navigation@3"
+				},
+				{
+					"command": "strdltn.mixer.float",
+					"when": "view == strdltn.mixer",
+					"group": "navigation@1"
 				}
 			],
 			"commandPalette": [
@@ -326,7 +346,17 @@
 			"strdltn": [
 				{
 					"id": "strdltn.browser",
-					"name": "Browser",
+					"name": "Library",
+					"type": "webview"
+				},
+				{
+					"id": "strdltn.songs",
+					"name": "Songs and Snippets",
+					"type": "webview"
+				},
+				{
+					"id": "strdltn.reference",
+					"name": "Reference",
 					"type": "webview"
 				}
 			],
@@ -334,7 +364,8 @@
 				{
 					"id": "strdltn.mixer",
 					"name": "Mixer",
-					"type": "webview"
+					"type": "webview",
+					"when": "!strdltn.mixerFloating"
 				}
 			]
 		},

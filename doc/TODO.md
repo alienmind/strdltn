@@ -44,8 +44,8 @@ Next in line:
 | 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
 | 6 | Functions in the Browser: an "Insert an example" button beside "Insert at the cursor" | Noted, not built. See "Insert an example" in `doc/DAW-PLAN.md` |
 | 6c | Dock and float for the stage and later windows (the Mixer has it) | The stage waits for phase 6 (decision 22). See "Dock and float" in `doc/DAW-PLAN.md` |
-| 6e | Track colors: the user picks a color per chain in the Mixer, kept as `// @color <name>` on the line above the chain, used later by the session view | Planned, not built. Decision 24 waits. See "Track colors" in `doc/DAW-PLAN.md` |
-| 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 waits. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
+| 6e | Track colors: every chain gets a color by itself (the next of the palette), kept as `// @color <name>` on the line above the chain, changeable in the Mixer, used later by the session view | Planned, not built. Decision 24 answered: colored by themselves. See "Track colors" in `doc/DAW-PLAN.md` |
+| 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 answered: the workshop first, then the learn pages. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
 | 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
 
 ## Next: test by hand

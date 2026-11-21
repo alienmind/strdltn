@@ -374,7 +374,8 @@ lesson, so a lesson can also open in an editor tab of its own (the same page, th
 5. The integration test: the Reference shows the tutorial, a search finds a lesson,
    "Open as a song" plays the first example of "First Sounds".
 
-Size: 1 to 2 sessions. Open question: decision 23.
+Size: 1 to 2 sessions. Decision 23 is answered: the workshop pages first, then the learn
+pages, all of them in the Reference.
 
 ### Index and tags
 
@@ -606,8 +607,10 @@ $kick: s("bd*4").gain(KICK_VOL)
   The Mixer writes, changes or removes the one comment line through the same versioned
   write as a fader, so undo takes it back and the editor does not jump.
 - Upstream ignores comments, so the song plays the same on strudel.cc.
-- A chain without the annotation has no color (theme gray), as a new track in Live
-  before it gets one. Whether to hand out colors by themselves is decision 24.
+- A chain without the annotation gets one by itself: the next color of the palette that
+  no other chain of the song has yet, written as `// @color <name>` above it, in the same
+  versioned write (decision 24, answered by the maintainer on 2026-11-21). The user can
+  change it like any other color. When the palette runs out, the colors repeat.
 - The palette: the seven colors of the Browser's collections plus more shades, close to
   the clip colors of Live. Each is a fixed color, not a theme color, because it must look
   the same in the Mixer, the session view and the arrangement.
@@ -1611,8 +1614,8 @@ Size: unknown, at least one session per device.
 | 20 | Insert as code: `s("bd").bank("RolandTR909")` or `s("RolandTR909_bd")`? | Answered by the maintainer: `s()` with `.bank()`. Built |
 | 21 | Phase 1b (previews in the Browser) before the Mixer? | Answered by the maintainer: no, last, with phase 6, because it is part of the change of architecture |
 | 22 | Moving the stage between dock, tab and float makes a new page, so the sound stops until phase 6. Allow the move only when stopped, warn and stop, or wait with the stage until phase 6? | Answered by the maintainer: the stage waits. The Mixer has it now |
-| 23 | The tutorial: the workshop only (6 pages, for a beginner), or the workshop and the 19 learn pages (everything the site teaches)? | Both, the workshop first. The learn pages hold the details, and the search finds them |
-| 24 | Track colors: a chain without `// @color` stays gray until the user picks one, or each new chain gets the next color of the palette written into the code by itself? | Gray until picked. Writing comments the user did not ask for changes their file behind their back |
+| 23 | The tutorial: the workshop only (6 pages, for a beginner), or the workshop and the 19 learn pages (everything the site teaches)? | Answered by the maintainer on 2026-11-21: both, the workshop first, then the learn pages |
+| 24 | Track colors: a chain without `// @color` stays gray until the user picks one, or each new chain gets the next color of the palette written into the code by itself? | Answered by the maintainer on 2026-11-21: colored by themselves. A chain without `// @color` gets the next color of the palette, written into the code |
 
 ## Risks
 

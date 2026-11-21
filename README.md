@@ -77,6 +77,9 @@ browser.
   labels (`_kick:`, `Skick:`); a song that plays is updated at once. G adds a gain fader
   to the chain (`.gain(slider(1, 0, 1))`) or takes it out.
 - Sidechain cables: a chain with `.duck("2,3")` is cabled to the chains on those orbits.
+  Drag from the jack at the foot of a strip onto another strip to duck it; pull a cable off
+  by its end to stop. The code gets the `.duck()`, and an `.orbit()` of its own for a
+  target that had none.
 - A fader changes the sound at once and the number in the code a moment later, like the
   slider in the code. Moving the slider in the code moves the fader.
 - A song or snippet without `$:` labels shows as one strip named after the file.

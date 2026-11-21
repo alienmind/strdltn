@@ -470,6 +470,23 @@ front (`Place.reveal`): `view.show(true)` for a view that exists, the floating t
 `reveal(undefined, true)`, or the view's focus command and the focus back to the editor
 for a view never opened. The cursor stays in the editor in the first two cases.
 
+**Cable drags.** Every strip has a duck jack at its foot. A drag from it holds a cable
+whose loose end is a marker under the pointer, drawn by the same spring as the others.
+The strip under the pointer is outlined in the focus color when it takes the cable, in
+the error color when it does not, and the cable turns red. Dropped on a strip, the page
+sends `duck`; the host edits the text with `duckEdits` in `src/shared/chains.ts`: the
+target's orbit joins the `.duck("...")` of the first chain, or `.duck("n")` is added. A
+target with no `.orbit()` of its own plays on orbit 1 with most of the song, so it gets
+the next free orbit (one more than any orbit or duck in the song) in the same
+`WorkspaceEdit`, and one undo takes both back. A cable is pulled off by its end at the
+ducked strip: dropped on nothing it sends `unduck` (`unduckEdits`: the orbit leaves the
+list, and `.duck()` goes with the last one); dropped on another strip it moves, one edit
+of the list. Refused, with the reason in the status bar: a drop on itself, a target whose
+`.orbit()` is not a plain number, a ducker whose `.duck()` is a pattern. The page checks
+the same before the drop so the cable can turn red. Redraws of the model wait while a
+cable is held, as for a fader. The integration test sends the drop messages on the
+scratch song and reads the text; the drag gesture itself is tested by hand.
+
 **M, S and G.** Three buttons stacked on the left of each strip, blue when on. Each
 click is an edit of the code made by the host from the text as it is at that moment
 (`toggledLabel`, `labelEdit`, `gainEdit` in `src/shared/chains.ts`), written into the

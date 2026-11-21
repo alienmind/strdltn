@@ -1401,14 +1401,15 @@ both modes, and the stage lost its slider rows. Spike D3 was not run as planned:
 fader goes host -> engine, and the integration test moves it while typing without a
 problem, but its latency is not measured. Also done: M, S and G (decisions 5 and 3,
 answered 2026-11-21), and dock and float. Not started: cable drags, the activity light
-(D1).
+(D1). Cable drags are built (step 3).
 
 0. Spike D3, then the stage loses its slider rows (step 4 of phase 2).
 1. Faders move the sound and write the code, through the existing `slider` message.
 2. Mute, solo and gain as edits. Built: `toggledLabel`, `labelEdit` and `gainEdit` in
    `src/shared/chains.ts`, tested on text, and in the integration test on a scratch song.
 3. Cable drag: the drag cable, the hit test on strips, connect, refuse, pull off, and the
-   new orbit for a target on orbit 1.
+   new orbit for a target on orbit 1. Built on 2026-11-21: `duckEdits` and `unduckEdits`
+   in `src/shared/chains.ts`, the drag in `src/mixer/main.ts`.
 4. The activity light, after D1.
 5. Dock and float for the Mixer. Built: `Place` and `Surface` in
    `src/extension/surface.ts`, a float button in the Mixer's title, a dock button in the

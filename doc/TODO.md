@@ -48,10 +48,21 @@ Next in line:
 
 ## Next: test by hand
 
-Nothing waits. The maintainer tested the branch `feat/mixer` by hand on 2026-11-21 (side
-bar with four views, Results, colors, Built-in, previews without a song, the Music panel
-with Play, Stop, BPM, Record buttons, M, S, G, layout, float and dock): all passed. The
-next build of phase 3 (cable drags) brings its own table.
+The maintainer tested the branch `feat/mixer` by hand on 2026-11-21 (side bar with four
+views, Results, colors, Built-in, previews without a song, the Music panel with Play,
+Stop, BPM, Record buttons, M, S, G, layout, float and dock): all passed. Left: the cable
+drags, built after that. Test on **desktop, launched with F5** on `template/`.
+
+| # | Do this | Should happen |
+|---|---------|---------------|
+| 1 | Open `demo.strudel` and the Music panel | Every strip has a jack at its foot. Kick's three orange cables as before |
+| 2 | Drag from the jack of snare onto the strip of bass | The cable follows the pointer; bass is outlined in blue. Dropped: snare gets `.duck("2")` and a cable to bass |
+| 3 | Drag from the jack of hh onto the strip of vocals (no `.orbit()`) | vocals gets `.orbit(5)` (the next free orbit), hh gets `.duck("5")`, one cable |
+| 4 | Ctrl+Z in the editor | Both edits of step 3 go back with one undo |
+| 5 | Grab the end of a cable at the bass strip and drop it on empty space | The cable is gone; `.duck()` of its chain loses that orbit, or goes |
+| 6 | Grab the end of a kick cable at riser and drop it on lowendbass | The cable moves; kick's duck list changes in one edit |
+| 7 | Drag a jack onto its own strip | The cable turns red; dropping does nothing |
+| 8 | Play the song while doing 2 and 5 | The ducking is heard at once and goes away at once |
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.

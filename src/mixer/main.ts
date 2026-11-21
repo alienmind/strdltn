@@ -228,8 +228,11 @@ function moveDrag(event: PointerEvent): void {
 	held.over = strip ? Number(strip.dataset.chain) : undefined;
 	held.ok = held.over !== undefined && accepts(held.from, held.over);
 	strips.querySelectorAll('.drop-ok, .drop-refused').forEach((node) => node.classList.remove('drop-ok', 'drop-refused'));
-	if (strip && held.over !== held.from) strip.classList.add(held.ok ? 'drop-ok' : 'drop-refused');
-	strips.classList.toggle('refusing', strip !== null && held.over !== held.from && !held.ok);
+	// Red on any strip that refuses, the strip of the jack itself too. Neutral only where a
+	// pulled cable came from: dropping it there puts it back as it was.
+	const back = held.pulled !== undefined && held.over === held.pulled.to;
+	if (strip && !back) strip.classList.add(held.ok ? 'drop-ok' : 'drop-refused');
+	strips.classList.toggle('refusing', !!strip && !back && !held.ok);
 	drawCables();
 }
 
@@ -309,27 +312,24 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 	const route = foot.appendChild(el('div', 'route'));
 	route.appendChild(el('span', 'orbit', chain.orbit === undefined ? 'orbit ?' : `orbit ${chain.orbit}`)).title =
 		chain.orbit === undefined ? 'The orbit is not a number we can read here' : `Plays on orbit ${chain.orbit}. room and delay are shared per orbit`;
-	let out: Element | undefined;
-	let input: Element | undefined;
-	if (isDucked) {
-		input = foot.appendChild(jack(true, 'in: ducked by a sidechain. Drag the plug away to pull the cable off'));
-		input.classList.add('in');
-		// Pull a cable off by its end. With several cables in, the first one comes.
-		input.addEventListener('pointerdown', (event) => {
-			const cable = m.ducks.find((d) => d.to === index);
-			if (cable) startDrag(event as PointerEvent, cable.from, { orbit: cable.orbit, to: index });
-		});
-	}
-	// Every strip has a duck jack, so any chain can start a sidechain.
+	// One jack per strip, as the maintainer asked: the cables this chain sends (its duck)
+	// start here, and the cables that duck it end here. A drag from a jack where a cable
+	// ends pulls that cable off; from a jack with none, or with Alt held, it starts a new one.
 	const ducks = chain.ducks ?? [];
-	out = foot.appendChild(
-		jack(
-			ducks.some((orbit) => m.ducks.some((d) => d.from === index && d.orbit === orbit && d.to !== undefined)),
-			chain.duckUnknown ? 'duck: orbits not readable, edit them in the code' : `duck${ducks.length ? `: orbits ${ducks.join(', ')}` : ''}. Drag onto another strip to duck it`,
-		),
-	);
-	out.classList.add('out');
-	out.addEventListener('pointerdown', (event) => startDrag(event as PointerEvent, index));
+	const sends = m.ducks.some((d) => d.from === index && d.to !== undefined);
+	const incoming = m.ducks.find((d) => d.to === index);
+	const said = [
+		chain.duckUnknown ? 'Ducks: orbits not readable, edit them in the code' : ducks.length ? `Ducks orbits ${ducks.join(', ')}` : '',
+		incoming ? `Ducked by ${m.chains[incoming.from]?.name} on orbit ${incoming.orbit}. Drag to pull that cable off; Alt+drag for a new cable` : 'Drag onto another strip to duck it',
+	].filter(Boolean);
+	const socket = foot.appendChild(jack(sends || isDucked, said.join('. ')));
+	socket.addEventListener('pointerdown', (event) => {
+		const pointer = event as PointerEvent;
+		if (incoming && !pointer.altKey) startDrag(pointer, incoming.from, { orbit: incoming.orbit, to: index });
+		else startDrag(pointer, index);
+	});
+	const out: Element = socket;
+	const input: Element = socket;
 	const empty = m.ducks.filter((d) => d.from === index && d.to === undefined).map((d) => `orbit ${d.orbit} (empty)`);
 	if (chain.duckUnknown) empty.push('orbits not readable');
 	if (empty.length) foot.appendChild(el('div', 'note', empty.join(', ')));

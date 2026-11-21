@@ -481,7 +481,11 @@ front (`Place.reveal`): `view.show(true)` for a view that exists, the floating t
 `reveal(undefined, true)`, or the view's focus command and the focus back to the editor
 for a view never opened. The cursor stays in the editor in the first two cases.
 
-**Cable drags.** Every strip has a duck jack at its foot. A drag from it holds a cable
+**Cable drags.** Every strip has one jack at its foot. The cables the chain sends (its
+duck) start there and the cables that duck it end there: the first build had two jacks
+on a ducked strip, and the maintainer found two plugs on one strip confusing (2026-11-21).
+A drag from a jack where a cable ends pulls that cable off; from a jack with none, or
+with Alt held, it starts a new cable. A drag from it holds a cable
 whose loose end is a marker under the pointer, drawn by the same spring as the others.
 The strip under the pointer is outlined in the focus color when it takes the cable, in
 the error color when it does not, and the cable turns red. Dropped on a strip, the page

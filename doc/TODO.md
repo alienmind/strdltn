@@ -57,13 +57,14 @@ drags, built after that. Test on **desktop, launched with F5** on `template/`.
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Open `demo.strudel` and the Music panel | Every strip has a jack at its foot. Kick's three orange cables as before |
+| 1 | Open `demo.strudel` and the Music panel | Every strip has one jack at its foot. Kick's three orange cables go from kick's jack to the jacks of bass, lowendbass and riser |
 | 2 | Drag from the jack of snare onto the strip of bass | The cable follows the pointer; bass is outlined in blue. Dropped: snare gets `.duck("2")` and a cable to bass |
 | 3 | Drag from the jack of hh onto the strip of vocals (no `.orbit()`) | vocals gets `.orbit(5)` (the next free orbit), hh gets `.duck("5")`, one cable |
 | 4 | Ctrl+Z in the editor | Both edits of step 3 go back with one undo |
 | 5 | Grab the end of a cable at the bass strip and drop it on empty space | The cable is gone; `.duck()` of its chain loses that orbit, or goes |
 | 6 | Grab the end of a kick cable at riser and drop it on lowendbass | The cable moves; kick's duck list changes in one edit |
 | 7 | Drag a jack onto its own strip | The cable turns red; dropping does nothing |
+| 7a | Alt+drag from the jack of bass (it is ducked) onto vocals | A new cable from bass; its cable from kick stays |
 | 8 | Play the song while doing 2 and 5 | The ducking is heard at once and goes away at once |
 
 The intermittent typing failures of the integration test are still an open lead: see

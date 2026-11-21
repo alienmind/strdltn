@@ -144,7 +144,7 @@ button:disabled { cursor: default; opacity: .35; }
 .refusing .cable.drag path { stroke: var(--vscode-errorForeground, #f14c4c); }
 .refusing .cable.drag circle { fill: var(--vscode-errorForeground, #f14c4c); }
 .ghost { position: absolute; width: 1px; height: 1px; pointer-events: none; }
-.jack.out, .jack.in { cursor: grab; }
+.jack { cursor: grab; }
 .strip.drop-ok { outline: 2px solid var(--vscode-focusBorder, #3794ff); outline-offset: -1px; }
 .strip.drop-refused { outline: 2px solid var(--vscode-errorForeground, #f14c4c); outline-offset: -1px; }
 

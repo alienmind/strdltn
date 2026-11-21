@@ -94,11 +94,25 @@ an older build left.
 Expected still broken: a fader moves the sound only after the song has been evaluated
 since its slider was written into the code.
 
-A lead, not a known bug: the integration test case `typingWhileAFaderMoves` on the
-`
-` song once (1 of 7 runs, 2026-11-21) ended with one extra line break at the end of
-the file. The next run passed. If it comes back, look at the slider write of the webview
-(`moveSlider` in `src/webview/main.ts`) racing the typed text.
+A lead, not a known bug. On 2026-11-21 the typing cases of the integration test
+started to fail now and then, a different case each time, after about 8 runs in a row
+with none: 3 of 4 runs had one failure.
+
+| Run | Case | What was wrong | Editor same as document |
+|---|---|---|---|
+| 1 | `typingWhileAFaderMoves`, `
+` song | One extra line break at the end of the file | Yes |
+| 2 | `typingWhileTheHostEdits`, `
+` song | The line the test writes from the host is missing | Yes |
+| 3 | `undo`, `
+` song | Ctrl+Z after typing `zz` did nothing | Yes |
+
+Editor and document always agreed, so it is not the text sync. The test now records
+whether VS Code took the host's edit; in run 3 it did. What changed just before:
+the Music panel is revealed when a song starts (`Place.reveal`), Play/Stop and BPM in its
+top bar, and Results opens by itself. Next step: run `pnpm test:quick` a few times with
+the reveal on play switched off, and a few with it on, to see whether the failures follow
+it.
 
 ## Decisions waiting for the maintainer
 

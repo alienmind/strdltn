@@ -545,14 +545,22 @@ function isReference(node: Node, parent: Node | undefined): boolean {
 /**
  * The call whose arguments hold `node`, going up through anything that is not a call:
  * `.gain(KICK_VOL)` and `.gain(KICK_VOL.mul(2))` give "gain", `.lpf(sine.range(200,
- * slider(...)))` gives "range", as the stage's rule does.
+ * slider(...)))` gives "range", as the stage's rule does. Arithmetic is not the call a
+ * slider feeds: `.lpf(curve.mul(OPEN))` gives "lpf", where a song scales a curve of its
+ * arrangement with a slider (template/demo.strudel).
  */
+const ARITHMETIC = new Set(['mul', 'add', 'sub', 'div', 'mod']);
+
 function feedingCall(node: Node, parents: Node[]): string | undefined {
 	let child = node;
 	for (let i = parents.length - 1; i >= 0; i--) {
 		const parent = parents[i];
 		if (parent.type === 'CallExpression' && (parent.arguments as Node[]).includes(child)) {
 			const callee = parent.callee;
+			if (callee.type === 'MemberExpression' && !callee.computed && ARITHMETIC.has(callee.property.name)) {
+				child = parent;
+				continue;
+			}
 			if (callee.type === 'MemberExpression' && !callee.computed) return callee.property.name;
 			if (callee.type === 'Identifier') return callee.name;
 			return undefined;

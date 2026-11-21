@@ -52,21 +52,23 @@ register('acid', (amount, pat) => pat.s("sawtooth").lpenv(amount).lpd(.14).lpq(1
 
 // Orbits. Room and delay belong to an orbit in superdough, so parts with their own
 // effects get their own orbit. The kick ducks 2 to 5, which makes them pump.
-//   1 drums  2 bass  3 sub  4 riser  5 pad  6 vocals
+//   1 drums  2 bass  3 acid  4 riser  5 pad  6 vocals
 
 // Which layers play, per section. "1" plays, "0" is silent, and a pattern like
 // "<0!4 1!12>" plays only some bars of the section: here from bar 5 of 16.
 // The INTRO is classic electro: 4 bars of kick alone, and the snare comes in on bar 5.
+// The COUNTDOWN's last bar is "zero" alone: everything else stops for it ("<1!9 0>").
 const KICK_IN   = [0, 1, 1, "<0!7 1>", 1, 0, 1, "<1!6 0!4>"]
 const SNARE_IN  = [0, "<0!4 1!12>", 1, 1, 1, 0, 1, 0]
 const HH_IN     = [0, "<0!4 1!12>", 1, 1, 1, 1, 1, "<1!8 0!2>"]
-const HHR_IN    = [1, 0, 1, 1, 1, 1, 1, 0]
+const HHR_IN    = ["<1!9 0>", 0, 1, 1, 1, 1, 1, 0]
 const BASS_IN   = [0, "<0!4 1!12>", 1, 1, 1, 0, 1, "<1!4 0!6>"]
-const SUB_IN    = [0, 0, 1, 0, 1, 1, 1, "<1!2 0!8>"]
+const ACID_IN   = [0, 0, 1, 0, 1, 1, 1, "<1!2 0!8>"]
 const VOCALS_IN = [1, "<0!4 1!12>", 1, 1, 1, 1, 1, 1]
 const CLAP_IN   = [0, 0, 0, 0, 1, 0, 1, 0]
 // The pad: the second half of the BUILD, the drops, the BREAKDOWN, and the start of the OUTRO
 const PAD_IN    = [0, 0, 0, "<0!4 1!4>", 1, 1, 1, "<1!4 0!6>"]
+const RISER_IN  = ["<1!9 0>", 1, 1, 1, 1, 1, 1, 1]
 
 
 //    ___         _           _
@@ -74,16 +76,30 @@ const PAD_IN    = [0, 0, 0, "<0!4 1!4>", 1, 1, 1, "<1!4 0!6>"]
 //  | (__/ _ \ ' \  _| '_/ _ \ (_-<
 //   \___\___/_||_\__|_| \___/_/__/
 
-// The level of each part. The arrangement brings parts in and out; these set how loud.
+// The level of each part, one fader per part in the Mixer. The arrangement brings parts
+// in and out; these set how loud.
 const KICK_VOL=slider(0.5,0,1)
 const SNARE_VOL=slider(0.4,0,1)
 const HH_VOL=slider(0.26,0,1)
 const HHR_VOL=slider(0.16,0,1)
 const VOCALS_VOL=slider(1,0,1)
-const BASS_VOL=slider(0,0,1)
-const SUB_VOL=slider(0.481,0,1)
+const BASS_VOL=slider(0.287,0,1)
+const ACID_VOL=slider(0.481,0,1)
 const CLAP_VOL=slider(0.28,0,1)
 const PAD_VOL=slider(0.24,0,1)
+const RISER_VOL=slider(1,0,1)
+
+// How far the arrangement goes. Each one scales a curve of the arrangement, so the song
+// keeps its shape: 1 is as written, lower is tamer, higher is wilder. The Mixer shows them
+// on the strip of their part.
+const BASS_SQUELCH=slider(1,0,2)      // bass: the filter envelope, the squelch
+const BASS_CUTOFF_MUL=slider(1,.5,2)  // bass: the cutoff sweep
+const ACID_DRIVE=slider(2,0,6)        // acid: distortion
+const HATS_OPEN=slider(1,.2,1.5)      // hhr: the rolling hats' filter
+const VOCALS_ECHO=slider(1,0,1.5)     // vocals: the dub delay
+const RISER_OPEN=slider(1,.5,2)       // riser: its high-pass
+const PAD_OPEN=slider(1,.5,2)         // pad: its filter
+const PAD_SPACE=slider(.8,0,1)        // pad: its room
 
 
 //  __   __            _
@@ -119,10 +135,10 @@ $vocals: n(part(VOCALS_PATTERN)).s(part(VOCALS))
   .mask(part(VOCALS_IN))
   // Width: the right side a 32nd late, half way out
   .juxBy(.5, x => x.late(1/32))
-  .delay(part(VOCALS_DELAY)).delaytime(BEAT * .75).delayfeedback(.45)
+  .delay(part(VOCALS_DELAY).mul(VOCALS_ECHO)).delaytime(BEAT * .75).delayfeedback(.45)
   .room(.3)
   .orbit(6)
-  .gain(VOCALS_VOL)._pianoroll()
+  .gain(VOCALS_VOL)._pianoroll()._scope()
 
 
 //   __  __     _         _
@@ -149,7 +165,7 @@ const BASSLINE_PATTERN = [
 // whole section; isaw falls, to close the filter at the end.
 const BASS_CUTOFF = [200, saw.slow(16).range(200, 300), saw.slow(16).range(250, 450), saw.slow(8).range(300, 2500), 600, 200, 900, isaw.slow(10).range(200, 900)]
 const BASS_ENERGY = [1, saw.slow(16).range(1, 2), saw.slow(16).range(2, 3), 3, 4, 1, 4, isaw.slow(10).range(1, 4)]
-const SUB_ENERGY  = [1, 1, 2, 1, 3, 1, 4, 2]
+const ACID_ENERGY = [1, 1, 2, 1, 3, 1, 4, 2]
 
 
 //   ___
@@ -161,15 +177,14 @@ const SUB_ENERGY  = [1, 1, 2, 1, 3, 1, 4, 2]
 $kick: s("[bd]*4").bank("tr909")
   .mask(part(KICK_IN))
   .gain(KICK_VOL)
-  ._scope()
 .duck("2,3,4,5").duckattack(.2).duckdepth(.8)
 
 // Snare: the backbeat from bar 5 of the INTRO, and in the BUILD a roll that doubles every 2 bars
 const SNARE_PATTERN = ["~", "~ sd ~ sd", "~ sd ~ sd", "<[~ sd]*2!2 sd*4!2 sd*8!2 sd*16!2>", "~ sd ~ sd", "~", "~ sd ~ sd", "~"]
-$snare: s(part(SNARE_PATTERN)).bank("tr909").mask(part(SNARE_IN)).room(.2).gain(SNARE_VOL)._scope()
+$snare: s(part(SNARE_PATTERN)).bank("tr909").mask(part(SNARE_IN)).room(.2).gain(SNARE_VOL)
 
 // 909 claps on 2 and 4 in the drops, a little to the right
-$clap: s("~ cp ~ cp").bank("tr909").mask(part(CLAP_IN)).pan(.6).gain(CLAP_VOL)._scope()
+$clap: s("~ cp ~ cp").bank("tr909").mask(part(CLAP_IN)).pan(.6).gain(CLAP_VOL)
 
 // Rolling hats: sixteenths with an accent on every fourth, so they roll and do not
 // hammer (as lib/drums/rolling-hats), drifting slowly between left and right
@@ -181,7 +196,7 @@ $hh: s("hh*16").bank("tr909").mask(part(HH_IN))
 const HHR_CUTOFF = [saw.slow(10).range(800, 8000), 8000, 8000, 8000, 8000, 3000, 8000, 8000]
 // Accents on the beat; jux(rev) plays it backwards on the right, for width
 $hhr: s("hh!16").bank("yamaharm50").mask(part(HHR_IN)).velocity("[1 .6 .8 .6]*4")
-  .lpf(part(HHR_CUTOFF)).jux(rev).gain(HHR_VOL)._scope()
+  .lpf(part(HHR_CUTOFF).mul(HATS_OPEN)).jux(rev).gain(HHR_VOL)._scope()
 
 //   ___             _ _
 //  | _ ) __ _ _____| (_)_ _  ___
@@ -191,16 +206,16 @@ $hhr: s("hh!16").bank("yamaharm50").mask(part(HHR_IN)).velocity("[1 .6 .8 .6]*4"
 // A tb303 whose filter follows the arrangement
 $bass: n(part(BASSLINE_PATTERN).add(part(CHORD_PROGRESSION))).scale("f2:phrygian")._pianoroll()
   .mask(part(BASS_IN))
-  .acid(part(BASS_ENERGY)).lpf(part(BASS_CUTOFF)).gain(BASS_VOL)
+  .acid(part(BASS_ENERGY).mul(BASS_SQUELCH)).lpf(part(BASS_CUTOFF).mul(BASS_CUTOFF_MUL)).gain(BASS_VOL)
   // Pumps with the kick
-  .orbit(2)
+  .orbit(2)._scope()
 
-// Random 303 line under it, occasionally an octave up, made repeatable with rib
-lowendbass: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygian")._pianoroll()
+// Acid: a random 303 line above the bass, occasionally an octave up, made repeatable with rib
+$acid: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygian")._pianoroll()
   .rib(10,4)
-  .mask(part(SUB_IN))
-  .dist("2:0.3")
-  .s("sawtooth").lpf(200).lpenv(part(SUB_ENERGY)).lpq(12).gain(SUB_VOL)
+  .mask(part(ACID_IN))
+  .dist(ACID_DRIVE).distvol(.3)
+  .s("sawtooth").lpf(200).lpenv(part(ACID_ENERGY)).lpq(12).gain(ACID_VOL)
   .orbit(3)
 
 
@@ -214,10 +229,13 @@ lowendbass: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygia
 const RISER_GAIN = [saw.slow(10).range(0, .35), 0, 0, saw.slow(8).range(0, .5), 0, .1, 0, isaw.slow(10).range(0, .3)]
 const RISER_HPF  = [saw.slow(10).range(200, 2000), 200, 200, saw.slow(8).range(200, 4000), 200, 500, 200, isaw.slow(10).range(200, 2000)]
 $riser: s("pulse").seg(16).dec(.1).fm(time).fmh(time)
-  .hpf(part(RISER_HPF)).pan(sine.fast(2))
+  .mask(part(RISER_IN))
+  .hpf(part(RISER_HPF).mul(RISER_OPEN)).pan(sine.fast(2))
   .delay(.4).delaytime(BEAT * .5).delayfeedback(.5).room(.5)
   .orbit(4)
-  .gain(part(RISER_GAIN))
+  // The arrangement's level rides on velocity, so the fader stays the gain
+  .velocity(part(RISER_GAIN))
+  .gain(RISER_VOL)._scope()
 
 // Pad: a wide supersaw on the progression of the drops, its filter opening with the
 // energy, through a large room. It pumps with the kick (orbit 5).
@@ -225,9 +243,9 @@ const PAD_CUTOFF = [600, 600, 600, saw.slow(8).range(400, 1500), 1200, 700, 1800
 $pad: n(part(CHORD_PROGRESSION).add("[0,2,4]")).scale("f3:phrygian")
   .mask(part(PAD_IN))
   .s("supersaw").detune(.6).attack(.5).release(2)
-  .lpf(part(PAD_CUTOFF)).room(.8)
+  .lpf(part(PAD_CUTOFF).mul(PAD_OPEN)).room(PAD_SPACE)
   .orbit(5)
-  .gain(PAD_VOL)
+  .gain(PAD_VOL)._scope()
 
 //   ___
 //  | _ \__ ___ _____

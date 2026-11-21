@@ -557,7 +557,9 @@ so a slider's index here is its index in the stage. A slider belongs to a chain 
 call is inside the chain or a top level `const` holding it is used there (also through
 another `const`). The label of a fader is the call whose arguments hold the slider or the
 constant, walking up through anything that is not a call: `.gain(KICK_VOL.mul(2))` gives
-"gain". `.orbit(n)` and `.duck("2,3,4")` count only on the chain's own calls; one inside a
+"gain". Arithmetic (`mul`, `add`, `sub`, `div`, `mod`) is walked through too, so a slider
+that scales a curve, `.lpf(curve.mul(OPEN))`, gives "lpf"; the demo writes its arrangement
+that way. `.orbit(n)` and `.duck("2,3,4")` count only on the chain's own calls; one inside a
 function, or a value that is not a literal, makes the orbit unknown. superdough takes the
 duck orbits as a list (`"2:3"`) or one per event (`"2,3,4"`, a stack), so both read as
 the same set.
@@ -588,6 +590,10 @@ and the faders ran out of them; the strips now keep their height and the area sc
 and the faders get shorter in a low panel. The first report of a Mixer opened by the test
 came before the model reached it, so the test's `mixerShow` sends the model again with
 each try.
+
+Since 2026-11-21 `demo.strudel` is an arrangement that plays itself: 10 strips (the sub
+line is now `$acid`, and there are a clap and a pad), 18 sliders, and the kick ducks bass,
+acid, riser and pad on orbits 2 to 5. `src/shared/chains.test.ts` holds that table.
 
 ## Clicks in the Strudel editor
 

@@ -199,7 +199,7 @@ export async function run(): Promise<void> {
 				await vscode.commands.executeCommand('vscode.openWith', demo, EDITOR);
 				await vscode.commands.executeCommand('strdltn.play');
 				await sleep(3000);
-				const spots = ['$kick:', 'bank("tr909")', '.gain(BASS_VOL)', 'lpenv(SUB_ENERGY)', '$riser:', '.kaleid('].map((needle) => demoNow.indexOf(needle) + 2);
+				const spots = ['$kick:', 'bank("tr909")', '.gain(BASS_VOL)', 'lpenv(part(ACID_ENERGY))', '$riser:', '.kaleid('].map((needle) => demoNow.indexOf(needle) + 2);
 				const clicks = await input('@title Sea of Souls', spots.map((click) => ({ click })));
 				cases.clicksInPlayingDemo = {
 					landed: (clicks.log ?? []).map((c) => `${c.click}->${c.head}${c.head === c.click ? '' : ' MISSED'}${c.focused ? '' : ' unfocused'} ${JSON.stringify(c).slice(0, 300)}`),

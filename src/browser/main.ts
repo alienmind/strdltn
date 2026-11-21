@@ -1,11 +1,14 @@
-// The Browser view: search, colors, categories, places, tag chips and the results, in one
-// column, like the browser of Live. The host sends the items and does what a row asks;
-// this page keeps what is on screen. See "Browser" in doc/ARCHITECTURE.md.
+// The page of the Browser's four views. Library, Songs and Snippets and Reference show the
+// categories that pick what is shown (Library also the search and the colors);
+// Results shows the chips, the results and the details. One filter for all four: the host
+// keeps it and hands it to each. See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
-import type { BrowserFilterState, FromBrowser, ToBrowser } from '../shared/browser.ts';
+import { type BrowserFilterState, type BrowserPage, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
 import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
+import type { PreviewPlan } from '../shared/preview.ts';
 import { chipGroups, filterItems, groupItems } from '../shared/search.ts';
 import { TAG_GROUPS } from '../shared/tags.ts';
+import { createControls } from './controls.ts';
 import { icon } from './icons.ts';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): unknown; setState(state: unknown): void };
@@ -25,7 +28,6 @@ type Row =
 	| { type: 'variation'; item: CatalogItem; index: number; depth: number };
 
 interface Saved {
-	filter: BrowserFilterState;
 	sections: Record<string, boolean>;
 	headings: Record<string, boolean>;
 	chipsOpen: string[];
@@ -35,8 +37,9 @@ const saved = (vscode.getState() as Saved | undefined) ?? undefined;
 let items: CatalogItem[] = [];
 let user: UserIndex = emptyUserIndex();
 let preview = true;
-let logo = '';
-let filter: BrowserFilterState = saved?.filter ?? { category: 'all', query: '', chips: [] };
+/** Which of the four views this page is. Known from `init`. */
+let page: BrowserPage = 'library';
+let filter: BrowserFilterState = { category: 'all', query: '', chips: [] };
 const sections: Record<string, boolean> = saved?.sections ?? { collections: true, library: true, places: false };
 /** Headings the user opened or closed, by category and key. Cleared when the search changes. */
 let headings: Record<string, boolean> = saved?.headings ?? {};
@@ -49,7 +52,7 @@ const selection = new Set<string>();
 let cursor = -1;
 let anchor = -1;
 
-const keep = () => vscode.setState({ filter, sections, headings, chipsOpen: [...chipsOpen] } satisfies Saved);
+const keep = () => vscode.setState({ sections, headings, chipsOpen: [...chipsOpen] } satisfies Saved);
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
 	const node = document.createElement(tag);
 	if (className) node.className = className;
@@ -68,12 +71,18 @@ const button = (name: string, title: string, onClick: (event: MouseEvent) => voi
 };
 const rowKey = (row: Row) => (row.type === 'heading' ? `h:${row.key}` : row.type === 'item' ? row.item.id : `${row.item.id}#${row.index}`);
 const colorVar = (color: number) => `var(--c${color})`;
-const filtered = () => !!(filter.query.trim() || filter.chips.length || filter.color || filter.place);
+const filtered = () => !!(filter.query.trim() || filter.chips.length || filter.color || filter.place || filter.builtin !== undefined);
+/** The items this view picks from: sounds in the Library, songs and snippets, functions in the Reference. */
+const ownItems = () => items.filter((item) => pageOf(item) === page);
 
 // ---- the page ---------------------------------------------------------------------------
 
 const app = document.getElementById('app')!;
-const banner = app.appendChild(el('div', 'banner'));
+// Nothing shows before `init` says which view this is.
+app.hidden = true;
+// Music Controls on top of the Library, then the search.
+const controlsBox = app.appendChild(el('div'));
+const showControls = createControls(controlsBox, post);
 const searchbar = app.appendChild(el('div', 'searchbar'));
 const searchBox = searchbar.appendChild(el('div', 'search'));
 searchBox.innerHTML = icon('search');
@@ -83,6 +92,8 @@ search.value = filter.query;
 search.spellcheck = false;
 const clearSearch = searchBox.appendChild(button('close', 'Clear the search (Esc)', () => setQuery('')));
 const previewButton = searchbar.appendChild(button('speaker', '', () => post({ type: 'setPreview', on: !preview })));
+// The colors and the Built-in button, right under the search: they filter like it does.
+const colorbar = app.appendChild(el('div', 'colorbar'));
 const nav = app.appendChild(el('div', 'nav'));
 const chips = app.appendChild(el('div', 'chips'));
 const resultbar = app.appendChild(el('div', 'resultbar'));
@@ -100,11 +111,6 @@ search.addEventListener('input', () => {
 });
 search.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape') setQuery('');
-	if (event.key === 'ArrowDown' || event.key === 'Enter') {
-		event.preventDefault();
-		resultsBox.focus();
-		if (cursor < 0) moveCursor(firstItemRow(), false);
-	}
 });
 document.addEventListener('keydown', (event) => {
 	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
@@ -120,7 +126,9 @@ resultsBox.addEventListener('scroll', () => drawRows());
 new ResizeObserver(() => drawRows()).observe(resultsBox);
 resultsBox.addEventListener('keydown', onResultsKey);
 
+/** The search field is in the Library. Another view asks the host to put the cursor there. */
 function focusSearch(): void {
+	if (page !== 'library') return post({ type: 'focusSearch' });
 	search.focus();
 	search.select();
 }
@@ -128,14 +136,14 @@ function focusSearch(): void {
 function setQuery(query: string): void {
 	search.value = query;
 	if (query === filter.query) return;
-	filter = { ...filter, query };
-	headings = {};
-	update();
+	setFilter({ query });
 }
 
+/** A change made in this view. The host hands it to the other three. */
 function setFilter(change: Partial<BrowserFilterState>): void {
 	filter = { ...filter, ...change };
 	headings = {};
+	post({ type: 'filter', filter });
 	update();
 }
 
@@ -147,9 +155,9 @@ function update(): void {
 	previewButton.innerHTML = icon(preview ? 'speaker' : 'mute');
 	previewButton.classList.toggle('on', preview);
 	previewButton.title = preview ? 'Preview on click is ON. Press to turn it off' : 'Preview on click is OFF. Press to turn it on';
-	drawNav();
+	if (page !== 'results') return drawNav();
 	const shown = drawChips();
-	results = filterItems(items, filter, user);
+	results = filterItems(scoped(items, filter), filter, user);
 	buildRows();
 	drawResultbar();
 	drawRows();
@@ -171,48 +179,76 @@ function section(id: string, title: string, body: (into: HTMLElement) => void): 
 	return box;
 }
 
+/** The seven colors and the Built-in button, in one row under the search field of the Library. */
+function drawColorbar(): void {
+	colorbar.replaceChildren();
+	const dots = colorbar.appendChild(el('div', 'colors-row'));
+	for (let color = 1; color <= COLOR_COUNT; color++) {
+		const dot = dots.appendChild(el('span', `dot${filter.color === color ? ' active' : ''}`));
+		dot.style.background = colorVar(color);
+		const count = items.filter((item) => colorsOf(item, user).includes(color)).length;
+		dot.title = `${user.colorNames[color - 1]}: ${count} items. Keys 1 to 7 color the selected rows. Right click to rename.`;
+		dot.addEventListener('click', () => setFilter({ color: filter.color === color ? undefined : color }));
+		dot.addEventListener('contextmenu', (event) => {
+			event.preventDefault();
+			openMenu(event, [{ label: `Rename "${user.colorNames[color - 1]}"...`, run: () => renameColor(color) }]);
+		});
+	}
+	// Where an item comes from, as one more condition: built in, or not (the project and
+	// the packs it loads). It took the place of Places.
+	const builtin = colorbar.appendChild(el('button', `chip builtin${filter.builtin === undefined ? '' : ' on'}`, filter.builtin === false ? 'Not built-in' : 'Built-in'));
+	builtin.title =
+		filter.builtin === undefined
+			? 'Everything. Click: only what comes with Strudel'
+			: filter.builtin
+				? 'Only what comes with Strudel. Click: only what does not (your project, the packs it loads)'
+				: 'Only your project and the packs it loads. Click: everything';
+	builtin.addEventListener('click', () => setFilter({ builtin: filter.builtin === undefined ? true : filter.builtin ? false : undefined, place: undefined }));
+}
+
 function drawNav(): void {
+	if (page === 'library') drawColorbar();
+	const own = ownItems();
 	nav.replaceChildren(
-		section('collections', 'Collections', (body) => {
-			const dots = body.appendChild(el('div', 'colors-row'));
-			for (let color = 1; color <= COLOR_COUNT; color++) {
-				const dot = dots.appendChild(el('span', `dot${filter.color === color ? ' active' : ''}`));
-				dot.style.background = colorVar(color);
-				const count = items.filter((item) => colorsOf(item, user).includes(color)).length;
-				dot.title = `${user.colorNames[color - 1]}: ${count} items. Keys 1 to 7 color the selected rows. Right click to rename.`;
-				dot.addEventListener('click', () => setFilter({ color: filter.color === color ? undefined : color }));
-				dot.addEventListener('contextmenu', (event) => {
-					event.preventDefault();
-					openMenu(event, [{ label: `Rename "${user.colorNames[color - 1]}"...`, run: () => renameColor(color) }]);
-				});
-			}
-			for (const saved of user.searches) {
-				const row = body.appendChild(navRow('save', saved.name, undefined, isSaved(saved)));
-				row.title = describeSearch(saved);
-				row.addEventListener('click', () => applySearch(saved));
-				row.addEventListener('contextmenu', (event) => {
-					event.preventDefault();
-					openMenu(event, [{ label: `Delete "${saved.name}"`, run: () => post({ type: 'deleteSearch', name: saved.name }) }]);
-				});
-			}
-		}),
-		section('library', 'Library', (body) => {
+		// One set of colors and saved searches, in the Library. They act on every view.
+		// Saved searches, when there are any. The colors moved under the search field.
+		...(page !== 'library' || !user.searches.length
+			? []
+			: [
+					section('collections', 'Collections', (body) => {
+						for (const saved of user.searches) {
+							const row = body.appendChild(navRow('save', saved.name, undefined, isSaved(saved)));
+							row.title = describeSearch(saved);
+							row.addEventListener('click', () => applySearch(saved));
+							row.addEventListener('contextmenu', (event) => {
+								event.preventDefault();
+								openMenu(event, [{ label: `Delete "${saved.name}"`, run: () => post({ type: 'deleteSearch', name: saved.name }) }]);
+							});
+						}
+					}),
+				]),
+		// The categories of this view, without a heading. A click picks one for Results; a
+		// click on the one that is picked goes back to everything.
+		categories((body) => {
+			const allOn = filter.category === 'all' && filter.scope === page;
+			const all = body.appendChild(navRow('all', 'All', own.length, allOn));
+			all.addEventListener('click', () => setFilter(allOn ? { scope: undefined } : { category: 'all', scope: page, chips: [] }));
 			for (const category of CATEGORIES) {
-				const count = category.id === 'all' ? items.length : items.filter((item) => item.category === category.id).length;
-				if (category.id !== 'all' && !count) continue;
-				const row = body.appendChild(navRow(category.icon, category.label, count, filter.category === category.id));
-				row.addEventListener('click', () => setFilter({ category: category.id, chips: [] }));
-			}
-		}),
-		section('places', 'Places', (body) => {
-			for (const place of PLACES) {
-				const count = items.filter((item) => item.place === place.id).length;
+				if (category.id === 'all') continue;
+				const count = own.filter((item) => item.category === category.id).length;
 				if (!count) continue;
-				const row = body.appendChild(navRow(place.icon, place.label, count, filter.place === place.id));
-				row.addEventListener('click', () => setFilter({ place: filter.place === place.id ? undefined : place.id }));
+				const on = filter.category === category.id;
+				const row = body.appendChild(navRow(category.icon, category.label, count, on));
+				row.addEventListener('click', () => setFilter(on ? { category: 'all', scope: undefined } : { category: category.id, scope: undefined, chips: [] }));
 			}
 		}),
 	);
+}
+
+function categories(body: (into: HTMLElement) => void): HTMLElement {
+	const box = el('div', 'categories');
+	body(box);
+	return box;
 }
 
 function navRow(iconName: string, label: string, count: number | undefined, active: boolean): HTMLElement {
@@ -226,7 +262,7 @@ function navRow(iconName: string, label: string, count: number | undefined, acti
 /** The chips of the items the other filters leave, so a chip never leads to nothing. Returns how many are shown. */
 function drawChips(): number {
 	chips.replaceChildren();
-	const pool = filterItems(items, { ...filter, chips: [] }, user);
+	const pool = filterItems(scoped(items, filter), { ...filter, chips: [] }, user);
 	let shown = 0;
 	for (const { group, chips: list } of chipGroups(pool, user, TAG_GROUPS)) {
 		const line = chips.appendChild(el('div', 'chip-group'));
@@ -262,17 +298,16 @@ function toggleChip(tag: string, add: boolean): void {
 
 function drawResultbar(): void {
 	resultbar.replaceChildren();
-	const where = CATEGORIES.find((c) => c.id === filter.category)?.label ?? '';
-	const parts = [`${results.length} ${results.length === 1 ? 'result' : 'results'}`, filter.category === 'all' ? '' : `in ${where}`];
+	const scopes: Record<BrowserPage, string> = { library: 'Library', songs: 'Songs and Snippets', reference: 'Reference', results: '' };
+	const where = filter.category !== 'all' ? CATEGORIES.find((c) => c.id === filter.category)?.label : filter.scope ? scopes[filter.scope] : '';
+	const parts = [`${results.length} ${results.length === 1 ? 'result' : 'results'}`, where ? `in ${where}` : ''];
 	if (filter.color) parts.push(user.colorNames[filter.color - 1]);
 	if (filter.place) parts.push(PLACES.find((p) => p.id === filter.place)?.label ?? '');
+	if (filter.builtin !== undefined) parts.push(filter.builtin ? 'built in' : 'not built in');
 	resultbar.appendChild(el('span', 'summary', parts.filter(Boolean).join(' ')));
 	if (filtered()) {
 		resultbar.appendChild(button('save', 'Save this search under Collections', () => saveSearch()));
-		resultbar.appendChild(button('close', 'Clear the search and the filters', () => {
-			search.value = '';
-			setFilter({ query: '', chips: [], color: undefined, place: undefined });
-		}));
+		resultbar.appendChild(button('close', 'Clear the search and the filters', () => setFilter({ query: '', chips: [], color: undefined, place: undefined, builtin: undefined })));
 	}
 }
 
@@ -349,7 +384,7 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		const detail = item.detail && (filter.category === 'all' || item.detail !== item.group) ? item.detail : '';
 		node.appendChild(el('span', 'detail', row.type === 'item' ? [item.count ? String(item.count) : '', detail].filter(Boolean).join('  ') : ''));
 		const squares = node.appendChild(el('span', 'squares'));
-		for (const color of colorsOf(item, user).slice(0, 3)) squares.appendChild(el('span', 'sq')).style.background = colorVar(color);
+		for (const color of colorsOf(item, user)) squares.appendChild(el('span', 'sq')).style.background = colorVar(color);
 		const actions = node.appendChild(el('span', 'actions'));
 		const index_ = row.type === 'variation' ? row.index : undefined;
 		if (item.sound) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
@@ -447,11 +482,6 @@ function drawDetails(): void {
 }
 
 // ---- selection and keys -----------------------------------------------------------------
-
-function firstItemRow(): number {
-	const index = rows.findIndex((row) => row.type !== 'heading');
-	return index < 0 ? 0 : index;
-}
 
 function select(index: number, add: boolean, range: boolean): void {
 	if (range && anchor >= 0) {
@@ -694,14 +724,12 @@ function describeSearch(search: SavedSearch): string {
 }
 
 function isSaved(search: SavedSearch): boolean {
-	return search.query === filter.query && search.category === filter.category && search.color === filter.color && search.place === filter.place && search.chips.join() === filter.chips.join();
+	return search.query === filter.query && search.category === filter.category && search.color === filter.color && search.place === filter.place && search.builtin === filter.builtin && search.chips.join() === filter.chips.join();
 }
 
-function applySearch(search: SavedSearch): void {
-	filter = { category: search.category, query: search.query, chips: [...search.chips], color: search.color, place: search.place };
+function applySearch(saved: SavedSearch): void {
+	setFilter({ category: saved.category, scope: undefined, query: saved.query, chips: [...saved.chips], color: saved.color, place: saved.place, builtin: saved.builtin });
 	searchbarSync();
-	headings = {};
-	update();
 }
 
 function searchbarSync(): void {
@@ -713,7 +741,7 @@ function saveSearch(): void {
 	const proposal = filter.query.trim() || filter.chips.map((chip) => chip.slice(chip.indexOf('/') + 1)).join(' ') || (filter.color ? user.colorNames[filter.color - 1] : 'My search');
 	openDialog('Save this search under Collections', (into) => (input = textField(into, proposal, 'Name')), 'Save', () => {
 		const name = input.value.trim();
-		if (name) post({ type: 'saveSearch', search: { name, query: filter.query, category: filter.category, place: filter.place, color: filter.color, chips: [...filter.chips] } });
+		if (name) post({ type: 'saveSearch', search: { name, query: filter.query, category: filter.category, place: filter.place, builtin: filter.builtin, color: filter.color, chips: [...filter.chips] } });
 	});
 }
 
@@ -756,22 +784,118 @@ function editTags(): void {
 	);
 }
 
+// ---- previews ---------------------------------------------------------------------------
+
+/**
+ * Plays a preview here, with plain Web Audio, as the host planned it. The click on the row
+ * started it, and a click inside this page is what lets it make sound. Half a second at
+ * A3, a fade at the end, like the engine's preview with no song playing.
+ */
+let audio: AudioContext | undefined;
+const buffers = new Map<string, Promise<AudioBuffer>>();
+let playingNow: AudioScheduledSourceNode | undefined;
+async function playPreview(plan: PreviewPlan): Promise<void> {
+	audio ??= new AudioContext();
+	// Not awaited: without a click in the page (the integration test sends the message from
+	// the host) the promise may never settle. With the click, the context runs at once.
+	if (audio.state === 'suspended') void audio.resume();
+	playingNow?.stop();
+	const now = audio.currentTime + 0.01;
+	const gain = audio.createGain();
+	gain.connect(audio.destination);
+	let source: AudioScheduledSourceNode;
+	let length = 0.5;
+	try {
+		if (plan.kind === 'sample') {
+			let buffer = buffers.get(plan.url);
+			if (!buffer) {
+				const url = plan.url;
+				buffer = fetch(url)
+					.then((response) => {
+						if (!response.ok) throw new Error(`${response.status} for ${url}`);
+						return response.arrayBuffer();
+					})
+					.then((bytes) => audio!.decodeAudioData(bytes));
+				buffers.set(url, buffer);
+				buffer.catch(() => buffers.delete(url));
+			}
+			const node = audio.createBufferSource();
+			node.buffer = await buffer;
+			if (plan.loop) {
+				// One cycle of a wavetable, looped at A3.
+				node.loop = true;
+				node.playbackRate.value = 220 * node.buffer.duration;
+			} else length = Math.min(node.buffer.duration, 4);
+			source = node;
+		} else if (plan.kind === 'oscillator') {
+			const node = audio.createOscillator();
+			node.type = plan.wave;
+			node.frequency.value = 220;
+			source = node;
+			gain.gain.value = 0.3;
+		} else {
+			const node = audio.createBufferSource();
+			node.buffer = noise(audio, plan.color);
+			source = node;
+			gain.gain.value = 0.3;
+		}
+	} catch (error) {
+		post({ type: 'log', message: `preview: ${(error as Error).message}` });
+		return;
+	}
+	const level = gain.gain.value || 1;
+	gain.gain.setValueAtTime(level, now + Math.max(0, length - 0.05));
+	gain.gain.linearRampToValueAtTime(0, now + length);
+	source.connect(gain);
+	source.start(now);
+	source.stop(now + length);
+	playingNow = source;
+	post({ type: 'log', message: `preview: ${plan.kind === 'sample' ? plan.url.split('/').pop() : plan.kind === 'oscillator' ? plan.wave : `${plan.color} noise`} (${audio.state})` });
+}
+
+/** Half a second of noise. Pink and brown by the usual simple filters. */
+function noise(context: AudioContext, color: 'white' | 'pink' | 'brown'): AudioBuffer {
+	const buffer = context.createBuffer(1, context.sampleRate / 2, context.sampleRate);
+	const data = buffer.getChannelData(0);
+	let last = 0;
+	let b0 = 0;
+	let b1 = 0;
+	let b2 = 0;
+	for (let i = 0; i < data.length; i++) {
+		const white = Math.random() * 2 - 1;
+		if (color === 'white') data[i] = white;
+		else if (color === 'brown') {
+			last = (last + 0.02 * white) / 1.02;
+			data[i] = last * 3.5;
+		} else {
+			b0 = 0.99765 * b0 + white * 0.099046;
+			b1 = 0.963 * b1 + white * 0.2965164;
+			b2 = 0.57 * b2 + white * 1.0526913;
+			data[i] = (b0 + b1 + b2 + white * 0.1848) * 0.2;
+		}
+	}
+	return buffer;
+}
+
 // ---- messages ---------------------------------------------------------------------------
 
 window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 	const message = event.data;
 	switch (message.type) {
 		case 'init':
+			page = message.page;
+			filter = message.filter;
 			items = message.items;
 			user = message.user;
 			preview = message.preview;
-			logo = message.logo;
-			banner.replaceChildren();
-			if (logo) {
-				const img = banner.appendChild(el('img'));
-				img.src = logo;
-				img.alt = '[str]dltn Live[code] - your IDE is your DAW';
-			}
+			// Library: search, colors, categories. Songs and Snippets, Reference:
+			// their categories. Results: chips, results, details.
+			searchbar.hidden = colorbar.hidden = controlsBox.hidden = page !== 'library';
+			nav.hidden = page === 'results';
+			chips.hidden = resultbar.hidden = resultsBox.hidden = details.hidden = page !== 'results';
+			document.body.dataset.page = page;
+			app.hidden = false;
+			searchbarSync();
 			return update();
 		case 'items':
 			items = message.items;
@@ -784,14 +908,18 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			return update();
 		case 'focusSearch':
 			return focusSearch();
-		case 'show':
-			filter = { ...filter, ...message.filter };
+		case 'controls':
+			return showControls(message.state);
+		case 'playPreview':
+			return void playPreview(message.plan);
+		case 'filter':
+			filter = message.filter;
 			searchbarSync();
 			headings = {};
 			for (const key of message.open ?? []) headings[`${filter.category}|${key}`] = true;
 			update();
 			// Show the first opened heading at the top, for a screenshot.
-			if (message.open?.length) {
+			if (page === 'results' && message.open?.length) {
 				const index = rows.findIndex((row) => row.type === 'heading' && row.key === `${filter.category}|${message.open![0]}`);
 				if (index >= 0) {
 					resultsBox.scrollTop = index * rowHeight();

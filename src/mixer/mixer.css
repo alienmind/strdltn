@@ -1,0 +1,138 @@
+/* The Mixer view. Every color is a theme variable of VS Code, so it fits any theme. */
+:root {
+	/* The width of a folded strip. Long names are cut, the whole name is in the tooltip. */
+	--strip: 78px;
+	--fader: 40px;
+	--sidechain: var(--vscode-charts-orange, #d18616);
+}
+* { box-sizing: border-box; }
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	overflow: hidden;
+	color: var(--vscode-foreground);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size, 13px);
+	background: transparent;
+	user-select: none;
+}
+#app { display: flex; flex-direction: column; height: 100%; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: default; opacity: .35; }
+
+.bar { flex: none; display: flex; gap: 12px; align-items: center; padding: 4px 10px; }
+[hidden] { display: none !important; }
+.bar .song { font-weight: 600; }
+.bar .stale { color: var(--vscode-editorWarning-foreground, #cca700); font-size: 11px; }
+
+/* The strips scroll sideways. The cables hang under them, so there is room below. */
+.strips {
+	position: relative;
+	flex: 1;
+	/* One grid row: every strip as tall as the tallest, so a chain without a slider is not
+	   a stub (riser in demo.strudel). The row is as tall as its strips, not as the panel:
+	   a low panel scrolls, it does not squeeze them. */
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: max-content;
+	align-items: stretch;
+	align-content: start;
+	justify-content: start;
+	gap: 4px;
+	padding: 0 10px 100px;
+	overflow: auto;
+	min-height: 0;
+}
+.strips.old .strip { opacity: .55; }
+.empty { padding: 8px 0; color: var(--vscode-descriptionForeground); }
+
+.strip {
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	width: var(--strip);
+	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35));
+	border-radius: 4px;
+	background: var(--vscode-sideBar-background, rgba(128, 128, 128, .06));
+}
+.strip.open, .strip.global { width: auto; min-width: var(--strip); }
+.strip.global { border-style: dashed; }
+.strip.muted .faders, .strip.muted header .name { opacity: .45; }
+.strip.solo { border-color: var(--vscode-charts-blue, #3794ff); }
+
+.strip header { display: flex; align-items: center; gap: 2px; padding: 4px 4px 2px; min-width: 0; }
+.strip header .fold { width: 14px; flex: none; opacity: .8; }
+.strip header .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-weight: 600; }
+.strip header .name:hover { text-decoration: underline; }
+.strip.global header .name { padding-left: 16px; cursor: default; text-decoration: none; color: var(--vscode-descriptionForeground); }
+
+.body { flex: 1; display: flex; gap: 4px; padding: 0 4px 0 6px; }
+.badges { flex: none; display: flex; flex-direction: column; gap: 3px; padding-top: 4px; }
+.badge {
+	width: 18px;
+	line-height: 16px;
+	text-align: center;
+	font-size: 10px;
+	font-weight: 700;
+	border-radius: 2px;
+	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35));
+	color: var(--vscode-descriptionForeground);
+}
+.badge:hover { border-color: var(--vscode-focusBorder, #3794ff); }
+.badge.on { color: var(--vscode-editor-background, #1e1e1e); background: var(--vscode-charts-blue, #3794ff); border-color: transparent; }
+
+.faders { flex: 1; display: flex; justify-content: center; gap: 2px; }
+.fader { display: flex; flex-direction: column; align-items: center; width: var(--fader); min-width: 0; }
+/* A vertical fader: writing-mode turns the range input upright, with the minimum at the bottom. */
+.fader input {
+	writing-mode: vertical-lr;
+	direction: rtl;
+	/* As tall as the panel allows, up to 400 pixels, so the jacks and cables stay in view. */
+	height: clamp(48px, calc(100vh - 230px), 400px);
+	width: 22px;
+	margin: 4px 0;
+	accent-color: var(--vscode-focusBorder, #3794ff);
+}
+.fader input:disabled { opacity: 1; cursor: default; }
+.fader .label, .fader .detail, .fader .value { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fader .label { font-weight: 600; font-size: 11px; }
+.fader .detail { font-size: 10px; color: var(--vscode-descriptionForeground); }
+.fader .value { font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; opacity: .85; }
+.fader.off { opacity: .4; }
+.fader.off input { accent-color: var(--vscode-disabledForeground, #888); }
+
+/* The chain's scope under its faders: the theme's green, as upstream's scopes are a plain line. */
+.strip .scope { display: block; height: 28px; width: calc(100% - 12px); margin: 2px 6px 0; border-radius: 2px; cursor: pointer; color: var(--vscode-charts-green, #89d185); background: var(--vscode-editor-background, rgba(0, 0, 0, .3)); }
+.strip .scope.off { color: var(--vscode-disabledForeground, #888); opacity: .6; }
+.strip .scope:hover { outline: 1px solid var(--vscode-focusBorder, #3794ff); }
+.strip footer { margin-top: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 4px 6px; min-height: 32px; }
+.route { flex: 1; font-size: 10px; color: var(--vscode-descriptionForeground); }
+.note { width: 100%; font-size: 10px; color: var(--vscode-descriptionForeground); }
+.jack { display: block; width: 24px; height: 24px; color: var(--sidechain); }
+.jack svg { display: block; }
+
+/* The layer of the cables, over the strips, scrolled and clipped with them. It is 1 pixel
+   big and draws outside itself: sized to the scroll area it would grow the scroll area. */
+.cables { position: absolute; left: 0; top: 0; width: 1px; height: 1px; pointer-events: none; overflow: visible; }
+.cable path { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+.cable.sidechain path { stroke: var(--sidechain); stroke-dasharray: 7 5; }
+.cable.sidechain circle { fill: var(--sidechain); }
+.cable text { fill: var(--sidechain); font-size: 10px; text-anchor: middle; }
+/* The cable in the hand: orange while it can be dropped, red where it would be refused. */
+.cable.drag path { stroke: var(--sidechain); stroke-dasharray: 7 5; }
+.cable.drag circle { fill: var(--sidechain); }
+.refusing .cable.drag path { stroke: var(--vscode-errorForeground, #f14c4c); }
+.refusing .cable.drag circle { fill: var(--vscode-errorForeground, #f14c4c); }
+.ghost { position: absolute; width: 1px; height: 1px; pointer-events: none; }
+.jack { cursor: grab; }
+.strip.drop-ok { outline: 2px solid var(--vscode-focusBorder, #3794ff); outline-offset: -1px; }
+.strip.drop-refused { outline: 2px solid var(--vscode-errorForeground, #f14c4c); outline-offset: -1px; }
+
+/* A tall panel: M, S and G in a row above the fader, as on a mixing desk. A low panel keeps
+   them beside it, where they take no height. */
+@media (min-height: 420px) {
+	.body { flex-direction: column; gap: 2px; padding: 0 6px; }
+	.badges { flex-direction: row; justify-content: center; padding-top: 2px; }
+	.fader input { height: clamp(48px, calc(100vh - 256px), 400px); }
+}

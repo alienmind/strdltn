@@ -278,6 +278,105 @@ editor the host reads the text around the cursor; in the Strudel editor the webv
 button that swaps the name under the cursor. `src/shared/context.ts` already finds what
 is around a position.
 
+**Songs as files.** Asked by the maintainer on 2026-11-20, planned, not built. The Songs
+of the Browser should work like the Explorer for `.strudel` files, so a user never has to
+leave the Browser to start, name or remove a track.
+
+| Gesture | Does | How |
+|---|---|---|
+| A `+` button "Create new track", in the title bar of the Browser left of "Refresh the Browser" | Opens Library > Songs, creates `New Track.strudel` (`New Track 2.strudel` when the name is taken), selects its row and puts the row in rename mode | A command `strdltn.newTrack` with `$(add)`, `navigation@1` in `view/title`. The host writes the file with `workspace.fs.writeFile` and opens it in the default editor |
+| Rename: F2, the menu, or right after "Create new track" | The row's name becomes a text field. Enter renames, Esc cancels. The `.strudel` ending is kept and not shown in the field | `WorkspaceEdit.renameFile`, so an open editor of the song follows the new name and undo works as in the Explorer. A name that exists or has a `/` is refused under the field, as the Explorer does |
+| Double click or Enter | Opens the song | As today |
+| Right click | Open, Rename... (F2), Reveal in Explorer, Reveal in File Explorer, Copy path, Remove (Delete key) | Reveal: `revealInExplorer` and `revealFileInOS` |
+| Remove | Asks first, then moves the file to the trash | `workspace.fs.delete(uri, { useTrash: true })`, with a modal like the Explorer's. A song that plays is stopped first |
+
+Where the file goes: the Songs category is not a folder, so a new track goes into the
+folder of the heading that is selected under Songs (`examples/`), else the root of the
+first workspace folder. What the new file holds: a short header (`// @title New Track`)
+and one line that plays, so Ctrl+Enter makes a sound at once. The text is to be agreed.
+
+**Insert a song.** Asked by the maintainer on 2026-11-20. A song of the Template place
+(the examples) gets an "Insert at the cursor" button beside "Open", which types the
+song's code (without its header) at the cursor, the way a snippet is inserted. Noted,
+not built.
+
+Open questions for the maintainer: does "Locate in browser" mean Reveal in Explorer (VS
+Code's side bar), Reveal in File Explorer (Windows), or both as above? Should a new
+track start from the empty header or from a template song? Should the same menu work
+for snippets in `lib/` (create, rename, remove)?
+
+Steps: the command and the button; the row in rename mode in `src/browser/main.ts`; the
+messages `newTrack`, `rename {id, name}`, `remove {id}`, `reveal {id, where}` in
+`src/shared/browser.ts`; the handlers in `src/extension/browser.ts`; a case in the
+integration test that creates, renames and removes a track in `tmp/`; README.
+
+**Insert an example.** Asked by the maintainer on 2026-11-20, noted, not built. Every
+function of the Functions category has an example (`example` of `dist/functions.json`,
+the first of `@strudel/reference`). A function row gets a second button "Insert an
+example" right beside "Insert at the cursor", and the context menu and the details pane
+get the same entry. It types the example as it is, through the `insertText` message that
+exists, so it lands at the cursor of either editor. "Insert at the cursor" keeps typing
+the name.
+
+### Reference and tutorial
+
+The side bar is four views now: Library (sounds, with the search and the colors), Songs
+and Snippets, Reference (functions), and Results, which shows what the other three pick
+in one list. Built: see "Browser" in `doc/ARCHITECTURE.md`. The tutorial is the second
+category of the Reference, and its lessons show in Results. Planned, not built.
+
+**Source.** The workshop of strudel.cc (`strudel.cc/workshop/getting-started` and the
+pages after it) and the "learn" pages. We do not scrape the rendered site: its pages are
+MDX files in the Strudel repository, `website/src/pages/workshop/*.mdx` and
+`website/src/pages/learn/*.mdx`, and `scripts/build-tutorial.mjs` already fetches them
+from codeberg at the commit of the `@strudel/*` packages we pin. So the examples match
+the engine that plays them, and an update of Strudel updates the tutorial with
+`pnpm tutorial`. The pages are AGPL-3.0-or-later, like this extension, so they may ship
+with it, with the credit line the script already writes. Today the script writes one
+Markdown file for AI assistants (`template/reference/strudel-tutorial.md`, 25 pages,
+about 310 examples). The same run writes the tutorial of the Reference too.
+
+**What the build writes.** `dist/tutorial.json`: the pages in reading order, the six
+pages of the workshop first, then the learn pages. Each page is split at its headings
+into lessons. A lesson has a title, its page, and its body as blocks: text (Markdown with
+paragraphs, lists, links and inline code), and code (an example). The script already
+turns the site's components into text: `<MiniRepl tune=...>` into an example, `<QA>` into
+a question and its answer, `<JsDoc name=...>` into a link to that function in the
+Reference. Pictures are left out, as now.
+
+**What the Reference shows.**
+
+| Where | What |
+|---|---|
+| Library section | "Functions" and "Tutorial" as two categories, with counts |
+| Results | A lesson per row, under the heading of its page, in reading order (not sorted by name) |
+| Details pane | The lesson's text, and each example as a code block with "Insert at the cursor" and "Open as a song". A function name in the text links to that function |
+| Search | The Library's field, as for the functions. It searches the titles and the text of lessons |
+| Colors and tags | As for every item: a color can mark the lessons already done |
+
+"Open as a song" makes an untitled `.strudel` file with the example and opens it, so
+Ctrl+Enter plays it. A play button right in the details pane needs an engine in the
+side bar, which is phase 6, so it waits for that. The details pane is short for a long
+lesson, so a lesson can also open in an editor tab of its own (the same page, through
+`Place`, see "Dock and float").
+
+**Work.**
+
+1. `scripts/build-tutorial.mjs` also writes `dist/tutorial.json`, split into lessons. The
+   build copies it like `functions.json`. A unit test checks that every lesson has a
+   title and every example is non-empty.
+2. `lessonItem` in `src/shared/catalog.ts`, category `tutorial`, kind `lesson`, shown in
+   the Reference (`pageOf`). Rows keep the order of the file.
+3. The details pane draws Markdown blocks: a small renderer of our own for the few forms
+   the pages use (headings, paragraphs, lists, links, inline code, code blocks), no new
+   dependency. Links to strudel.cc open in the browser.
+4. "Open as a song": a command that opens an untitled `.strudel` document with the code.
+5. The integration test: the Reference shows the tutorial, a search finds a lesson,
+   "Open as a song" plays the first example of "First Sounds".
+
+Size: 1 to 2 sessions. Decision 23 is answered: the workshop pages first, then the learn
+pages, all of them in the Reference.
+
 ### Index and tags
 
 Every item of the browser has an id and a record in an index. The index is JSON.
@@ -452,9 +551,75 @@ code 150 ms after the last move. The message for that exists: the host sends the
 host the slider by its position in the code, the host finds the index. When no engine
 plays the song, a move only writes the code.
 
-**Mute and solo.** Each strip has M and S. They write upstream's own syntax into the
-code: `_kick:` mutes, `Skick:` solos (decision 5). A muted or soloed channel is drawn as
-such from the text.
+**Mute and solo.** Each strip has M and S, as a track of Live has. They write upstream's
+own syntax into the code: `_kick:` mutes, `Skick:` solos (decision 5). A muted or soloed
+channel is drawn as such from the text. Built: a click flips the label, and a song that
+plays is evaluated again at once, so the mute is heard as in Live. Both on gives `Skick_`,
+which upstream reads as muted. The maintainer chose the labels on 2026-11-21.
+
+**Gain button.** Under M and S, a G button: lit when the chain has a gain fader. G on
+writes `.gain(slider(1, 0, 1))` at the end of the chain, or turns a fixed `.gain(0.8)`
+into `.gain(slider(0.8, 0, 1))`, so the level stays. G off takes that `.gain(...)` call
+out; a `const` it names stays. A chain without a gain fader shows one that cannot move.
+The maintainer asked for this on 2026-11-21, in place of the "+ gain" of decision 3, and
+for the three buttons stacked and a thinner strip.
+
+The maintainer said on 2026-11-20 that the way people do it by hand is with comments:
+mute comments out the chain, solo comments out every other chain. We propose the labels
+anyway, because a commented chain is gone from the code the parser reads, so its strip
+would vanish and could not be unmuted from the Mixer; and a solo by comments edits every
+other chain of the song, where `S` edits one line. Upstream reads `_` and `S` the same
+on strudel.cc. Two catches of the labels: upstream solos any label that starts with `S`
+(`Snare:` is a solo, the Mixer shows it so), and a soloed `$:` becomes `S$:`. If the
+maintainer wants comments, the parser has to read commented chains too (a line `// $kick:
+...` as a muted strip). Decision 5, asked again.
+
+**Stacks.** Asked by the maintainer on 2026-11-20: a `stack()` groups patterns, and the
+Mixer should show that grouping. (First asked as "rack", which Strudel does not have;
+the maintainer meant `stack`.)
+
+How it fits: a stack is a strip that holds strips, like a Group
+track or an Instrument Rack in Live. Folded, it shows its own name, M, S and its own gain
+fader when it has one; unfolded, its member strips sit inside its border, each foldable
+as today. A duck cable to a rack ends at the rack's jack when every member is on the
+ducked orbit, else at the members. The parser gives each chain a `parent`, and the model
+a list of racks with their range in the code. A chain made of
+`stack(a, b, c)` is such a strip, and its members are the arguments of `stack`, each with
+the sliders used inside it (`$drums: stack(s("bd*4").gain(KICK_VOL), s("hh*8").gain(HH_VOL))`).
+A stack inside a stack nests. Not built.
+
+**Track colors.** Asked by the maintainer on 2026-11-21: each track (chain) gets a color
+the user picks, as a track of Live has. The color is kept in the song, as a comment with
+an annotation on the line right above the chain, in one normalized form:
+
+```
+// @color orange
+$kick: s("bd*4").gain(KICK_VOL)
+```
+
+- The value is a name of our palette (lower case) or `#rrggbb`. The Mixer always writes
+  it this way, so a file has one spelling and a diff shows a color change as one line.
+- The annotation belongs to the chain directly under it. Other comment lines may sit
+  between them (`// @color orange` then `// the kick` then `$kick:`); an empty line
+  breaks the link. This is the same `// @name value` form as the snippet header
+  (`@title`, `@tags`), so `src/shared/snippet.ts` and the parser share the reader.
+- Picking a color: a click on a color square in the strip's header opens the palette.
+  The Mixer writes, changes or removes the one comment line through the same versioned
+  write as a fader, so undo takes it back and the editor does not jump.
+- Upstream ignores comments, so the song plays the same on strudel.cc.
+- A chain without the annotation gets one by itself: the next color of the palette that
+  no other chain of the song has yet, written as `// @color <name>` above it, in the same
+  versioned write (decision 24, answered by the maintainer on 2026-11-21). The user can
+  change it like any other color. When the palette runs out, the colors repeat.
+- The palette: the seven colors of the Browser's collections plus more shades, close to
+  the clip colors of Live. Each is a fixed color, not a theme color, because it must look
+  the same in the Mixer, the session view and the arrangement.
+
+Where the color shows: the strip's header and border in the Mixer, the members of a
+stack (each keeps its own), the duck cable from that strip (now always orange), and
+later the session view, where the tracks are re-arranged by dragging, and the
+arrangement view (phase 10). It is read from the text by `readChains` (`MixerChain.color`),
+so every view gets it from the same model. Not built.
 
 **Title and activity.** A click on the strip's title, beside the fold, moves the cursor
 of the editor to that chain. A small light in the header blinks on each event of the
@@ -760,6 +925,58 @@ shown (measured), so when a song is played and the Browser does not exist yet, t
 opens the side bar on the Browser first (`strdltn.browser.focus`), which creates the
 engine.
 
+### Dock and float
+
+The maintainer wants every feature window to work both ways: docked as a tab of the
+bottom panel, like the Mixer now, or floating on its own, like the stage. This applies to
+the Mixer, the stage, the Devices and their panels, the arrangement view and the
+sequencing devices of phase 11. The Browser can use it too.
+
+**What VS Code gives.** It has two kinds of webview, and only one of them can float:
+
+| Kind | Where it can be | Floats | Made |
+|---|---|---|---|
+| `WebviewView` | Side bar, secondary side bar, bottom panel. The user drags it between them | No. Views stay in the main window (expected, not tested in 1.147) | Declared in `package.json`, a fixed number |
+| `WebviewPanel` | An editor tab, in any group. "Move into New Window" (`workbench.action.moveEditorToNewWindow`) puts it in a window of its own | Yes | At run time, any number |
+
+Both expose the same `vscode.Webview`: `html`, `postMessage`, `onDidReceiveMessage`,
+`asWebviewUri`. That is what makes one copy of the code enough.
+
+**One feature, two hosts.** A feature is written once, as a `Surface`: its HTML, its
+script in `dist/`, its message handler and its state. A surface never knows where it is
+shown. One small class, `Place` in `src/extension/surface.ts` (built for the Mixer), shows it:
+as the `WebviewViewProvider` of a view declared in `package.json` (`strdltn.mixer`,
+later `strdltn.devices`, `strdltn.stage`), or as a `WebviewPanel` that it moves with
+`workbench.action.moveEditorToNewWindow`. Measured (spike W1): every move gives a new
+page, also the move of a tab into a new window.
+
+Each host hands its `Webview` to the surface with `attach(webview)`. A button in the title
+bar moves the surface: "Float" in the view's title (`view/title` menu), "Dock" in the
+tab's title (`editor/title` menu). A move attaches the surface to the new host, closes the
+old one and sends the state again: folds, the song it follows, the strip that was open.
+The state lives in the host-side surface, not in the page, so a new page draws the same
+picture. A setting per feature (`strdltn.mixer.place`, `strdltn.stage.place`: `dock`,
+`tab` or `float`) says where it opens first. The Mixer's code today is close to this:
+`MixerView` builds the page from `view.webview` only, and only `resolveWebviewView` ties
+it to a view.
+
+**What a move costs.**
+
+| Feature | Holds | A move |
+|---|---|---|
+| Mixer, Browser, arrangement, sequencing devices | Nothing that a new page cannot get back from the host | Free. A new page draws the same strips |
+| Stage | The engine: the `AudioContext`, the scheduler, Hydra | The page is new, so the sound stops and needs a click to start again (a webview starts no sound without a click inside it) |
+| Devices | Firmwares run in the engine of the song (decision 11) | Free, the display is relayed |
+
+So the stage can dock and float with the same code, but each move stops the sound until
+phase 6 takes the engine out of the stage page. Until then the stage moves only when
+stopped, or warns first (decision 22). Whether a `WebviewView` keeps its page when it is
+dragged to another place with `retainContextWhenHidden` is not measured. Spike W1 checks
+that, and whether a view can float at all in the VS Code we run.
+
+The take-out button of the Devices panels is this same mechanism, for one panel at a
+time.
+
 ### Devices
 
 Live shows the device of the selected track at the bottom of the screen. We show the
@@ -948,6 +1165,10 @@ controller, which is how a DJ will want to use them.
 
 ### Recording and arrangement
 
+**Where the buttons go.** The maintainer placed them on 2026-11-21: in the top bar of
+Music Controls, after Play, Stop and BPM. Record is a red filled circle, Record
+Automation an empty red circle.
+
 The maintainer wants a Record button. While it is on, everything the performer does is
 recorded against the beat: code typed and evaluated, comments added, a part added or
 taken out, sliders and faders moved, mute and solo, the deck controls. Afterwards another
@@ -1062,6 +1283,7 @@ the Mixer next, and the engine work last, because it changes the architecture.
 | 8 | Phase 1b: previews in the Browser | - |
 | 9 | Phase 6: one engine, in the Browser, scheduler in a worker | E1, E2, E4, E5 |
 | 10 | Phase 7: the engine as a browser page | E3 |
+| 11 | Phase 11: Advanced sequencing, last | Q1, Q2 |
 
 The maintainer settled decision 14 with this order: the decks and the recording come
 after Devices and MIDI.
@@ -1075,8 +1297,9 @@ Under `tmp/`, each deleted when its answer is written down.
 
 | # | Question | How | Answer goes to |
 |---|---|---|---|
-| D1 | Can we mark every event with the id of its chain by wrapping `Pattern.prototype.p` in `beforeEval`? | In the webview, with `demo.strudel`: log the ids seen in the trigger | ARCHITECTURE "Mixer". Only the activity light depends on it |
+| D1 | Can we mark every event with the id of its chain by wrapping `Pattern.prototype.p` in `beforeEval`? | In the webview, with `demo.strudel`: log the ids seen in the trigger | Built on 2026-11-21 for the pump meter ("Pump meter" in ARCHITECTURE "Mixer"); the activity light can use the same tags. Hand test pending |
 | D3 | How late is a message from one webview to another through the host, on desktop and in a Codespace? | Timestamps on 1000 messages | ARCHITECTURE "Measured" |
+| W1 | Does a webview view keep its page when the user drags it to another place, and can a view float in a window of its own? Does `workbench.action.moveEditorToNewWindow` float a `WebviewPanel` that was just created, and does the page survive it? | The Mixer: drag it, float a tab with it, log `ready` messages and a counter in the page | ARCHITECTURE "Mixer". Gates "Dock and float" |
 | D4 | Can text be dragged from a webview view into the native editor and into the Strudel editor? | A draggable row with `text/plain` | ARCHITECTURE "Browser". If not: click and Enter only |
 | S5 | Can the extension host send MIDI on time? | As in `doc/TODO.md` | TODO "MIDI" |
 | S6 | Can a webview list the sound cards by name? | As in `doc/TODO.md` | TODO "Sound card" |
@@ -1147,6 +1370,19 @@ Size: 4 to 6 sessions.
 
 ### Phase 2: Mixer, read only
 
+Built on the branch `feat/mixer`, waiting for the maintainer's hand test (the table in
+`doc/TODO.md`). What was built differs from the steps below in four places:
+
+- The stage keeps its slider rows. Step 4 moves to phase 3: without faders that move,
+  the stage would lose the only sliders a native editor has.
+- The cables are `src/mixer/cables.ts`, not `src/webview/cables.ts`: only the Mixer uses
+  them. The layer sits inside the scrolling strip area instead of a fixed layer over the
+  page, so it scrolls and clips with the strips without code of its own.
+- Spike D3 (latency of a message through the host) is not run. Phase 2 only sends the
+  model from the host, which waits 300 ms for typing to stop anyway. D3 still comes before
+  the faders move in phase 3.
+- M and S are drawn with their state from the label; a click does nothing yet.
+
 1. `src/shared/chains.ts` and its test: chains with their ranges and names, mute and
    solo, slider calls, the constants they are assigned to, where each one is used and
    in which call, `.orbit(n)` and `.duck("...")`. Cases from `template/demo.strudel`
@@ -1163,13 +1399,29 @@ Size: 2 to 3 sessions.
 
 ### Phase 3: Mixer, editing
 
+Started on the branch `feat/mixer`. Done: faders move the sound and write the code, in
+both modes, and the stage lost its slider rows. Spike D3 was not run as planned: the
+fader goes host -> engine, and the integration test moves it while typing without a
+problem, but its latency is not measured. Also done: M, S and G (decisions 5 and 3,
+answered 2026-11-21), and dock and float. Not started: cable drags, the activity light
+(D1). Cable drags are built (step 3). A pump meter under the faders is built too, from the
+notes of each chain (spike D1) (asked by the maintainer on 2026-11-21, see "Pump meter" under "Mixer" in
+`doc/ARCHITECTURE.md`).
+
+0. Spike D3, then the stage loses its slider rows (step 4 of phase 2).
 1. Faders move the sound and write the code, through the existing `slider` message.
-2. Mute and solo as edits. Every edit is one function in `src/shared/chains.ts`, tested
-   on text.
+2. Mute, solo and gain as edits. Built: `toggledLabel`, `labelEdit` and `gainEdit` in
+   `src/shared/chains.ts`, tested on text, and in the integration test on a scratch song.
 3. Cable drag: the drag cable, the hit test on strips, connect, refuse, pull off, and the
-   new orbit for a target on orbit 1.
+   new orbit for a target on orbit 1. Built on 2026-11-21: `duckEdits` and `unduckEdits`
+   in `src/shared/chains.ts`, the drag in `src/mixer/main.ts`.
 4. The activity light, after D1.
-5. Hand test by the maintainer: the table is written when the build exists.
+5. Dock and float for the Mixer. Built: `Place` and `Surface` in
+   `src/extension/surface.ts`, a float button in the Mixer's title, a dock button in the
+   tab's title. Spike W1 ran in the integration test (see "Mixer" in
+   `doc/ARCHITECTURE.md`). The setting `strdltn.mixer.place` is not built. The stage waits
+   for phase 6 (decision 22).
+6. Hand test by the maintainer: the table is written when the build exists.
 
 Size: 2 to 3 sessions.
 
@@ -1285,15 +1537,67 @@ Size: 3 sessions.
 
 Size: 4 to 6 sessions.
 
+### Phase 11: Advanced sequencing
+
+Asked by the maintainer on 2026-11-20, last in the order of work. Designed here, nothing
+built and nothing measured.
+
+Some Strudel functions do what a device of Live does. For those, the extension can
+open a view that plays the part of the device: the user taps pads, clicks steps or plays
+keys, and the view writes the pattern into the code. The code stays the truth, as with
+the Mixer: the view reads the call it edits with the parser of `src/shared/chains.ts`
+and writes it back as one edit, so undo works and the song still plays on strudel.cc.
+
+| Device | Strudel functions | Like in Live | What the view does | What it writes |
+|---|---|---|---|---|
+| Drum pad | `s("bd ~ sd ~")`, `.bank()`, `sound:n` | Drum Rack | A pad per sound of a bank (from the Browser). Tap in time while the song plays; the taps are quantized to the grid | `s("bd ~ [sd bd] ~")` |
+| Step sequencer | `s("bd*4")`, `.struct("x ~ x x")`, `beat("0,4,8,11", 16)`, `euclid(3, 8)` | Drum Rack's step view on Push, the Rhythm and Euclidean generators of MIDI Tools | A grid, a row per sound, 16 steps (8, 12, 32 too). Click or tap steps. A row can switch to Euclid: pulses, steps, rotation | `beat("0,4,8,11", 16)` per row, or `euclidRot(3, 8, 2)` |
+| Piano roll | `note("c3 e3 g3")`, `n("0 2 4").scale("f:phrygian")`, `.legato()`, `.velocity()` | MIDI clip editor | Notes on a grid with a keyboard on the left, drawn or played on the computer keyboard (A to K, as Live's computer MIDI keyboard). With a `.scale()`, only the notes of the scale | `n("0 ~ 2 [4 5]").scale("f:phrygian")`, with `.velocity("...")` when the taps have velocity |
+| Chords | `chord("<C^7 Dm7>").voicing()`, `.arp("0 2 1")` | Chord, Arpeggiator, the Stacks generator | Pick chords per bar from the key of the song; an arp pattern below | `chord("<C^7 Dm7 G7>").voicing().arp("0 1 2")` |
+| Sample slicer | `.slice(8, "0 3 2 1")`, `.splice()`, `.chop()`, `.striate()` | Simpler in Slice mode | A waveform cut into N slices, a pad per slice, tapped in time | `s("break").slice(8, "0 3 [2 2] 1")` |
+| Groove | `.swingBy(1/3, 4)`, `.nudge()` | Groove Pool | A swing amount and a grid, per chain | `.swingBy(0.2, 8)` |
+| Chance | `.degradeBy(0.3)`, `.sometimesBy(0.5, x => ...)` | Chance per note, the Random MIDI effect | One knob per chain, or a chance per step in the step sequencer | `.degradeBy(0.3)`, or `?` on the steps of the mini-notation |
+| Note repeat | `.ply(2)`, `.fast()`, `"hh!16"` | Note Repeat of Push | Hold a pad and a rate, the repeats are written | `"hh*8"`, `"hh!4 [hh hh]"` |
+| Echo | `.echo(3, 1/8, 0.5)` | Note Echo | Count, time, feedback | `.echo(3, 0.125, 0.5)` |
+| Clip launch | `pick([a, b, c], "<0 1>")`, `.mask("<1 0>")`, `.rib(offset, cycles)` | Session view clips and scenes, loop brace | A grid of the parts of `pick()`, a click picks the one that plays from the next cycle | The index of `pick` |
+| Arrangement | `arrange([4, a], [8, b])` | Arrangement view | Phase 10 | - |
+| Modulation | `sine.range(200, 2000).slow(4)`, `perlin`, `saw` | LFO, automation lanes | Draw a curve over N cycles, or pick a shape and a rate | `.lpf(sine.range(200, 2000).slow(4))` |
+
+The names in the "Like in Live" column are from knowledge of Live 12, to check.
+
+**Tapping.** A tap is stamped with the time of the engine, not the time it reaches the
+host: the view asks the engine for its cycle when the tap happens (spike Q1). Recording
+runs for a loop of N cycles, the taps are quantized to the grid of the view (1/16 by
+default, off for free time), and a second pass adds to the first (overdub), as Live's
+loop record does. Without a MIDI controller (phase 5), the pads are the mouse, the
+touch screen and the computer keyboard.
+
+**Where the views live.** A device view opens from the Browser (a function row of the
+Functions category gets "Open device" when it has one) and from a code lens over the
+call it edits. It is a panel of the Devices view of phase 4, so it sits next to the
+firmware panels.
+
+Spikes:
+
+| # | Question | How | Answer goes to |
+|---|---|---|---|
+| Q1 | How exact is a tap from a view in the bottom panel, after the relay to the engine? | Tap on every beat of a click for 32 beats and log the offset of each tap from the beat, with and without the relay (D3) | ARCHITECTURE "Measured" |
+| Q2 | Can the parser write back a mini-notation string and keep the user's own spaces and comments around it? | Cases in a test file on `template/demo.strudel` and the examples | `src/shared/chains.test.ts` |
+
+Order inside the phase, best value first: step sequencer, drum pad, piano roll, sample
+slicer, the rest one by one.
+
+Size: unknown, at least one session per device.
+
 ## Decisions for the maintainer
 
 | # | Question | Our recommendation |
 |---|---|---|
 | 1 | Strips side by side as in the Session view of Live, each unfolding sideways into its faders, or channels as rows under each other with horizontal faders? | Side by side. Faders are vertical, and the duck cables hang under the strips |
 | 2 | Remove the tree views in the same release as the Browser, or keep them behind a setting for one release? | Remove them. Two browsers are worse than one |
-| 3 | A chain with no slider: offer a button on its strip that writes `.gain(slider(1, 0, 1))` into it? | Yes, as a small "+ gain" on the empty strip |
+| 3 | A chain with no slider: offer a button on its strip that writes `.gain(slider(1, 0, 1))` into it? | Answered by the maintainer: a G button under M and S, on every strip. G on adds the gain fader, G off takes it out. A chain without one shows a fader that cannot move. Built |
 | 4 | The user's tags and colors: in the project (`strdltn.index.json`, committed, travels with the songs), global for the user (kept by VS Code, the same in every project), or both? | Project. A color on a default sound then follows the project, not the person. Global can be added later as a fourth layer |
-| 5 | Mute and solo from the Mixer write `_name:` and `Sname:` into the code. OK, or runtime only? | Write. It is upstream's own syntax and the song stays the truth |
+| 5 | Mute and solo from the Mixer write `_name:` and `Sname:` into the code, or comment the chain out (mute) and every other chain (solo), as the maintainer does by hand? | Answered by the maintainer on 2026-11-21: the labels. Built |
 | 6 | A slider used by two chains shows in both strips. Or only in the first one, with a note in the second? | Both. It is the truth of the song, and they move together |
 | 7 | Is the browser page (phase 7) wanted? It is the only road to MIDI in Codespaces, and it is the "IDE as a dumb client" design | Yes, after phase 5, and before phase 6 if MIDI in Codespaces matters more than sound across a mode switch |
 | 8 | The Mixer in the bottom panel, where the stage also opens "below the code". Both fit as two views of the panel, or the stage moves beside the code | Mixer in the bottom panel, stage where `strdltn.stage.position` says, as now |
@@ -1309,6 +1613,9 @@ Size: 4 to 6 sessions.
 | 19 | Record typing that is not evaluated, to replay the writing of the code like a video? | Off by default, as an option. It makes the file large and adds no sound |
 | 20 | Insert as code: `s("bd").bank("RolandTR909")` or `s("RolandTR909_bd")`? | Answered by the maintainer: `s()` with `.bank()`. Built |
 | 21 | Phase 1b (previews in the Browser) before the Mixer? | Answered by the maintainer: no, last, with phase 6, because it is part of the change of architecture |
+| 22 | Moving the stage between dock, tab and float makes a new page, so the sound stops until phase 6. Allow the move only when stopped, warn and stop, or wait with the stage until phase 6? | Answered by the maintainer: the stage waits. The Mixer has it now |
+| 23 | The tutorial: the workshop only (6 pages, for a beginner), or the workshop and the 19 learn pages (everything the site teaches)? | Answered by the maintainer on 2026-11-21: both, the workshop first, then the learn pages |
+| 24 | Track colors: a chain without `// @color` stays gray until the user picks one, or each new chain gets the next color of the palette written into the code by itself? | Answered by the maintainer on 2026-11-21: colored by themselves. A chain without `// @color` gets the next color of the palette, written into the code |
 
 ## Risks
 

@@ -265,3 +265,42 @@ shows. The logo view had an empty strip under the picture and a second title row
 Code gives a view no way to fit its content or hide its title. Four views also split the
 height of the side bar by fixed weights. One webview holds all of it now, laid out like
 the browser of Live, so nothing in the side bar is a different kind of view.
+
+## Syncing the whole text with a diff
+
+The first text sync sent the whole text from each side and made the other side equal to
+it with the smallest single replacement. Dropped for numbered changes (see "Text sync"
+in `doc/ARCHITECTURE.md`). Two changes that crossed undid each other: the webview made
+its text equal to a host text without its last keystroke, the host made the document
+equal to a webview text without the host's edit, and from then on the two sides stayed
+different and each keystroke wrote stale text over the document. On a file with `\r\n`
+line endings every keystroke was a diff over the whole file, because the editor holds
+`\n`: in the integration test every case on such a file came out corrupted.
+
+## Per-chain scopes from the analysers
+
+The first scopes under the Mixer's faders read each chain's real waveform from the
+analyser its `._scope()` creates (`getAnalyzerData('time', id)` of superdough). In
+`demo.strudel` they stayed flat: its line `all(x=>x.fft(4).scope(...))` puts `.scope()`
+on every chain, `.scope()` without an id analyses into analyser 1, and a note carries one
+`analyze` id, so the last one wins and superdough had analyser `1` only (2026-11-21).
+upstream's own scopes in the stage were flat for the same reason. A song is free to do
+this, so the Mixer cannot count on per-chain analysers. It draws a level from the notes
+instead ("Pump meter" in `doc/ARCHITECTURE.md`).
+
+## Music Controls as a side bar view
+
+The maintainer wanted Play, Stop, Record and BPM as a view of their own at the top of the
+side bar, `strdltn.controls`, so it could be dragged anywhere. Built and tried on
+2026-11-21: the view took half the side bar whenever the Library was folded. VS Code
+splits the side bar among the expanded views; `initialSize` only sets proportions the
+first time, and a webview view has no API to ask for a height. The controls became one
+row at the top of the Library view, which always fits.
+
+## Fixing click positions with requestMeasure or estimatedHeight
+
+Clicks in the Strudel editor landed lines below the point (see "Clicks in the Strudel
+editor" in `doc/ARCHITECTURE.md`). A `ResizeObserver` on the content that called
+`requestMeasure()`, a measure right before the click, and an `estimatedHeight` for
+upstream's `BlockWidget` set from outside all left the error as it was. The cause was
+inline canvases, fixed with CSS.

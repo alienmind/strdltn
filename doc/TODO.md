@@ -19,9 +19,17 @@ sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRU
 two decks to DJ with, recorded automation and an arrangement view)
 is in `doc/DAW-PLAN.md`, with the order of work the maintainer set ("Order of work"):
 the Mixer next (phases 2 and 3), the engine in a worker last. Phase 1, the Browser, is
-built on the branch `feat/browser` (PR #4): search, colors, tags, color and tag buttons,
-insert as code, a preview on the beat while a song plays. Its hand test is below. The
-next session starts the Mixer on a new branch once PR #4 is merged.
+merged (PR #4). Phases 2 and 3 (the Mixer, Music Controls, and the Browser in
+four views) are version 0.2.0 on the branch `feat/mixer`, in pull request #5, which
+waits for the maintainer to merge; then tag `v0.2.0`. On that branch: a strip per
+chain of the song in front, faders that move the sound and write the code, M and S, and
+the duck cables. The stage has no slider rows any more. On the same branch: the text
+sync between the editor and the document was rewritten (text was corrupted, worst on
+files with `\r\n` line endings), and clicks in the Strudel editor land where clicked.
+Both were reproduced and are checked by the integration test with real input. The hand
+test is below. The bottom panel is now called Music: a top bar with Play, Stop and BPM,
+then the mixer, whose M, S and G edit the code and which can float. The side bar is four
+views with one filter. Next in phase 3: cable drags.
 
 Next in line:
 
@@ -31,31 +39,45 @@ Next in line:
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 3 | The hand test below | Waiting for the maintainer |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
+| 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
+| 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
+| 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
+| 6 | Functions in the Browser: an "Insert an example" button beside "Insert at the cursor" | Noted, not built. See "Insert an example" in `doc/DAW-PLAN.md` |
+| 6c | Dock and float for the stage and later windows (the Mixer has it) | The stage waits for phase 6 (decision 22). See "Dock and float" in `doc/DAW-PLAN.md` |
+| 6e | Track colors: every chain gets a color by itself (the next of the palette), kept as `// @color <name>` on the line above the chain, changeable in the Mixer, used later by the session view | Planned, not built. Decision 24 answered: colored by themselves. See "Track colors" in `doc/DAW-PLAN.md` |
+| 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 answered: the workshop first, then the learn pages. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
+| 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
 
 ## Next: test by hand
 
-The Browser, on the branch `feat/browser`. Test on **desktop, launched with F5** on
-`template/` (or `pnpm promote` if the maintainer asks for it).
+Nothing waits. The maintainer tested the branch `feat/mixer` by hand on 2026-11-21: the
+side bar in four views, Results, colors, Built-in, previews without a song, Music
+Controls in the Library, the Mixer with M, S, G, layout, float and dock, cable drags with
+one jack per strip, and the pump meter. All passed.
 
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Open the side bar of [str]dltn Live[code] | One Browser: logo, search, Collections, Library with counts, Places, chips, results. No Files, Sounds or Snippets views |
-| 2 | Library > Drums, open the heading `rolandtr909`, click `bd` | It plays. Nothing is typed. The details pane shows Drums/Kick, Maker/Roland |
-| 3 | Type `909 bd` in the search | About 6 results, under their categories |
-| 4 | Clear the search. In Drums, click the chip Kick, then Ctrl+click Snare, then click Roland | Kicks, then kicks and snares, then only the Roland ones |
-| 5 | Select a row, press 1, then 3. Then click the tag button of another row and pick green, and click the blue dot in the details pane | Color squares on both rows. `strdltn.index.json` appears in the project with both ids and their colors |
-| 6 | Click the red dot under Collections | Only the rows colored red |
-| 7 | Right click a snippet > Edit tags..., add `test` | The snippet's file gets `// @tags ..., test`. The chip Tag > test exists |
-| 8 | With a filter set, press the save button in the bar above the results, name it | A row with that name under Collections. A click on it brings the filter back |
-| 9 | Play `demo.strudel`, then click a synth in Sounds (`sawtooth`) a few times | Each preview lands on a beat of the song |
-| 10 | Put the cursor in the code, select `sawtooth`, press Enter. Then put the cursor inside `s("bd <here>")` and insert `sd` | `note("c3").s("sawtooth")` is typed. Inside the string only `sd` |
-| 11 | Songs: click a song | It opens |
-| 12 | Functions: search `lpf`, select it | The details pane shows its description, parameters and an example |
-| 13 | Press Ctrl+Alt+F in the editor | The search field of the Browser gets the cursor |
-| 14 | Switch to a light theme | The Browser follows the theme |
+The intermittent typing failures of the integration test are still an open lead: see
+"Integration test" under "Open leads" below.
 
-Expected still broken: a row cannot be dragged into the editor; the side bar title shows
-as "[Str]Dltn Live[Code]".
+## Open leads
+
+### Integration test
+
+A lead, not a known bug. On 2026-11-21 the typing cases of the integration test
+started to fail now and then, a different case each time, after about 8 runs in a row
+with none: 3 of 4 runs had one failure.
+
+| Run | Case | What was wrong | Editor same as document |
+|---|---|---|---|
+| 1 | `typingWhileAFaderMoves`, `\r\n` song | One extra line break at the end of the file | Yes |
+| 2 | `typingWhileTheHostEdits`, `\n` song | The line the test writes from the host is missing | Yes |
+| 3 | `undo`, `\n` song | Ctrl+Z after typing `zz` did nothing | Yes |
+
+Editor and document always agreed, so it is not the text sync. The test now records
+whether VS Code took the host's edit; in run 3 it did. What changed just before:
+the Mixer is revealed when a song starts (`Place.reveal`), Play/Stop and BPM (now in
+Music Controls), and Results opens by itself. Next step: run `pnpm test:quick` a few times with
+the reveal on play switched off, and a few with it on, to see whether the failures follow
+it.
 
 ## Decisions waiting for the maintainer
 
@@ -317,7 +339,8 @@ planned yet.
   same bytes, so the running firmware could be kept when they are.
 
 - Undo in the Strudel editor is CodeMirror's own history. It should go through VS Code
-  so there is one history across both modes.
+  so there is one history across both modes. Measured with real keys: typing `zz` and
+  Ctrl+Z takes both back, as expected.
 - Cursor and scroll position are not carried across a mode switch.
 - Notes that are playing are not highlighted in the native editor.
 - A sample that was deleted stays in the Browser until the editor is reloaded.

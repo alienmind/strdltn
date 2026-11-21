@@ -1,11 +1,14 @@
 import * as vscode from 'vscode';
-import type { BrowserFilterState, FromBrowser } from '../shared/browser';
+import { type BrowserFilterState, type FromBrowser, viewOf } from '../shared/browser';
 import { CATEGORIES } from '../shared/catalog';
 import { insideString } from '../shared/context';
 import type { SoundInfo } from '../shared/protocol';
 import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
 import { FirmwareCache } from './firmware';
+import { MixerView } from './mixer';
+import { Place } from './surface';
+import { lf, lineColumn } from '../shared/sync';
 import { formatBytes, PackCache, type CacheUsage } from './packs';
 import { ShrubPanel } from './shrub';
 import { Session, type SessionHost } from './session';
@@ -41,8 +44,24 @@ export interface StrdltnApi {
 	browserShow(filter: Partial<BrowserFilterState>, open?: string[]): Promise<unknown>;
 	/** Handles a message as if the Browser had sent it: a click on a row, a color. */
 	browserMessage(message: FromBrowser): Promise<void>;
-	/** Moves a slider of the stage of the active text editor. For the test. */
-	setStageSlider(index: number, value: number): void;
+	/** The previews the Browser played without the engine. */
+	browserPreviews(): string[];
+	/** The Mixer's model of the song in front. */
+	mixer(): ReturnType<MixerView['current']>;
+	/** Unfolds the named strips of the Mixer, folds the others, and returns what it reports. */
+	mixerShow(unfold: string[]): ReturnType<MixerView['show']>;
+	/** Moves a fader of the Mixer, as a drag would. For the test. */
+	mixerSlider(index: number, value: string): void;
+	/** Floats the Mixer (in a new window when `window`) or docks it. Returns the place and how many pages it has had. */
+	mixerPlace(where: 'float' | 'tab' | 'dock'): Promise<{ floating: boolean; pages: number }>;
+	/** M, S or G of a chain, as a click sends it. */
+	mixerToggle(chain: number, button: 'mute' | 'solo' | 'gain' | 'scope'): Promise<void>;
+	/** The BPM box: a number, or undefined as a double click. */
+	mixerTempo(bpm: number | undefined): Promise<void>;
+	/** A sidechain cable dropped on a strip, or pulled off onto nothing. */
+	mixerCable(from: number, drop: { to: number; move?: number } | { orbit: number }): Promise<void>;
+	/** Puts the editor's cursor on a chain of the Mixer's song. */
+	mixerReveal(chain: number): void;
 	/** The remote sample packs seen so far and whether they are in the cache. */
 	packs(): { source: string; files: number; complete: boolean; note?: string }[];
 	previewSounds(): boolean;
@@ -62,8 +81,31 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const songs = new SongList();
 	const browser = new BrowserView(context, snippets, songs, output, {
 		preview: (name, index) => previewSound(name, index),
+		playing: () => [...sessions].some((s) => s.started),
+		control: (message) => mixer.control(message),
 		insert: (text, bare) => insertText(text, bare),
 	});
+	const mixer = new MixerView(context, output, {
+		reveal: (document, offset) => void revealOffset(document, offset),
+		moveSlider: (document, index, from, value) => {
+			const session = [...sessions].find((s) => s.document === document && s.ready);
+			session?.moveSlider(index, from, value);
+			return !!session;
+		},
+		evaluate: (document) => {
+			for (const session of sessions) if (session.document === document && session.ready && session.started) session.play();
+		},
+		transport: (document, action) => {
+			const session = [...sessions].find((s) => s.document === document && s.ready);
+			if (session) return action === 'play' ? session.play() : session.stop();
+			// No engine has the song yet: open it and play, as the play button of its title would.
+			if (action === 'play') void vscode.commands.executeCommand('vscode.open', document.uri).then(() => vscode.commands.executeCommand('strdltn.play'));
+		},
+		isPlaying: (document) => [...sessions].some((s) => s.document === document && s.started),
+		controls: (state) => browser.setControls(state),
+	});
+	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
+	const mixerPlace = new Place(mixer, { viewId: 'strdltn.mixer', tabType: 'strdltn.mixerTab', title: 'Mixer', contextKey: 'strdltn.mixerFloating' });
 	const diagnostics = vscode.languages.createDiagnosticCollection('strdltn');
 	// Right side, beside the language of the file: it is about the file in front.
 	const status = vscode.window.createStatusBarItem('strdltn.status', vscode.StatusBarAlignment.Right, 101);
@@ -86,12 +128,24 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			updateStatus();
 		},
 		// Every engine loads the same packs, so the list of the engine that spoke last is the list.
+		onScopes: (document, scopes) => mixer.setScopes(document, scopes),
 		onSounds: (list) => {
 			browser.setSounds(list);
 			rememberSoundsSoon(list);
 		},
-		onState: () => updateStatus(),
+		onState: (session) => {
+			// A song that starts brings the Mixer to the front, as the maintainer asked: while
+			// it plays, that is where its levels are.
+			mixer.setPlaying(session.document, session.started);
+			if (session.started && !playing.has(session)) {
+				playing.add(session);
+				void mixerPlace.reveal();
+			} else if (!session.started) playing.delete(session);
+			updateStatus();
+		},
 	};
+	/** The sessions that played at the last state report, to see a song start. */
+	const playing = new Set<Session>();
 
 	const find = (uri: vscode.Uri, mode: Session['mode']) =>
 		[...sessions].find((s) => s.mode === mode && s.document.uri.toString() === uri.toString());
@@ -131,7 +185,14 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		),
 		// The Browser keeps its page while hidden, so its filters and open headings survive a
 		// switch to another side bar.
-		vscode.window.registerWebviewViewProvider('strdltn.browser', browser, { webviewOptions: { retainContextWhenHidden: true } }),
+		vscode.window.registerWebviewViewProvider('strdltn.browser', browser.provider('library'), { webviewOptions: { retainContextWhenHidden: true } }),
+		vscode.window.registerWebviewViewProvider('strdltn.songs', browser.provider('songs'), { webviewOptions: { retainContextWhenHidden: true } }),
+		vscode.window.registerWebviewViewProvider('strdltn.reference', browser.provider('reference'), { webviewOptions: { retainContextWhenHidden: true } }),
+		vscode.window.registerWebviewViewProvider('strdltn.results', browser.provider('results'), { webviewOptions: { retainContextWhenHidden: true } }),
+		// The Mixer keeps its page too, so its strips stay unfolded behind the Terminal tab.
+		vscode.window.registerWebviewViewProvider('strdltn.mixer', mixerPlace, { webviewOptions: { retainContextWhenHidden: true } }),
+		vscode.commands.registerCommand('strdltn.mixer.float', () => mixerPlace.float()),
+		vscode.commands.registerCommand('strdltn.mixer.dock', () => mixerPlace.dock()),
 		diagnostics,
 		status,
 		vscode.window.onDidChangeActiveTextEditor(() => updateStatus()),
@@ -297,7 +358,9 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 
 	function previewSound(name: string, index: number): void {
 		const session = activeEditorSession() ?? lastSession();
-		if (!session) return void vscode.window.showInformationMessage('Open a .strudel file to hear sounds.');
+		// Samples and plain waves play in the Browser without this. What is left needs the
+		// engine: soundfonts, supersaw, firmwares.
+		if (!session) return void vscode.window.showInformationMessage(`"${name}" is played by the Strudel engine: open a .strudel file first.`);
 		session.preview(name, index);
 	}
 
@@ -324,6 +387,22 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		const last = lastSession('editor');
 		if (last) return last.insert(text, bare);
 		void vscode.window.showInformationMessage('Open a .strudel file to insert into.');
+	}
+
+	/**
+	 * Puts the cursor at an offset of a song: in its Strudel editor when it has one,
+	 * else in the native editor, opened where the song already shows.
+	 */
+	async function revealOffset(document: vscode.TextDocument, offset: number): Promise<void> {
+		const strudel = find(document.uri, 'editor');
+		if (strudel) {
+			strudel.panel.reveal(undefined, false);
+			return strudel.select(offset);
+		}
+		const shown = vscode.window.visibleTextEditors.find((e) => e.document === document);
+		const at = lineColumn(lf(document.getText()), offset);
+		const position = new vscode.Position(at.line, at.character);
+		await vscode.window.showTextDocument(document, { viewColumn: shown?.viewColumn, selection: new vscode.Range(position, position) });
 	}
 
 	/** New samples, snippets and songs show up without a reload. */
@@ -491,14 +570,32 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		browserFind: (filter) => browser.find(filter).map((item) => item.id),
 		browserGroups: (category) => [...new Set(browser.find({ category }).map((item) => item.group))].sort(),
 		browserShow: async (filter, open) => {
-			await vscode.commands.executeCommand('strdltn.browser.focus');
+			// The filter is the same in every view; Results shows what it picks.
+			await vscode.commands.executeCommand(viewOf('results') + '.focus');
+			// A view opened for the first time needs a moment before it takes messages.
+			for (let i = 0; i < 20 && !browser.state(); i++) await new Promise((resolve) => setTimeout(resolve, 250));
 			browser.show(filter, open);
 			// The webview reports what it shows after it has drawn.
 			await new Promise((resolve) => setTimeout(resolve, 600));
 			return browser.state();
 		},
 		browserMessage: (message) => browser.handle(message),
-		setStageSlider: (index, value) => lastSession('stage')?.setSlider(index, value),
+		browserPreviews: () => [...browser.previews],
+		mixer: () => mixer.current(),
+		mixerShow: async (unfold) => {
+			if (!mixerPlace.floating) await vscode.commands.executeCommand('strdltn.mixer.focus');
+			return mixer.show(unfold);
+		},
+		mixerSlider: (index, value) => mixer.moveSlider(index, value),
+		mixerToggle: (chain, button) => mixer.toggle(chain, button),
+		mixerTempo: (bpm) => mixer.setTempo(bpm),
+		mixerCable: (from, drop) => mixer.cable(from, drop),
+		mixerReveal: (chain) => mixer.revealChain(chain),
+		mixerPlace: async (where) => {
+			if (where === 'dock') await mixerPlace.dock();
+			else await mixerPlace.float(where === 'float');
+			return { floating: mixerPlace.floating, pages: mixer.pages };
+		},
 		packs: () => packs.list(),
 		previewSounds: () => context.globalState.get('strdltn.previewSounds', true),
 	};

@@ -40,11 +40,16 @@ the plan for the local model.
 | Command | Use |
 |---|---|
 | `pnpm build`, `pnpm typecheck` | After every change |
-| `pnpm test:unit` | Fast. The rules that name things in the stage |
-| `pnpm test:quick` | The same test for a small change: silent, without the long parts, about 75 seconds |
-| `pnpm test:vscode` | The real test. It starts a VS Code window, plays every file of `template/`, and prints what happened as JSON. About ten minutes. Set `VSCODE_EXE` to the installed `Code.exe` to skip a download |
+| `pnpm test:unit` | Fast. After every change |
+| `pnpm test:quick` | The integration test without the long parts, silent, about 5 minutes. Not during the work: see below |
+| `pnpm test:vscode` | The real test. It starts a VS Code window, plays every file of `template/`, and prints what happened as JSON. About ten minutes. Once, before a pull request is opened or finished. Set `VSCODE_EXE` to the installed `Code.exe` to skip a download |
 | `pnpm promote` | Installs a build into the maintainer's own VS Code. Only on request |
 | `pnpm reference`, `pnpm tutorial` | Write `template/reference/` again from upstream. After a Strudel update |
+
+When the integration test runs: only when a pull request is about to be opened or
+finished for the maintainer to merge, as the last check, and then once. Not after each
+change: it takes too long. During the work, `pnpm typecheck` and `pnpm test:unit` are the
+checks. The maintainer asked for this on 2026-11-21.
 
 What to know about the real test:
 

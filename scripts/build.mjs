@@ -1,4 +1,4 @@
-// Builds the bundles: the extension host (Node, CommonJS), the webview of the editor and the stage, the Browser view, and the firmware worklet (browser).
+// Builds the bundles: the extension host (Node, CommonJS), the webview of the editor and the stage, the Browser view, the Mixer view, and the firmware worklet (browser).
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { context } from 'esbuild';
@@ -51,6 +51,15 @@ const builds = [
 		// The Browser view in the side bar. Its CSS is imported by main.ts and lands in dist/browser.css.
 		entryPoints: ['src/browser/main.ts'],
 		outfile: 'dist/browser.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
+	{
+		...shared,
+		// The Mixer view in the bottom panel. Its CSS lands in dist/mixer.css.
+		entryPoints: ['src/mixer/main.ts'],
+		outfile: 'dist/mixer.js',
 		platform: 'browser',
 		format: 'iife',
 		target: 'es2022',

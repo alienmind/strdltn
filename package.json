@@ -2,7 +2,7 @@
 	"name": "strdltn",
 	"displayName": "[str]dltn Live[code]",
 	"description": "Your IDE is your DAW. Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "0.0.1",
+	"version": "0.2.0",
 	"private": true,
 	"publisher": "strdltn",
 	"license": "AGPL-3.0-or-later",
@@ -59,12 +59,18 @@
 			{
 				"command": "strdltn.play",
 				"title": "strdltn: Play / Update",
-				"icon": "$(play)"
+				"icon": {
+					"light": "media/play.svg",
+					"dark": "media/play.svg"
+				}
 			},
 			{
 				"command": "strdltn.stop",
 				"title": "strdltn: Stop",
-				"icon": "$(debug-stop)"
+				"icon": {
+					"light": "media/stop.svg",
+					"dark": "media/stop.svg"
+				}
 			},
 			{
 				"command": "strdltn.stopAll",
@@ -125,6 +131,16 @@
 				"command": "strdltn.refreshBrowser",
 				"title": "strdltn: Refresh the Browser",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "strdltn.mixer.float",
+				"title": "strdltn: Float the Mixer in its own window",
+				"icon": "$(window)"
+			},
+			{
+				"command": "strdltn.mixer.dock",
+				"title": "strdltn: Dock the Mixer in the panel",
+				"icon": "$(layout-panel)"
 			}
 		],
 		"menus": {
@@ -143,6 +159,11 @@
 					"command": "strdltn.toggleMode",
 					"when": "activeCustomEditorId == strdltn.editor || resourceExtname == .strudel",
 					"group": "navigation@3"
+				},
+				{
+					"command": "strdltn.mixer.dock",
+					"when": "activeWebviewPanelId == strdltn.mixerTab",
+					"group": "navigation@1"
 				}
 			],
 			"view/title": [
@@ -155,6 +176,11 @@
 					"command": "strdltn.openShrubEditor",
 					"when": "view == strdltn.browser && config.strdltn.experimental.shrubEditor",
 					"group": "navigation@3"
+				},
+				{
+					"command": "strdltn.mixer.float",
+					"when": "view == strdltn.mixer",
+					"group": "navigation@1"
 				}
 			],
 			"commandPalette": [
@@ -310,7 +336,14 @@
 			"activitybar": [
 				{
 					"id": "strdltn",
-					"title": "[str]dltn Live[code]",
+					"title": "[str]dltn",
+					"icon": "media/strdltn.svg"
+				}
+			],
+			"panel": [
+				{
+					"id": "strdltn-mixer",
+					"title": "Mixer",
 					"icon": "media/strdltn.svg"
 				}
 			]
@@ -319,8 +352,35 @@
 			"strdltn": [
 				{
 					"id": "strdltn.browser",
-					"name": "Browser",
-					"type": "webview"
+					"name": "Library",
+					"type": "webview",
+					"initialSize": 4
+				},
+				{
+					"id": "strdltn.songs",
+					"name": "Songs and Snippets",
+					"type": "webview",
+					"initialSize": 2
+				},
+				{
+					"id": "strdltn.reference",
+					"name": "Reference",
+					"type": "webview",
+					"initialSize": 2
+				},
+				{
+					"id": "strdltn.results",
+					"name": "Results",
+					"type": "webview",
+					"initialSize": 6
+				}
+			],
+			"strdltn-mixer": [
+				{
+					"id": "strdltn.mixer",
+					"name": "Mixer",
+					"type": "webview",
+					"when": "!strdltn.mixerFloating"
 				}
 			]
 		},
@@ -365,6 +425,7 @@
 		"@types/vscode": "~1.95.0",
 		"@vscode/test-electron": "^3.1.0",
 		"@vscode/vsce": "^4.1.1",
+		"acorn": "8.19.0",
 		"esbuild": "^0.28.2",
 		"fflate": "0.8.2",
 		"typescript": "^7.0.2"

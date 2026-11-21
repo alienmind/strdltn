@@ -17,6 +17,7 @@ import { filterItems } from '../shared/search';
 import { setSnippetTags } from '../shared/snippet';
 import type { SongList } from './files';
 import type { SnippetLibrary } from './snippets';
+import { previewPlan } from '../shared/preview';
 import { setPage } from './surface';
 
 /** The file in the root of the project that keeps the colors, tags and saved searches. */
@@ -24,7 +25,10 @@ export const INDEX_FILE = 'strdltn.index.json';
 const PREVIEW_KEY = 'strdltn.previewSounds';
 
 export interface BrowserActions {
+	/** Plays a sound through the engine of a song. */
 	preview(name: string, index: number): void;
+	/** True while a song plays: then the engine plays previews, on its beat. */
+	playing(): boolean;
 	/** `bare` goes in instead when the cursor is inside a string. */
 	insert(text: string, bare?: string): Promise<void>;
 }
@@ -48,6 +52,8 @@ const NO_FILTER: BrowserFilterState = { category: 'all', query: '', chips: [] };
  */
 export class BrowserView {
 	private readonly views = new Map<BrowserPage, vscode.WebviewView>();
+	/** The previews the pages played themselves, as they reported them. For the integration test. */
+	readonly previews: string[] = [];
 	/** What Results reported last. */
 	private lastState?: Extract<FromBrowser, { type: 'state' }>;
 	/** The filter of all views. Kept per workspace, so a reload shows the same. */
@@ -97,7 +103,12 @@ export class BrowserView {
 		return {
 			resolveWebviewView: (view) => {
 				this.views.set(page, view);
-				setPage(this.context, view.webview, 'browser');
+				// The page plays previews itself: sample files from the web, from the project and
+				// from the pack cache in it (`.strdltn/cache`).
+				setPage(this.context, view.webview, 'browser', {
+					roots: (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri),
+					csp: [`connect-src ${view.webview.cspSource} https:`, `media-src ${view.webview.cspSource} https: data: blob:`],
+				});
 				view.webview.onDidReceiveMessage((message: FromBrowser) => void this.handle(message, page));
 				view.onDidDispose(() => this.views.get(page) === view && this.views.delete(page));
 			},
@@ -180,7 +191,13 @@ export class BrowserView {
 			}
 			case 'play': {
 				const item = this.item(message.id);
-				if (item?.sound) this.actions.preview(item.sound, message.index ?? item.index ?? 0);
+				if (!item?.sound) return;
+				const index = message.index ?? item.index ?? 0;
+				// While a song plays the engine plays it, on the next beat of the song. Else
+				// the page that was clicked plays it itself, so a preview needs no song at all.
+				const plan = this.actions.playing() ? undefined : previewPlan(this.sounds.find((sound) => sound.name === item.sound), index);
+				if (plan) return this.post({ type: 'playPreview', plan }, page);
+				this.actions.preview(item.sound, index);
 				return;
 			}
 			case 'insert': {
@@ -242,6 +259,7 @@ export class BrowserView {
 				return this.focusSearch();
 			case 'log':
 				this.output.appendLine(`browser: ${message.message}`);
+				if (message.message.startsWith('preview:')) this.previews.push(message.message);
 				return;
 		}
 	}

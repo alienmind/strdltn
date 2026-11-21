@@ -447,12 +447,20 @@ export async function run(): Promise<void> {
 		const previewCount = (mode: string) => session(mode, demo)?.logs.filter((line) => line.includes('preview: bd:0')).length ?? 0;
 		if (picks.sample) {
 			const heardBefore = previewCount('editor');
-			// What the Browser sends when a row is clicked with preview on.
+			const playedBefore = api.browserPreviews().length;
+			// What the Browser sends when a row is clicked with preview on. No song plays here,
+			// so Results plays the sample itself, without the engine.
 			await api.browserMessage({ type: 'play', id: `sound:${picks.sample.name}` });
 			steps.clickSoundInStrudelEditor = {
-				heard: await until(() => previewCount('editor') > heardBefore, 5000),
+				playedByBrowser: await until(() => api.browserPreviews().length > playedBefore, 8000),
+				byBrowser: api.browserPreviews().slice(playedBefore),
+				byEngine: previewCount('editor') > heardBefore,
 				typedNothing: (await text(demo)) === demoText,
 			};
+			// A plain wave is made in the page too.
+			const wavesBefore = api.browserPreviews().length;
+			await api.browserMessage({ type: 'play', id: 'sound:sawtooth' });
+			steps.previewWaveByBrowser = (await until(() => api.browserPreviews().length > wavesBefore, 5000)) && api.browserPreviews().slice(wavesBefore);
 		}
 		if (picks.soundfont) {
 			await vscode.commands.executeCommand('strdltn.insertSound', { kind: 'sound', sound: picks.soundfont });

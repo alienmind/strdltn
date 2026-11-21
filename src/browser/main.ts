@@ -5,6 +5,7 @@
 import './browser.css';
 import { type BrowserFilterState, type BrowserPage, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
 import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
+import type { PreviewPlan } from '../shared/preview.ts';
 import { chipGroups, filterItems, groupItems } from '../shared/search.ts';
 import { TAG_GROUPS } from '../shared/tags.ts';
 import { icon } from './icons.ts';
@@ -379,7 +380,7 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		const detail = item.detail && (filter.category === 'all' || item.detail !== item.group) ? item.detail : '';
 		node.appendChild(el('span', 'detail', row.type === 'item' ? [item.count ? String(item.count) : '', detail].filter(Boolean).join('  ') : ''));
 		const squares = node.appendChild(el('span', 'squares'));
-		for (const color of colorsOf(item, user).slice(0, 3)) squares.appendChild(el('span', 'sq')).style.background = colorVar(color);
+		for (const color of colorsOf(item, user)) squares.appendChild(el('span', 'sq')).style.background = colorVar(color);
 		const actions = node.appendChild(el('span', 'actions'));
 		const index_ = row.type === 'variation' ? row.index : undefined;
 		if (item.sound) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
@@ -779,6 +780,99 @@ function editTags(): void {
 	);
 }
 
+// ---- previews ---------------------------------------------------------------------------
+
+/**
+ * Plays a preview here, with plain Web Audio, as the host planned it. The click on the row
+ * started it, and a click inside this page is what lets it make sound. Half a second at
+ * A3, a fade at the end, like the engine's preview with no song playing.
+ */
+let audio: AudioContext | undefined;
+const buffers = new Map<string, Promise<AudioBuffer>>();
+let playingNow: AudioScheduledSourceNode | undefined;
+async function playPreview(plan: PreviewPlan): Promise<void> {
+	audio ??= new AudioContext();
+	// Not awaited: without a click in the page (the integration test sends the message from
+	// the host) the promise may never settle. With the click, the context runs at once.
+	if (audio.state === 'suspended') void audio.resume();
+	playingNow?.stop();
+	const now = audio.currentTime + 0.01;
+	const gain = audio.createGain();
+	gain.connect(audio.destination);
+	let source: AudioScheduledSourceNode;
+	let length = 0.5;
+	try {
+		if (plan.kind === 'sample') {
+			let buffer = buffers.get(plan.url);
+			if (!buffer) {
+				const url = plan.url;
+				buffer = fetch(url)
+					.then((response) => {
+						if (!response.ok) throw new Error(`${response.status} for ${url}`);
+						return response.arrayBuffer();
+					})
+					.then((bytes) => audio!.decodeAudioData(bytes));
+				buffers.set(url, buffer);
+				buffer.catch(() => buffers.delete(url));
+			}
+			const node = audio.createBufferSource();
+			node.buffer = await buffer;
+			if (plan.loop) {
+				// One cycle of a wavetable, looped at A3.
+				node.loop = true;
+				node.playbackRate.value = 220 * node.buffer.duration;
+			} else length = Math.min(node.buffer.duration, 4);
+			source = node;
+		} else if (plan.kind === 'oscillator') {
+			const node = audio.createOscillator();
+			node.type = plan.wave;
+			node.frequency.value = 220;
+			source = node;
+			gain.gain.value = 0.3;
+		} else {
+			const node = audio.createBufferSource();
+			node.buffer = noise(audio, plan.color);
+			source = node;
+			gain.gain.value = 0.3;
+		}
+	} catch (error) {
+		post({ type: 'log', message: `preview: ${(error as Error).message}` });
+		return;
+	}
+	const level = gain.gain.value || 1;
+	gain.gain.setValueAtTime(level, now + Math.max(0, length - 0.05));
+	gain.gain.linearRampToValueAtTime(0, now + length);
+	source.connect(gain);
+	source.start(now);
+	source.stop(now + length);
+	playingNow = source;
+	post({ type: 'log', message: `preview: ${plan.kind === 'sample' ? plan.url.split('/').pop() : plan.kind === 'oscillator' ? plan.wave : `${plan.color} noise`} (${audio.state})` });
+}
+
+/** Half a second of noise. Pink and brown by the usual simple filters. */
+function noise(context: AudioContext, color: 'white' | 'pink' | 'brown'): AudioBuffer {
+	const buffer = context.createBuffer(1, context.sampleRate / 2, context.sampleRate);
+	const data = buffer.getChannelData(0);
+	let last = 0;
+	let b0 = 0;
+	let b1 = 0;
+	let b2 = 0;
+	for (let i = 0; i < data.length; i++) {
+		const white = Math.random() * 2 - 1;
+		if (color === 'white') data[i] = white;
+		else if (color === 'brown') {
+			last = (last + 0.02 * white) / 1.02;
+			data[i] = last * 3.5;
+		} else {
+			b0 = 0.99765 * b0 + white * 0.099046;
+			b1 = 0.963 * b1 + white * 0.2965164;
+			b2 = 0.57 * b2 + white * 1.0526913;
+			data[i] = (b0 + b1 + b2 + white * 0.1848) * 0.2;
+		}
+	}
+	return buffer;
+}
+
 // ---- messages ---------------------------------------------------------------------------
 
 window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
@@ -810,6 +904,8 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			return update();
 		case 'focusSearch':
 			return focusSearch();
+		case 'playPreview':
+			return void playPreview(message.plan);
 		case 'filter':
 			filter = message.filter;
 			searchbarSync();

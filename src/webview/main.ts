@@ -408,6 +408,27 @@ function publishSoundsSoon(): void {
 	publishTimer = setTimeout(publishSounds, 300);
 }
 
+/**
+ * The files of a sound, for previews the Browser plays without the engine. superdough
+ * keeps a list of full addresses, or for a pitched sound a map from notes to lists: then
+ * the list of the note closest to A3, the note a preview plays.
+ */
+function sampleUrls(samples: unknown): string[] | undefined {
+	const strings = (list: unknown) => (Array.isArray(list) && list.every((url) => typeof url === 'string') ? (list as string[]) : undefined);
+	if (Array.isArray(samples)) return strings(samples);
+	if (!samples || typeof samples !== 'object') return undefined;
+	const notes = Object.keys(samples).filter((key) => !key.startsWith('_'));
+	const midi = (note: string) => {
+		const match = /^([a-gA-G])([#bs]*)(-?\d+)$/.exec(note);
+		if (!match) return Number.NaN;
+		const base = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 }[match[1].toLowerCase() as 'c'] ?? 0;
+		const accidental = [...match[2]].reduce((sum, sign) => sum + (sign === 'b' ? -1 : 1), 0);
+		return (Number(match[3]) + 1) * 12 + base + accidental;
+	};
+	const closest = notes.filter((note) => !Number.isNaN(midi(note))).sort((a, b) => Math.abs(midi(a) - 57) - Math.abs(midi(b) - 57))[0];
+	return closest ? strings((samples as Record<string, unknown>)[closest]) : undefined;
+}
+
 /** Sends the engine's sound list to the Sounds view. It is read from superdough, never hardcoded. */
 function publishSounds(): void {
 	const entries = Object.entries(strudelWebaudio.soundMap.get() as Record<string, { data?: any }>);
@@ -420,6 +441,7 @@ function publishSounds(): void {
 			// Only a plain list has numbered variations. A pitched map (piano) has one sound.
 			count: Array.isArray(data.variations) ? data.variations.length : Array.isArray(data.samples) ? data.samples.length : 1,
 			variations: Array.isArray(data.variations) ? data.variations : undefined,
+			urls: sampleUrls(data.samples),
 		}));
 	post({ type: 'sounds', sounds });
 }

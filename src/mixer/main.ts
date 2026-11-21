@@ -44,6 +44,16 @@ const stopButton = transport.appendChild(el('button', 'stop'));
 stopButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><rect x="3" y="3" width="10" height="10" fill="currentColor"/></svg>';
 stopButton.title = 'Stop (Ctrl+.)';
 stopButton.addEventListener('click', () => post({ type: 'transport', action: 'stop' }));
+// Record (a filled red circle) and Record Automation (an empty one), as Live has them. Not
+// built yet: see "Recording and arrangement" in doc/DAW-PLAN.md.
+const recordButton = transport.appendChild(el('button', 'record'));
+recordButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="5" fill="currentColor"/></svg>';
+recordButton.title = 'Record: not built yet';
+recordButton.disabled = true;
+const automationButton = transport.appendChild(el('button', 'record'));
+automationButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+automationButton.title = 'Record automation: not built yet';
+automationButton.disabled = true;
 const bpmBox = bar.appendChild(el('label', 'bpm'));
 bpmBox.appendChild(el('span', '', 'BPM'));
 const bpmInput = bpmBox.appendChild(el('input'));

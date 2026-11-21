@@ -20,6 +20,12 @@ export interface SoundInfo {
 	count: number;
 	/** Names for the variations, when they have names: the firmwares of `vibefm1`. Then `name:<variation>` is typed. */
 	variations?: string[];
+	/**
+	 * The files of a sample or wavetable, one per variation, as superdough has them (full
+	 * addresses). A pitched map gives the files of its note closest to A3. For previews
+	 * without the engine (src/shared/preview.ts).
+	 */
+	urls?: string[];
 }
 
 /** A VIBE FM firmware the song can play as `s("vibefm1:<id>")`. */

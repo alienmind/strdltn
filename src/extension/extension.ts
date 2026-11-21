@@ -44,6 +44,8 @@ export interface StrdltnApi {
 	browserShow(filter: Partial<BrowserFilterState>, open?: string[]): Promise<unknown>;
 	/** Handles a message as if the Browser had sent it: a click on a row, a color. */
 	browserMessage(message: FromBrowser): Promise<void>;
+	/** The previews the Browser played without the engine. */
+	browserPreviews(): string[];
 	/** The Mixer's model of the song in front. */
 	mixer(): ReturnType<MixerView['current']>;
 	/** Unfolds the named strips of the Mixer, folds the others, and returns what it reports. */
@@ -75,6 +77,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const songs = new SongList();
 	const browser = new BrowserView(context, snippets, songs, output, {
 		preview: (name, index) => previewSound(name, index),
+		playing: () => [...sessions].some((s) => s.started),
 		insert: (text, bare) => insertText(text, bare),
 	});
 	const mixer = new MixerView(context, output, {
@@ -348,7 +351,9 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 
 	function previewSound(name: string, index: number): void {
 		const session = activeEditorSession() ?? lastSession();
-		if (!session) return void vscode.window.showInformationMessage('Open a .strudel file to hear sounds.');
+		// Samples and plain waves play in the Browser without this. What is left needs the
+		// engine: soundfonts, supersaw, firmwares.
+		if (!session) return void vscode.window.showInformationMessage(`"${name}" is played by the Strudel engine: open a .strudel file first.`);
 		session.preview(name, index);
 	}
 
@@ -568,6 +573,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			return browser.state();
 		},
 		browserMessage: (message) => browser.handle(message),
+		browserPreviews: () => [...browser.previews],
 		mixer: () => mixer.current(),
 		mixerShow: async (unfold) => {
 			if (!mixerPlace.floating) await vscode.commands.executeCommand('strdltn.mixer.focus');

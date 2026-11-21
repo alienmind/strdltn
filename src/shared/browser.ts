@@ -1,5 +1,6 @@
 // Messages between the extension host and the Browser's views. Both sides import this file.
 import type { CatalogItem, CategoryId, PlaceId, SavedSearch, UserIndex } from './catalog.ts';
+import type { PreviewPlan } from './preview.ts';
 
 /**
  * What the Browser shows: the category, the search and the filters. One for all views: the
@@ -44,6 +45,8 @@ export type ToBrowser =
 	| { type: 'user'; user: UserIndex }
 	| { type: 'preview'; on: boolean }
 	| { type: 'focusSearch' }
+	/** Plays a preview in this page, without the engine. */
+	| { type: 'playPreview'; plan: PreviewPlan }
 	/** The filter changed in another view, or by a command. `open` opens headings in Results, for the integration test. */
 	| { type: 'filter'; filter: BrowserFilterState; open?: string[] };
 

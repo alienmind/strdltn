@@ -5,7 +5,7 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.3.0, not tagged.** The version started again for
+**`main` holds everything, version 0.3.0, released as `v0.3.0` (made by hand: the workflow has never run on this fork, see "Release" in ARCHITECTURE). Enable Actions in the repository's Actions tab before the next tag.** The version started again for
 this project. The tag 1.0.0 is the vstrudel release. The extension is [str]dltn
 Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
 `.strdltn/`, so it installs beside vstrudel without a clash. Settings of vstrudel
@@ -22,7 +22,7 @@ four views with one filter. The tag `v0.2.0` was never made.
 
 Phase 4, Devices, is merged (PR #6) and is version 0.3.0, with the demo song as an
 arrangement that plays itself and a disclaimer on top of the README that this is not an
-official Strudel project. The tag `v0.3.0` and a promote wait for the maintainer. Its spikes ran on desktop on
+official Strudel project. A promote waits for the maintainer. Its spikes ran on desktop on
 2026-11-21 (ARCHITECTURE "Firmware" and "SHRUB editor panel"): F2 gave the control events,
 F1 showed that whole display frames go through the host as `Uint8Array` at 30 to 120 a
 second on desktop, about 4 ms late, but at only about 4 MB a second in a Codespace, so the

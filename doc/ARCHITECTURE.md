@@ -1543,3 +1543,11 @@ without changing the version, without a tag and without `pnpm promote`.
    the checkout is not exactly the tag. Tell the maintainer to run "Developer: Reload
    Window".
 5. When `doc/ABOUT.md` changed, refresh the home page (see "Public page").
+
+Found on 2026-11-21: the workflow has never run on this repository (zero runs; Actions shows as enabled). GitHub
+keeps workflows off in a fork until someone enables them once in the repository's Actions tab, so the tag `v0.3.0`
+built nothing. That release was made by hand, the same steps as `ci.yml`: the tag checked out, `pnpm typecheck`,
+`pnpm test:unit`, `pnpm package`, a copy as `strdltn.vsix`, then `gh release create v0.3.0 *.vsix --generate-notes`.
+The promo video went in as a third asset, `strdltn-promo.mp4`. GitHub serves release assets as
+`application/octet-stream` whatever type they were uploaded with, so a link to it downloads the file; it does not play
+in a browser or a link preview.

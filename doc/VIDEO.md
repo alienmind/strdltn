@@ -6,7 +6,9 @@ from the one the maintainer used for MuseColor (`../musicapp/doc/VIDEO.md`, proj
 
 Status (2026-11-21): a first cut renders end to end, about 36 s: five captured scenes and an end card with the
 GitHub address, a Piper voice, and `demo.strudel` from its drop under all of it, ducked under the voice. The
-draft and the final are in `tmp/promo/out/`. Nobody has watched it yet.
+draft and the final are in `tmp/promo/out/`. The final is an asset of the release v0.3.0:
+`https://github.com/alienmind/strdltn/releases/download/v0.3.0/strdltn-promo.mp4`. GitHub serves it as a download,
+not as a video that plays in place, so for a post the file is uploaded to the site itself.
 
 ## Tools
 

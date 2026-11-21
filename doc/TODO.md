@@ -48,53 +48,17 @@ Next in line:
 
 ## Next: test by hand
 
-The branch `feat/mixer`. Test on **desktop, launched with F5** on `template/`. If the side
-bar views look cut off, run "View: Reset View Locations" once: VS Code keeps the heights
-an older build left.
+Nothing waits. The maintainer tested the branch `feat/mixer` by hand on 2026-11-21 (side
+bar with four views, Results, colors, Built-in, previews without a song, the Music panel
+with Play, Stop, BPM, Record buttons, M, S, G, layout, float and dock): all passed. The
+next build of phase 3 (cable drags) brings its own table.
 
-### Side bar
+The intermittent typing failures of the integration test are still an open lead: see
+"Integration test" under "Open leads" below.
 
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Look at the activity bar and open [str]dltn Live[code] | Icon `[str]` over `dltn`. Four views: Library, Songs and Snippets, Reference, Results. No big logo, no "Categories" or "Places" headings |
-| 2 | Library | Search field; right under it the seven color dots with Built-in to their right; then All, Sounds, Drums, Samples, Instruments |
-| 2a | Fold Results. Click Drums; fold it again and click a color; fold it again and type in the search | Each time Results opens by itself. While typing, the cursor stays in the search field |
-| 3 | Type `lpf` in the search | Results lists sounds, snippets, songs and functions in one list |
-| 4 | Click Functions in the Reference, click it again, then click All in the Library | Results: only functions, then everything, then only sounds |
-| 5 | Click Built-in three times | Results: only built in, then only your project and packs, then everything. The button says which |
-| 6 | Click into Songs and Snippets, press Ctrl+F | The cursor goes to the Library's search field |
-| 7 | Select a row in Results, press 1, then 2 to 7 | The row shows a square for every color it has, all seven |
-| 8 | Close every song and the stage. Library > Drums, open `rolandtr909`, click `bd`; then click `sawtooth` in Sounds | Both play at once, with no song open and no "Enable sound". Details show Drums/Kick, Maker/Roland |
-| 8a | Play a song, click `bd` again | It plays on the next beat of the song |
-| 9 | Put the cursor in the code, select `sawtooth` in Results, press Enter | `note("c3").s("sawtooth")` is typed |
-| 10 | Songs and Snippets > Songs, click a song in Results | It opens |
-| 11 | Right click a snippet in Results > Edit tags..., add `test` | The file gets `// @tags ..., test`, the chip Tag > test exists |
-| 12 | With a filter set, press the save button in Results' bar, name it | Collections appears in the Library with that row. A click brings the filter back |
+## Open leads
 
-### Music panel
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 13 | Open `demo.strudel`, then the panel (Ctrl+J) | Its tab says Music. Top bar: green Play, red square Stop, BPM, song name. 8 strips of the same height; M, S, G on each |
-| 14 | Look at the editor's title bar | Play is a green triangle, Stop a red square |
-| 15 | Switch the panel to Terminal, then play the song | The Music tab comes to the front, the cursor stays in the editor. Play in the top bar is lit |
-| 16 | Press Stop in the top bar, then Play | The song stops, then plays |
-| 16a | Look right of Stop | A red filled circle (Record) and an empty red circle (Record automation), both grayed: not built yet |
-| 17 | Look at BPM for `demo.strudel` | Its own tempo, from its `setcpm` or `setcps`. A song without one shows 120 in gray |
-| 18 | Type 128 in BPM, Enter | `setcpm(128/4)` is in the code (in place of the old call, or after the header comments), and the song speeds up |
-| 19 | Double click BPM | The `setcpm` line is gone, BPM shows 120 in gray |
-| 20 | Make the panel tall, then low | Tall: faders long (up to 400 px), M S G in a row above each fader. Low: faders short, M S G beside them |
-| 21 | Click M of kick while playing, then again | Kick stops at once, the label reads `_$kick:`. Again: back |
-| 22 | Click S of bass, then M of bass | Only bass plays (`S$bass:`), then not even bass (`S$bass_:`) |
-| 23 | Click G of riser, move its fader, click G again | `.gain(slider(1, 0, 1))` appears and works, then goes |
-| 24 | Drag the kick fader while playing | The sound follows; the number in the code follows after you let go |
-| 25 | Open `lib/bass/sub-pulse.strudel` | One strip named sub-pulse; M and S grayed, G works |
-| 26 | Press the window button in the Music title, drag a fader there, then press dock | Music in its own window, same strips; the fader works; back in the panel |
-| 27 | Open `track.strudel` (`\r\n` line endings), type and click while it plays, save, reopen | Clicks land where clicked, the text stays as typed |
-| 28 | Switch to a light theme | Side bar and Music follow it; the icon stays readable |
-
-Expected still broken: a fader moves the sound only after the song has been evaluated
-since its slider was written into the code.
+### Integration test
 
 A lead, not a known bug. On 2026-11-21 the typing cases of the integration test
 started to fail now and then, a different case each time, after about 8 runs in a row

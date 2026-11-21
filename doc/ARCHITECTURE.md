@@ -250,9 +250,9 @@ stay in the host and are cached with the sound list. A list cached by an older b
 none, so samples need one song opened once after the update. The Browser's pages may read
 the workspace folders (the project's samples and `.strdltn/cache`) and fetch over https
 (`connect-src`). While a song plays, the engine still plays the preview, on the next beat
-of the song. Expected, not yet heard by the maintainer: the integration test sends the
-click as a message, which is not a click, so it only shows that the page fetched, decoded
-and started the sound.
+of the song. Heard by the maintainer on 2026-11-21, with no song open: a sample and a
+sawtooth. The integration test sends the click as a message, which is not a click, so it
+only shows that the page fetched, decoded and started the sound.
 
 **Heights.** VS Code gives the views of a side bar equal heights unless `initialSize`
 says otherwise, and with four views the Library's categories were cut off under the logo

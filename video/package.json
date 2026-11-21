@@ -1,0 +1,21 @@
+{
+  "name": "strdltn-promo-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "voice": "python -I scripts/make_voice.py",
+    "capture": "node scripts/capture.mjs",
+    "studio": "remotion studio src/index.ts --public-dir=../tmp/promo",
+    "render": "remotion render src/index.ts Promo ../tmp/promo/out/promo.mp4 --public-dir=../tmp/promo",
+    "render:draft": "remotion render src/index.ts Promo ../tmp/promo/out/promo-draft.mp4 --public-dir=../tmp/promo --scale=0.5"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.544",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.544"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
+  }
+}

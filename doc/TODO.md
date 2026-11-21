@@ -51,7 +51,8 @@ Next in line:
 | 6e | Track colors: every chain gets a color by itself (the next of the palette), kept as `// @color <name>` on the line above the chain, changeable in the Mixer, used later by the session view | Planned, not built. Decision 24 answered: colored by themselves. See "Track colors" in `doc/DAW-PLAN.md` |
 | 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 answered: the workshop first, then the learn pages. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
 | 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
-| 8 | A promo video: a walkthrough of the features, captured from a real VS Code window, with voice-over and our own song | Recipe written, not started. See `doc/VIDEO.md` |
+| 8 | A promo video: a walkthrough of the features, captured from a real VS Code window, with voice-over and our own song | First cut rendered (36 s), not watched yet. See `doc/VIDEO.md` |
+| 9 | The demo's levels: its mix peaks at 2.59 times full scale (+8.3 dB), measured by the video's recorder, so it clips at the speakers. Bring the parts down until the peak is under 1 | Measured, not fixed. See "Sound" in `doc/VIDEO.md` |
 
 ## Next: test by hand
 

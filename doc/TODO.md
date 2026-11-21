@@ -267,6 +267,31 @@ The ways it could reach a song, best first:
    is are not known: spike F4 in `doc/DAW-PLAN.md`. Xfer's terms for running SHRUB in an
    emulator are not known either.
 
+### Coverage of the hub's firmwares
+
+Asked by the maintainer on 2026-11-21, for later: for every firmware of the hub, know how it
+can play here, and test it. Started, then put aside for fm1-emu. What we know, read on
+2026-11-21:
+
+- `thefirmwarehub.com/catalog.json`: 281 FM-1 firmwares, each with `source` (all on GitHub),
+  `lic` (233 GPL-3.0, 36 MPL-2.0, 6 MIT), the `.fwsc` package (`pkg`, `sha256`) and the
+  author's own emulator page (`play`). Also SMK-37 firmwares and M-VAVE's stock package.
+- `play.thefirmwarehub.com/firmware/index.json`: the 43 VIBE FM builds the Playground plays.
+  35 of them are hub firmwares; 8 exist only for VIBE FM (VALVE, BOOM, HALO, PLAYER, VOX,
+  DOOM, Performance Garden, KRACHT). `thefirmwarehub.com/fw/natives.json` lists the native
+  ones with their repos. Neither sends a CORS header: the host fetches them.
+- A VIBE FM build is either converted (the hub's `thefirmwarehub.com/convert` compiles the
+  unchanged source against an imitated FM-1, 8 ms buffer) or native (the author ports to the
+  SDK, 4 ms). Both need source. See the SDK's `FROM-FM1.md`.
+- A scan of the 281 repos through the GitHub API: 260 in C, 5 Rust, 31 forks, none
+  archived; 42 have VIBE FM files, 58 a `.wasm` in the tree, 6 no license file.
+
+The plan when it comes back: a script that joins the two catalogs and, per firmware, says
+which way plays it (VIBE FM build, convertible from source, fm1-emu only), and a test that
+loads each VIBE FM build in `VibeCore` in Node, plays a note and checks for sound and no
+trap. Coverage of the wasm builds cannot be ensured by us: it depends on the authors and
+the hub's converter. Only an emulator of the chip covers every `.fwsc`.
+
 ### Two ways to play a firmware
 
 The maintainer decided on 2026-11-21: `vibefm1` stays. A firmware with a VIBE FM build (wasm

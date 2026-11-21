@@ -66,8 +66,8 @@ const BASS_IN   = [0, "<0!4 1!12>", 1, 1, 1, 0, 1, "<1!4 0!6>"]
 const ACID_IN   = [0, 0, 1, 0, 1, 1, 1, "<1!2 0!8>"]
 const VOCALS_IN = [1, "<0!4 1!12>", 1, 1, 1, 1, 1, 1]
 const CLAP_IN   = [0, 0, 0, 0, 1, 0, 1, 0]
-// The pad: the second half of the BUILD, the drops, the BREAKDOWN, and the start of the OUTRO
-const PAD_IN    = [0, 0, 0, "<0!4 1!4>", 1, 1, 1, "<1!4 0!6>"]
+// The pad: from bar 9 of the INTRO to the start of the OUTRO
+const PAD_IN    = [0, "<0!8 1!8>", 1, 1, 1, 1, 1, "<1!4 0!6>"]
 const RISER_IN  = ["<1!9 0>", 1, 1, 1, 1, 1, 1, 1]
 
 
@@ -86,7 +86,7 @@ const VOCALS_VOL=slider(1,0,1)
 const BASS_VOL=slider(0.287,0,1)
 const ACID_VOL=slider(0.481,0,1)
 const CLAP_VOL=slider(0.28,0,1)
-const PAD_VOL=slider(0.24,0,1)
+const PAD_VOL=slider(0.389,0,1)
 const RISER_VOL=slider(1,0,1)
 
 // How far the arrangement goes. Each one scales a curve of the arrangement, so the song
@@ -216,7 +216,7 @@ $acid: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygian")._
   .mask(part(ACID_IN))
   .dist(ACID_DRIVE).distvol(.3)
   .s("sawtooth").lpf(200).lpenv(part(ACID_ENERGY)).lpq(12).gain(ACID_VOL)
-  .orbit(3)
+  .orbit(3)._scope()
 
 
 //   _____  __
@@ -239,7 +239,7 @@ $riser: s("pulse").seg(16).dec(.1).fm(time).fmh(time)
 
 // Pad: a wide supersaw on the progression of the drops, its filter opening with the
 // energy, through a large room. It pumps with the kick (orbit 5).
-const PAD_CUTOFF = [600, 600, 600, saw.slow(8).range(400, 1500), 1200, 700, 1800, isaw.slow(10).range(300, 1200)]
+const PAD_CUTOFF = [600, 450, saw.slow(16).range(450, 800), saw.slow(8).range(600, 1500), 1200, 700, 1800, isaw.slow(10).range(300, 1200)]
 $pad: n(part(CHORD_PROGRESSION).add("[0,2,4]")).scale("f3:phrygian")
   .mask(part(PAD_IN))
   .s("supersaw").detune(.6).attack(.5).release(2)

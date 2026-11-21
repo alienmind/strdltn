@@ -57,7 +57,7 @@ drags, built after that. Test on **desktop, launched with F5** on `template/`.
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 0a | Open the side bar of the extension | Its title is "[str]dltn" (VS Code may show it as "[Str]Dltn"). At the top of the Library, one row of Music Controls: green Play, red Stop, the two Record circles, BPM, the song's name. Then Library |
+| 0a | Open the side bar of the extension | Its title is "[str]dltn" (VS Code may show it as "[Str]Dltn"). At the top of the Library, one row of Music Controls: green Play, red Stop, the two Record circles, BPM, the song's name; then the search |
 | 0b | Look at the bottom panel | The tab is called Mixer and holds only the strips |
 | 0c | Fold the Songs and Snippets view, then unfold it | Music Controls stay one row high in the Library. Play in them plays the song the Mixer shows |
 | 0d | Play `demo.strudel`, look at the Mixer | kick, snare, hh and hhr show a moving green wave under their faders (they have `._scope()`); the others a gray flat line. Stop: the green ones go flat |

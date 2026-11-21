@@ -5,7 +5,7 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.2.0, not tagged.** The version started again for
+**`main` holds everything up to PR #6. Version 0.3.0 is on the branch `release-0.3.0`, not tagged.** The version started again for
 this project. The tag 1.0.0 is the vstrudel release. The extension is [str]dltn
 Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
 `.strdltn/`, so it installs beside vstrudel without a clash. Settings of vstrudel
@@ -18,9 +18,11 @@ maintainer set ("Order of work"). Phase 1, the Browser, is merged (PR #4). Phase
 3 are merged (PR #5, version 0.2.0): the Music panel with Play, Stop and BPM, the Mixer
 with a strip per chain, faders that write the code, M, S and G, duck cables with cable
 drags, pump meters, float and dock, Music Controls in the Library, and the side bar in
-four views with one filter. The tag `v0.2.0` and a promote wait for the maintainer.
+four views with one filter. The tag `v0.2.0` was never made.
 
-Work now is phase 4, Devices, on the branch `feat/devices`. Its spikes ran on desktop on
+Phase 4, Devices, is merged (PR #6) and is version 0.3.0, with the demo song as an
+arrangement that plays itself and a disclaimer on top of the README that this is not an
+official Strudel project. The tag `v0.3.0` and a promote wait for the maintainer. Its spikes ran on desktop on
 2026-11-21 (ARCHITECTURE "Firmware" and "SHRUB editor panel"): F2 gave the control events,
 F1 showed that whole display frames go through the host as `Uint8Array` at 30 to 120 a
 second on desktop, about 4 ms late, but at only about 4 MB a second in a Codespace, so the
@@ -31,8 +33,7 @@ Phase 4 is built: the Devices view in the bottom panel, a panel per firmware cop
 own display, F1 to F6, the DATA wheel and its parameters; fold, maximize and take out into a
 tab; the SHRUB panel behind its setting; and the integration test records the devices
 (ARCHITECTURE "Devices"). Steps 1 to 4 passed the hand test, and `pnpm test:vscode` passed
-on 2026-11-21. The branch is pull request #6, which waits for the maintainer to merge.
-Next: the hand test below for maximize, take out and SHRUB. The `fm1emu:` way and the
+on 2026-11-21. Next: the hand test below for maximize, take out and SHRUB. The `fm1emu:` way and the
 coverage of the hub wait (see "Firmware Hub").
 
 Next in line:

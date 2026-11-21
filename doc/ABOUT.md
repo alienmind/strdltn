@@ -24,10 +24,11 @@ Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Co
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
 from a browser on any machine, with nothing installed.
 
-> **Version 0.2.0.** A Mixer: a strip per part of the song, faders, mute, solo and
-> sidechain cables you drag. Music Controls with Play, Stop and BPM. The browser split into
-> Library, Songs and Snippets, Reference and Results, with one search, and previews that
-> play with no song open. See "What is missing" at the end.
+> **Version 0.3.0.** A Devices view: each firmware a song plays shows its own screen, keys
+> and knobs, and can fill the view or move to a tab of its own. The demo song now plays
+> itself, from a countdown to a countdown, with a fader for every part. Version 0.2.0
+> brought the Mixer, Music Controls and the Browser in four views. See "What is missing" at
+> the end.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
 it because the scope grew beyond a VS Code extension.

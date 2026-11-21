@@ -4,8 +4,17 @@
 
 # [str]dltn Live[code]
 
-**[str]dltn Live[code] is a VS Code extension. It turns your editor into a Strudel IDE whenever you
-open a `.strudel` file.**
+> **[UNOFFICIAL NOTE]** [str]dltn Live[code] is an independent project. It is neither an
+> official project nor a component of Strudel, and it is not endorsed or supported by the
+> Strudel authors. It is an independent, AGPL-3.0-or-later derivative work that uses
+> Strudel's published packages (`@strudel/*` on npm). For Strudel itself, see
+> [strudel.cc](https://strudel.cc) and its source at
+> [codeberg.org/uzu/strudel](https://codeberg.org/uzu/strudel). Please report problems with
+> this extension [here](https://github.com/alienmind/strdltn/issues), not to the Strudel
+> project.
+
+**[str]dltn Live[code] is a VS Code extension for Strudel live coding. However it is much more than that...
+it turns your editor in a DAW for Strudel music production.**
 
 [Strudel](https://strudel.cc) is a language for making music with code. [str]dltn Live[code] embeds
 the real Strudel, the same editor and the same sound engine as strudel.cc, and adds
@@ -27,7 +36,7 @@ music project as a repository and open it in a browser from any machine, with no
 installed. Fork this repository, open your fork in a Codespace, and start from the
 `template/` folder.
 
-Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.2.0.** See
+Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.3.0.** See
 `doc/TODO.md` for what is missing.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked

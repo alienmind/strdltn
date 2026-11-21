@@ -29,7 +29,7 @@ in a webview view. The SDK headers are cloned in `tmp/sdk/` (gitignored).
 
 Phase 4 steps 1 to 4 are built: the Devices view in the bottom panel, a panel per firmware
 copy with its own display, F1 to F6, the DATA wheel and its parameters (ARCHITECTURE
-"Devices"). Next: the hand test below, then step 7 (the integration test records the devices
+"Devices"), and they passed the hand test. Next: step 7 (the integration test records the devices
 and takes a picture), then steps 5 and 6 (fold, maximize, take out; the SHRUB panel in the
 view). The `fm1emu:` way and the coverage of the hub wait (see "Firmware Hub").
 
@@ -51,25 +51,10 @@ Next in line:
 
 ## Next: test by hand
 
-The Devices view, on the branch `feat/devices`. Test on **desktop, launched with F5** on
-`template/`.
-
-| # | Do this | Should happen |
-|---|---|---|
-| 1 | Open `examples/07-vibefm1-obervave.strudel`, play it, open the Devices tab of the bottom panel | Three panels, OBERVAVE on orbits 2, 3 and 4, each with its display moving |
-| 2 | Turn the mouse wheel over a display | Something on the screen moves, as OBERVAVE's DATA knob would. Note what |
-| 3 | Click F3 and F4 under a display (PRG- and PRG+ on OBERVAVE's screen) | The program number and name at the top of its screen change |
-| 4 | Drag the "A Cutoff" slider of orbit 2 | The bass changes at once, and the display shows the new value |
-| 5 | Fold a panel with its arrow, unfold it | Folded, its display stops; unfolded, it moves again |
-| 6 | Stop the song, then close its tab | Stopped, the panels stay (the copies keep running, silent); closed, they go away |
-
-Expected still broken: no fold of the whole view, no maximize or take out, no SHRUB panel
-in the view yet.
-
-Earlier: nothing waits. The maintainer tested the branch `feat/mixer` by hand on 2026-11-21: the
-side bar in four views, Results, colors, Built-in, previews without a song, Music
-Controls in the Library, the Mixer with M, S, G, layout, float and dock, cable drags with
-one jack per strip, and the pump meter. All passed.
+Nothing waits. The maintainer tested the Devices view on `feat/devices` by hand on
+2026-11-21, desktop with F5 on `template/`: OBERVAVE's three panels with their screens, the
+DATA wheel, F3 and F4 as PRG- and PRG+, the cutoff slider, fold and unfold, and the panels
+staying after a stop and going with the tab. All passed.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.

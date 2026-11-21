@@ -1077,8 +1077,9 @@ The view's page is not kept while hidden (no `retainContextWhenHidden`): a hidde
 
 Checked by hand on 2026-11-21 in a development host on Windows, with `template/examples/07-vibefm1-obervave.strudel`
 playing: OBERVAVE's panels for orbits 2 and 3 in view, each with its own display ("56 DEEP BASS", "44 DARK PAD")
-and its parameter values moving; the panel of orbit 4 is off to the right and was not looked at. Picture: `doc/screenshot-devices.png`. Not checked yet: the soft keys, the wheel and the
-sliders by hand, a Codespace, and the integration test (step 7).
+and its parameter values moving; the panel of orbit 4 is off to the right and was not looked at. Picture: `doc/screenshot-devices.png`. The maintainer's hand test of the same day passed: all three panels, the
+wheel, F3 and F4 (PRG- and PRG+), a parameter slider, fold and unfold. Not checked yet: a Codespace, and the
+integration test (step 7).
 
 ## SHRUB editor panel
 

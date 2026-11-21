@@ -1012,8 +1012,26 @@ and sequencer take their tempo only from that event, and read the position from 
 | Touch | `VIBE_EV_TOUCH` (16), SDK 18. id 0 down, 1 move, 2 up; `down` 1 while held; `value = y * 512 + x` in display pixels. Only for a firmware of the VIBE FM layout that opted in (`vf_clicks(1)`). Below y 282 is the row of soft keys F1-F6, which is not touch; on the knob columns (y 40 to 282) a drag turns the knob |
 | Lights and labels | `vibe_wasm_leds()`, `vibe_wasm_pad_leds()` (SDK 20) and `vibe_wasm_labels()` (`VB_COUNT` x 8 characters) point at tables the panel can read to draw the buttons |
 
-Still open in F1: how many frames a second the relay from the worklet through the host to another webview carries, on
-desktop and in a Codespace.
+**The relay of the display (spike F1).** Measured on 2026-11-21, desktop VS Code 1.147 on Windows 11, with a spike
+extension in `tmp/spike-f1/`, kept until a Codespace is measured. A worklet ran OBERVAVE (`vibe_wasm_audio` every block, notes every
+250 ms) and called `vibe_wasm_draw` at the asked rate. The frame went to the page through the worklet's port
+(transferred), from the page to the host with `postMessage`, and from the host to a webview view in the side bar, which
+painted it on a canvas. Six seconds a mode. Latency is from the page's send to the view's `message` event.
+
+| Mode | Frames a second arrived | Latency p50 / p95 / max | Notes |
+|---|---|---|---|
+| Whole frame, `Uint8Array`, 30 a second | 28.9 (all 171 sent) | 4.0 / 5.1 / 13 ms | 8.8 MB a second |
+| Whole frame, `Uint8Array`, 60 a second | 62.5 (all 375) | 3.9 / 5.7 / 19 ms | |
+| Whole frame, `Uint8Array`, 120 a second | 125 (all 751) | 3.8 / 6.1 / 16 ms | 38 MB a second, as four panels at 30 |
+| Whole frame, base64 string, 30 a second | 28.9 (all) | 5.9 / 7.3 / 10 ms | Encoding cost about 1 ms a frame in the page, decoding 1.3 ms in the view |
+| One changed rectangle, 30 a second | all | 3.4 / 4.3 / 5 ms | Still 73% of the bytes: the level meter at the top right and the line at the bottom change together, so one box covers most of the screen. Finding the box cost 0.2 ms a frame |
+| One changed rectangle, 60 a second | all but 5 unchanged frames | 2.8 / 4.0 / 17 ms | 36% of the bytes |
+
+A `Uint8Array` arrives as a `Uint8Array` in the host and in the view, so `postMessage` carries binary without base64.
+`vibe_wasm_draw` of OBERVAVE took 0.05 to 0.08 ms on the page's thread and in the worklet: nothing next to the
+2.7 ms of a 128-frame block. Converting RGB565 to RGBA and `putImageData` cost 0.5 ms a frame in the view. So on
+desktop: whole frames as `Uint8Array`, no base64, no rectangles; skip a frame only when it is the same as the last.
+Not measured: a Codespace, where the host is across the network and 9 MB a second per panel goes both ways.
 
 ## SHRUB editor panel
 
@@ -1025,9 +1043,14 @@ with its nonce. `retainContextWhenHidden` keeps the editor's page, and its unsav
 "Open in browser" goes through `vscode.env.openExternal`. "Use in song" is disabled: it marks where a VIBE FM build of
 SHRUB would connect.
 
-Not measured: whether shrub.audio lets itself be framed (an `X-Frame-Options` or `frame-ancestors` header would show an
-error page in the frame), and whether its sound plays inside a VS Code webview. Our sandbox cannot reach the site. The
-toolbar was looked at in Chrome with VS Code's dark colors. Why it stays a mockup is in the drawer.
+Measured on 2026-11-21 (spike F3), desktop VS Code 1.147 on Windows 11, with the editor in a frame of a webview view in
+the bottom panel and the mockup's CSP. shrub.audio sends no `X-Frame-Options` and no `frame-ancestors`, and the whole
+editor loads in the frame: tabs, oscillators, keyboard. Its `AudioContext` is created at the first click on a key,
+suspended, and runs right after it: on a real mouse press sent to the frame through DevTools, an analyser on its output
+read an RMS of 0.31, at 4% render capacity. The window was muted (`--mute-audio`), so this proves the graph renders,
+not that the speakers played. The click must be inside SHRUB's frame. A mouse press sent to the VS Code window at the
+same spot reached the frame in one of three runs; one sent to the frame's own DevTools target always did. Why it stays
+a mockup is in the drawer.
 ## Status bar
 
 One item on the right of the status bar says what the song in front does. It replaced a

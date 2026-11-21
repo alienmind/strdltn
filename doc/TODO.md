@@ -20,8 +20,12 @@ with a strip per chain, faders that write the code, M, S and G, duck cables with
 drags, pump meters, float and dock, Music Controls in the Library, and the side bar in
 four views with one filter. The tag `v0.2.0` and a promote wait for the maintainer.
 
-Work now is phase 4, Devices, on the branch `feat/devices`. Spikes F1, F2 and F3 come
-first (see "Phase 0: spikes" in `doc/DAW-PLAN.md`).
+Work now is phase 4, Devices, on the branch `feat/devices`. Its spikes ran on desktop on
+2026-11-21 (ARCHITECTURE "Firmware" and "SHRUB editor panel"): F2 gave the control events,
+F1 showed that whole display frames go through the host as `Uint8Array` at 30 to 120 a
+second, about 4 ms late, and F3 showed that the SHRUB editor loads and plays in a webview
+view. Still open from F1: the relay in a Codespace. The spike for it is in `tmp/spike-f1/`
+(`node tmp/spike-f1/run.mjs`), and the SDK in `tmp/sdk/`. Next: build phase 4 from step 1.
 
 Next in line:
 

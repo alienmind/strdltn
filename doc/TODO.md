@@ -66,12 +66,9 @@ with none: 3 of 4 runs had one failure.
 
 | Run | Case | What was wrong | Editor same as document |
 |---|---|---|---|
-| 1 | `typingWhileAFaderMoves`, `
-` song | One extra line break at the end of the file | Yes |
-| 2 | `typingWhileTheHostEdits`, `
-` song | The line the test writes from the host is missing | Yes |
-| 3 | `undo`, `
-` song | Ctrl+Z after typing `zz` did nothing | Yes |
+| 1 | `typingWhileAFaderMoves`, `\r\n` song | One extra line break at the end of the file | Yes |
+| 2 | `typingWhileTheHostEdits`, `\n` song | The line the test writes from the host is missing | Yes |
+| 3 | `undo`, `\n` song | Ctrl+Z after typing `zz` did nothing | Yes |
 
 Editor and document always agreed, so it is not the text sync. The test now records
 whether VS Code took the host's edit; in run 3 it did. What changed just before:

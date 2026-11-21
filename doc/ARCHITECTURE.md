@@ -426,16 +426,18 @@ gives 6.
 
 ## Mixer
 
-Two views of one page and one host (`MixerView`): the **Mixer**, `strdltn.mixer`, in a
-container of its own in the bottom panel (next to Terminal and Problems), or floating in a
-window of its own (see "Dock and float"); and **Music Controls**, `strdltn.controls`, at
-the top of the side bar above the Library. The host tells each page its role (`role`
-message): the Mixer shows the song's name and the strips, Music Controls the song's name,
-Play, Stop, Record and BPM. For a while on 2026-11-21 they were one tab called Music; the
-maintainer split them again so each can be dragged to another place, and the bottom tab
-is called Mixer again.
+The **Mixer**, `strdltn.mixer`, a webview view in a container of its own in the bottom
+panel (next to Terminal and Problems), or floating in a window of its own (see "Dock and
+float"). It shows the song's name and the strips. **Music Controls** (Play, Stop, Record,
+BPM) act on the same song but sit in one row at the top of the Library view
+(`src/browser/controls.ts`, above the search). The Mixer's host keeps the song and its
+model: it sends the controls' state through `MixerActions.controls` to the Browser's host,
+which passes it to the Library page, and the clicks come back through
+`BrowserActions.control` to `MixerView.control`. On 2026-11-21 the controls were first in
+the Mixer's tab (then called Music), then a side bar view of their own; see "Music
+Controls as a side bar view" in the drawer for why that did not stay.
 
-**Music Controls.** Play (green) and Stop (a red square) play the song both views show, through
+**Music Controls.** Play (green) and Stop (a red square) play the song the Mixer shows, through
 its engine; with none, Play opens the song and plays it. Play is lit while the song
 plays. Then the BPM box: the song's `setcpm()` or `setcps()` as beats a minute at 4 beats
 a cycle (`readChains` gives `tempo`), or 120 in gray when the song has none, which is
@@ -443,7 +445,7 @@ Strudel's default (`cps = 0.5` in cyclist.mjs of @strudel/core 1.2.6). Typing a 
 Enter writes `setcpm(<bpm>/4)`, upstream's own form for BPM, in place of the call or as the
 first statement after the header comments (`tempoEdit`). A double click takes the call
 out, line and all. A tempo that is not plain arithmetic (a slider) disables the box. The
-bar is built once and updated in place, so a redraw while typing keeps the field. In a
+row is built once and updated in place, so a redraw while typing keeps the field. In a
 narrow side bar it wraps onto two lines.
 Record and record automation come here later (see "Recording" in `doc/DAW-PLAN.md`).
 

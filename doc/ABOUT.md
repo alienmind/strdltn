@@ -67,10 +67,9 @@ it because the scope grew beyond a VS Code extension.
   song plays the same on strudel.cc.
 - Sidechain as cables: drag from a strip's jack onto another strip to duck it, pull the
   cable off to stop. The code gets the `.duck()` and `.orbit()` for it.
-- Music Controls at the top of the side bar: Play, Stop and the BPM of the song. Type a
+- Music Controls at the top of the Library: Play, Stop and the BPM of the song. Type a
   BPM to set it, double click for Strudel's 120.
 - The Mixer can float in a window of its own, and comes to the front when a song plays.
-  Mixer and Music Controls are separate views: drag either to another place.
 
 **Sounds**
 

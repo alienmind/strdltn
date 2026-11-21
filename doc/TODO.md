@@ -57,9 +57,9 @@ drags, built after that. Test on **desktop, launched with F5** on `template/`.
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 0a | Open the side bar of the extension | Its title is "[str]dltn" (VS Code may show it as "[Str]Dltn"). At the top, Music Controls: green Play, red Stop, the two Record circles, BPM, the song's name. Then Library |
+| 0a | Open the side bar of the extension | Its title is "[str]dltn" (VS Code may show it as "[Str]Dltn"). At the top of the Library, one row of Music Controls: green Play, red Stop, the two Record circles, BPM, the song's name. Then Library |
 | 0b | Look at the bottom panel | The tab is called Mixer and holds only the strips |
-| 0c | Drag Music Controls into the bottom panel, and the Mixer into the side bar | Both move and keep working; Play in Music Controls plays the song the Mixer shows |
+| 0c | Fold the Songs and Snippets view, then unfold it | Music Controls stay one row high in the Library. Play in them plays the song the Mixer shows |
 | 0d | Play `demo.strudel`, look at the Mixer | kick, snare, hh and hhr show a moving green wave under their faders (they have `._scope()`); the others a gray flat line. Stop: the green ones go flat |
 | 0e | Click the gray scope of bass, then click it again | `._scope()` appears at the end of the bass chain and its scope turns green and moves; the second click takes it out |
 | 1 | Open `demo.strudel` and the Mixer | Every strip has one jack at its foot. Kick's three orange cables go from kick's jack to the jacks of bass, lowendbass and riser |

@@ -277,6 +277,15 @@ different and each keystroke wrote stale text over the document. On a file with 
 line endings every keystroke was a diff over the whole file, because the editor holds
 `\n`: in the integration test every case on such a file came out corrupted.
 
+## Music Controls as a side bar view
+
+The maintainer wanted Play, Stop, Record and BPM as a view of their own at the top of the
+side bar, `strdltn.controls`, so it could be dragged anywhere. Built and tried on
+2026-11-21: the view took half the side bar whenever the Library was folded. VS Code
+splits the side bar among the expanded views; `initialSize` only sets proportions the
+first time, and a webview view has no API to ask for a height. The controls became one
+row at the top of the Library view, which always fits.
+
 ## Fixing click positions with requestMeasure or estimatedHeight
 
 Clicks in the Strudel editor landed lines below the point (see "Clicks in the Strudel

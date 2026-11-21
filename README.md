@@ -14,7 +14,7 @@ Live:
 
 - **Mixer**: a strip per part of the song you play, with faders, mute, solo and sidechain
   cables you drag. Every change is plain Strudel code.
-- **Music Controls**: Play, Stop and the BPM of the song, at the top of the side bar.
+- **Music Controls**: Play, Stop and the BPM of the song, in one row at the top of the Library.
 - **Browser**: every sound, snippet, song and function, with one search, colors and tags.
   Click a sound to hear it, even with no song open.
 - **Your files**: songs, samples and snippets are plain files in a folder, so they work
@@ -69,7 +69,7 @@ browser.
 
 **Mixer and Music Controls**
 
-- Music Controls, a view at the top of the side bar, with Play, Stop and the BPM of the song. Type a BPM to write `setcpm(<bpm>/4)`;
+- Music Controls, one row at the top of the Library, with Play, Stop and the BPM of the song. Type a BPM to write `setcpm(<bpm>/4)`;
   double click it to go back to Strudel's default, 120.
 - A mixer in the bottom panel, next to Terminal: one strip per chain of the song in front
   (`$kick:`, `bass:`), side by side as in the Session view of Live.
@@ -89,7 +89,6 @@ browser.
   chain has `._scope()`, a gray flat line when not. A click adds or removes `._scope()`.
 - A song or snippet without `$:` labels shows as one strip named after the file.
 - The Mixer comes to the front when a song starts playing.
-- Mixer and Music Controls are separate views: drag either to another place.
 - The window button in the Mixer's title floats it in a window of its own. The dock
   button, or closing that window, puts it back in the panel.
 
@@ -193,7 +192,7 @@ song plays.
 The bottom panel has a tab called Mixer, for the song in front. Each part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, G adds
 or removes a gain fader. Drag from the jack at the foot of a strip onto another strip and
 the first ducks the second (`.duck()`); pull the cable off to stop. Type a BPM to set the
-tempo in Music Controls, at the top of the side bar, with Play and Stop. Every change is
+tempo in Music Controls, at the top of the Library, with Play and Stop. Every change is
 an edit of the song, so undo takes it back.
 
 ### The Browser

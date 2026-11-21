@@ -54,7 +54,7 @@ The Mixer, on the branch `feat/mixer`. Test on **desktop, launched with F5** on
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Open `demo.strudel`, then the panel (Ctrl+J) and its tab Mixer | Strips vocals, kick, snare, hh, hhr, bass, lowendbass, riser. Each with M, S, a gain fader with its value, and its orbit. riser says "no slider" |
+| 1 | Open `demo.strudel`, then the panel (Ctrl+J) and its tab Mixer | Strips vocals, kick, snare, hh, hhr, bass, lowendbass, riser. Each with M, S, G, a gain fader with its value, and its orbit. riser has a gray fader that cannot move |
 | 2 | Look under the strips | Three dashed orange cables from the jack of kick to bass, lowendbass and riser, labeled orbit 2, 3, 4. They swing a little and come to rest |
 | 3 | Click the triangle of bass | It widens: gain and lpenv side by side. The cables follow and swing |
 | 4 | Drag the slider `BASS_VOL` in the code (Strudel editor) | The fader of bass follows after a moment |

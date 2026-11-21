@@ -7,6 +7,8 @@ import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
 import { FirmwareCache } from './firmware';
 import { DevicesView } from './devices';
+import { MidiBridge } from './midi';
+import type { MidiPorts } from '../shared/midi';
 import { MixerView } from './mixer';
 import { Place } from './surface';
 import { lf, lineColumn } from '../shared/sync';
@@ -28,6 +30,8 @@ export interface StrdltnApi {
 	status(): { text: string; tooltip: string } | undefined;
 	/** What the caches of the open workspace folders hold. */
 	packCache(): Promise<CacheUsage>;
+	/** The MIDI ports, and how many events the worker sent and how late. Undefined while no song used MIDI. */
+	midi(): Promise<{ ports?: MidiPorts; stats?: { sent: number; late: { p50: number; max: number } } }>;
 	/** How many sounds the list holds that is kept for the next start. */
 	rememberedSounds(): Promise<number>;
 	sounds(): SoundInfo[];
@@ -80,6 +84,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const sessions = new Set<Session>();
 	const packs = new PackCache(output);
 	const firmwareCache = new FirmwareCache(output);
+	const midi = new MidiBridge(context.asAbsolutePath('dist'), output);
+	context.subscriptions.push(midi);
 	const snippets = new SnippetLibrary();
 	const songs = new SongList();
 	const browser = new BrowserView(context, snippets, songs, output, {
@@ -128,6 +134,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		output,
 		packs,
 		firmwareCache,
+		midi,
 		diagnostics,
 		onDispose: (session) => {
 			sessions.delete(session);
@@ -566,6 +573,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			[...sessions].map((s) => ({ mode: s.mode, uri: s.document.uri.toString(), started: s.started, error: s.error, logs: [...s.logs] })),
 		status: () => (statusVisible ? { text: status.text, tooltip: String(status.tooltip ?? '') } : undefined),
 		packCache: () => packs.usage(workspaceUris()),
+		midi: async () => ({ ports: await midi.listPorts(), stats: await midi.stats() }),
 		rememberedSounds: async () => {
 			await remembering;
 			return (await readSounds()).length;

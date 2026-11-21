@@ -6,6 +6,7 @@ import type { PackCache } from './packs';
 import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
 import { type FirmwareCache, scanFirmware } from './firmware';
 import { scanSamples } from './samples';
+import { isMidiMessage, type MidiBridge } from './midi';
 import type { DeviceInfo, DeviceRequest } from '../shared/devices';
 
 /** What a session needs from the extension, and what it tells it. */
@@ -13,6 +14,7 @@ export interface SessionHost {
 	output: vscode.OutputChannel;
 	packs: PackCache;
 	firmwareCache: FirmwareCache;
+	midi: MidiBridge;
 	/** Evaluation errors go here, so they show in the Problems view and as squiggles in the native editor. */
 	diagnostics: vscode.DiagnosticCollection;
 	onDispose(session: Session): void;
@@ -63,6 +65,8 @@ export class Session {
 	}
 	/** Everything the webview logged. Read by the integration test through the extension API. */
 	readonly logs: string[] = [];
+	/** Names this engine for the MIDI bridge. */
+	private readonly midiId = Math.random().toString(36).slice(2);
 	/** When this session's tab was last the active one. Picks the target of a preview or insert. */
 	lastActiveAt = Date.now();
 
@@ -115,6 +119,7 @@ export class Session {
 			this.disposables.forEach((d) => d.dispose());
 			clearTimeout(this.packsTimer);
 			host.diagnostics.delete(document.uri);
+			host.midi.forget(this.midiId);
 			host.onDispose(this);
 		});
 	}
@@ -209,6 +214,7 @@ export class Session {
 	}
 
 	private async receive(message: FromWebview): Promise<void> {
+		if (isMidiMessage(message)) return this.host.midi.receive(this.midiId, (m) => this.post(m), message);
 		switch (message.type) {
 			case 'ready': {
 				const samples = await scanSamples(await this.samplesFolder(), this.panel.webview);

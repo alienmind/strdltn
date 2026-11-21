@@ -1,0 +1,18 @@
+// @title MIDI out
+// @details Plays a synth on a MIDI device instead of in the editor, with the drums in the editor beside it. `.midi()` without a name takes the first MIDI output; on Windows that is the Microsoft GS Wavetable Synth, so this sounds without any device. Put your device's name in the quotes, as the Output channel lists them: `.midi("UMC404HD")`. The sliders send CC 74 (often the filter) and the pitch bend. Desktop VS Code only.
+// @by alienmind
+setcpm(124/4)
+
+const CUTOFF = slider(0.6, 0, 1)
+const BEND = slider(0, -1, 1)
+
+$drums: s("bd*4, [~ hh]*4").bank("tr909").gain(.7)
+
+$synth: note("<[c3 eb3 g3 bb3] [ab2 c3 eb3 g3]>*2").midichan(1)
+  .velocity(".9 .6 .75 .6")
+  .midi()
+
+// Controls without notes: a controller sends only these.
+$knobs: ccn(74).ccv(CUTOFF).seg(8)
+  .midi({ isController: true })
+$bend: midibend(BEND).seg(4).midi({ isController: true })

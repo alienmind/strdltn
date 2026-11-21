@@ -1,6 +1,7 @@
 // Messages between the extension host and a webview. Both sides import this file.
 import type { DeviceInfo, DeviceRequest } from './devices';
 import type { FirmwareCacheMap } from './firmware';
+import type { MidiOut, MidiPorts } from './midi';
 import type { PackInfo } from './packs';
 import type { SyncUpdate } from './sync';
 
@@ -89,7 +90,13 @@ export type ToWebview =
 	/** The answer to `cacheFiles`. `base` is the address of the cached folder when every file is in it. */
 	| { type: 'cachedFiles'; id: number; base?: string }
 	/** A request of the Devices view for one of this engine's firmware copies. */
-	| { type: 'device'; request: DeviceRequest };
+	| { type: 'device'; request: DeviceRequest }
+	/** The MIDI ports of the machine, once the song uses MIDI and when they change. */
+	| { type: 'midiPorts'; ports: MidiPorts }
+	/** The answer to `midiPing`: the host's clock (`epochNow`) when it read the ping. */
+	| { type: 'midiPong'; id: number; sent: number; now: number }
+	/** A message from a MIDI input the song listens to. */
+	| { type: 'midiIn'; port: string; bytes: number[] };
 
 /**
  * The level of one chain at one moment, for the pump meter of the Mixer: it jumps by the
@@ -117,7 +124,14 @@ export type FromWebview =
 	| { type: 'devices'; devices: DeviceInfo[] }
 	/** A display frame (480 x 320 RGB565) and the parameters' values of a copy a panel shows. */
 	| { type: 'frame'; key: string; px: Uint8Array; values: number[] }
-	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string };
+	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string }
+	/** Measures the clock offset to the host, see ClockOffset in src/shared/midi.ts. The first one starts the MIDI bridge. */
+	| { type: 'midiPing'; id: number; sent: number }
+	/** Notes and messages with the host time they are due, sent about 100 ms early. */
+	| { type: 'midiOut'; events: MidiOut[] }
+	| { type: 'midiListen'; port: string }
+	/** The song stopped: drop this engine's queued events and turn its notes off. */
+	| { type: 'midiPanic' };
 
 export interface TextChange {
 	from: number;

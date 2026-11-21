@@ -18,6 +18,7 @@ import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
 import { SyncClient, type SyncUpdate } from '../shared/sync';
 import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { initMidi, midiMessage, midiScope, midiStopped } from './midi';
 import { addFirmware, deviceRequest, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -53,8 +54,11 @@ document.addEventListener('strudel.log', (event) => {
 	log(type === 'error' ? 'error' : type === 'warning' ? 'warn' : 'info', String(message));
 });
 
+initMidi(post, log);
+
 window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 	const message = event.data;
+	if (midiMessage(message)) return;
 	switch (message.type) {
 		case 'init':
 			sync = new SyncClient(message.version, syncId);
@@ -181,7 +185,8 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 					strudelSoundfonts,
 					// Last, so that it replaces the `samples` of @strudel/webaudio in the song's scope.
 					// `firmware` is ours: VIBE FM firmwares from an address, for `vibefm1`.
-					{ samples: taggedSamples, firmware: addFirmware },
+					// MIDI goes through the extension host (src/webview/midi.ts).
+					{ samples: taggedSamples, firmware: addFirmware, ...midiScope },
 				),
 				strudelWebaudio.registerSynthSounds(),
 				strudelWebaudio.registerZZFXSounds(),
@@ -210,6 +215,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		onToggle: (started: boolean) => {
 			// The firmwares follow the transport of the song.
 			transport(started);
+			if (!started) midiStopped();
 			sendLevels();
 			postState();
 		},

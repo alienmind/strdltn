@@ -745,6 +745,8 @@ export async function run(): Promise<void> {
 				await shot('devices');
 				save();
 			}
+			// MIDI through the extension host's worker (phase 5): the ports it found, and how late it sent.
+			if (file.path.endsWith('09-midi-out.strudel')) steps.midi = await api.midi();
 			await vscode.commands.executeCommand('strdltn.stop');
 			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 			save();

@@ -1,3 +1,6 @@
 allowBuilds:
   esbuild: true
   '@vscode/vsce-sign': true
+  # Its install script only checks for a prebuilt binary or compiles one with node-gyp.
+  # The prebuilt binaries ship in the package and the build copies them to dist/.
+  '@julusian/midi': false

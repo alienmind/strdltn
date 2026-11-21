@@ -87,6 +87,8 @@ search.value = filter.query;
 search.spellcheck = false;
 const clearSearch = searchBox.appendChild(button('close', 'Clear the search (Esc)', () => setQuery('')));
 const previewButton = searchbar.appendChild(button('speaker', '', () => post({ type: 'setPreview', on: !preview })));
+// The colors and the Built-in button, right under the search: they filter like it does.
+const colorbar = app.appendChild(el('div', 'colorbar'));
 const nav = app.appendChild(el('div', 'nav'));
 const chips = app.appendChild(el('div', 'chips'));
 const resultbar = app.appendChild(el('div', 'resultbar'));
@@ -172,38 +174,43 @@ function section(id: string, title: string, body: (into: HTMLElement) => void): 
 	return box;
 }
 
+/** The seven colors and the Built-in button, in one row under the search field of the Library. */
+function drawColorbar(): void {
+	colorbar.replaceChildren();
+	const dots = colorbar.appendChild(el('div', 'colors-row'));
+	for (let color = 1; color <= COLOR_COUNT; color++) {
+		const dot = dots.appendChild(el('span', `dot${filter.color === color ? ' active' : ''}`));
+		dot.style.background = colorVar(color);
+		const count = items.filter((item) => colorsOf(item, user).includes(color)).length;
+		dot.title = `${user.colorNames[color - 1]}: ${count} items. Keys 1 to 7 color the selected rows. Right click to rename.`;
+		dot.addEventListener('click', () => setFilter({ color: filter.color === color ? undefined : color }));
+		dot.addEventListener('contextmenu', (event) => {
+			event.preventDefault();
+			openMenu(event, [{ label: `Rename "${user.colorNames[color - 1]}"...`, run: () => renameColor(color) }]);
+		});
+	}
+	// Where an item comes from, as one more condition: built in, or not (the project and
+	// the packs it loads). It took the place of Places.
+	const builtin = colorbar.appendChild(el('button', `chip builtin${filter.builtin === undefined ? '' : ' on'}`, filter.builtin === false ? 'Not built-in' : 'Built-in'));
+	builtin.title =
+		filter.builtin === undefined
+			? 'Everything. Click: only what comes with Strudel'
+			: filter.builtin
+				? 'Only what comes with Strudel. Click: only what does not (your project, the packs it loads)'
+				: 'Only your project and the packs it loads. Click: everything';
+	builtin.addEventListener('click', () => setFilter({ builtin: filter.builtin === undefined ? true : filter.builtin ? false : undefined, place: undefined }));
+}
+
 function drawNav(): void {
+	if (page === 'library') drawColorbar();
 	const own = ownItems();
 	nav.replaceChildren(
 		// One set of colors and saved searches, in the Library. They act on every view.
-		...(page !== 'library'
+		// Saved searches, when there are any. The colors moved under the search field.
+		...(page !== 'library' || !user.searches.length
 			? []
 			: [
 					section('collections', 'Collections', (body) => {
-						const dots = body.appendChild(el('div', 'colors-row'));
-						for (let color = 1; color <= COLOR_COUNT; color++) {
-							const dot = dots.appendChild(el('span', `dot${filter.color === color ? ' active' : ''}`));
-							dot.style.background = colorVar(color);
-							const count = items.filter((item) => colorsOf(item, user).includes(color)).length;
-							dot.title = `${user.colorNames[color - 1]}: ${count} items. Keys 1 to 7 color the selected rows. Right click to rename.`;
-							dot.addEventListener('click', () => setFilter({ color: filter.color === color ? undefined : color }));
-							dot.addEventListener('contextmenu', (event) => {
-								event.preventDefault();
-								openMenu(event, [{ label: `Rename "${user.colorNames[color - 1]}"...`, run: () => renameColor(color) }]);
-							});
-						}
-						// Where an item comes from, as one more condition: built in, or not (the
-						// project and the packs it loads). It took the place of Places.
-						const builtin = body.appendChild(
-							el('button', `chip builtin${filter.builtin === undefined ? '' : ' on'}`, filter.builtin === false ? 'Not built-in' : 'Built-in'),
-						);
-						builtin.title =
-							filter.builtin === undefined
-								? 'Everything. Click: only what comes with Strudel'
-								: filter.builtin
-									? 'Only what comes with Strudel. Click: only what does not (your project, the packs it loads)'
-									: 'Only your project and the packs it loads. Click: everything';
-						builtin.addEventListener('click', () => setFilter({ builtin: filter.builtin === undefined ? true : filter.builtin ? false : undefined, place: undefined }));
 						for (const saved of user.searches) {
 							const row = body.appendChild(navRow('save', saved.name, undefined, isSaved(saved)));
 							row.title = describeSearch(saved);
@@ -785,7 +792,7 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			preview = message.preview;
 			// Library: search, colors, categories. Songs and Snippets, Reference:
 			// their categories. Results: chips, results, details.
-			searchbar.hidden = page !== 'library';
+			searchbar.hidden = colorbar.hidden = page !== 'library';
 			nav.hidden = page === 'results';
 			chips.hidden = resultbar.hidden = resultsBox.hidden = details.hidden = page !== 'results';
 			document.body.dataset.page = page;

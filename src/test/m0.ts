@@ -146,16 +146,20 @@ export async function run(): Promise<void> {
 				const firstLineEnd = (await textLf(uri)).indexOf('\n');
 				const typed = ' and more words typed slowly here';
 				const fromHost = '// a line from the host\n';
+				// VS Code may refuse the edit while the document moves under it (`applyEdit` gives
+				// false, seen once in 8 runs on 2026-11-21); then only the typed text is expected.
+				let hostEditTaken = false;
 				cases.typingWhileTheHostEdits = await typingCase(
 					uri,
 					[{ click: firstLineEnd }, { type: typed, delay: 30 }],
-					(before) => fromHost + insertAt(firstLineEnd, typed)(before),
+					(before) => (hostEditTaken ? fromHost : '') + insertAt(firstLineEnd, typed)(before),
 					async () => {
 						const edit = new vscode.WorkspaceEdit();
 						edit.insert(uri, new vscode.Position(0, 0), fromHost);
-						await vscode.workspace.applyEdit(edit);
+						hostEditTaken = await vscode.workspace.applyEdit(edit);
 					},
 				);
+				(cases.typingWhileTheHostEdits as Record<string, unknown>).hostEditTaken = hostEditTaken;
 				// Typing while a fader of the Mixer writes its number.
 				const hats = (await textLf(uri)).indexOf('$hats');
 				cases.typingWhileAFaderMoves = await typingCase(

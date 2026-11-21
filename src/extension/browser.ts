@@ -142,11 +142,25 @@ export class BrowserView {
 		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
 	}
 
-	/** The filter changed in one view: the others follow. */
+	/** The filter changed in one view: the others follow, and Results opens to show it. */
 	private setFilter(filter: BrowserFilterState, from?: BrowserPage, open?: string[]): void {
 		this.filter = filter;
 		void this.context.workspaceState.update(FILTER_KEY, filter);
 		for (const [page, view] of this.views) if (page !== from) void view.webview.postMessage({ type: 'filter', filter, open } satisfies ToBrowser);
+		if (from && from !== 'results') void this.showResults(from);
+	}
+
+	/**
+	 * Expands Results when it is folded, as the maintainer asked: every click and every search
+	 * should show its results at once. `show(true)` keeps the focus, so typing in the search
+	 * goes on. A Results view that was never opened has no `show`: its focus command opens it,
+	 * and the cursor goes back to the search field when the search was typed.
+	 */
+	private async showResults(from: BrowserPage): Promise<void> {
+		const results = this.views.get('results');
+		if (results) return results.visible ? undefined : results.show(true);
+		await vscode.commands.executeCommand('strdltn.results.focus');
+		if (from === 'library') this.post({ type: 'focusSearch' }, 'library');
 	}
 
 	/** To one view, or to all when no view is named. */

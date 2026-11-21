@@ -214,4 +214,6 @@ svg { display: block; flex: none; }
    Results: the chips, the rows and the details. */
 body:not([data-page="results"]) .nav { flex: 1; max-height: none; }
 .categories .nav-row { padding-left: 10px; }
-.chip.builtin { display: inline-block; margin: 2px 0 6px 18px; font: inherit; font-size: 11px; cursor: pointer; }
+.colorbar { flex: none; display: flex; align-items: center; gap: 10px; padding: 0 8px 6px 10px; }
+.colorbar .colors-row { padding: 0; }
+.chip.builtin { font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap; }

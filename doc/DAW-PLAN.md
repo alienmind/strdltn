@@ -1021,11 +1021,12 @@ another webview. Parameters and events are small messages and go through the hos
 the Mixer's. The display is not small: a frame of 480 by 320 is 300 KB at two bytes a
 pixel (RGB565, spike F1), so 30 frames a second is about 9 MB a second through the host,
 and twice that over the network in Codespaces. On desktop that is no problem: measured, 120
-frames a second arrive whole, about 4 ms late (ARCHITECTURE "Firmware"). The plan: the
-worklet sends a frame only when it changed and only for panels that are open and not
-folded, the frame goes whole as a `Uint8Array` (one changed rectangle still carried 73% of
-the bytes of OBERVAVE at 30 a second), and the rate drops when the view is hidden. A Codespace is not
-measured. When the engine
+frames a second arrive whole, about 4 ms late (ARCHITECTURE "Firmware"). In a Codespace
+the relay carried about 4 MB a second, 15 of 30 frames a second, and queued the rest, so
+the delay grew to seconds. The plan: the worklet sends a frame only when it changed and
+only for panels that are open and not folded, the frame goes whole as a `Uint8Array` (one
+changed rectangle still carried 73% of the bytes of OBERVAVE at 30 a second), at most one
+frame is in flight per panel, and the rate drops when the view is hidden. When the engine
 moves into one webview (phase 6), the panels can live in that webview and the display
 costs nothing to move.
 
@@ -1309,7 +1310,7 @@ Under `tmp/`, each deleted when its answer is written down.
 | E2 | Can the editor highlight and draw from events sent by another webview, with upstream's functions? | Send the events of the engine to a second `StrudelMirror` that does not play | ARCHITECTURE "Engine" |
 | E4 | Can a worker started by the Browser page evaluate a song with `@strudel/core`, `mini`, `tonal` and `transpiler`, and feed superdough in the page on time? | Play `demo.strudel` that way next to the same song in the editor; compare the times of the events | ARCHITECTURE "Engine" |
 | E5 | Does a click in the Browser keep the `AudioContext` running for the whole window: other side bars shown, the window minimized, an hour later? | Click once, then play from a command at those moments | ARCHITECTURE "Starting audio" |
-| F1 | What is the frame format of `vibe_wasm_draw`, and how many frames a second can go from a worklet through the host to another webview, on desktop and in a Codespace? | Read the SDK headers, then send OBERVAVE's screen at 30 frames a second, whole and as changed rectangles | ARCHITECTURE "Firmware". Desktop answered on 2026-11-21: 480 x 320 RGB565, whole frames as `Uint8Array` reach a side bar view at 30, 60 and 120 a second, about 4 ms late. A Codespace is not measured |
+| F1 | What is the frame format of `vibe_wasm_draw`, and how many frames a second can go from a worklet through the host to another webview, on desktop and in a Codespace? | Read the SDK headers, then send OBERVAVE's screen at 30 frames a second, whole and as changed rectangles | ARCHITECTURE "Firmware". Answered on 2026-11-21: 480 x 320 RGB565. On desktop whole frames as `Uint8Array` arrive at 30, 60 and 120 a second, about 4 ms late. In a Codespace the relay carried about 4 MB a second (15 of 30 frames a second) and queued the rest, seconds late. So: one frame in flight per panel |
 | F2 | Which events does a firmware take for its encoders, buttons and touch screen? | The SDK headers and `vibe_sdk.c` | ARCHITECTURE "Firmware". Answered on 2026-11-21 from the headers, SDK 28 |
 | F3 | Does `shrub.audio/editor/` load in a frame of a webview view, and does it make sound there? | The existing mockup, moved into a webview view | ARCHITECTURE "SHRUB editor panel". Answered on 2026-11-21: it loads and plays after a click inside its frame |
 | J1 | How exactly do two webviews agree on time through `getOutputTimestamp()` and the wall clock? | Two engines play clicks on every beat at the same tempo; record both into one file through a loopback, or compare their reported wall times of a downbeat | ARCHITECTURE "Decks" |
@@ -1436,7 +1437,8 @@ Size: 2 to 3 sessions.
    for encoders and buttons, `frame {device, ...}` for the display, by the answer of F1.
 3. `VibeCore`: read the parameter list once (it already can), call `vibe_wasm_draw`
    only while a panel of that copy is open, and send the frame by the rule of F1: the whole
-   frame as a `Uint8Array`, skipped when it is the same as the last.
+   frame as a `Uint8Array`, skipped when it is the same as the last, and the next one only
+   after the view says it painted the last (one frame in flight per panel).
 4. The firmware panel: header, display, knobs, program, store, "Copy as code".
 5. Fold, maximize and take out, with the state kept per firmware id.
 6. The SHRUB panel: the mockup moved into the view, behind the same setting until F3
@@ -1635,9 +1637,10 @@ Size: unknown, at least one session per device.
   two. The third needs ARIA roles on the list and a test with a reader.
 - **Phase 6** can end with "not possible without rebuilding upstream's editor". The plan
   keeps every other phase independent of it.
-- **The display of a firmware through the relay (F1)** may be too heavy in Codespaces.
-  Then the display is only drawn when the engine and the panel are in one webview, and the
-  Devices view shows parameters only.
+- **The display of a firmware through the relay (F1)** is slow in Codespaces: measured, about
+  4 MB a second, so 12 to 15 frames a second for one panel and fewer for several. One frame in
+  flight per panel keeps the delay short. A smooth display there waits for the engine and the
+  panel to be in one webview (phase 6).
 - **The deck chain (J2)** reaches into superdough's output from outside. If `reset()` or a
   new version rebuilds it differently, the chain is lost until the engine attaches it
   again. A test checks that the deck fader still changes the level after a reset.

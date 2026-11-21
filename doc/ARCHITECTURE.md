@@ -1013,7 +1013,7 @@ and sequencer take their tempo only from that event, and read the position from 
 | Lights and labels | `vibe_wasm_leds()`, `vibe_wasm_pad_leds()` (SDK 20) and `vibe_wasm_labels()` (`VB_COUNT` x 8 characters) point at tables the panel can read to draw the buttons |
 
 **The relay of the display (spike F1).** Measured on 2026-11-21, desktop VS Code 1.147 on Windows 11, with a spike
-extension in `tmp/spike-f1/`, kept until a Codespace is measured. A worklet ran OBERVAVE (`vibe_wasm_audio` every block, notes every
+extension in `tmp/` (deleted once written here). A worklet ran OBERVAVE (`vibe_wasm_audio` every block, notes every
 250 ms) and called `vibe_wasm_draw` at the asked rate. The frame went to the page through the worklet's port
 (transferred), from the page to the host with `postMessage`, and from the host to a webview view in the side bar, which
 painted it on a canvas. Six seconds a mode. Latency is from the page's send to the view's `message` event.
@@ -1031,7 +1031,23 @@ A `Uint8Array` arrives as a `Uint8Array` in the host and in the view, so `postMe
 `vibe_wasm_draw` of OBERVAVE took 0.05 to 0.08 ms on the page's thread and in the worklet: nothing next to the
 2.7 ms of a 128-frame block. Converting RGB565 to RGBA and `putImageData` cost 0.5 ms a frame in the view. So on
 desktop: whole frames as `Uint8Array`, no base64, no rectangles; skip a frame only when it is the same as the last.
-Not measured: a Codespace, where the host is across the network and 9 MB a second per panel goes both ways.
+
+The same spike in a Codespace, on 2026-11-21: VS Code 1.147 in the browser (`uiKind` web, `remoteName` codespaces),
+the extension host in the Codespace, both webviews in the maintainer's browser, so every frame crossed the network
+twice. One run, on the maintainer's connection:
+
+| Mode | Sent | Arrived at | Latency p50 / p95 |
+|---|---|---|---|
+| Whole frame, 30 a second | 173 | 15 a second | 3.6 / 5.4 s |
+| One changed rectangle, 30 a second | 173 | 19.9 a second | 4.7 / 6.6 s |
+| Whole frame, 60 a second | 375 | 12.1 a second | 18 / 29 s |
+
+The relay carried about 4 MB a second, and nothing pushed back: the frames queued and the delay grew for as long as
+the page sent. The summaries of the later modes did not come back before the run ended. So the rule for the display is
+one frame in flight per panel: the view answers when it has painted, and only then does the engine send its newest
+frame. On desktop that gives the full rate; in a Codespace it gives whatever the connection carries, about 12 to 15
+frames a second for one panel on this one, with a delay of one frame instead of seconds. `Uint8Array` arrived as
+`Uint8Array` there too. Compressing the frame (OBERVAVE's screen is mostly flat colour) is not measured.
 
 ## SHRUB editor panel
 

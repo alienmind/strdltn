@@ -49,11 +49,15 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/extension.ts` | Registers the custom editor `strdltn.editor` and the commands. Owns the list of sessions, the status bar item and the kept sound list. |
 | `src/extension/session.ts` | Binds one webview to one document. Text sync, sample scan, problems, HTML and CSP. |
 | `src/extension/samples.ts` | Turns the samples folder into the map upstream `samples()` accepts. |
-| `src/extension/browser.ts` | The Browser in the side bar: sounds, snippets, songs and functions, with search, colors and tags. See "Browser" |
+| `src/extension/browser.ts` | The Browser: three views in the side bar (Library, Songs and Snippets, Reference), one host for all three, with one search, colors and tags. See "Browser" |
+| `src/extension/surface.ts` | `setPage` fills any of our webviews with its page. `Place` shows a page docked in a view or floating in an editor tab. See "Dock and float" |
 | `src/extension/snippets.ts` | Reads the `.strudel` files under `lib/`, the snippets of the Browser. |
 | `src/extension/files.ts` | Lists every `.strudel` file of the workspace, the songs of the Browser. |
 | `src/shared/catalog.ts`, `tags.ts`, `search.ts`, `browser.ts` | The items of the Browser, their tags, the search, the messages. Tests beside them |
 | `src/browser/main.ts` | The page of the Browser. Built as `dist/browser.js` |
+| `src/extension/mixer.ts` | The Mixer in the bottom panel: follows the song in front and sends its model. See "Mixer" |
+| `src/shared/chains.ts`, `mixer.ts` | The model of a song for the Mixer (chains, sliders, duck cables), read with acorn, and the messages. `chains.test.ts` holds the cases |
+| `src/mixer/main.ts`, `cables.ts` | The page of the Mixer and its cables. Built as `dist/mixer.js` |
 | `src/shared/snippet.ts` | Splits a snippet file into header fields and code. |
 | `src/shared/context.ts` | The rules that name a slider or a visual from the code around it. `context.test.ts` holds the cases. |
 | `src/extension/packs.ts` | Downloads the remote samples a song loads into `.strdltn/cache/`, measures the cache and empties it. |
@@ -113,17 +117,40 @@ another, so the sound stops on a switch. See `doc/TODO.md` for the open question
 
 ## Text sync
 
-Both sides send the whole text and apply only the difference. `diffText` finds the one
-smallest replacement between two texts, so a change far from the cursor does not move
-the cursor.
+The text of a song is held twice, in the VS Code document and in the editor of the
+webview, and both can change it at the same moment. `src/shared/sync.ts` keeps them
+equal, with the scheme of CodeMirror's collab package written on `ChangeSet` of
+`@codemirror/state` (adding `@codemirror/collab` itself was not allowed in that session,
+and the part we need is small).
 
-The host remembers the text the webview is known to hold (`Session.known`). A document
-change equal to that text is our own echo and is not sent back. The webview sets a flag
-while it applies a remote change, for the same reason.
+- The host is the authority and numbers the changes it accepts (`SyncHost`). `init`
+  gives the webview the text and the version.
+- The webview keeps its own changes that the host has not confirmed (`SyncClient`) and
+  sends them with the version they start from (`push`). The host takes them only when
+  that is its current version, and confirms them to the webview at once (`changes`).
+- A change of the document from anywhere else (an agent, a save that trims spaces, the
+  Browser into the native editor) is sent as `changes` too. The webview moves it over
+  its unconfirmed changes and its unconfirmed changes over it, and sends them again. At
+  the same place the host's text goes first, on both sides.
+- The host writes into the document after it has confirmed (`DocumentWrites`). VS Code
+  refuses a `WorkspaceEdit` made for a version of the document that has moved on
+  (`applyEdit` gives false). An edit from elsewhere that crossed our write is then moved
+  over what we have not written yet and passed on, and our write is moved over it and
+  made again. `reset` starts the sync over and is only for a write refused 20 times.
+- Every text and offset between the two sides has `\n` line endings, as CodeMirror
+  does. The host goes to the document by line and column, which do not depend on the
+  line ending, and VS Code turns an inserted `\n` into the file's own line ending. The
+  places that give offsets to the host (the Mixer, the error of an evaluation) read the
+  document's text with `\n` too.
 
-Edits from the webview are applied one at a time through a promise queue. Each edit is a
-diff against the document. A second diff computed before the first has landed would
-corrupt the text.
+The first version sent the whole text each way and made each side equal to the other
+with a diff. It broke in two ways, measured with real typing in the integration test:
+two changes that crossed undid each other and left the two sides different, so the next
+keystroke wrote stale text over the document; and on a file with `\r\n` line endings
+(what git gives on Windows with `core.autocrlf`) each keystroke was a diff over almost
+the whole file, so text came out scrambled, duplicated or lost in every case of the
+test. `sync.test.ts` runs 200 random orders of crossing edits on each side and checks
+that nothing is lost or doubled.
 
 ## Samples
 
@@ -157,13 +184,81 @@ One run without retries lost every pack until the window was closed.
 
 ## Browser
 
-The side bar is one webview view, `strdltn.browser`, laid out like the browser of Ableton
-Live in one column: the logo, a search field, Collections (seven colors and saved
-searches), Library (categories), Places, tag chips, the results, and a details pane for
-the selected row. It replaced four views: the logo, Files, Sounds and Snippets. A tree
-cannot draw color squares, chips or a search field, and a webview between trees looked
-out of place (see "Snippet cards in a webview" in the drawer), so the whole side bar is
-one webview now. The plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
+The side bar is the browser of Ableton Live split into its parts, as four views. It
+replaced four other views: the logo, Files, Sounds and Snippets. A tree cannot draw color
+squares, chips or a search field, and a webview between trees looked out of place (see
+"Snippet cards in a webview" in the drawer), so the side bar is webviews only now. The
+plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
+
+**Four views.** Each folds and moves on its own, as vstrudel had separate views. The
+maintainer asked for them on 2026-11-21: one search, one set of colors, one list of
+results, and the categories of each kind of thing apart.
+
+| View | id | Shows |
+|---|---|---|
+| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and the categories of sounds: All, Sounds, Drums, Samples, Instruments |
+| Songs and Snippets | `strdltn.songs` | Its categories: All, Snippets, Songs |
+| Reference | `strdltn.reference` | Its categories: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
+| Results | `strdltn.results` | The chips, the result bar, the results of all views in one list, and the details pane |
+
+The categories have no heading: the rows start at the top of their view. A click on a
+category picks it for Results; "All" of a view picks everything of that view (the
+filter's `scope`); a click on the row that is picked goes back to everything of every
+view. The Library keeps the view id `strdltn.browser` it had as the whole Browser.
+
+**One filter.** All four views are the same page (`dist/browser.js`) and the same host
+object: `BrowserView.provider(page)` gives the provider of each, and every page gets
+every item. The host keeps one filter (search text, category, scope, color, built-in,
+chips) for all views and stores it per workspace. A view that changes it sends `filter`
+to the host, which sends it to the other three; the view that made the change already
+shows it, so typing is never undone by an echo. Ctrl+F in a view without the search
+field puts the cursor in the Library's. Colors, tags and saved searches come from the
+one user file.
+
+**Results opens itself.** Every change of the filter made in Library, Songs and Snippets
+or Reference expands Results when it is folded, so a click or a search shows its results
+at once (asked by the maintainer on 2026-11-21). The host calls `show(true)` on the
+Results view, which keeps the focus where it is, so typing in the search goes on. A
+Results view that was never opened has no `WebviewView` yet: then its focus command
+opens it and the host puts the cursor back in the search field. Not measured yet whether
+that last case loses a key typed in between.
+
+**Built-in.** Places (project, packs, built in) is gone. The maintainer sees where an
+item comes from as one more condition, so the Library has one button under the colors
+that goes round three states: everything, only what comes with Strudel ("Built-in"),
+and only what does not ("Not built-in": the project and the packs it loads). It is the
+filter's `builtin`, read by `filterItems` from the item's `place`.
+
+**Previews without a song.** The maintainer found that a click on a sound played nothing
+unless a song was open, the stage was open and "Enable sound" had been clicked, and
+wanted previews to work at once. Now, when no song plays, the page that was clicked plays
+the preview itself with plain Web Audio (`playPreview` in `src/browser/main.ts`): the
+click on the row is a click inside that page, which is what a webview needs to start
+sound. The host decides what to play (`previewPlan` in `src/shared/preview.ts`):
+
+| Sound | Played by the page as |
+|---|---|
+| Samples, drum machines, the project's `samples/`, packs | The file, fetched and decoded; variation `n` wraps as in superdough |
+| Wavetables (`wt_...`) | Its one cycle, looped at A3 |
+| `sine`, `square`, `sawtooth`/`saw`, `triangle`/`tri` | An `OscillatorNode` at A3 |
+| `white`, `pink`, `brown` | Half a second of noise |
+| Soundfonts, `supersaw` and the other synths, firmwares | Not: they go to the engine of a song as before, or a message says to open one |
+
+The addresses come from superdough: the engine sends `urls` with each sound of its list
+(`sampleUrls` in `src/webview/main.ts`; a pitched map gives its note closest to A3). They
+stay in the host and are cached with the sound list. A list cached by an older build has
+none, so samples need one song opened once after the update. The Browser's pages may read
+the workspace folders (the project's samples and `.strdltn/cache`) and fetch over https
+(`connect-src`). While a song plays, the engine still plays the preview, on the next beat
+of the song. Heard by the maintainer on 2026-11-21, with no song open: a sample and a
+sawtooth. The integration test sends the click as a message, which is not a click, so it
+only shows that the page fetched, decoded and started the sound.
+
+**Heights.** VS Code gives the views of a side bar equal heights unless `initialSize`
+says otherwise, and with four views the Library's categories were cut off under the logo
+(seen in the screenshot of the integration test). `package.json` sets 4, 2, 2 and 6.
+VS Code only uses these the first time; a window that has shown the views before keeps
+the sizes it had, until "View: Reset View Locations".
 
 **Parts.**
 
@@ -283,19 +378,40 @@ samples and the packs of its songs, and is for a workspace that has no list yet.
 of a running engine always replaces the kept one. Preview needs an engine and says so.
 We chose a kept list over an engine of its own, see the drawer.
 
-**Logo and icons.** The logo at the top of the Browser is `media/logo.jpg`, the middle
-band of `doc/logo.jpg` at 640 by 149 pixels (16 KB). `doc/` is not in the `.vsix`,
-`media/` is. When `doc/logo.jpg` changes, cut it again.
+**Screenshots.** The pictures in `doc/` (`screenshot-*.png`, used by the README and
+`doc/ABOUT.md`) come from the integration test. Its last step ("9. Pictures for
+README.md and doc/ABOUT.md") plays `demo.strudel` in the Strudel editor, shows the
+Library on Drums with the TR-909 open in Results and the Music panel with bass unfolded,
+and saves `tmp/shots/doc-overview.png`. From a run of `pnpm test:vscode` (the Hydra and
+stage shots only come from the full run), the pictures are cut by hand with Pillow:
+`screenshot-overview.png`, `-stage.png` and `-hydra.png` are the whole window at half
+size (1440 by 900), `-music.png` and `-browser.png` are the Music panel and the side bar
+cut out of the overview, at half size. The window title says "[Extension Development
+Host]" (decision 11 of `doc/TODO.md`). Made on 2026-11-21 for 0.2.0.
+
+**Logo and icons.** The Browser has no logo any more: the maintainer took it out on
+2026-11-21 (its colors did not match the theme and it took room), and `media/logo.jpg`
+went with it. `doc/logo.jpg` stays for the README and `doc/ABOUT.md`.
+
+Play and Stop in the editor's title are `media/play.svg` (green) and `media/stop.svg`
+(a red square), fixed colors, because a codicon (`$(play)`) is drawn in the theme's one
+color.
 
 The extension has two icons, both two lines of the logo: `[str]` and `[code]` in
 Consolas Bold, stretched tall to fill the square (the width is set by `[code]`, so the
 height had room). The first version had four lines (`[str]`, `dltn`, `live`, `[code]`)
 and the maintainer could not read it in the activity bar. `media/icon.png` (256 by 256)
 is the `icon` of `package.json`, shown in the Extensions view and the Marketplace, in the
-blue of the logo (`#40A9C6`) on black. `media/strdltn.svg` is the activity bar icon. VS
-Code paints that one in one color of the theme, so it is the same layout as plain paths
-with `fill="currentColor"`: the glyphs turned into outlines, so it does not depend on the
-fonts of the machine. The icons inside the Browser are inline SVG in `src/browser/icons.ts`
+blue of the logo (`#40A9C6`) on black. `media/strdltn.svg` is the activity bar icon, and
+the icon of the Mixer's tab in the bottom panel. It is `[str]` over `dltn`, cut out of
+`doc/logo.jpg` so both keep the fonts of the logo (a monospace `[str]`, a geometric sans
+`dltn`), each scaled to the width of the square. VS Code uses the icon as a mask and
+paints it in one color of the theme, so only its transparency counts: the SVG holds one
+192 by 192 PNG, white, with the text as its alpha. The alpha comes from how far blue rises
+above red for `[str]`, and from the darkest channel for the white `dltn`, which keeps the
+smooth edges of the JPEG. Checked as a CSS mask in Edge in a dark and a light color at
+24, 48 and 240 pixels; not yet looked at in the activity bar. When `doc/logo.jpg`
+changes, cut it again. `media/icon.png` still shows `[str]` over `[code]`. The icons inside the Browser are inline SVG in `src/browser/icons.ts`
 that take the text color; `media/icons/` holds the older files the trees used.
 
 **Title.** VS Code capitalizes the title of the side bar: "[str]dltn Live[code]" shows as
@@ -306,6 +422,148 @@ Measured in the quick test on VS Code 1.147 with the template: 2222 items (151 s
 1347 drum sounds in 139 banks, 153 samples, 22 snippets, 31 songs, 518 functions). "909
 bd" gives 6 results, the chips Drums/Kick and Maker/Roland give 20, "lpf" in Functions
 gives 6.
+
+## Mixer
+
+The Music panel: a webview view, `strdltn.mixer`, in a container of its own in the bottom
+panel (next to Terminal and Problems), or floating in a window of its own (see "Dock and
+float"). The maintainer named it Music on 2026-11-21: it is the control panel of the song,
+with the mixer as one part. The ids keep "mixer", so nothing else had to change.
+
+**Top bar.** Play (green) and Stop (a red square) play the song the panel shows, through
+its engine; with none, Play opens the song and plays it. Play is lit while the song
+plays. Then the BPM box: the song's `setcpm()` or `setcps()` as beats a minute at 4 beats
+a cycle (`readChains` gives `tempo`), or 120 in gray when the song has none, which is
+Strudel's default (`cps = 0.5` in cyclist.mjs of @strudel/core 1.2.6). Typing a number and
+Enter writes `setcpm(<bpm>/4)`, upstream's own form for BPM, in place of the call or as the
+first statement after the header comments (`tempoEdit`). A double click takes the call
+out, line and all. A tempo that is not plain arithmetic (a slider) disables the box. The
+bar is built once and updated in place, so a redraw while typing keeps the field.
+Record and record automation come here later (see "Recording" in `doc/DAW-PLAN.md`).
+
+**Layout.** Faders are as tall as the panel allows, from 48 up to 400 pixels. In a panel
+at least 420 pixels tall, M, S and G sit in a row above the fader; lower, they stand
+beside it and take no height (a CSS media query on the page's height).
+Phase 2 of `doc/DAW-PLAN.md`, and phase 3 in progress.
+
+**Dock and float.** The button with the window icon in the Mixer's title floats it:
+`Place.float` in `src/extension/surface.ts` makes an editor tab (`strdltn.mixerTab`),
+gives it the Mixer's page, and runs `workbench.action.moveEditorToNewWindow`. The context
+key `strdltn.mixerFloating` hides the docked view meanwhile (its `when` in
+`package.json`), so there is one Mixer at a time. The dock button in the tab's title, or
+closing the tab, puts it back. Measured with spike W1 in the integration test, VS Code
+1.147 on Windows: every move gives a new page, the move of the tab into a window of its
+own too. The new page drew all 8 strips of `demo.strudel` with bass still unfolded, each
+time. `MixerView` is a `Surface`: it never knows where it is
+shown, it gets a `vscode.Webview` through `attach`. A move gives a new page, which starts
+with every strip folded, so the host remembers which strips the page reported unfolded
+and sends them on `ready`. A floating tab is not restored after a reload of the window
+(no serializer): the Mixer comes back docked. The stage is to follow the same way after
+phase 6, see "Dock and float" in `doc/DAW-PLAN.md`.
+
+**The model.** `readChains` in `src/shared/chains.ts` parses the song with acorn 8.19.0,
+the version and the options upstream's transpiler uses (`ecmaVersion: 2022`,
+`allowAwaitOutsideFunction`). A chain is a top level labeled statement (`$kick: ...`,
+`name: ...`), which is what the transpiler turns into `.p('name')`. Mute and solo follow
+upstream's `Pattern.prototype.p` in `@strudel/core` 1.2.6: a label that starts or ends
+with `_` is muted, one that starts with `S` and is longer than one letter is a solo.
+
+**Bare chain.** A song without labels plays the value of its last expression, and most
+snippets are written that way. Then that expression is the one chain (`bare`), found by
+`findChains`: the last top-level expression that is not `await` and not a setup call
+(`samples`, `setcps`, `initHydra`...). Its strip takes the file's name. M and S are
+disabled on it, since there is no label to write on; G works. A song with at least one
+label has only the labeled chains, as the transpiler plays them. Measured over
+`template/lib/`: every snippet has a strip now; before, 17 of 22 said "no chains".
+
+**Shown on play.** When a song goes from stopped to playing, the Mixer comes to the
+front (`Place.reveal`): `view.show(true)` for a view that exists, the floating tab's
+`reveal(undefined, true)`, or the view's focus command and the focus back to the editor
+for a view never opened. The cursor stays in the editor in the first two cases.
+
+**Cable drags.** Every strip has one jack at its foot. The cables the chain sends (its
+duck) start there and the cables that duck it end there: the first build had two jacks
+on a ducked strip, and the maintainer found two plugs on one strip confusing (2026-11-21).
+A drag from a jack where a cable ends pulls that cable off; from a jack with none, or
+with Alt held, it starts a new cable. A drag from it holds a cable
+whose loose end is a marker under the pointer, drawn by the same spring as the others.
+The strip under the pointer is outlined in the focus color when it takes the cable, in
+the error color when it does not, and the cable turns red. Dropped on a strip, the page
+sends `duck`; the host edits the text with `duckEdits` in `src/shared/chains.ts`: the
+target's orbit joins the `.duck("...")` of the first chain, or `.duck("n")` is added. A
+target with no `.orbit()` of its own plays on orbit 1 with most of the song, so it gets
+the next free orbit (one more than any orbit or duck in the song) in the same
+`WorkspaceEdit`, and one undo takes both back. A cable is pulled off by its end at the
+ducked strip: dropped on nothing it sends `unduck` (`unduckEdits`: the orbit leaves the
+list, and `.duck()` goes with the last one); dropped on another strip it moves, one edit
+of the list. Refused, with the reason in the status bar: a drop on itself, a target whose
+`.orbit()` is not a plain number, a ducker whose `.duck()` is a pattern. The page checks
+the same before the drop so the cable can turn red. Redraws of the model wait while a
+cable is held, as for a fader. The integration test sends the drop messages on the
+scratch song and reads the text; the drag gesture itself is tested by hand.
+
+**M, S and G.** Three buttons stacked on the left of each strip, blue when on. Each
+click is an edit of the code made by the host from the text as it is at that moment
+(`toggledLabel`, `labelEdit`, `gainEdit` in `src/shared/chains.ts`), written into the
+document with a `WorkspaceEdit`. The editor takes it as any edit from outside (see "Text
+sync"). M and S flip `_` and `S` on the label. Both on is `Skick_`, because upstream
+silences a label that ends with `_` before it looks at the solo. After a mute or solo
+the host evaluates the song again if it plays (`MixerActions.evaluate`), since upstream
+reads the labels only on evaluation. G adds `.gain(slider(1, 0, 1))` at the end of the
+chain's own spine, or makes a fixed `.gain(0.8)` a slider, and G off removes the
+`.gain(...)` call that holds the fader. A chain without a gain fader shows a disabled
+fader. The integration test clicks all three on a scratch song (`zz-mixer-test.strudel`)
+and reads the text after each click.
+
+Sliders are counted in the order of the code, the same order as the transpiler's widgets,
+so a slider's index here is its index in the stage. A slider belongs to a chain when its
+call is inside the chain or a top level `const` holding it is used there (also through
+another `const`). The label of a fader is the call whose arguments hold the slider or the
+constant, walking up through anything that is not a call: `.gain(KICK_VOL.mul(2))` gives
+"gain". `.orbit(n)` and `.duck("2,3,4")` count only on the chain's own calls; one inside a
+function, or a value that is not a literal, makes the orbit unknown. superdough takes the
+duck orbits as a list (`"2:3"`) or one per event (`"2,3,4"`, a stack), so both read as
+the same set.
+
+**The host.** `MixerView` follows the `.strudel` file of the active tab, in either
+editor. Any other tab (the Mixer itself, a terminal, a stage) keeps the last song. The
+model is read again 300 ms after the last change of the text. Code that does not parse
+keeps the last good model, drawn dimmed, with the parser's message in the bar.
+
+**The page.** Strips side by side, folded to the gain fader, unfolded to every slider;
+which strips are unfolded is kept by name in the webview state. A click on a strip's name
+puts the cursor at the chain, in the Strudel editor (message `select`) or the native one.
+The cables are `src/mixer/cables.ts`: one SVG path per cable with a damped spring on its
+sag, the constants of ableton-rackutils (see the plan). The layer is inside the scrolling
+strip area, 1 pixel big with `overflow: visible`: sized to the scroll area, as first
+written, it made the scroll area grow by its own size. Labels sit near the target end; at
+the middle of the curve the labels of cables from one jack covered each other.
+
+**Faders.** A fader moves the sound and writes the number, as described under
+"Sliders". While it is held, a model sent from the host waits, so a redraw does not pull
+the fader from under the pointer. The number is rounded to the slider's step (or a
+thousandth of its range), so a drag writes `0.607` and not `0.6070000000000001`.
+
+**Measured in the quick test on VS Code 1.147.** `demo.strudel` gives the table of the
+plan: 8 strips, 9 sliders, kick ducks bass, lowendbass and riser on orbits 2, 3, 4. In the
+default bottom panel (about 350 pixels high) the strips were first squeezed to the panel
+and the faders ran out of them; the strips now keep their height and the area scrolls,
+and the faders get shorter in a low panel. The first report of a Mixer opened by the test
+came before the model reached it, so the test's `mixerShow` sends the model again with
+each try.
+
+## Clicks in the Strudel editor
+
+The canvases of `._scope()` and `._pianoroll()` are block widgets of CodeMirror. A
+`<canvas>` is `display: inline`, so it sat on a line box a few pixels taller than
+itself, and CodeMirror, which measures the canvas, did not count them. Its idea of where
+each line is drifted further with every widget above, and a click landed one or two
+lines below the point. Measured in the integration test on `demo.strudel` while it
+played: 4 of 6 clicks off by 24 to 95 characters, the stored top of a line 10 to 30
+pixels above the real one, and CodeMirror's `posAtCoords` disagreeing with its own
+`coordsAtPos`. A fresh `requestMeasure()` did not change it, nor did an
+`estimatedHeight` for upstream's `BlockWidget`. The rule `#editor .cm-content > canvas {
+display: block; }` in the page of the session fixed all six.
 
 ## Snippets
 
@@ -586,19 +844,20 @@ it does not hold, see `doc/DRAWER_OF_FAILED_IDEAS.md`.
 
 The transpiler reports every `slider(value, min, max, step)` with the position of its
 first argument. Upstream keeps the value of a slider under the id `slider_<position>`
-and listens for a window message `cm-slider` to change it. A slider row in the stage
-does the two things the inline slider does:
+and listens for a window message `cm-slider` to change it.
 
-- It posts `cm-slider`, so the sound changes at once.
-- It writes the new number into the code: a change in the hidden editor, which travels
-  to the VS Code document like any other edit. This is held back for 150 ms, because a
-  drag fires an event per pixel and each one would be an edit in the document.
-
-The position of each number is kept up to date with `ChangeSet.mapPos` on every change
-of the document, ours or anyone's.
-
-The host can move a slider too (`slider {index, value}`). The test uses it, and a MIDI
-controller mapped to a slider will.
+The sliders are the faders of the Mixer, in both modes; the stage has no slider rows.
+After each evaluation the page keeps the sliders it reported (`liveSliders`), with their
+ids, and moves their positions with `ChangeSet.mapPos` on every change of the text. A
+fader sends `sliderValue {index, from, value}` through the host, and the page does what
+the inline slider does: it posts `cm-slider`, so the sound changes at once, and writes
+the number into the code 150 ms after the last move. The page writes it, not the host,
+because upstream's inline slider in the Strudel editor keeps the text of its number and
+replaces that many characters on its next drag; the page tells that widget the new text
+in the same step. `from` is missing when the host cannot parse the code at that moment
+(half typed); then the slider is found by its index. A slider typed since the last
+evaluation has no id, so only its number in the code changes. With no engine open on
+the song, the Mixer writes the number itself.
 
 ### Labels
 
@@ -1001,6 +1260,21 @@ The test can ask for a picture of the whole window. It drops a `<name>.request` 
 the runner takes a screenshot with `Page.captureScreenshot` and writes
 `tmp/shots/<name>.png`. This is how we look at the UI without a person. The pictures in `doc/` that
 `doc/ABOUT.md` shows are copies of these.
+
+The test can also click and type with real input. It drops `<name>.input`: the text the
+target editor holds (`match`, because a Strudel editor kept in the background still says
+it is visible) and a list of actions. The runner sends them to the window with
+`Input.dispatchMouseEvent` and `Input.dispatchKeyEvent`, which the browser treats as a
+person's input, and writes `<name>.done` with what the editor holds after. To aim a
+click, it asks the page for the screen position of a character through a small
+read-only hook (`window.__strdltnTest`), and adds the place of the webview's frame in
+the window. The DevTools target of a webview is VS Code's outer page; ours is a frame
+inside it, so the runner reaches it through `iframe.contentWindow`. The cases ("typing"
+and "typingCrlf" in the report) click into a string, after an inline scope, type fast,
+type while the host edits the file (once, and ten times 20 ms apart), type while a fader
+writes, undo, and click six places of `demo.strudel` while it plays with its visuals.
+Each says where the click put the cursor, whether the document is the text expected,
+whether the editor holds the same, and whether the file kept its line endings.
 
 ## Build pipeline
 

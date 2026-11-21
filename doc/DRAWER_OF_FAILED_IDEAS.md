@@ -265,3 +265,22 @@ shows. The logo view had an empty strip under the picture and a second title row
 Code gives a view no way to fit its content or hide its title. Four views also split the
 height of the side bar by fixed weights. One webview holds all of it now, laid out like
 the browser of Live, so nothing in the side bar is a different kind of view.
+
+## Syncing the whole text with a diff
+
+The first text sync sent the whole text from each side and made the other side equal to
+it with the smallest single replacement. Dropped for numbered changes (see "Text sync"
+in `doc/ARCHITECTURE.md`). Two changes that crossed undid each other: the webview made
+its text equal to a host text without its last keystroke, the host made the document
+equal to a webview text without the host's edit, and from then on the two sides stayed
+different and each keystroke wrote stale text over the document. On a file with `\r\n`
+line endings every keystroke was a diff over the whole file, because the editor holds
+`\n`: in the integration test every case on such a file came out corrupted.
+
+## Fixing click positions with requestMeasure or estimatedHeight
+
+Clicks in the Strudel editor landed lines below the point (see "Clicks in the Strudel
+editor" in `doc/ARCHITECTURE.md`). A `ResizeObserver` on the content that called
+`requestMeasure()`, a measure right before the click, and an `estimatedHeight` for
+upstream's `BlockWidget` set from outside all left the error as it was. The cause was
+inline canvases, fixed with CSS.

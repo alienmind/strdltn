@@ -12,10 +12,11 @@ open a `.strudel` file.**
 [Strudel](https://strudel.cc) is a language for making music with code. Its home is a
 web page, and a web page is a hard place to keep a growing pile of songs, samples and
 reusable ideas. [str]dltn Live[code] embeds the real Strudel, the same editor and the same sound
-engine, and adds panels around it: the songs of your project, every sound you can play,
-your own library of snippets, and your music as plain files in a project.
+engine, and adds panels around it, in the manner of Ableton Live: a browser of every
+sound, snippet, song and function, a Music panel with a mixer for the song you play, and
+your music as plain files in a project.
 
-![The Strudel editor in VS Code, with the Sounds and Snippets views](screenshot-sounds.png)
+![demo.strudel playing: the Strudel editor, the Browser on the left, the Music panel below](screenshot-overview.png)
 
 [Download the latest release](https://github.com/alienmind/strdltn/releases/latest) | [Source on GitHub](https://github.com/alienmind/strdltn)
 
@@ -23,9 +24,10 @@ Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Co
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
 from a browser on any machine, with nothing installed.
 
-> **Version 0.0.1.** Errors in the code are shown where they are, a status bar says
-> what plays, the side bar has a Files view and new Snippets, and AI assistants know how
-> to edit a song. See "What is missing" at the end.
+> **Version 0.2.0.** A Music panel with a mixer: a strip per part of the song, faders,
+> mute, solo and sidechain cables you drag, Play, Stop and BPM. The browser split into
+> Library, Songs and Snippets, Reference and Results, with one search, and previews that
+> play with no song open. See "What is missing" at the end.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
 it because the scope grew beyond a VS Code extension.
@@ -42,8 +44,8 @@ it because the scope grew beyond a VS Code extension.
 - The notes that are sounding are outlined in the code.
 - Hydra visuals behind the code.
 - One button switches a file between the Strudel editor and the native VS Code editor.
-- A stage beside the native editor: sliders and visuals, each with a name taken from
-  your code.
+- A stage beside the native editor, with the visuals of the song, each with a name taken
+  from your code.
 - Edits from outside (git, another editor, an AI agent) show up at once, while it plays.
 - An error in the code is underlined and listed in the Problems view, and the song keeps
   playing what worked last.
@@ -54,14 +56,30 @@ it because the scope grew beyond a VS Code extension.
 - Ctrl+. stops the song in front. Press it again to stop a song that plays in another
   tab. "strdltn: Stop all" stops every song.
 
+**Music panel**
+
+- A mixer in the bottom panel: one strip per part of the song (`$kick:`, `bass:`), side by
+  side as in the Session view of Live. A song or snippet without parts is one strip.
+- Each slider in the code is a fader. Moving it changes the sound at once and the number
+  in the code a moment later.
+- M mutes, S solos, G adds or removes a gain fader. Each writes Strudel's own code, so the
+  song plays the same on strudel.cc.
+- Sidechain as cables: drag from a strip's jack onto another strip to duck it, pull the
+  cable off to stop. The code gets the `.duck()` and `.orbit()` for it.
+- Play, Stop and the BPM of the song. Type a BPM to set it, double click for Strudel's 120.
+- The panel can float in a window of its own, and comes to the front when a song plays.
+
 **Sounds**
 
 - All the sounds of strudel.cc: drum machines, piano, the VCSL instruments, the General
   MIDI soundfonts, the synths.
-- A Browser like the one of Ableton Live: search, seven colors, categories, tag chips,
-  and every sound, snippet, song and function of Strudel in one list.
+- A Browser like the one of Ableton Live, in four views: Library (sounds), Songs and
+  Snippets, Reference (every function of Strudel), and Results. One search, seven colors
+  and a Built-in switch act on all of them, and Results shows everything they pick in one
+  list with tag chips.
 - Drum machines grouped by bank.
-- A click on a sound plays it when preview is on. It never types.
+- A click on a sound plays it when preview is on, with no song open: samples, drum
+  machines and the plain synths. It never types.
 - Two buttons on each sound: one types its name at the cursor, one plays it.
 - A button on a bank types `.bank("...")`.
 - The list is there as soon as VS Code starts, before you open a song.
@@ -82,7 +100,7 @@ it because the scope grew beyond a VS Code extension.
 **Projects**
 
 - Songs, samples and snippets are plain files: git, search and folders work as usual.
-- The Browser's Songs list every `.strudel` file of your project, by folder.
+- Songs and Snippets lists every `.strudel` file of your project, by folder.
 - Ready for AI assistants such as Copilot: the template tells them that "add a bass line"
   means a change to the song you have open, and gives them the Strudel reference and
   tutorial to look things up.
@@ -95,17 +113,28 @@ it because the scope grew beyond a VS Code extension.
 
 ### The Strudel editor
 
-![The Strudel editor playing a song](screenshot-editor.png)
-
 [str]dltn Live[code] does not imitate Strudel. It hosts the upstream Strudel packages, so you get
 the same editor and engine as on strudel.cc, and new Strudel features arrive with a
 version bump.
 
+### The Music panel
+
+![The Music panel: Play, Stop, BPM, and a strip per part with faders, M, S, G and sidechain cables](screenshot-music.png)
+
+The bottom panel has a tab called Music. It shows the song in front as a mixer: a strip
+for each part, with its faders, M, S and G, and orange cables for the sidechain. Drag
+from the jack at the foot of a strip onto another strip and the first ducks the second;
+the code gets `.duck("2")` and, if needed, an `.orbit()` of its own for the target. Every
+change is an edit of the song, so undo takes it back and the song stays plain Strudel.
+
 ### Sounds
 
-The **Sounds** view lists what the engine can play, your own samples first. Click a
-sound to hear it. The two buttons on the row type its name where your cursor is, or play
-it. The speaker button at the top decides whether a click plays.
+<img src="screenshot-browser.png" alt="The Browser: Library with the search and colors, Songs and Snippets, Reference, and Results" width="300" align="right">
+
+The **Library** lists what the engine can play, and **Results** shows what you pick.
+Click a sound to hear it, even with no song open. The buttons on the row type it where
+your cursor is, or play it. The speaker button beside the search decides whether a click
+plays.
 
 Your own samples need no setup. Put audio files in a `samples/` folder:
 
@@ -127,7 +156,7 @@ open the file: the pack shows up in the Browser at once, and it is copied into a
 
 ### Snippets
 
-Put `.strudel` files in a `lib/` folder. The **Snippets** view shows them by folder.
+Put `.strudel` files in a `lib/` folder. **Songs and Snippets** shows them by folder.
 Rest the mouse on one to see what it is and its code. A button inserts it at the cursor.
 
 A snippet describes itself in comments at the top of the file:
@@ -167,11 +196,11 @@ One button in the title bar switches a file between two editors:
   other extensions, AI completion. Press play there and a **stage** opens beside the
   code.
 
-![The native editor on the left, the stage on the right](screenshot-stage.png)
+![The native editor with the stage below it and the Music panel](screenshot-stage.png)
 
-The stage lists the sliders of the song, then its visuals. Each row is named from your
-code: the name of the pattern (`$kick:`), the name of a variable, the comment above the
-line, or the code itself. Drag a slider in the stage and the number in the code follows.
+The stage shows the visuals of the song. Each one is named from your code: the name of
+the pattern (`$kick:`), the name of a variable, the comment above the line, or the code
+itself. The sliders are in the Music panel.
 
 ### Hydra visuals
 
@@ -229,8 +258,10 @@ On a Mac use Cmd in place of Ctrl.
   `midin()` do not work yet. A way around it is being built.
 - The sound stops when you switch between the two editors.
 - Playing notes are not outlined in the native editor.
-- No completion or documentation on hover in the code yet, and no Strudel reference
-  panel.
+- No completion or documentation on hover in the code yet. The Reference lists the
+  functions; the tutorial of strudel.cc is planned for it.
+- Soundfonts, supersaw and firmwares still need a song open to preview.
+- Record and Record Automation are in the Music panel, but not built yet.
 - It is not on the VS Code Marketplace yet. Install it from the `.vsix` file.
 
 ## Thanks

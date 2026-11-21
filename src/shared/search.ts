@@ -6,6 +6,8 @@ export interface Filter {
 	query: string;
 	category: CategoryId;
 	place?: PlaceId;
+	/** True: only what comes with Strudel. False: only what does not (the project, the packs it loads). */
+	builtin?: boolean;
 	/** 1 to 7: only items with this color. */
 	color?: number;
 	/** Chosen chips, `Group/Tag`. */
@@ -62,6 +64,7 @@ export function filterItems(items: CatalogItem[], filter: Filter, user: UserInde
 	return items.filter((item) => {
 		if (filter.category !== 'all' && item.category !== filter.category) return false;
 		if (filter.place && item.place !== filter.place) return false;
+		if (filter.builtin !== undefined && (item.place === 'builtin') !== filter.builtin) return false;
 		if (filter.color && !colorsOf(item, user).includes(filter.color)) return false;
 		const tags = tagsOf(item, user);
 		if (filter.chips.length && !matchesChips(tags, filter.chips)) return false;

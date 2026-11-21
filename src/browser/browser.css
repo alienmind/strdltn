@@ -10,6 +10,8 @@
 	--c7: var(--vscode-descriptionForeground, #8b8b8b);
 }
 * { box-sizing: border-box; }
+/* `hidden` must win over the display of each part: the four views hide the parts they do not show. */
+[hidden] { display: none !important; }
 html, body {
 	margin: 0;
 	padding: 0;
@@ -25,9 +27,8 @@ html, body {
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 svg { display: block; flex: none; }
 
-.banner { flex: none; }
-.banner img { display: block; width: 100%; height: auto; max-height: 72px; object-fit: contain; background: #000; }
 
+.searchbar[hidden] { display: none; }
 .searchbar { flex: none; display: flex; align-items: center; gap: 4px; padding: 6px 8px; }
 .search {
 	flex: 1;
@@ -104,6 +105,8 @@ svg { display: block; flex: none; }
 	cursor: row-resize;
 }
 .resultbar .summary { flex: 1; color: var(--vscode-descriptionForeground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resultbar .elsewhere { background: none; border: 0; padding: 0 4px; color: var(--vscode-textLink-foreground); cursor: pointer; white-space: nowrap; font: inherit; }
+.resultbar .elsewhere:hover { text-decoration: underline; }
 
 .results { flex: 1; min-height: 60px; overflow-y: auto; position: relative; outline: none; }
 .results:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
@@ -206,3 +209,11 @@ svg { display: block; flex: none; }
 .dialog .buttons { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
 .dialog .buttons button { padding: 3px 10px; border-radius: 2px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
 .dialog .buttons button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+
+/* Library, Songs and Snippets, Reference: only their categories, as tall as the view.
+   Results: the chips, the rows and the details. */
+body:not([data-page="results"]) .nav { flex: 1; max-height: none; }
+.categories .nav-row { padding-left: 10px; }
+.colorbar { flex: none; display: flex; align-items: center; gap: 10px; padding: 0 8px 6px 10px; }
+.colorbar .colors-row { padding: 0; }
+.chip.builtin { font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap; }

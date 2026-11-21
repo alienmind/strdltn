@@ -9,22 +9,24 @@ open a `.strudel` file.**
 
 [Strudel](https://strudel.cc) is a language for making music with code. [str]dltn Live[code] embeds
 the real Strudel, the same editor and the same sound engine as strudel.cc, and adds
-panels around it for the things a web page cannot give you:
+panels around it for the things a web page cannot give you, in the manner of Ableton
+Live:
 
-- **Files**: the songs of your project, without everything else.
-- **Sounds**: every instrument you can play, to browse, hear and insert. Drum machines
-  by bank, synths, soundfonts, and your own samples.
-- **Snippets**: your own library of reusable code, with a description and a preview of
-  each piece, one click away from your song.
+- **Music panel**: a mixer for the song you play, with a strip per part, faders, mute,
+  solo, sidechain cables you drag, Play, Stop and BPM. Every change is plain Strudel code.
+- **Browser**: every sound, snippet, song and function, with one search, colors and tags.
+  Click a sound to hear it, even with no song open.
 - **Your files**: songs, samples and snippets are plain files in a folder, so they work
   with git, search and everything else in your editor.
+
+![demo.strudel playing: the Strudel editor, the Browser on the left, the Music panel below](doc/screenshot-overview.png)
 
 It also runs in **GitHub Codespaces**. That gives a second way to use it: keep each
 music project as a repository and open it in a browser from any machine, with nothing
 installed. Fork this repository, open your fork in a Codespace, and start from the
 `template/` folder.
 
-Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.0.1.** See
+Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.2.0.** See
 `doc/TODO.md` for what is missing.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
@@ -64,11 +66,35 @@ browser.
 - Ctrl+. stops the song in front. Press it again to stop a song that plays in another
   tab. "strdltn: Stop all" stops every song.
 
+**Music panel**
+
+- A top bar with Play, Stop and the BPM of the song. Type a BPM to write `setcpm(<bpm>/4)`;
+  double click it to go back to Strudel's default, 120.
+- A mixer in the bottom panel, next to Terminal: one strip per chain of the song in front
+  (`$kick:`, `bass:`), side by side as in the Session view of Live.
+- A strip shows the slider in the chain's `.gain()` as a fader. Unfold it to see every
+  other slider of the chain. A slider assigned to a constant (`const KICK_VOL =
+  slider(...)`) shows in the chain that uses the constant.
+- M, S and G on each strip. M mutes and S solos the chain, written as upstream's own
+  labels (`_kick:`, `Skick:`); a song that plays is updated at once. G adds a gain fader
+  to the chain (`.gain(slider(1, 0, 1))`) or takes it out.
+- Sidechain cables: a chain with `.duck("2,3")` is cabled to the chains on those orbits.
+  Drag from the jack at the foot of a strip onto another strip to duck it; pull a cable off
+  by its end to stop. The code gets the `.duck()`, and an `.orbit()` of its own for a
+  target that had none.
+- A fader changes the sound at once and the number in the code a moment later, like the
+  slider in the code. Moving the slider in the code moves the fader.
+- A song or snippet without `$:` labels shows as one strip named after the file.
+- The Music panel comes to the front when a song starts playing.
+- The window button in the Mixer's title floats it in a window of its own. The dock
+  button, or closing that window, puts it back in the panel.
+
 **Browser**
 
-- One Browser in the side bar, laid out like the browser of Ableton Live: a search
-  field, seven colors, a Library (Sounds, Drums, Samples, Instruments, Snippets, Songs,
-  Functions), Places (your project, packs, built in), tag chips, and the results below.
+- A Browser in the side bar, like the browser of Ableton Live, in four views. Library
+  (search, seven colors, a Built-in switch, and Sounds, Drums, Samples, Instruments),
+  Songs and Snippets, and Reference (every function of Strudel) pick what you see;
+  Results shows it all in one list, with tag chips and details.
 - Search by name, bank, folder, description or tag. Every word must match. `#kick`
   looks only at tags.
 - Tags come by themselves from the names: Kick, Snare, Hihat... for drums, Bass, Pad,
@@ -142,27 +168,52 @@ playing. Hydra visuals work too.
 
 A button in the title bar switches the same file to the native VS Code editor, for
 bigger edits with your own keys, extensions and AI completion. Press play there and a
-stage opens beside the code. It lists the sliders of the song, then its visuals. Each
-row is named from your code: the name of the pattern (`$kick:`), the name of a variable,
-the comment above the line, or the code itself. Drag a slider there and the number in
-the code follows.
+stage opens below the code with the visuals of the song. Each is named from your code:
+the name of the pattern (`$kick:`), the name of a variable, the comment above the line,
+or the code itself. The sliders are faders in the Music panel.
+
+![The native editor with the stage below it and the Music panel](doc/screenshot-stage.png)
+
+[Hydra](https://hydra.ojack.xyz) works as on strudel.cc: call `initHydra()` and the
+visuals draw behind your code, driven by your pattern.
+
+![Hydra shapes behind the code](doc/screenshot-hydra.png)
 
 Edits made outside the editor, by git or by an agent, show up at once, even while the
 song plays.
 
+### The Music panel
+
+![The Music panel: Play, Stop, BPM, and a strip per part with faders, M, S, G and sidechain cables](doc/screenshot-music.png)
+
+The bottom panel has a tab called Music, the control panel of the song in front. Each
+part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, G adds
+or removes a gain fader. Drag from the jack at the foot of a strip onto another strip and
+the first ducks the second (`.duck()`); pull the cable off to stop. Type a BPM to set the
+tempo. Every change is an edit of the song, so undo takes it back.
+
 ### The Browser
 
-The [str]dltn Live[code] icon in the activity bar opens the Browser. From the top:
+<img src="doc/screenshot-browser.png" alt="The Browser: Library with the search and colors, Songs and Snippets, Reference, and Results" width="300" align="right">
 
-- **Search.** Ctrl+F in the Browser, or Ctrl+Alt+F from anywhere, puts the cursor here.
-  Esc clears it, the down arrow goes to the results.
-- **Collections.** Seven color dots. A click shows everything with that color. Right click
-  a dot to rename it ("Favorites" is the first). Saved searches are listed here too.
-- **Library.** What kind of thing: Sounds (synths, soundfonts), Drums (by bank), Samples,
-  Instruments (VIBE FM firmwares), Snippets, Songs, Functions (every function of Strudel,
-  with its documentation).
-- **Places.** Where it comes from: your project, the packs your songs load, built in.
-- **Chips.** The tags of what is shown, by group. They narrow the results.
+The [str]dltn Live[code] icon in the activity bar opens the Browser, four views that
+each fold and move on their own. The first three pick what is shown, the last shows it.
+Everything you set, in any of them, acts on Results.
+
+- **Search** (Library). Ctrl+F in any of the views, or Ctrl+Alt+F from anywhere, puts the
+  cursor here. Esc clears it. It searches everything.
+- **Colors** (Library, under the search). Seven color dots. A click shows everything with
+  that color. Right click a dot to rename it ("Favorites" is the first). Beside them, the
+  Built-in button: click once for only what comes with Strudel, again for only what does
+  not (your project and the packs your songs load), again for everything.
+- **Collections** (Library). Your saved searches, once you have saved one.
+- Every click and every search opens Results, if it is folded.
+- **Categories.** The rows of each view: Sounds (synths, soundfonts), Drums (by bank),
+  Samples and Instruments (VIBE FM firmwares) in the Library; Snippets and Songs in Songs
+  and Snippets; Functions (every function of Strudel, with its documentation) in the
+  Reference. "All" takes everything of that view. A click on the row that is picked goes
+  back to everything.
+- **Chips** (Results). The tags of what is shown, by group. They narrow the results.
 - **Results.** Under headings: the bank, the folder, the category. Arrow keys move,
   Enter inserts (or opens a song), Space plays, 1 to 7 color, right click for more.
   Ctrl+click and Shift+click select several rows.
@@ -170,8 +221,10 @@ The [str]dltn Live[code] icon in the activity bar opens the Browser. From the to
   collection, a "Tags..." button, its tags (a click filters by one), its description, code
   or parameters.
 
-The speaker button beside the search turns preview on click on or off. While a song
-plays, a preview waits for the next beat of the song.
+The speaker button beside the search turns preview on click on or off. Samples, drum
+machines and the plain waves play at once, with no song open. While a song plays, a
+preview waits for the next beat of the song. Soundfonts, supersaw and firmwares need a
+song open.
 
 Colors, your own tags and saved searches are kept in `strdltn.index.json` at the root of
 your project. Commit it and they travel with your songs.

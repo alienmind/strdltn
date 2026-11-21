@@ -1,6 +1,7 @@
 // Messages between the extension host and a webview. Both sides import this file.
 import type { FirmwareCacheMap } from './firmware';
 import type { PackInfo } from './packs';
+import type { SyncUpdate } from './sync';
 
 /** 'editor': the webview is the editor of the file. 'stage': code hidden, visuals only. */
 export type Mode = 'editor' | 'stage';
@@ -19,6 +20,12 @@ export interface SoundInfo {
 	count: number;
 	/** Names for the variations, when they have names: the firmwares of `vibefm1`. Then `name:<variation>` is typed. */
 	variations?: string[];
+	/**
+	 * The files of a sample or wavetable, one per variation, as superdough has them (full
+	 * addresses). A pitched map gives the files of its note closest to A3. For previews
+	 * without the engine (src/shared/preview.ts).
+	 */
+	urls?: string[];
 }
 
 /** A VIBE FM firmware the song can play as `s("vibefm1:<id>")`. */
@@ -54,9 +61,13 @@ export interface EngineState {
 }
 
 export type ToWebview =
-	| { type: 'init'; text: string; mode: Mode; samples: SampleMap; firmware: FirmwareInfo[]; settings: EditorSettings }
+	/** `text` with `\n` line endings, as every text and offset between the two sides. `version` starts the sync, see src/shared/sync.ts. */
+	| { type: 'init'; text: string; version: number; mode: Mode; samples: SampleMap; firmware: FirmwareInfo[]; settings: EditorSettings }
 	| { type: 'settings'; settings: EditorSettings }
-	| { type: 'update'; text: string }
+	/** Changes the host accepted, in order: the webview's own, confirmed, and everyone else's. */
+	| { type: 'changes'; updates: SyncUpdate[] }
+	/** The two sides could not be kept in step. The webview takes this text and version, and drops its unconfirmed changes. */
+	| { type: 'reset'; text: string; version: number }
 	| { type: 'samples'; samples: SampleMap }
 	| { type: 'firmware'; firmware: FirmwareInfo[] }
 	/** Which `firmware('https://...')` addresses of the song have a cached copy, and its URL. */
@@ -67,14 +78,20 @@ export type ToWebview =
 	| { type: 'preview'; name: string; index: number }
 	/** `bare` replaces `text` when the cursor is inside a string: the name alone, not a call. */
 	| { type: 'insert'; text: string; bare?: string }
-	/** Moves a slider of the stage, by its position in the list. The same as dragging it. */
-	| { type: 'slider'; index: number; value: number }
+	/** Puts the cursor at an offset of the code, from a click on a strip of the Mixer. */
+	| { type: 'select'; offset: number }
+	/**
+	 * A fader of the Mixer moved the slider whose number starts at `from` in the code. The
+	 * sound changes at once and the number in the code follows. `value` is the text to write.
+	 */
+	| { type: 'sliderValue'; index: number; from?: number; value: string }
 	/** The answer to `cacheFiles`. `base` is the address of the cached folder when every file is in it. */
 	| { type: 'cachedFiles'; id: number; base?: string };
 
 export type FromWebview =
 	| { type: 'ready' }
-	| { type: 'edit'; text: string }
+	/** The webview's unconfirmed changes, on top of `version`. Dropped by the host when it has moved on. */
+	| { type: 'push'; version: number; updates: SyncUpdate[] }
 	| { type: 'state'; state: EngineState }
 	/** An evaluation ended. Without `error` it went well. `from` and `to` are offsets in the code. */
 	| { type: 'evaluated'; error?: { message: string; from?: number; to?: number } }

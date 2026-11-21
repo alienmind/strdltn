@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { BrowserFilterState, FromBrowser, ToBrowser } from '../shared/browser';
+import type { BrowserFilterState, BrowserPage, FromBrowser, ToBrowser } from '../shared/browser';
 import {
 	type CatalogItem,
 	type FunctionDoc,
@@ -17,36 +17,53 @@ import { filterItems } from '../shared/search';
 import { setSnippetTags } from '../shared/snippet';
 import type { SongList } from './files';
 import type { SnippetLibrary } from './snippets';
+import { previewPlan } from '../shared/preview';
+import { setPage } from './surface';
 
 /** The file in the root of the project that keeps the colors, tags and saved searches. */
 export const INDEX_FILE = 'strdltn.index.json';
 const PREVIEW_KEY = 'strdltn.previewSounds';
 
 export interface BrowserActions {
+	/** Plays a sound through the engine of a song. */
 	preview(name: string, index: number): void;
+	/** True while a song plays: then the engine plays previews, on its beat. */
+	playing(): boolean;
 	/** `bare` goes in instead when the cursor is inside a string. */
 	insert(text: string, bare?: string): Promise<void>;
 }
 
+const FILTER_KEY = 'strdltn.browserFilter';
+const NO_FILTER: BrowserFilterState = { category: 'all', query: '', chips: [] };
+
 /**
- * The Browser: one webview in the side bar that holds every sound, snippet, song and
- * function, with a search field, seven colors, categories, places and tag chips, like the
- * browser of Live. It replaced the Files, Sounds and Snippets trees: a tree cannot show
- * colors, chips or a search field.
+ * The Browser: four views in the side bar, like the browser of Live split into its parts.
+ * Library (sounds, with the one search field, the colors and the Built-in button), Songs
+ * and Snippets, and Reference (functions, later the tutorial) pick what is shown; Results
+ * shows it, from every view, in one list with chips and a details pane. The maintainer
+ * wanted the parts apart, as the separate views of vstrudel were, with one search, one
+ * set of colors and one list of results. A tree cannot show colors, chips or a search
+ * field, so these replaced the old trees.
  *
- * The host owns the data. It builds the items, keeps the user's colors and tags in
- * `strdltn.index.json`, and does what a row asks (play, insert, open). The webview owns
- * what is on screen: the filters, the open headings, the selection.
+ * All four are the same page. The host owns the data and the filter: it builds the items,
+ * keeps the user's colors and tags in `strdltn.index.json`, keeps the filter for all
+ * views, and does what a row asks (play, insert, open). A view that changes the filter
+ * sends it here, and the host hands it to the others.
  */
-export class BrowserView implements vscode.WebviewViewProvider {
-	private view?: vscode.WebviewView;
+export class BrowserView {
+	private readonly views = new Map<BrowserPage, vscode.WebviewView>();
+	/** The previews the pages played themselves, as they reported them. For the integration test. */
+	readonly previews: string[] = [];
+	/** What Results reported last. */
+	private lastState?: Extract<FromBrowser, { type: 'state' }>;
+	/** The filter of all views. Kept per workspace, so a reload shows the same. */
+	private filter: BrowserFilterState;
 	private sounds: SoundInfo[] = [];
 	private functions: FunctionDoc[] = [];
 	private items: CatalogItem[] = [];
 	private user: UserIndex = readUserIndex(undefined);
 	private preview: boolean;
 	private pushTimer?: ReturnType<typeof setTimeout>;
-	private lastState?: Extract<FromBrowser, { type: 'state' }>;
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -56,6 +73,7 @@ export class BrowserView implements vscode.WebviewViewProvider {
 		private readonly actions: BrowserActions,
 	) {
 		this.preview = context.globalState.get(PREVIEW_KEY, true);
+		this.filter = { ...NO_FILTER, ...context.workspaceState.get<Partial<BrowserFilterState>>(FILTER_KEY) };
 		snippets.onDidChange(() => this.rebuild());
 		songs.onDidChange(() => this.rebuild());
 	}
@@ -80,36 +98,35 @@ export class BrowserView implements vscode.WebviewViewProvider {
 		return this.sounds;
 	}
 
-	resolveWebviewView(view: vscode.WebviewView): void {
-		this.view = view;
-		const dist = vscode.Uri.joinPath(this.context.extensionUri, 'dist');
-		const media = vscode.Uri.joinPath(this.context.extensionUri, 'media');
-		view.webview.options = { enableScripts: true, localResourceRoots: [dist, media] };
-		const nonce = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
-		const script = view.webview.asWebviewUri(vscode.Uri.joinPath(dist, 'browser.js'));
-		const style = view.webview.asWebviewUri(vscode.Uri.joinPath(dist, 'browser.css'));
-		const csp = [`default-src 'none'`, `script-src 'nonce-${nonce}'`, `style-src ${view.webview.cspSource} 'unsafe-inline'`, `img-src ${view.webview.cspSource} data:`].join('; ');
-		view.webview.html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="${csp}">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="${style}"></head>
-<body><div id="app"></div><script nonce="${nonce}" src="${script}"></script></body></html>`;
-		view.webview.onDidReceiveMessage((message: FromBrowser) => void this.handle(message));
-		view.onDidDispose(() => (this.view = undefined));
+	/** The provider of one of the four views. */
+	provider(page: BrowserPage): vscode.WebviewViewProvider {
+		return {
+			resolveWebviewView: (view) => {
+				this.views.set(page, view);
+				// The page plays previews itself: sample files from the web, from the project and
+				// from the pack cache in it (`.strdltn/cache`).
+				setPage(this.context, view.webview, 'browser', {
+					roots: (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri),
+					csp: [`connect-src ${view.webview.cspSource} https:`, `media-src ${view.webview.cspSource} https: data: blob:`],
+				});
+				view.webview.onDidReceiveMessage((message: FromBrowser) => void this.handle(message, page));
+				view.onDidDispose(() => this.views.get(page) === view && this.views.delete(page));
+			},
+		};
 	}
 
 	/** Puts the cursor in the search field, opening the side bar first. */
 	async focusSearch(): Promise<void> {
 		await vscode.commands.executeCommand('strdltn.browser.focus');
-		this.post({ type: 'focusSearch' });
+		this.post({ type: 'focusSearch' }, 'library');
 	}
 
-	/** Sets what the Browser shows. For the integration test. */
+	/** Sets what the Browser shows, as clicks would. For the integration test. */
 	show(filter: Partial<BrowserFilterState>, open?: string[]): void {
-		this.post({ type: 'show', filter, open });
+		this.setFilter({ ...this.filter, ...filter }, undefined, open);
 	}
 
-	/** What the webview reported last: the filter, and how many results and rows it shows. */
+	/** What Results reported last: the filter, and how many results and rows it shows. */
 	state(): Extract<FromBrowser, { type: 'state' }> | undefined {
 		return this.lastState;
 	}
@@ -136,8 +153,30 @@ export class BrowserView implements vscode.WebviewViewProvider {
 		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
 	}
 
-	private post(message: ToBrowser): void {
-		void this.view?.webview.postMessage(message);
+	/** The filter changed in one view: the others follow, and Results opens to show it. */
+	private setFilter(filter: BrowserFilterState, from?: BrowserPage, open?: string[]): void {
+		this.filter = filter;
+		void this.context.workspaceState.update(FILTER_KEY, filter);
+		for (const [page, view] of this.views) if (page !== from) void view.webview.postMessage({ type: 'filter', filter, open } satisfies ToBrowser);
+		if (from && from !== 'results') void this.showResults(from);
+	}
+
+	/**
+	 * Expands Results when it is folded, as the maintainer asked: every click and every search
+	 * should show its results at once. `show(true)` keeps the focus, so typing in the search
+	 * goes on. A Results view that was never opened has no `show`: its focus command opens it,
+	 * and the cursor goes back to the search field when the search was typed.
+	 */
+	private async showResults(from: BrowserPage): Promise<void> {
+		const results = this.views.get('results');
+		if (results) return results.visible ? undefined : results.show(true);
+		await vscode.commands.executeCommand('strdltn.results.focus');
+		if (from === 'library') this.post({ type: 'focusSearch' }, 'library');
+	}
+
+	/** To one view, or to all when no view is named. */
+	private post(message: ToBrowser, page?: BrowserPage): void {
+		for (const [id, view] of this.views) if (!page || id === page) void view.webview.postMessage(message);
 	}
 
 	private item(id: string): CatalogItem | undefined {
@@ -145,15 +184,20 @@ export class BrowserView implements vscode.WebviewViewProvider {
 	}
 
 	/** What a message of the webview asks. Public for the integration test, which cannot click in a webview. */
-	async handle(message: FromBrowser): Promise<void> {
+	async handle(message: FromBrowser, page: BrowserPage = 'results'): Promise<void> {
 		switch (message.type) {
 			case 'ready': {
-				const logo = this.view?.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', 'logo.jpg')).toString() ?? '';
-				return this.post({ type: 'init', logo, items: this.items, user: this.user, preview: this.preview });
+				return this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter }, page);
 			}
 			case 'play': {
 				const item = this.item(message.id);
-				if (item?.sound) this.actions.preview(item.sound, message.index ?? item.index ?? 0);
+				if (!item?.sound) return;
+				const index = message.index ?? item.index ?? 0;
+				// While a song plays the engine plays it, on the next beat of the song. Else
+				// the page that was clicked plays it itself, so a preview needs no song at all.
+				const plan = this.actions.playing() ? undefined : previewPlan(this.sounds.find((sound) => sound.name === item.sound), index);
+				if (plan) return this.post({ type: 'playPreview', plan }, page);
+				this.actions.preview(item.sound, index);
 				return;
 			}
 			case 'insert': {
@@ -209,8 +253,13 @@ export class BrowserView implements vscode.WebviewViewProvider {
 			case 'state':
 				this.lastState = message;
 				return;
+			case 'filter':
+				return this.setFilter(message.filter, page);
+			case 'focusSearch':
+				return this.focusSearch();
 			case 'log':
 				this.output.appendLine(`browser: ${message.message}`);
+				if (message.message.startsWith('preview:')) this.previews.push(message.message);
 				return;
 		}
 	}

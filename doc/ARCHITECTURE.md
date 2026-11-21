@@ -998,6 +998,23 @@ its cps. The worklet turns that into the firmware's position: one cycle is a bar
 is `cps * 240` BPM. The tempo also goes out as a `VIBE_EV_TRANSPORT` tempo event whenever it changes: OBERVAVE's arp
 and sequencer take their tempo only from that event, and read the position from the table (its `main.c`). On stop the page empties the firmware's queue, ends its notes and sends "play off".
 
+**Display and controls (spikes F1 and F2).** Read from the SDK headers and `sdk/src/vibe_sdk.c`, SDK 28 (repo commit
+`c6c4355`, 2026-11-20). Not run yet.
+
+| Part | What |
+|---|---|
+| Display | `vibe_wasm_draw()` runs the firmware's `vibe_on_draw` and returns a pointer into wasm memory: 480 x 320 RGB565, row by row, the whole picture every call. 307,200 bytes a frame, so 30 frames a second is 9.2 MB a second. The SDK keeps no changed rectangle: a host that wants one compares frames itself |
+| Stage | SDK 23, optional. `vibe_wasm_stage_info()` says if the firmware wants a second, bigger picture (480 x 270 to 1280 x 720, RGB565). `vibe_wasm_stage_draw()` paints it, at most 60 times a second and only while shown. Clicks come as `VIBE_EV_STAGE` (19), `value = y * 4096 + x` |
+| Thread | The SDK calls drawing "the host's drawing thread", never inside `vibe_on_audio`. In our worklet the instance has one thread, so `vibe_wasm_draw` would run between two audio blocks and take time from them. The SDK asks a firmware to keep its drawing short; how long OBERVAVE takes is not measured |
+| Encoders | `VIBE_EV_ENCODER` (4). id `VE_1`..`VE_4`, `VE_A`, `VE_B`, `VE_DATA` (0 to 6), a device's extras `VE_X1` (16) and up. `value` is the turn in detents, plus is clockwise, may be fractional. So a mouse wheel or a drag maps to it directly |
+| Buttons | `VIBE_EV_BUTTON` (3). id from `enum vibe_button`: F1-F6 under the display (0 to 5), SHIFT, OCT-, OCT+, ENTER, K1-K6, RETURN, HOME, LEFT, MENU, RIGHT, REC, STOP, PLAY, DATA push (24). Only `down` matters, `value` is always 0. Extras from `VB_X1` (64) |
+| Pads, keys, faders | `VIBE_EV_PAD` (1, id 0..15, value velocity), `VIBE_EV_KEY` (2, id 0..24, key 0 the lowest C), `VIBE_EV_FADER` (17, id 0..15, value 0..1 absolute) |
+| Touch | `VIBE_EV_TOUCH` (16), SDK 18. id 0 down, 1 move, 2 up; `down` 1 while held; `value = y * 512 + x` in display pixels. Only for a firmware of the VIBE FM layout that opted in (`vf_clicks(1)`). Below y 282 is the row of soft keys F1-F6, which is not touch; on the knob columns (y 40 to 282) a drag turns the knob |
+| Lights and labels | `vibe_wasm_leds()`, `vibe_wasm_pad_leds()` (SDK 20) and `vibe_wasm_labels()` (`VB_COUNT` x 8 characters) point at tables the panel can read to draw the buttons |
+
+Still open in F1: how many frames a second the relay from the worklet through the host to another webview carries, on
+desktop and in a Codespace.
+
 ## SHRUB editor panel
 
 An experimental mockup, to see how the SHRUB web editor would look inside VS Code. Off unless the setting

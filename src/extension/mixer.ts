@@ -182,6 +182,12 @@ export class MixerView implements Surface {
 		await this.write(document, text, button === 'gain' ? gainEdit(text, chain) : labelEdit(text, chain, button));
 	}
 
+	/** Puts the cursor of the editor on a chain, as a click on its name does. For the integration test. */
+	revealChain(chain: number): void {
+		const target = this.model?.chains[chain];
+		if (target && this.document) this.actions.reveal(this.document, target.from);
+	}
+
 	/** A cable dropped (`to`) or pulled off onto nothing (`orbit`), as the page sends it. For the integration test. */
 	async cable(from: number, drop: { to: number; move?: number } | { orbit: number }): Promise<void> {
 		await this.handleAsync('to' in drop ? { type: 'duck', from, to: drop.to, move: drop.move } : { type: 'unduck', from, orbit: drop.orbit });

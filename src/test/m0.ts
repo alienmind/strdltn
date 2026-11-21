@@ -750,6 +750,22 @@ export async function run(): Promise<void> {
 		await shot('hydra');
 		await vscode.commands.executeCommand('strdltn.stop');
 		}
+		// 9. Pictures for README.md and doc/ABOUT.md: the window as a user sees it while a
+		// song plays. The Strudel editor on the kick and its sliders and scopes, the Library
+		// on Drums with the TR-909 open in Results, the Music panel with bass unfolded.
+		// The pictures in doc/ are cut out of it, see "Screenshots" in doc/ARCHITECTURE.md.
+		await vscode.commands.executeCommand('vscode.openWith', demo, EDITOR);
+		await until(() => has('editor', demo, 'local samples'), 30000);
+		await vscode.commands.executeCommand('strdltn.play');
+		await until(() => has('editor', demo, 'report:'), 30000);
+		const tr909doc = api.browserGroups('drums').find((bank) => /^rolandtr909$/i.test(bank));
+		await api.browserShow({ query: '', chips: [], color: undefined, place: undefined, scope: undefined, builtin: undefined, category: 'drums' }, tr909doc ? [tr909doc] : []);
+		await api.mixerShow(['bass']);
+		const kick = api.mixer().model?.chains.findIndex((chain) => chain.name === 'kick') ?? -1;
+		if (kick >= 0) api.mixerReveal(kick);
+		await sleep(3000);
+		await shot('doc-overview');
+		await vscode.commands.executeCommand('strdltn.stop');
 		result.finished = true;
 		result.logs = api.sessions().map((s) => ({ mode: s.mode, uri: s.uri.split('/').pop(), logs: s.logs }));
 	} catch (error) {

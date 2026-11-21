@@ -60,6 +60,8 @@ export interface StrdltnApi {
 	mixerTempo(bpm: number | undefined): Promise<void>;
 	/** A sidechain cable dropped on a strip, or pulled off onto nothing. */
 	mixerCable(from: number, drop: { to: number; move?: number } | { orbit: number }): Promise<void>;
+	/** Puts the editor's cursor on a chain of the Music panel's song. */
+	mixerReveal(chain: number): void;
 	/** The remote sample packs seen so far and whether they are in the cache. */
 	packs(): { source: string; files: number; complete: boolean; note?: string }[];
 	previewSounds(): boolean;
@@ -585,6 +587,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		mixerToggle: (chain, button) => mixer.toggle(chain, button),
 		mixerTempo: (bpm) => mixer.setTempo(bpm),
 		mixerCable: (from, drop) => mixer.cable(from, drop),
+		mixerReveal: (chain) => mixer.revealChain(chain),
 		mixerPlace: async (where) => {
 			if (where === 'dock') await mixerPlace.dock();
 			else await mixerPlace.float(where === 'float');

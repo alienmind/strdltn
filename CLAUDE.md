@@ -27,6 +27,7 @@ grew beyond a VS Code extension.
 | `doc/TODO.md` | What is left, the decisions waiting for the maintainer, the next hand test |
 | `doc/DAW-PLAN.md` | The plan to make this a DAW, phase by phase, with "Order of work". Phase 1 (the Browser) is built; the Mixer is next |
 | `doc/DRAWER_OF_FAILED_IDEAS.md` | What we tried or designed and dropped, with the reason. Read it before a spike |
+| `doc/VIDEO.md` | How to make the promo video: script, voice, scripted capture of a VS Code window, Remotion |
 
 ### State
 

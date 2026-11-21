@@ -258,8 +258,23 @@ The ways it could reach a song, best first:
    The maintainer wants it as a panel of the Devices view of `doc/DAW-PLAN.md`, so it is
    in that plan (phase 4, spike F3) with these limits. A mockup exists, off by default: the setting
    `strdltn.experimental.shrubEditor` and the command "strdltn: Open SHRUB editor
-   (experimental)". To try by hand: does the site load in the frame, and does it make
-   sound there?
+   (experimental)". Spike F3 answered: the site loads in a webview view and plays after a
+   click inside its frame.
+4. An emulator of the FM-1's chip that plays the `.fwsc` as it is. One exists:
+   fm1-emu (`github.com/joakimeriksson/fm1-emu`, MIT, Rust built to wasm, with a JIT that
+   turns the firmware's hot code into wasm). It plays 200 FM-1 firmwares and M-VAVE's stock
+   firmware. Whether it plays SHRUB, how fast it runs next to Strudel and how late its sound
+   is are not known: spike F4 in `doc/DAW-PLAN.md`. Xfer's terms for running SHRUB in an
+   emulator are not known either.
+
+### Two ways to play a firmware
+
+The maintainer decided on 2026-11-21: `vibefm1` stays. A firmware with a VIBE FM build (wasm
+compiled from its source) plays there: light, and on time. An emulator like fm1-emu would be a
+second way, only for firmwares that exist only as a `.fwsc` (SHRUB, M-VAVE's own), because
+emulating the chip costs CPU and may add latency. Its worklet runs up to 1024 frames ahead of
+the audio (`AHEAD_FRAMES` in its `web/worklet.js`), about 21 ms at 48 kHz, and its plugin
+reports a delay to the DAW for that reason; expected from the code, not measured here.
 
 
 ## Sound card

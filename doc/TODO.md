@@ -25,7 +25,8 @@ the duck cables. The stage has no slider rows any more. On the same branch: the 
 sync between the editor and the document was rewritten (text was corrupted, worst on
 files with `\r\n` line endings), and clicks in the Strudel editor land where clicked.
 Both were reproduced and are checked by the integration test with real input. The hand
-test is below. Next in phase 3: mute and solo (decision 5), cable drags.
+test is below. M, S and G edit the code, and the Mixer can float in a window of its
+own. Next in phase 3: cable drags.
 
 Next in line:
 
@@ -39,7 +40,9 @@ Next in line:
 | 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
 | 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
 | 6 | Functions in the Browser: an "Insert an example" button beside "Insert at the cursor" | Noted, not built. See "Insert an example" in `doc/DAW-PLAN.md` |
-| 6c | Dock and float: the Mixer, the stage and later windows open as a panel tab, an editor tab or a window of their own, from one copy of the code | Planned, not built. Decision 22 (the stage) waits. See "Dock and float" in `doc/DAW-PLAN.md` |
+| 6c | Dock and float for the stage and later windows (the Mixer has it) | The stage waits for phase 6 (decision 22). See "Dock and float" in `doc/DAW-PLAN.md` |
+| 6e | Track colors: the user picks a color per chain in the Mixer, kept as `// @color <name>` on the line above the chain, used later by the session view | Planned, not built. Decision 24 waits. See "Track colors" in `doc/DAW-PLAN.md` |
+| 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 waits. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
 | 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
 
 ## Next: test by hand
@@ -61,22 +64,34 @@ The Mixer, on the branch `feat/mixer`. Test on **desktop, launched with F5** on
 | 5 | Type `$hat: s("hh*8").gain(slider(.3))` on a new line | A strip hat appears with a gain fader |
 | 6 | Delete a closing bracket in the code | The strips dim and the bar says the code does not parse. Undo brings them back |
 | 7 | Click the name kick | The cursor goes to the `$kick:` line |
-| 8 | Rename `$kick:` to `_$kick:`, then `S$kick:` | M lights up, then S lights up |
+| 8 | Rename `$kick:` to `_$kick:`, then `S$kick:` | M turns blue, then S turns blue |
+| 8a | Play the song, click M of kick, then again | The kick stops at once and the label reads `_$kick:`. Again: it plays and the label is back |
+| 8b | Click S of bass, then M of bass | Only the bass plays (`S$bass:`). Then nothing of it (`S$bass_:`) |
+| 8c | Click G of riser | `.gain(slider(1, 0, 1))` appears at the end of the riser line and its fader can move. G again takes it out |
+| 8d | Look at the strips | M, S, G stacked on the left of each strip, every strip the same height, riser too. A chain without a gain slider shows a gray fader |
 | 9 | Click into a markdown file | The Mixer keeps showing demo.strudel |
 | 10 | Make the panel low, then tall | The faders get shorter and longer. Nothing runs out of a strip |
 | 11 | Switch to a light theme | The Mixer follows the theme. The jacks stay readable |
+| 12 | Press the window button in the Mixer's title | The Mixer opens in a window of its own, with the same strips unfolded. Its tab is gone from the bottom panel |
+| 13 | Drag a fader in the floating Mixer while the song plays | The sound follows, the code follows after you let go, as in 4a |
+| 14 | Press the dock button in the floating tab's title. Float again and close the window instead | Both times the Mixer is back in the bottom panel |
 
-Expected still broken: M and S do not react to clicks yet. A fader only moves the sound
+Expected still broken: a fader only moves the sound
 once the song has been evaluated after the slider was written.
 
 ### Browser
 
-The Browser, merged in PR #4. Test on **desktop, launched with F5** on
-`template/` (or `pnpm promote` if the maintainer asks for it).
+The Browser, merged in PR #4, split into three views on `feat/mixer`. Test on
+**desktop, launched with F5** on `template/` (or `pnpm promote` if the maintainer asks
+for it).
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Open the side bar of [str]dltn Live[code] | One Browser: logo, search, Collections, Library with counts, Places, chips, results. No Files, Sounds or Snippets views |
+| 0 | Look at the activity bar | The icon reads `[str]` over `dltn`, in the fonts of the logo |
+| 1 | Open the side bar of [str]dltn Live[code] | Three views: Library (logo, search, sounds), Songs and Snippets, Reference. Only the Library has a search field |
+| 1a | Type `lpf` in the search | Each view filters by it. The Library's result bar says "N in Songs and Snippets" and "N in Reference". A click on one opens that view |
+| 1b | Click into the Reference, press Ctrl+F | The cursor goes to the Library's search field |
+| 1c | Color a function red in the Reference, then click the red dot in the Library | The color stays on the function. The Library shows its own red rows only |
 | 2 | Library > Drums, open the heading `rolandtr909`, click `bd` | It plays. Nothing is typed. The details pane shows Drums/Kick, Maker/Roland |
 | 3 | Type `909 bd` in the search | About 6 results, under their categories |
 | 4 | Clear the search. In Drums, click the chip Kick, then Ctrl+click Snare, then click Roland | Kicks, then kicks and snares, then only the Roland ones |
@@ -86,8 +101,8 @@ The Browser, merged in PR #4. Test on **desktop, launched with F5** on
 | 8 | With a filter set, press the save button in the bar above the results, name it | A row with that name under Collections. A click on it brings the filter back |
 | 9 | Play `demo.strudel`, then click a synth in Sounds (`sawtooth`) a few times | Each preview lands on a beat of the song |
 | 10 | Put the cursor in the code, select `sawtooth`, press Enter. Then put the cursor inside `s("bd <here>")` and insert `sd` | `note("c3").s("sawtooth")` is typed. Inside the string only `sd` |
-| 11 | Songs: click a song | It opens |
-| 12 | Functions: search `lpf`, select it | The details pane shows its description, parameters and an example |
+| 11 | Songs and Snippets: click a song | It opens |
+| 12 | Reference: search `lpf`, select it | The details pane shows its description, parameters and an example |
 | 13 | Press Ctrl+Alt+F in the editor | The search field of the Browser gets the cursor |
 | 14 | Switch to a light theme | The Browser follows the theme |
 

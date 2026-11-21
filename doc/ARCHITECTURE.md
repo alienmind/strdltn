@@ -49,7 +49,8 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/extension.ts` | Registers the custom editor `strdltn.editor` and the commands. Owns the list of sessions, the status bar item and the kept sound list. |
 | `src/extension/session.ts` | Binds one webview to one document. Text sync, sample scan, problems, HTML and CSP. |
 | `src/extension/samples.ts` | Turns the samples folder into the map upstream `samples()` accepts. |
-| `src/extension/browser.ts` | The Browser in the side bar: sounds, snippets, songs and functions, with search, colors and tags. See "Browser" |
+| `src/extension/browser.ts` | The Browser: three views in the side bar (Library, Songs and Snippets, Reference), one host for all three, with one search, colors and tags. See "Browser" |
+| `src/extension/surface.ts` | `setPage` fills any of our webviews with its page. `Place` shows a page docked in a view or floating in an editor tab. See "Dock and float" |
 | `src/extension/snippets.ts` | Reads the `.strudel` files under `lib/`, the snippets of the Browser. |
 | `src/extension/files.ts` | Lists every `.strudel` file of the workspace, the songs of the Browser. |
 | `src/shared/catalog.ts`, `tags.ts`, `search.ts`, `browser.ts` | The items of the Browser, their tags, the search, the messages. Tests beside them |
@@ -183,13 +184,38 @@ One run without retries lost every pack until the window was closed.
 
 ## Browser
 
-The side bar is one webview view, `strdltn.browser`, laid out like the browser of Ableton
-Live in one column: the logo, a search field, Collections (seven colors and saved
-searches), Library (categories), Places, tag chips, the results, and a details pane for
+The side bar is laid out like the browser of Ableton Live, in one column per view: the
+logo and the search field (Library only), Collections (seven colors and saved
+searches), Categories, Places, tag chips, the results, and a details pane for
 the selected row. It replaced four views: the logo, Files, Sounds and Snippets. A tree
 cannot draw color squares, chips or a search field, and a webview between trees looked
-out of place (see "Snippet cards in a webview" in the drawer), so the whole side bar is
-one webview now. The plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
+out of place (see "Snippet cards in a webview" in the drawer), so the side bar is
+webviews only now. The plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
+
+**Three views.** The Browser is three views of the side bar, each folding and moving on
+its own, as vstrudel had separate views:
+
+| View | id | Items |
+|---|---|---|
+| Library | `strdltn.browser` | Sounds: Sounds, Drums, Samples, Instruments. It has the logo and the search field |
+| Songs and Snippets | `strdltn.songs` | Songs and snippets |
+| Reference | `strdltn.reference` | Functions, later the tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
+
+All three are the same page (`dist/browser.js`) and the same host object:
+`BrowserView.provider(page)` gives the provider of each view, `pageOf(item)` says where an
+item goes, and the host sends each page its own items. They share the user file, so a
+color or a tag set in one shows in the others. A saved search shows in the view that has
+its category. The Reference has no Places, since everything in it is built in. The
+Library keeps the view id `strdltn.browser` it had as the whole Browser.
+
+**One search for all.** Only the Library has a search field. Three fields took room and
+could disagree, so the Library's field, at the top of the side bar, searches all three:
+the host keeps the text and sends it to the other pages (`show`). Ctrl+F in another view
+puts the cursor in the Library's field. A page reports `typed` with its state when the
+text changed by the user's hand there; the host takes the text only then, so a late
+report of one page cannot undo typing in another. Each result bar says how many items
+the other views have for the same text ("3 in Reference"), and a click on it opens that
+view. A view dragged elsewhere still follows the field.
 
 **Parts.**
 
@@ -342,7 +368,23 @@ gives 6.
 ## Mixer
 
 A webview view, `strdltn.mixer`, in a container of its own in the bottom panel (next to
-Terminal and Problems). Phase 2 of `doc/DAW-PLAN.md`: it shows, it does not edit yet.
+Terminal and Problems), or floating in a window of its own (see "Dock and float").
+Phase 2 of `doc/DAW-PLAN.md`, and phase 3 in progress.
+
+**Dock and float.** The button with the window icon in the Mixer's title floats it:
+`Place.float` in `src/extension/surface.ts` makes an editor tab (`strdltn.mixerTab`),
+gives it the Mixer's page, and runs `workbench.action.moveEditorToNewWindow`. The context
+key `strdltn.mixerFloating` hides the docked view meanwhile (its `when` in
+`package.json`), so there is one Mixer at a time. The dock button in the tab's title, or
+closing the tab, puts it back. Measured with spike W1 in the integration test, VS Code
+1.147 on Windows: every move gives a new page, the move of the tab into a window of its
+own too. The new page drew all 8 strips of `demo.strudel` with bass still unfolded, each
+time. `MixerView` is a `Surface`: it never knows where it is
+shown, it gets a `vscode.Webview` through `attach`. A move gives a new page, which starts
+with every strip folded, so the host remembers which strips the page reported unfolded
+and sends them on `ready`. A floating tab is not restored after a reload of the window
+(no serializer): the Mixer comes back docked. The stage is to follow the same way after
+phase 6, see "Dock and float" in `doc/DAW-PLAN.md`.
 
 **The model.** `readChains` in `src/shared/chains.ts` parses the song with acorn 8.19.0,
 the version and the options upstream's transpiler uses (`ecmaVersion: 2022`,
@@ -350,6 +392,20 @@ the version and the options upstream's transpiler uses (`ecmaVersion: 2022`,
 `name: ...`), which is what the transpiler turns into `.p('name')`. Mute and solo follow
 upstream's `Pattern.prototype.p` in `@strudel/core` 1.2.6: a label that starts or ends
 with `_` is muted, one that starts with `S` and is longer than one letter is a solo.
+
+**M, S and G.** Three buttons stacked on the left of each strip, blue when on. Each
+click is an edit of the code made by the host from the text as it is at that moment
+(`toggledLabel`, `labelEdit`, `gainEdit` in `src/shared/chains.ts`), written into the
+document with a `WorkspaceEdit`. The editor takes it as any edit from outside (see "Text
+sync"). M and S flip `_` and `S` on the label. Both on is `Skick_`, because upstream
+silences a label that ends with `_` before it looks at the solo. After a mute or solo
+the host evaluates the song again if it plays (`MixerActions.evaluate`), since upstream
+reads the labels only on evaluation. G adds `.gain(slider(1, 0, 1))` at the end of the
+chain's own spine, or makes a fixed `.gain(0.8)` a slider, and G off removes the
+`.gain(...)` call that holds the fader. A chain without a gain fader shows a disabled
+fader. The integration test clicks all three on a scratch song (`zz-mixer-test.strudel`)
+and reads the text after each click.
+
 Sliders are counted in the order of the code, the same order as the transpiler's widgets,
 so a slider's index here is its index in the stage. A slider belongs to a chain when its
 call is inside the chain or a top level `const` holding it is used there (also through

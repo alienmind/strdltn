@@ -71,16 +71,22 @@ browser.
 - A strip shows the slider in the chain's `.gain()` as a fader. Unfold it to see every
   other slider of the chain. A slider assigned to a constant (`const KICK_VOL =
   slider(...)`) shows in the chain that uses the constant.
-- M and S show whether a chain is muted (`_kick:`) or soloed (`Skick:`).
+- M, S and G on each strip. M mutes and S solos the chain, written as upstream's own
+  labels (`_kick:`, `Skick:`); a song that plays is updated at once. G adds a gain fader
+  to the chain (`.gain(slider(1, 0, 1))`) or takes it out.
 - Sidechain cables: a chain with `.duck("2,3")` is cabled to the chains on those orbits.
 - A fader changes the sound at once and the number in the code a moment later, like the
   slider in the code. Moving the slider in the code moves the fader.
+- The window button in the Mixer's title floats it in a window of its own. The dock
+  button, or closing that window, puts it back in the panel.
 
 **Browser**
 
-- One Browser in the side bar, laid out like the browser of Ableton Live: a search
-  field, seven colors, a Library (Sounds, Drums, Samples, Instruments, Snippets, Songs,
-  Functions), Places (your project, packs, built in), tag chips, and the results below.
+- A Browser in the side bar, laid out like the browser of Ableton Live, in three views:
+  Library (Sounds, Drums, Samples, Instruments), Songs and Snippets, and Reference (every
+  function of Strudel). Each has seven colors, Places (your project, packs, built in),
+  tag chips and the results. One search field, at the top of the Library, searches all
+  three.
 - Search by name, bank, folder, description or tag. Every word must match. `#kick`
   looks only at tags.
 - Tags come by themselves from the names: Kick, Snare, Hihat... for drums, Bass, Pad,
@@ -164,16 +170,21 @@ song plays.
 
 ### The Browser
 
-The [str]dltn Live[code] icon in the activity bar opens the Browser. From the top:
+The [str]dltn Live[code] icon in the activity bar opens the Browser: three views, Library
+(sounds), Songs and Snippets, and Reference (functions). Each folds and moves on its own.
+Each has the parts below, but only the Library has the search field, and it searches all
+three. A view's result bar says how many matches the other views have; click it to go
+there. From the top:
 
-- **Search.** Ctrl+F in the Browser, or Ctrl+Alt+F from anywhere, puts the cursor here.
-  Esc clears it, the down arrow goes to the results.
+- **Search.** Ctrl+F in any of the three views, or Ctrl+Alt+F from anywhere, puts the
+  cursor here. Esc clears it, the down arrow goes to the results.
 - **Collections.** Seven color dots. A click shows everything with that color. Right click
   a dot to rename it ("Favorites" is the first). Saved searches are listed here too.
-- **Library.** What kind of thing: Sounds (synths, soundfonts), Drums (by bank), Samples,
-  Instruments (VIBE FM firmwares), Snippets, Songs, Functions (every function of Strudel,
-  with its documentation).
-- **Places.** Where it comes from: your project, the packs your songs load, built in.
+- **Categories.** What kind of thing: Sounds (synths, soundfonts), Drums (by bank), Samples,
+  Instruments (VIBE FM firmwares); Snippets and Songs; Functions (every function of
+  Strudel, with its documentation).
+- **Places.** Where it comes from: your project, the packs your songs load, built in. Not
+  in the Reference, where everything is built in.
 - **Chips.** The tags of what is shown, by group. They narrow the results.
 - **Results.** Under headings: the bank, the folder, the category. Arrow keys move,
   Enter inserts (or opens a song), Space plays, 1 to 7 color, right click for more.

@@ -58,6 +58,9 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/mixer.ts` | The Mixer in the bottom panel: follows the song in front and sends its model. See "Mixer" |
 | `src/shared/chains.ts`, `mixer.ts` | The model of a song for the Mixer (chains, sliders, duck cables), read with acorn, and the messages. `chains.test.ts` holds the cases |
 | `src/mixer/main.ts`, `cables.ts` | The page of the Mixer and its cables. Built as `dist/mixer.js` |
+| `src/extension/devices.ts` | The Devices view in the bottom panel: the firmware copies per engine, frames to the view, requests back. See "Devices" |
+| `src/devices/main.ts` | The page of the Devices view: a panel per firmware copy with its display, F1 to F6 and its parameters. Built as `dist/devices.js` |
+| `src/shared/devices.ts` | The messages between the engine, the host and the Devices view |
 | `src/shared/snippet.ts` | Splits a snippet file into header fields and code. |
 | `src/shared/context.ts` | The rules that name a slider or a visual from the code around it. `context.test.ts` holds the cases. |
 | `src/extension/packs.ts` | Downloads the remote samples a song loads into `.strdltn/cache/`, measures the cache and empties it. |
@@ -554,7 +557,9 @@ so a slider's index here is its index in the stage. A slider belongs to a chain 
 call is inside the chain or a top level `const` holding it is used there (also through
 another `const`). The label of a fader is the call whose arguments hold the slider or the
 constant, walking up through anything that is not a call: `.gain(KICK_VOL.mul(2))` gives
-"gain". `.orbit(n)` and `.duck("2,3,4")` count only on the chain's own calls; one inside a
+"gain". Arithmetic (`mul`, `add`, `sub`, `div`, `mod`) is walked through too, so a slider
+that scales a curve, `.lpf(curve.mul(OPEN))`, gives "lpf"; the demo writes its arrangement
+that way. `.orbit(n)` and `.duck("2,3,4")` count only on the chain's own calls; one inside a
 function, or a value that is not a literal, makes the orbit unknown. superdough takes the
 duck orbits as a list (`"2:3"`) or one per event (`"2,3,4"`, a stack), so both read as
 the same set.
@@ -585,6 +590,10 @@ and the faders ran out of them; the strips now keep their height and the area sc
 and the faders get shorter in a low panel. The first report of a Mixer opened by the test
 came before the model reached it, so the test's `mixerShow` sends the model again with
 each try.
+
+Since 2026-11-21 `demo.strudel` is an arrangement that plays itself: 10 strips (the sub
+line is now `$acid`, and there are a clap and a pad), 18 sliders, and the kick ducks bass,
+acid, riser and pad on orbits 2 to 5. `src/shared/chains.test.ts` holds that table.
 
 ## Clicks in the Strudel editor
 
@@ -998,6 +1007,104 @@ its cps. The worklet turns that into the firmware's position: one cycle is a bar
 is `cps * 240` BPM. The tempo also goes out as a `VIBE_EV_TRANSPORT` tempo event whenever it changes: OBERVAVE's arp
 and sequencer take their tempo only from that event, and read the position from the table (its `main.c`). On stop the page empties the firmware's queue, ends its notes and sends "play off".
 
+**Display and controls (spikes F1 and F2).** Read from the SDK headers and `sdk/src/vibe_sdk.c`, SDK 28 (repo commit
+`c6c4355`, 2026-11-20). Not run yet.
+
+| Part | What |
+|---|---|
+| Display | `vibe_wasm_draw()` runs the firmware's `vibe_on_draw` and returns a pointer into wasm memory: 480 x 320 RGB565, row by row, the whole picture every call. 307,200 bytes a frame, so 30 frames a second is 9.2 MB a second. The SDK keeps no changed rectangle: a host that wants one compares frames itself |
+| Stage | SDK 23, optional. `vibe_wasm_stage_info()` says if the firmware wants a second, bigger picture (480 x 270 to 1280 x 720, RGB565). `vibe_wasm_stage_draw()` paints it, at most 60 times a second and only while shown. Clicks come as `VIBE_EV_STAGE` (19), `value = y * 4096 + x` |
+| Thread | The SDK calls drawing "the host's drawing thread", never inside `vibe_on_audio`. In our worklet the instance has one thread, so `vibe_wasm_draw` would run between two audio blocks and take time from them. The SDK asks a firmware to keep its drawing short; how long OBERVAVE takes is not measured |
+| Encoders | `VIBE_EV_ENCODER` (4). id `VE_1`..`VE_4`, `VE_A`, `VE_B`, `VE_DATA` (0 to 6), a device's extras `VE_X1` (16) and up. `value` is the turn in detents, plus is clockwise, may be fractional. So a mouse wheel or a drag maps to it directly |
+| Buttons | `VIBE_EV_BUTTON` (3). id from `enum vibe_button`: F1-F6 under the display (0 to 5), SHIFT, OCT-, OCT+, ENTER, K1-K6, RETURN, HOME, LEFT, MENU, RIGHT, REC, STOP, PLAY, DATA push (24). Only `down` matters, `value` is always 0. Extras from `VB_X1` (64) |
+| Pads, keys, faders | `VIBE_EV_PAD` (1, id 0..15, value velocity), `VIBE_EV_KEY` (2, id 0..24, key 0 the lowest C), `VIBE_EV_FADER` (17, id 0..15, value 0..1 absolute) |
+| Touch | `VIBE_EV_TOUCH` (16), SDK 18. id 0 down, 1 move, 2 up; `down` 1 while held; `value = y * 512 + x` in display pixels. Only for a firmware of the VIBE FM layout that opted in (`vf_clicks(1)`). Below y 282 is the row of soft keys F1-F6, which is not touch; on the knob columns (y 40 to 282) a drag turns the knob |
+| Lights and labels | `vibe_wasm_leds()`, `vibe_wasm_pad_leds()` (SDK 20) and `vibe_wasm_labels()` (`VB_COUNT` x 8 characters) point at tables the panel can read to draw the buttons |
+
+**The relay of the display (spike F1).** Measured on 2026-11-21, desktop VS Code 1.147 on Windows 11, with a spike
+extension in `tmp/` (deleted once written here). A worklet ran OBERVAVE (`vibe_wasm_audio` every block, notes every
+250 ms) and called `vibe_wasm_draw` at the asked rate. The frame went to the page through the worklet's port
+(transferred), from the page to the host with `postMessage`, and from the host to a webview view in the side bar, which
+painted it on a canvas. Six seconds a mode. Latency is from the page's send to the view's `message` event.
+
+| Mode | Frames a second arrived | Latency p50 / p95 / max | Notes |
+|---|---|---|---|
+| Whole frame, `Uint8Array`, 30 a second | 28.9 (all 171 sent) | 4.0 / 5.1 / 13 ms | 8.8 MB a second |
+| Whole frame, `Uint8Array`, 60 a second | 62.5 (all 375) | 3.9 / 5.7 / 19 ms | |
+| Whole frame, `Uint8Array`, 120 a second | 125 (all 751) | 3.8 / 6.1 / 16 ms | 38 MB a second, as four panels at 30 |
+| Whole frame, base64 string, 30 a second | 28.9 (all) | 5.9 / 7.3 / 10 ms | Encoding cost about 1 ms a frame in the page, decoding 1.3 ms in the view |
+| One changed rectangle, 30 a second | all | 3.4 / 4.3 / 5 ms | Still 73% of the bytes: the level meter at the top right and the line at the bottom change together, so one box covers most of the screen. Finding the box cost 0.2 ms a frame |
+| One changed rectangle, 60 a second | all but 5 unchanged frames | 2.8 / 4.0 / 17 ms | 36% of the bytes |
+
+A `Uint8Array` arrives as a `Uint8Array` in the host and in the view, so `postMessage` carries binary without base64.
+`vibe_wasm_draw` of OBERVAVE took 0.05 to 0.08 ms on the page's thread and in the worklet: nothing next to the
+2.7 ms of a 128-frame block. Converting RGB565 to RGBA and `putImageData` cost 0.5 ms a frame in the view. So on
+desktop: whole frames as `Uint8Array`, no base64, no rectangles; skip a frame only when it is the same as the last.
+
+The same spike in a Codespace, on 2026-11-21: VS Code 1.147 in the browser (`uiKind` web, `remoteName` codespaces),
+the extension host in the Codespace, both webviews in the maintainer's browser, so every frame crossed the network
+twice. One run, on the maintainer's connection:
+
+| Mode | Sent | Arrived at | Latency p50 / p95 |
+|---|---|---|---|
+| Whole frame, 30 a second | 173 | 15 a second | 3.6 / 5.4 s |
+| One changed rectangle, 30 a second | 173 | 19.9 a second | 4.7 / 6.6 s |
+| Whole frame, 60 a second | 375 | 12.1 a second | 18 / 29 s |
+
+The relay carried about 4 MB a second, and nothing pushed back: the frames queued and the delay grew for as long as
+the page sent. The summaries of the later modes did not come back before the run ended. So the rule for the display is
+one frame in flight per panel: the view answers when it has painted, and only then does the engine send its newest
+frame. On desktop that gives the full rate; in a Codespace it gives whatever the connection carries, about 12 to 15
+frames a second for one panel on this one, with a delay of one frame instead of seconds. `Uint8Array` arrived as
+`Uint8Array` there too. Compressing the frame (OBERVAVE's screen is mostly flat colour) is not measured.
+
+## Devices
+
+The Devices view is a tab of the bottom panel beside the Mixer (`strdltn.devices`, in its own container
+`strdltn-devices`). It shows one panel per firmware copy that plays: one per firmware and orbit, as `vibefm1` runs
+them. A panel has the firmware's own display, six soft keys F1 to F6 under it, and the parameters the firmware
+declared (`vibe_wasm_param_info`) as sliders beside it. Built on 2026-11-21 on `feat/devices`; phase 4 steps 1 to 4
+of `doc/DAW-PLAN.md`.
+
+The firmware runs in the AudioWorklet of the engine that plays the song; the view is another webview. So:
+
+| From | To | Message | What |
+|---|---|---|---|
+| worklet | engine page | `ready` with the parameter list | When the copy starts. The page keeps the copies that run in `running` (`src/webview/vibe/index.ts`) |
+| engine | host | `devices {devices}` | When a copy starts or ends. The host keeps a list per engine (`DevicesView`) and sends the view all of them, with the song's file name and an id per engine |
+| view | host | `request {engine, action, key, ...}` | Routed to the engine by its id, as `device {request}` |
+| view | worklet | `draw {on}` | A panel open and shown: draw. Folded, or the view hidden: stop |
+| worklet | view | `frame {px, values}` | `vibe_wasm_draw` between two blocks, about 30 a second, the whole 480 x 320 RGB565 frame as a `Uint8Array`, and every parameter's value. A frame equal to the last with the same values is not sent |
+| view | worklet | `painted` | After the frame is on the canvas. The worklet sends no second frame before it: one frame in flight per panel, the rule of spike F1. A page that goes away without answering leaves the worklet waiting, so it draws nothing more until a new page asks |
+| view | worklet | `param {index, value}` | A slider moved: `vibe_wasm_param_set` at the current frame. The slider stops following the frames while the hand holds it |
+| view | worklet | `control {event, id, down, value}` | F1 to F6 as `VIBE_EV_BUTTON` (3) ids 0 to 5, down and up; the mouse wheel on the display as `VIBE_EV_ENCODER` (4) id `VE_DATA` (6), one detent a notch |
+
+The view's page is not kept while hidden (no `retainContextWhenHidden`): a hidden page draws nothing.
+
+**Fold, maximize, take out.** A panel folds with its arrow; the fold is kept per `<id>@<orbit>`, so the same
+firmware on the same orbit stays folded in the next song. Maximize (the diagonal arrow) hides the other panels and
+gives the screen the room of the view; the screen keeps its 3:2 with `object-fit: contain`. Take out (the arrow up
+right) opens an editor tab `strdltn.deviceTab` with the same page for that one device. The firmware stays in the
+engine; only its picture moves. The host keeps, per copy, the page that asked to draw it last (`owner` in
+`DevicesView`): frames go only there, and a `draw off` or a `painted` from another page is ignored, so one frame
+stays in flight per copy wherever it is shown. In the view, a panel that is in a tab says so; unfolding it brings
+the picture back to the view, and the tab stops getting frames. A tab whose copy ends closes itself.
+
+**SHRUB.** With the setting `strdltn.experimental.shrubEditor` on, the view ends with a SHRUB panel: Xfer's editor
+(`https://shrub.audio/editor/`) in a frame, the same CSP as the mockup tab (`frame-src https://shrub.audio`). It is
+its own synth, not in our mix. Folded, it is hidden with CSS and not removed, so its unsaved patches stay. Its take
+out opens the mockup tab ("SHRUB editor panel" below). Phase 4 step 6.
+
+Checked by hand on 2026-11-21 in a development host on Windows, with `template/examples/07-vibefm1-obervave.strudel`
+playing: OBERVAVE's panels for orbits 2 and 3 in view, each with its own display ("56 DEEP BASS", "44 DARK PAD")
+and its parameter values moving; the panel of orbit 4 is off to the right and was not looked at. Picture: `doc/screenshot-devices.png`. The maintainer's hand test of the same day passed: all three panels, the
+wheel, F3 and F4 (PRG- and PRG+), a parameter slider, fold and unfold. Maximize and take out were then checked in a
+development host with clicks sent through DevTools, from screenshots: one panel fills the view; the tab shows the
+whole screen while the view's panel says "in a tab" and the other panels keep drawing. The SHRUB panel was seen with
+the setting on, its frame blank because shrub.audio did not answer from that machine that evening. The integration
+test records the copies, the frames that reached the view and a picture while `07-vibefm1-obervave.strudel` plays
+(`steps.devices`, `tmp/shots/devices.png`). Not checked: a Codespace.
+
 ## SHRUB editor panel
 
 An experimental mockup, to see how the SHRUB web editor would look inside VS Code. Off unless the setting
@@ -1008,9 +1115,14 @@ with its nonce. `retainContextWhenHidden` keeps the editor's page, and its unsav
 "Open in browser" goes through `vscode.env.openExternal`. "Use in song" is disabled: it marks where a VIBE FM build of
 SHRUB would connect.
 
-Not measured: whether shrub.audio lets itself be framed (an `X-Frame-Options` or `frame-ancestors` header would show an
-error page in the frame), and whether its sound plays inside a VS Code webview. Our sandbox cannot reach the site. The
-toolbar was looked at in Chrome with VS Code's dark colors. Why it stays a mockup is in the drawer.
+Measured on 2026-11-21 (spike F3), desktop VS Code 1.147 on Windows 11, with the editor in a frame of a webview view in
+the bottom panel and the mockup's CSP. shrub.audio sends no `X-Frame-Options` and no `frame-ancestors`, and the whole
+editor loads in the frame: tabs, oscillators, keyboard. Its `AudioContext` is created at the first click on a key,
+suspended, and runs right after it: on a real mouse press sent to the frame through DevTools, an analyser on its output
+read an RMS of 0.31, at 4% render capacity. The window was muted (`--mute-audio`), so this proves the graph renders,
+not that the speakers played. The click must be inside SHRUB's frame. A mouse press sent to the VS Code window at the
+same spot reached the frame in one of three runs; one sent to the frame's own DevTools target always did. Why it stays
+a mockup is in the drawer.
 ## Status bar
 
 One item on the right of the status bar says what the song in front does. It replaced a

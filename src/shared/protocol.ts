@@ -1,4 +1,5 @@
 // Messages between the extension host and a webview. Both sides import this file.
+import type { DeviceInfo, DeviceRequest } from './devices';
 import type { FirmwareCacheMap } from './firmware';
 import type { PackInfo } from './packs';
 import type { SyncUpdate } from './sync';
@@ -86,7 +87,9 @@ export type ToWebview =
 	 */
 	| { type: 'sliderValue'; index: number; from?: number; value: string }
 	/** The answer to `cacheFiles`. `base` is the address of the cached folder when every file is in it. */
-	| { type: 'cachedFiles'; id: number; base?: string };
+	| { type: 'cachedFiles'; id: number; base?: string }
+	/** A request of the Devices view for one of this engine's firmware copies. */
+	| { type: 'device'; request: DeviceRequest };
 
 /**
  * The level of one chain at one moment, for the pump meter of the Mixer: it jumps by the
@@ -110,6 +113,10 @@ export type FromWebview =
 	| { type: 'sounds'; sounds: SoundInfo[] }
 	/** The level of each chain while the song plays, about 20 times a second, for the Mixer. */
 	| { type: 'scopes'; scopes: ScopeFrame[] }
+	/** The firmware copies that run, for the Devices view. Sent when one starts or ends. */
+	| { type: 'devices'; devices: DeviceInfo[] }
+	/** A display frame (480 x 320 RGB565) and the parameters' values of a copy a panel shows. */
+	| { type: 'frame'; key: string; px: Uint8Array; values: number[] }
 	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string };
 
 export interface TextChange {

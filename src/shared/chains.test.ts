@@ -24,28 +24,35 @@ function strips(m: MixerModel) {
 test('demo.strudel gives the table of the plan', () => {
 	const m = model(readFileSync(new URL('../../template/demo.strudel', import.meta.url), 'utf8'));
 	assert.deepEqual(strips(m), [
-		{ name: 'vocals', gain: 'gain (VOCALS_VOL)', controls: [], orbit: 1 },
+		{ name: 'vocals', gain: 'gain (VOCALS_VOL)', controls: ['delay (VOCALS_ECHO)'], orbit: 6 },
 		{ name: 'kick', gain: 'gain (KICK_VOL)', controls: [], orbit: 1 },
 		{ name: 'snare', gain: 'gain (SNARE_VOL)', controls: [], orbit: 1 },
+		{ name: 'clap', gain: 'gain (CLAP_VOL)', controls: [], orbit: 1 },
 		{ name: 'hh', gain: 'gain (HH_VOL)', controls: [], orbit: 1 },
-		{ name: 'hhr', gain: 'gain (HHR_VOL)', controls: [], orbit: 1 },
-		{ name: 'bass', gain: 'gain (BASS_VOL)', controls: ['lpenv (BASS_ENERGY)'], orbit: 2 },
-		{ name: 'lowendbass', gain: 'gain (SUB_VOL)', controls: ['lpenv (SUB_ENERGY)'], orbit: 3 },
-		{ name: 'riser', gain: undefined, controls: [], orbit: 4 },
+		{ name: 'hhr', gain: 'gain (HHR_VOL)', controls: ['lpf (HATS_OPEN)'], orbit: 1 },
+		{ name: 'bass', gain: 'gain (BASS_VOL)', controls: ['acid (BASS_SQUELCH)', 'lpf (BASS_CUTOFF_MUL)'], orbit: 2 },
+		{ name: 'acid', gain: 'gain (ACID_VOL)', controls: ['dist (ACID_DRIVE)'], orbit: 3 },
+		{ name: 'riser', gain: 'gain (RISER_VOL)', controls: ['hpf (RISER_OPEN)'], orbit: 4 },
+		{ name: 'pad', gain: 'gain (PAD_VOL)', controls: ['lpf (PAD_OPEN)', 'room (PAD_SPACE)'], orbit: 5 },
 	]);
 	const name = (i?: number) => (i === undefined ? undefined : m.chains[i].name);
 	assert.deepEqual(
 		m.ducks.map((d) => [name(d.from), name(d.to), d.orbit]),
 		[
 			['kick', 'bass', 2],
-			['kick', 'lowendbass', 3],
+			['kick', 'acid', 3],
 			['kick', 'riser', 4],
+			['kick', 'pad', 5],
 		],
 	);
-	assert.equal(m.sliders.length, 9);
+	assert.equal(m.sliders.length, 18);
 	assert.deepEqual(m.global, []);
 	assert.equal(m.sliders[0].detail, 'kick vol');
-	assert.equal(m.sliders[0].value, 0.607);
+});
+
+test('a slider that scales a curve names the call the curve feeds', () => {
+	const m = model('const OPEN = slider(1, .5, 2)\n$pad: s("supersaw").lpf(saw.range(200, 900).mul(OPEN)).gain(slider(.3))');
+	assert.deepEqual(strips(m), [{ name: 'pad', gain: 'gain (-)', controls: ['lpf (OPEN)'], orbit: 1 }]);
 });
 
 test('a slider written in the chain', () => {

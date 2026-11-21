@@ -5,6 +5,7 @@
 // AudioWorkletNode per firmware and orbit, and each hap only sends it notes.
 import * as strudelWebaudio from '@strudel/webaudio';
 import { unzipSync } from 'fflate';
+import type { DeviceInfo, DeviceParam, DeviceRequest } from '../../shared/devices';
 import type { FirmwareCacheMap } from '../../shared/firmware';
 import type { FirmwareInfo } from '../../shared/protocol';
 import type { VibeEvent } from './core';
@@ -14,9 +15,18 @@ export interface VibeHost {
 	log(level: 'info' | 'warn' | 'error', message: string): void;
 	/** The scheduler's cycle now, and whether it plays. For the firmware's transport. */
 	clock(): { cycle: number; cps: number; playing: boolean };
+	/** The firmware copies that run now, for the Devices view. Sent when one starts or ends. */
+	devices(list: DeviceInfo[]): void;
+	/** A display frame of a copy, while a panel of the Devices view shows it. */
+	frame(key: string, px: Uint8Array, values: number[]): void;
 }
 
 interface Instance {
+	/** `<id>@<orbit>`. */
+	key: string;
+	id: string;
+	orbit: number;
+	params: DeviceParam[];
 	node: AudioWorkletNode;
 	post(message: ToVibeWorklet): void;
 	/** The tempo last sent, so that it goes out only when it changes. */
@@ -42,6 +52,8 @@ let lastLogged = '';
 let cache: FirmwareCacheMap = {};
 const modules = new Map<string, Promise<WebAssembly.Module>>();
 const instances = new Map<string, Promise<Instance | undefined>>();
+/** The copies that started and still run, by key. What the Devices view lists. */
+const running = new Map<string, Instance>();
 let workletLoaded: Promise<void> | undefined;
 let host: VibeHost;
 
@@ -137,7 +149,29 @@ function forget(id: string): void {
 		if (!key.startsWith(`${id}@`)) continue;
 		void pending.then((instance) => instance?.node.disconnect());
 		instances.delete(key);
+		running.delete(key);
 	}
+	announce();
+}
+
+/** Tells the host which copies run. */
+function announce(): void {
+	host.devices([...running.values()].map(({ key, id, orbit, params }) => ({ key, id, orbit, params })));
+}
+
+/**
+ * A request of the Devices view for one copy: draw or not, the last frame painted, a parameter, a button or encoder.
+ * Controls go into the firmware's queue at the current frame, like a note played now.
+ */
+export function deviceRequest(request: DeviceRequest): void {
+	const instance = running.get(request.key);
+	if (!instance) return;
+	if (request.action === 'draw') return instance.post({ t: 'draw', on: request.on });
+	if (request.action === 'painted') return instance.post({ t: 'painted' });
+	const ac = context();
+	const frame = Math.round(ac.currentTime * ac.sampleRate);
+	if (request.action === 'param') instance.post({ t: 'events', events: [{ frame, kind: 'param', index: request.index, value: request.value }] });
+	else instance.post({ t: 'events', events: [{ frame, kind: 'control', type: request.event, id: request.id, down: request.down, value: request.value }] });
 }
 
 /** The firmware a hap asks for: `n` is its id, or its position in the folder. Without `n`, the first one. */
@@ -303,17 +337,22 @@ async function start(id: string, orbit: number): Promise<Instance | undefined> {
 		outputChannelCount: [2],
 		processorOptions: { module: await module },
 	});
+	const key = `${id}@${orbit}`;
+	let params: DeviceParam[] = [];
 	const ready = new Promise<boolean>((resolve) => {
 		node.port.onmessage = (event: MessageEvent<FromVibeWorklet>) => {
 			const m = event.data;
-			if (m.t === 'ready') {
+			if (m.t === 'frame') host.frame(key, new Uint8Array(m.px), m.values);
+			else if (m.t === 'ready') {
 				host.log('info', `firmware ${id} on orbit ${orbit}: host protocol ${m.sdk}, ${m.params.length} parameters`);
+				params = m.params;
 				resolve(true);
 			} else if (m.t === 'log') host.log('info', `[${id}] ${m.text}`);
 			else if (m.t === 'crash') {
 				host.log('error', `firmware ${id} stopped: ${m.error}`);
 				node.disconnect();
-				instances.delete(`${id}@${orbit}`);
+				instances.delete(key);
+				if (running.delete(key)) announce();
 				resolve(false);
 			}
 		};
@@ -322,7 +361,9 @@ async function start(id: string, orbit: number): Promise<Instance | undefined> {
 	// Into the orbit's sum: the orbit's filter (djf) and ducking apply. A hap's own effects (room, lpf, pan) do not,
 	// because superdough builds those per hap and the firmware's sound is one stream.
 	node.connect(strudelWebaudio.getSuperdoughAudioController().getOrbit(orbit).summingNode);
-	const instance: Instance = { node, post: (message) => node.port.postMessage(message), programs: new Map() };
+	const instance: Instance = { key, id, orbit, params, node, post: (message) => node.port.postMessage(message), programs: new Map() };
+	running.set(key, instance);
+	announce();
 	// Started by the first note of a song that already plays: its sequencer has to know.
 	if (host.clock().playing) sendPlay(instance, true);
 	return instance;

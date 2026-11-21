@@ -6,6 +6,7 @@ import type { PackCache } from './packs';
 import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
 import { type FirmwareCache, scanFirmware } from './firmware';
 import { scanSamples } from './samples';
+import type { DeviceInfo, DeviceRequest } from '../shared/devices';
 
 /** What a session needs from the extension, and what it tells it. */
 export interface SessionHost {
@@ -20,6 +21,10 @@ export interface SessionHost {
 	onScopes?(document: vscode.TextDocument, scopes: ScopeFrame[]): void;
 	/** The engine state, the error or the active tab changed. The status bar follows. */
 	onState(session: Session): void;
+	/** The firmware copies this engine runs, for the Devices view. */
+	onDevices?(session: Session, devices: DeviceInfo[]): void;
+	/** A display frame of one of them. */
+	onFrame?(session: Session, key: string, px: Uint8Array, values: number[]): void;
 }
 
 /** The settings `strdltn.editor.*`. An empty font and a size of 0 mean: as the VS Code editor. */
@@ -112,6 +117,11 @@ export class Session {
 			host.diagnostics.delete(document.uri);
 			host.onDispose(this);
 		});
+	}
+
+	/** A request of the Devices view for one of this engine's firmware copies. */
+	device(request: DeviceRequest): void {
+		this.post({ type: 'device', request });
 	}
 
 	preview(name: string, index: number): void {
@@ -237,6 +247,12 @@ export class Session {
 				break;
 			case 'scopes':
 				this.host.onScopes?.(this.document, message.scopes);
+				break;
+			case 'devices':
+				this.host.onDevices?.(this, message.devices);
+				break;
+			case 'frame':
+				this.host.onFrame?.(this, message.key, message.px, message.values);
 				break;
 			case 'log': {
 				const line = `[${this.mode}] ${message.level}: ${message.message}`;

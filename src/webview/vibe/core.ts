@@ -7,7 +7,7 @@
 // @credits zvenson
 
 /** Event types of vibe_wasm_event (enum in vibe.h). */
-export const VIBE_EV = { MIDI: 5, TRANSPORT: 8, PARAM: 10 } as const;
+export const VIBE_EV = { BUTTON: 3, ENCODER: 4, MIDI: 5, TRANSPORT: 8, PARAM: 10 } as const;
 /** Ids of VIBE_EV_TRANSPORT. */
 export const VIBE_TRANSPORT = { PLAY: 0, TEMPO: 1 } as const;
 /** The host never asks for more frames per call than this (VIBE_MAX_BLOCK). */
@@ -19,7 +19,12 @@ export type VibeEvent =
 	| { frame: number; kind: 'midi'; status: number; d1: number; d2: number }
 	| { frame: number; kind: 'param'; index: number; value: number }
 	| { frame: number; kind: 'play'; on: boolean }
-	| { frame: number; kind: 'tempo'; bpm: number };
+	| { frame: number; kind: 'tempo'; bpm: number }
+	/** A button (VIBE_EV_BUTTON) or an encoder (VIBE_EV_ENCODER) of the device, as the Devices view sends them. */
+	| { frame: number; kind: 'control'; type: number; id: number; down: number; value: number };
+
+/** The display: VIBE_SCREEN_W x VIBE_SCREEN_H, RGB565, row by row. */
+export const VIBE_SCREEN = { w: 480, h: 320 } as const;
 
 export interface VibeParam {
 	index: number;
@@ -50,6 +55,7 @@ interface Exports {
 	vibe_wasm_param_value?(i: number): number;
 	vibe_wasm_param_set?(i: number, v: number): void;
 	vibe_wasm_transport?(): number;
+	vibe_wasm_draw?(): number;
 }
 
 /** UTF-8 without TextDecoder, which an AudioWorkletGlobalScope does not have. */
@@ -129,6 +135,17 @@ export class VibeCore {
 	}
 
 	/**
+	 * Paints the display (vibe_wasm_draw runs the firmware's vibe_on_draw) and returns a copy of it, or undefined for
+	 * a firmware without one. The SDK calls drawing "the host's drawing thread", never inside vibe_on_audio: we call it
+	 * between two blocks. OBERVAVE takes 0.05 to 0.08 ms (spike F1, ARCHITECTURE "Firmware").
+	 */
+	draw(): Uint16Array | undefined {
+		const p = this.x.vibe_wasm_draw?.();
+		if (!p) return undefined;
+		return new Uint16Array(this.x.memory.buffer, p, VIBE_SCREEN.w * VIBE_SCREEN.h).slice();
+	}
+
+	/**
 	 * The host's position, read by sequencers (vibe_transport_info, SDK 8). Written before the next block.
 	 * Layout on wasm32: has i32 @0, playing i32 @4, bpm f32 @8, sig_num i32 @12, sig_den i32 @16, beat f64 @24,
 	 * bar_start f64 @32, loop i32 @40, loop_start f64 @48, loop_end f64 @56.
@@ -181,7 +198,8 @@ export class VibeCore {
 			// vibe_wasm_param_set clamps and tells the firmware with VIBE_EV_PARAM.
 			if (x.vibe_wasm_param_set) x.vibe_wasm_param_set(e.index, e.value);
 			else x.vibe_wasm_event(VIBE_EV.PARAM, e.index, 0, e.value, 0);
-		} else if (e.kind === 'play') x.vibe_wasm_event(VIBE_EV.TRANSPORT, VIBE_TRANSPORT.PLAY, e.on ? 1 : 0, 0, 0);
+		} else if (e.kind === 'control') x.vibe_wasm_event(e.type, e.id, e.down, e.value, 0);
+		else if (e.kind === 'play') x.vibe_wasm_event(VIBE_EV.TRANSPORT, VIBE_TRANSPORT.PLAY, e.on ? 1 : 0, 0, 0);
 		else x.vibe_wasm_event(VIBE_EV.TRANSPORT, VIBE_TRANSPORT.TEMPO, 0, e.bpm, 0);
 	}
 

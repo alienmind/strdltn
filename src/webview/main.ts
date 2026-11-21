@@ -18,7 +18,7 @@ import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
 import { SyncClient, type SyncUpdate } from '../shared/sync';
 import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
-import { addFirmware, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
+import { addFirmware, deviceRequest, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
@@ -92,6 +92,9 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 		case 'stop':
 			mirror?.stop();
 			break;
+		case 'device':
+			deviceRequest(message.request);
+			break;
 		case 'preview':
 			void preview(message.name, message.index);
 			break;
@@ -145,6 +148,8 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			const scheduler = mirror?.repl?.scheduler;
 			return { cycle: scheduler?.started ? scheduler.now() : 0, cps: scheduler?.cps ?? 0.5, playing: !!scheduler?.started };
 		},
+		devices: (devices) => post({ type: 'devices', devices }),
+		frame: (key, px, values) => post({ type: 'frame', key, px, values }),
 	});
 
 	mirror = new strudelCodemirror.StrudelMirror({

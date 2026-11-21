@@ -1,5 +1,6 @@
 // The AudioWorklet processor that runs one firmware. Built on its own into dist/vibe-worklet.js, because
 // audioWorklet.addModule() takes a script, not a function of the page.
+import type { DeviceParam } from '../../shared/devices';
 import { VibeCore, type VibeEvent } from './core';
 
 declare const sampleRate: number;
@@ -13,10 +14,16 @@ declare function registerProcessor(name: string, ctor: unknown): void;
 export type ToVibeWorklet =
 	| { t: 'events'; events: VibeEvent[] }
 	| { t: 'clock'; frame: number; cycle: number; cps: number; playing: boolean }
-	| { t: 'stop' };
+	| { t: 'stop' }
+	/** A panel of the Devices view shows this copy: draw, or stop drawing. */
+	| { t: 'draw'; on: boolean }
+	/** The view painted the last frame. Only then is the next one sent: one frame in flight (spike F1). */
+	| { t: 'painted' };
 
 export type FromVibeWorklet =
-	| { t: 'ready'; sdk: number; params: { index: number; id: string; min: number; max: number }[] }
+	| { t: 'ready'; sdk: number; params: DeviceParam[] }
+	/** The display, 480 x 320 RGB565 (transferred), and the parameters' values. */
+	| { t: 'frame'; px: ArrayBuffer; values: number[] }
 	| { t: 'log'; text: string }
 	| { t: 'crash'; error: string };
 
@@ -25,13 +32,15 @@ class VibeProcessor extends AudioWorkletProcessor {
 	private started = false;
 	/** Where the song is, to fill the firmware's transport table: the cycle at a context frame, and the speed. */
 	private clock = { frame: 0, cycle: 0, cps: 0.5, playing: false };
+	/** Drawing: on while a panel is open; `waiting` while a frame is in flight; blocks since the last draw. */
+	private drawing = { on: false, waiting: false, blocks: 0, last: undefined as Uint16Array | undefined, values: '' };
 
 	constructor(options: { processorOptions: { module: WebAssembly.Module } }) {
 		super();
 		const send = (m: FromVibeWorklet) => this.port.postMessage(m);
 		try {
 			this.core = new VibeCore(options.processorOptions.module, sampleRate, { log: (text) => send({ t: 'log', text }) });
-			send({ t: 'ready', sdk: this.core.sdk, params: this.core.params.map(({ index, id, min, max }) => ({ index, id, min, max })) });
+			send({ t: 'ready', sdk: this.core.sdk, params: this.core.params });
 		} catch (error) {
 			send({ t: 'crash', error: String((error as Error)?.message ?? error) });
 		}
@@ -41,6 +50,8 @@ class VibeProcessor extends AudioWorkletProcessor {
 			if (m.t === 'events') for (const e of m.events) this.core.schedule(e);
 			else if (m.t === 'clock') this.clock = m;
 			else if (m.t === 'stop') this.core.stop();
+			else if (m.t === 'draw') this.drawing = { ...this.drawing, on: m.on, waiting: false, last: undefined, values: '' };
+			else if (m.t === 'painted') this.drawing.waiting = false;
 		};
 	}
 
@@ -65,8 +76,33 @@ class VibeProcessor extends AudioWorkletProcessor {
 			this.core = undefined;
 			return false;
 		}
+		this.maybeDraw(core);
 		return true;
+	}
+
+	/**
+	 * About 30 frames a second while a panel is open, and never a second frame before the view painted the first. A
+	 * frame equal to the last, with the same values, is not sent: an idle screen costs nothing to move.
+	 */
+	private maybeDraw(core: VibeCore): void {
+		const d = this.drawing;
+		if (!d.on || d.waiting || ++d.blocks < sampleRate / 128 / 30) return;
+		d.blocks = 0;
+		const px = core.draw();
+		if (!px) return;
+		const values = core.params.map((p) => core.paramValue(p.index));
+		const text = values.join(',');
+		if (d.last && text === d.values && same(px, d.last)) return;
+		d.last = px.slice();
+		d.values = text;
+		d.waiting = true;
+		this.port.postMessage({ t: 'frame', px: px.buffer as ArrayBuffer, values } satisfies FromVibeWorklet, [px.buffer]);
 	}
 }
 
 registerProcessor('strdltn-vibe', VibeProcessor);
+
+function same(a: Uint16Array, b: Uint16Array): boolean {
+	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+	return true;
+}

@@ -5,31 +5,35 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.0.1.** The version starts again for this project. The branch
-`experimental` was merged into it: Firmware Hub (VIBE FM firmwares from a `firmware/`
+**`main` holds everything, version 0.2.0, not tagged.** The version started again for
+this project. The tag 1.0.0 is the vstrudel release. The extension is [str]dltn
+Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
+`.strdltn/`, so it installs beside vstrudel without a clash. Settings of vstrudel
+(`vstrudel.*`) do not carry over. Firmware Hub (VIBE FM firmwares from a `firmware/`
 folder or an address, played as `vibefm1:<id>`, with `.progNum()` and a cache) and the
-experimental SHRUB editor panel are back on `main`. The tag 1.0.0 is the vstrudel release
-without these two features. The extension is renamed to [str]dltn Live[code]: id
-`strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it
-installs beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry
-over.
+experimental SHRUB editor panel are on `main`.
 
-The plan to make this a DAW (one Browser view with tags and search, a Mixer panel with
-sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRUB window, MIDI, one engine,
-two decks to DJ with, recorded automation and an arrangement view)
-is in `doc/DAW-PLAN.md`, with the order of work the maintainer set ("Order of work"):
-the Mixer next (phases 2 and 3), the engine in a worker last. Phase 1, the Browser, is
-merged (PR #4). Phases 2 and 3 (the Mixer, Music Controls, and the Browser in
-four views) are version 0.2.0 on the branch `feat/mixer`, in pull request #5, which
-waits for the maintainer to merge; then tag `v0.2.0`. On that branch: a strip per
-chain of the song in front, faders that move the sound and write the code, M and S, and
-the duck cables. The stage has no slider rows any more. On the same branch: the text
-sync between the editor and the document was rewritten (text was corrupted, worst on
-files with `\r\n` line endings), and clicks in the Strudel editor land where clicked.
-Both were reproduced and are checked by the integration test with real input. The hand
-test is below. The bottom panel is now called Music: a top bar with Play, Stop and BPM,
-then the mixer, whose M, S and G edit the code and which can float. The side bar is four
-views with one filter. Next in phase 3: cable drags.
+The plan to make this a DAW is in `doc/DAW-PLAN.md`, with the order of work the
+maintainer set ("Order of work"). Phase 1, the Browser, is merged (PR #4). Phases 2 and
+3 are merged (PR #5, version 0.2.0): the Music panel with Play, Stop and BPM, the Mixer
+with a strip per chain, faders that write the code, M, S and G, duck cables with cable
+drags, pump meters, float and dock, Music Controls in the Library, and the side bar in
+four views with one filter. The tag `v0.2.0` and a promote wait for the maintainer.
+
+Work now is phase 4, Devices, on the branch `feat/devices`. Its spikes ran on desktop on
+2026-11-21 (ARCHITECTURE "Firmware" and "SHRUB editor panel"): F2 gave the control events,
+F1 showed that whole display frames go through the host as `Uint8Array` at 30 to 120 a
+second on desktop, about 4 ms late, but at only about 4 MB a second in a Codespace, so the
+relay sends one frame in flight per panel. F3 showed that the SHRUB editor loads and plays
+in a webview view. The SDK headers are cloned in `tmp/sdk/` (gitignored).
+
+Phase 4 is built: the Devices view in the bottom panel, a panel per firmware copy with its
+own display, F1 to F6, the DATA wheel and its parameters; fold, maximize and take out into a
+tab; the SHRUB panel behind its setting; and the integration test records the devices
+(ARCHITECTURE "Devices"). Steps 1 to 4 passed the hand test, and `pnpm test:vscode` passed
+on 2026-11-21. The branch is pull request #6, which waits for the maintainer to merge.
+Next: the hand test below for maximize, take out and SHRUB. The `fm1emu:` way and the
+coverage of the hub wait (see "Firmware Hub").
 
 Next in line:
 
@@ -37,7 +41,6 @@ Next in line:
 |---|---|---|
 | 1 | MIDI: devices in the Browser, playing through them, mappings | Spike done, not built. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
-| 3 | The hand test below | Waiting for the maintainer |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
 | 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
@@ -47,13 +50,24 @@ Next in line:
 | 6e | Track colors: every chain gets a color by itself (the next of the palette), kept as `// @color <name>` on the line above the chain, changeable in the Mixer, used later by the session view | Planned, not built. Decision 24 answered: colored by themselves. See "Track colors" in `doc/DAW-PLAN.md` |
 | 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 answered: the workshop first, then the learn pages. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
 | 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
+| 8 | A promo video: a walkthrough of the features, captured from a real VS Code window, with voice-over and our own song | Recipe written, not started. See `doc/VIDEO.md` |
 
 ## Next: test by hand
 
-Nothing waits. The maintainer tested the branch `feat/mixer` by hand on 2026-11-21: the
-side bar in four views, Results, colors, Built-in, previews without a song, Music
-Controls in the Library, the Mixer with M, S, G, layout, float and dock, cable drags with
-one jack per strip, and the pump meter. All passed.
+The rest of the Devices view, on `feat/devices`. Test on **desktop, launched with F5** on
+`template/`.
+
+| # | Do this | Should happen |
+|---|---|---|
+| 1 | Play `examples/07-vibefm1-obervave.strudel`, open Devices, click the diagonal arrow of one panel | That panel fills the view with a bigger screen; the others hide. Again: back |
+| 2 | Click the arrow up right of one panel | A tab "OBERVAVE @2" opens beside, with the screen moving; the view's panel says "in a tab" |
+| 3 | In the tab, click F3 and F4, drag a slider | As in the view: the program and the sound change |
+| 4 | Close the tab | The view's panel draws again by itself |
+| 5 | Fold a panel, close the song's tab, play the song again | The panel comes back folded |
+| 6 | Turn on the setting `strdltn.experimental.shrubEditor`, open Devices | A SHRUB panel at the end with Xfer's editor; it plays after a click on a key. Folding and unfolding keeps its patch |
+
+Expected still broken: the F1 to F6 row is wider than the screen when maximized; SHRUB's
+sound is not in the mix (by design, see the drawer).
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -262,8 +276,53 @@ The ways it could reach a song, best first:
    The maintainer wants it as a panel of the Devices view of `doc/DAW-PLAN.md`, so it is
    in that plan (phase 4, spike F3) with these limits. A mockup exists, off by default: the setting
    `strdltn.experimental.shrubEditor` and the command "strdltn: Open SHRUB editor
-   (experimental)". To try by hand: does the site load in the frame, and does it make
-   sound there?
+   (experimental)". Spike F3 answered: the site loads in a webview view and plays after a
+   click inside its frame.
+4. An emulator of the FM-1's chip that plays the `.fwsc` as it is. One exists:
+   fm1-emu (`github.com/joakimeriksson/fm1-emu`, MIT, Rust built to wasm, with a JIT that
+   turns the firmware's hot code into wasm). It plays 200 FM-1 firmwares and M-VAVE's stock
+   firmware. Measured on 2026-11-21 with fm1-emu's own `fm1_web.wasm` (its GitHub Pages
+   deploy of that day) and its headless `web/bench.mjs` in Node 24 on the maintainer's
+   Windows PC: SHRUB V1.11 (`SHRUB-V1.11.fwsc`, from the maintainer) boots and its default
+   chord sounds, but it runs at 0.76x real time at 240 MHz, 0.84x at 160 and 0.88x at 120,
+   with most 128-frame blocks over their 2.9 ms. Felucca 1.8.2 in the same setup runs at
+   2.7x. So SHRUB in wasm would drop out on this PC; in Chrome it is expected to be about
+   the same, not measured. How late its sound is and Xfer's terms for running it in an
+   emulator are not known. Spike F4 in `doc/DAW-PLAN.md`.
+
+### Coverage of the hub's firmwares
+
+Asked by the maintainer on 2026-11-21, for later: for every firmware of the hub, know how it
+can play here, and test it. Started, then put aside for fm1-emu. What we know, read on
+2026-11-21:
+
+- `thefirmwarehub.com/catalog.json`: 281 FM-1 firmwares, each with `source` (all on GitHub),
+  `lic` (233 GPL-3.0, 36 MPL-2.0, 6 MIT), the `.fwsc` package (`pkg`, `sha256`) and the
+  author's own emulator page (`play`). Also SMK-37 firmwares and M-VAVE's stock package.
+- `play.thefirmwarehub.com/firmware/index.json`: the 43 VIBE FM builds the Playground plays.
+  35 of them are hub firmwares; 8 exist only for VIBE FM (VALVE, BOOM, HALO, PLAYER, VOX,
+  DOOM, Performance Garden, KRACHT). `thefirmwarehub.com/fw/natives.json` lists the native
+  ones with their repos. Neither sends a CORS header: the host fetches them.
+- A VIBE FM build is either converted (the hub's `thefirmwarehub.com/convert` compiles the
+  unchanged source against an imitated FM-1, 8 ms buffer) or native (the author ports to the
+  SDK, 4 ms). Both need source. See the SDK's `FROM-FM1.md`.
+- A scan of the 281 repos through the GitHub API: 260 in C, 5 Rust, 31 forks, none
+  archived; 42 have VIBE FM files, 58 a `.wasm` in the tree, 6 no license file.
+
+The plan when it comes back: a script that joins the two catalogs and, per firmware, says
+which way plays it (VIBE FM build, convertible from source, fm1-emu only), and a test that
+loads each VIBE FM build in `VibeCore` in Node, plays a note and checks for sound and no
+trap. Coverage of the wasm builds cannot be ensured by us: it depends on the authors and
+the hub's converter. Only an emulator of the chip covers every `.fwsc`.
+
+### Two ways to play a firmware
+
+The maintainer decided on 2026-11-21: `vibefm1` stays. A firmware with a VIBE FM build (wasm
+compiled from its source) plays there: light, and on time. An emulator like fm1-emu would be a
+second way, only for firmwares that exist only as a `.fwsc` (SHRUB, M-VAVE's own), because
+emulating the chip costs CPU and may add latency. Its worklet runs up to 1024 frames ahead of
+the audio (`AHEAD_FRAMES` in its `web/worklet.js`), about 21 ms at 48 kHz, and its plugin
+reports a delay to the DAW for that reason; expected from the code, not measured here.
 
 
 ## Sound card

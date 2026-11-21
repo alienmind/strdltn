@@ -179,7 +179,8 @@ Designed, and dropped as a feature. A mockup exists behind the setting `strdltn.
 how it looks. The idea was a webview panel that shows `shrub.audio/editor/`, so patches are made beside the
 song. The editor would be a second synth with its own audio: not in our mix, not in time with the song, and with no MIDI
 in or out, because a webview, and any frame inside it, may not use WebMIDI. It would be a browser tab inside VS Code,
-only useful to edit patches for a real FM-1. We do not know if the site allows framing. A VIBE FM build of SHRUB
+only useful to edit patches for a real FM-1. The site does allow framing, and it plays in a webview view (spike F3,
+measured 2026-11-21, ARCHITECTURE "SHRUB editor panel"). A VIBE FM build of SHRUB
 would make the panel unnecessary, see "SHRUB" in `doc/TODO.md`. Later the maintainer asked
 for it again, as one panel of the Devices view in `doc/DAW-PLAN.md`. The limits above
 still hold; the plan builds it knowing them.

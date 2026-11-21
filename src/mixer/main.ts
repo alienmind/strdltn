@@ -129,37 +129,39 @@ function draw(): void {
 // ---- scopes -----------------------------------------------------------------------------
 
 let scopesIdle: ReturnType<typeof setTimeout> | undefined;
-let unmatchedLogged = 0;
 
-/** Draws each wave in the strip of the chain it is in, as a line across the canvas, like upstream's scope. */
+/** The last levels of each chain, newest last: the pump meter scrolls them from right to left. */
+const HISTORY = 48;
+const histories = new Map<string, number[]>();
+
+/** The strip of a chain by the label its notes carry: `$kick`, `$#1` for the second `$:`, empty for a bare song. */
+function chainOf(label: string): number {
+	if (!model) return -1;
+	const anonymous = /^\$#(\d+)$/.exec(label);
+	if (anonymous) return model.chains.map((chain, index) => (chain.label === '$' ? index : -1)).filter((index) => index >= 0)[Number(anonymous[1])] ?? -1;
+	return model.chains.findIndex((chain) => chain.label === label);
+}
+
+/** Each chain's level joins its history, and the boxes of chains with `._scope()` draw it. */
 function drawScopes(frames: ScopeFrame[]): void {
 	if (!model) return;
-	const drawn = new Set<number>();
 	for (const frame of frames) {
-		// The last chain that starts before the scope. A scope just added sits a few characters
-		// past the end of a chain in a model read a moment earlier (seen in the log).
-		let chain = -1;
-		model.chains.forEach((c, i) => {
-			if (c.from <= frame.at) chain = i;
-		});
-		if (chain < 0 && Date.now() - unmatchedLogged > 2000) {
-			// An investigation aid: a scope whose place in the code is in no chain is not drawn.
-			unmatchedLogged = Date.now();
-			post({ type: 'log', message: `scope at ${frame.at} is in no chain (chains: ${model.chains.map((c) => `${c.name} ${c.from}-${c.to}`).join(', ')})` });
-		}
-		if (chain < 0 || drawn.has(chain) || !frame.wave.length) continue;
+		const history = histories.get(frame.chain) ?? [];
+		history.push(frame.level);
+		if (history.length > HISTORY) history.shift();
+		histories.set(frame.chain, history);
+		const chain = chainOf(frame.chain);
+		if (chain < 0 || !model.chains[chain].scope) continue;
 		const canvas = strips.querySelector<HTMLCanvasElement>(`canvas.scope[data-chain="${chain}"]`);
-		if (!canvas) continue;
-		drawn.add(chain);
-		drawWave(canvas, frame.wave);
+		if (canvas) drawWave(canvas, history);
 	}
-	// No frames for a while (stopped, or the scope left the code): the lines go flat.
+	// No frames for a while (stopped): the lines go flat.
 	clearTimeout(scopesIdle);
 	scopesIdle = setTimeout(clearScopes, 500);
 }
 
-/** A wave, or a flat line when there is none. Gray for a chain without a scope, green with one. */
-function drawWave(canvas: HTMLCanvasElement, wave: number[]): void {
+/** A pump line: the level over the last seconds, from the bottom up. A flat line when there is none. */
+function drawWave(canvas: HTMLCanvasElement, history: number[]): void {
 	if (!canvas.isConnected) return;
 	const style = getComputedStyle(canvas);
 	const width = (canvas.width = Math.max(1, canvas.clientWidth * devicePixelRatio));
@@ -169,15 +171,11 @@ function drawWave(canvas: HTMLCanvasElement, wave: number[]): void {
 	g.strokeStyle = style.color;
 	g.lineWidth = 1.5 * devicePixelRatio;
 	g.beginPath();
-	const points = wave.length > 1 ? wave : [0, 0];
-	// Scaled to its own peak, as a scope set to auto: a quiet chain (hi-hats at 0.05) drew
-	// a line one pixel high at upstream's fixed scale and looked flat to the maintainer.
-	// Below 0.001 it is silence, and stays a flat line.
-	const peak = Math.max(...points.map(Math.abs));
-	const gain = peak > 0.001 ? 1 / peak : 0;
+	const points = history.length > 1 ? history : [0, 0];
+	const bottom = height - 2 * devicePixelRatio;
 	points.forEach((value, i) => {
-		const x = (i / (points.length - 1)) * width;
-		const y = height / 2 - value * gain * (height / 2) * 0.85;
+		const x = width - ((points.length - 1 - i) / (HISTORY - 1)) * width;
+		const y = bottom - Math.min(1, value) * (bottom - 2 * devicePixelRatio);
 		if (i) g.lineTo(x, y);
 		else g.moveTo(x, y);
 	});
@@ -185,6 +183,7 @@ function drawWave(canvas: HTMLCanvasElement, wave: number[]): void {
 }
 
 function clearScopes(): void {
+	histories.clear();
 	strips.querySelectorAll<HTMLCanvasElement>('canvas.scope').forEach((canvas) => drawWave(canvas, []));
 }
 

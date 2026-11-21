@@ -151,7 +151,11 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		id: REPL_ID,
 		root: document.getElementById('editor'),
 		initialCode: text,
-		defaultOutput: strudelWebaudio.webaudioOutput,
+		// Every note passes here on its way to superdough: the Mixer's pump meter counts it.
+		defaultOutput: (hap: any, deadline: number, duration: number, cps: number, t: number) => {
+			noteHit(hap, t);
+			return strudelWebaudio.webaudioOutput(hap, deadline, duration, cps, t);
+		},
 		getTime: () => strudelWebaudio.getAudioContext().currentTime,
 		transpiler,
 		drawContext: strudelDraw.getDrawContext(),
@@ -190,18 +194,18 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		},
 		// StrudelMirror 1.3.0 calls this without arguments, so the code comes from the mirror.
 		beforeEval: () => {
+			tagChains();
 			if (mode === 'stage') prepareDock(mirror.code);
 		},
 		afterEval: ({ meta }: { meta: { widgets?: unknown[] } }) => {
 			rememberSliders(meta?.widgets ?? []);
-			rememberScopes(meta?.widgets ?? []);
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
 			post({ type: 'evaluated' });
 		},
 		onToggle: (started: boolean) => {
 			// The firmwares follow the transport of the song.
 			transport(started);
-			sendScopes();
+			sendLevels();
 			postState();
 		},
 		onEvalError: (error: Error & { pos?: unknown }) => {
@@ -685,57 +689,75 @@ let pendingWrites: LiveSlider[] = [];
 /** Follows the text. Called for every change of the document, ours or anyone's. */
 function mapSliders(changes: { mapPos(position: number, assoc?: number): number }): void {
 	for (const slider of [...liveSliders, ...pendingWrites]) slider.from = changes.mapPos(slider.from, -1);
-	for (const scope of liveScopes) scope.at = changes.mapPos(scope.at, -1);
 }
 
 /**
- * The inline scopes of the last evaluation, for the Mixer, which draws each under its
- * strip. Upstream's `._scope()` gives its pattern an analyser named by the widget id
- * (`.analyze(id)` in scope.mjs of @strudel/webaudio 1.3.0), and `getAnalyzerData` reads it.
- * `at` is where the call ends, moved along with every edit since.
+ * The pump meter of the Mixer: a level per chain from the notes it plays, not from audio.
+ * Per-chain audio was tried first, through each `._scope()`'s analyser, and gave silence:
+ * a song with `all(x => x.scope())` (demo.strudel) sends every chain to analyser 1, and
+ * `analyze` holds one id per note (see "Scopes" in doc/ARCHITECTURE.md). Notes carry their
+ * chain's label (`tagChains`); the output sees each note with its gain and the audio time
+ * it sounds; a timer sends each chain's level, which jumps on a note and then decays.
  */
-let liveScopes: { index: number; at: number }[] = [];
-let scopeKeysLogged = false;
-let scopeTimer: ReturnType<typeof setInterval> | undefined;
-/** Points per wave sent to the Mixer: enough for a strip 60 pixels wide. */
-const SCOPE_POINTS = 64;
+const CHAIN_KEY = 'strdltnChain';
+/** Notes waiting for their moment, by chain. */
+let pendingHits: { chain: string; at: number; level: number }[] = [];
+const levels = new Map<string, number>();
+let levelTimer: ReturnType<typeof setInterval> | undefined;
+let levelTime = 0;
+/** Seconds for a level to fall to half. */
+const HALF_LIFE = 0.12;
 
-function rememberScopes(widgets: any[]): void {
-	liveScopes = widgets.filter((widget) => widget.type === '_scope').map((widget) => ({ index: widget.index, at: widget.to }));
-	sendScopes();
+/**
+ * Wraps upstream's `.p(label)` for this evaluation (the repl puts a fresh one in place just
+ * before `beforeEval`), so the notes of each labeled chain carry the label. Anonymous `$:`
+ * are numbered in order, as the Mixer numbers its strips. Our key is one more value in the
+ * note, which superdough ignores. This is spike D1 of doc/DAW-PLAN.md, built.
+ */
+function tagChains(): void {
+	const prototype = strudelCore.Pattern.prototype as any;
+	const original = prototype.p;
+	if (typeof original !== 'function' || original.strdltnWrapped) return;
+	let anonymous = 0;
+	const wrapped = function (this: any, id: unknown) {
+		const label = typeof id === 'string' ? (id === '$' ? `$#${anonymous++}` : id) : String(id);
+		const tagged = this.withValue((value: unknown) => (value && typeof value === 'object' ? { ...(value as object), [CHAIN_KEY]: label } : value));
+		return original.call(tagged, id);
+	};
+	(wrapped as any).strdltnWrapped = true;
+	prototype.p = wrapped;
 }
 
-/** About 20 times a second while the song plays and has scopes; nothing otherwise. */
-function sendScopes(): void {
-	const playing = !!mirror?.repl?.scheduler?.started;
-	if (!playing || !liveScopes.length) {
-		clearInterval(scopeTimer);
-		scopeTimer = undefined;
+/** A note on its way to superdough: its chain's level jumps by its gain when it sounds. */
+function noteHit(hap: any, at: number): void {
+	const value = hap?.value;
+	if (!value || typeof value !== 'object') return;
+	const gain = Number(value.gain ?? 1) * Number(value.velocity ?? 1);
+	pendingHits.push({ chain: String(value[CHAIN_KEY] ?? ''), at, level: Math.max(0, Math.min(1.5, Number.isFinite(gain) ? gain : 1)) });
+	sendLevels();
+}
+
+/** About 20 times a second while the song plays: each chain's level, decayed and lifted by the notes that sounded. */
+function sendLevels(): void {
+	if (!mirror?.repl?.scheduler?.started) {
+		clearInterval(levelTimer);
+		levelTimer = undefined;
+		pendingHits = [];
+		levels.clear();
 		return;
 	}
-	scopeTimer ??= setInterval(() => {
-		if (!mirror?.repl?.scheduler?.started) return sendScopes();
-		// The analysers by superdough's own keys, matched on the scope's number: the id built
-		// here from the widget did not match upstream's (every frame read silence, measured on
-		// 2026-11-21), and the number is the part both agree on.
-		const keys = Object.keys((strudelWebaudio as unknown as { analysers: Record<string, unknown> }).analysers ?? {});
-		const keyOf = (index: number) => keys.find((key) => key.endsWith(`_scope_${index}`));
-		if (!scopeKeysLogged && liveScopes.some(({ index }) => !keyOf(index))) {
-			scopeKeysLogged = true;
-			log('info', `scopes: no analyser for some _scope widgets; analysers: ${keys.join(', ') || 'none'}`);
-		}
-		const scopes = liveScopes.map(({ index, at }) => {
-			const key = keyOf(index);
-			const data = key ? (strudelWebaudio.getAnalyzerData('time', key) as Float32Array | undefined) : undefined;
-			const wave: number[] = [];
-			if (data?.length) {
-				const step = data.length / SCOPE_POINTS;
-				// Four decimals: a quiet chain moves in the third, and two cut it to a flat line.
-				for (let i = 0; i < SCOPE_POINTS; i++) wave.push(Math.round(data[Math.floor(i * step)] * 10000) / 10000);
-			}
-			return { at, wave };
+	levelTimer ??= setInterval(() => {
+		if (!mirror?.repl?.scheduler?.started) return sendLevels();
+		const now = strudelWebaudio.getAudioContext().currentTime;
+		const decay = levelTime ? Math.pow(0.5, (now - levelTime) / HALF_LIFE) : 0;
+		levelTime = now;
+		for (const [chain, level] of levels) levels.set(chain, level * decay);
+		pendingHits = pendingHits.filter((hit) => {
+			if (hit.at > now) return true;
+			levels.set(hit.chain, Math.max(levels.get(hit.chain) ?? 0, hit.level));
+			return false;
 		});
-		post({ type: 'scopes', scopes });
+		post({ type: 'scopes', scopes: [...levels].map(([chain, level]) => ({ chain, level: Math.round(level * 1000) / 1000 })) });
 	}, 50);
 }
 

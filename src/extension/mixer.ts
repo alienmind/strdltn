@@ -228,13 +228,13 @@ export class MixerView implements Surface {
 		if (document !== this.document) return;
 		this.scopeFrames++;
 		this.lastScopes = scopes.length;
-		this.scopePeak = Math.max(this.scopePeak, ...scopes.flatMap((scope) => scope.wave.map(Math.abs)));
+		this.scopePeak = Math.max(this.scopePeak, ...scopes.map((scope) => scope.level));
 		this.post({ type: 'scopes', scopes });
 		// Once every 2 seconds in Output > strdltn: how many frames came and their peak, so a
 		// flat scope can be told apart from one that gets no data. An investigation aid.
 		const now = Date.now();
 		if (now - this.scopeLogged > 2000) {
-			this.output.appendLine(`mixer: scopes ${this.scopeFrames - this.scopeFramesLogged} frames in 2 s, ${scopes.length} scopes, peak ${this.scopePeak.toFixed(4)}`);
+			this.output.appendLine(`mixer: levels ${this.scopeFrames - this.scopeFramesLogged} frames in 2 s, chains ${scopes.map((scope) => scope.chain || '(song)').join(' ')}, peak ${this.scopePeak.toFixed(3)}`);
 			this.scopeLogged = now;
 			this.scopeFramesLogged = this.scopeFrames;
 			this.scopePeak = 0;

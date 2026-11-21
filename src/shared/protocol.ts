@@ -89,12 +89,13 @@ export type ToWebview =
 	| { type: 'cachedFiles'; id: number; base?: string };
 
 /**
- * One `._scope()` of a song at one moment: where it is in the code (the end of the call,
- * in the editor's `\n` text) and its wave, cut to a few points between -1 and 1.
+ * The level of one chain at one moment, for the pump meter of the Mixer: it jumps by the
+ * gain of each note the chain plays and decays between them. `chain` is the label as the
+ * song writes it (`$kick`), `$#2` for the third anonymous `$:`, empty for a song without labels.
  */
 export interface ScopeFrame {
-	at: number;
-	wave: number[];
+	chain: string;
+	level: number;
 }
 
 export type FromWebview =
@@ -107,7 +108,7 @@ export type FromWebview =
 	/** A song called `samples(map, base)` with a remote base. The host says whether it has these files. */
 	| { type: 'cacheFiles'; id: number; base: string; files: string[] }
 	| { type: 'sounds'; sounds: SoundInfo[] }
-	/** The inline scopes of the song while it plays, about 20 times a second, for the Mixer. */
+	/** The level of each chain while the song plays, about 20 times a second, for the Mixer. */
 	| { type: 'scopes'; scopes: ScopeFrame[] }
 	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string };
 

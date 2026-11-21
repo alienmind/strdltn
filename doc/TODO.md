@@ -27,11 +27,12 @@ second on desktop, about 4 ms late, but at only about 4 MB a second in a Codespa
 relay sends one frame in flight per panel. F3 showed that the SHRUB editor loads and plays
 in a webview view. The SDK headers are cloned in `tmp/sdk/` (gitignored).
 
-Phase 4 steps 1 to 4 are built: the Devices view in the bottom panel, a panel per firmware
-copy with its own display, F1 to F6, the DATA wheel and its parameters (ARCHITECTURE
-"Devices"), and they passed the hand test. Next: step 7 (the integration test records the devices
-and takes a picture), then steps 5 and 6 (fold, maximize, take out; the SHRUB panel in the
-view). The `fm1emu:` way and the coverage of the hub wait (see "Firmware Hub").
+Phase 4 is built: the Devices view in the bottom panel, a panel per firmware copy with its
+own display, F1 to F6, the DATA wheel and its parameters; fold, maximize and take out into a
+tab; the SHRUB panel behind its setting; and the integration test records the devices
+(ARCHITECTURE "Devices"). Steps 1 to 4 passed the hand test. Next: the hand test below, one
+run of `pnpm test:vscode`, and the pull request. The `fm1emu:` way and the coverage of the
+hub wait (see "Firmware Hub").
 
 Next in line:
 
@@ -52,10 +53,20 @@ Next in line:
 
 ## Next: test by hand
 
-Nothing waits. The maintainer tested the Devices view on `feat/devices` by hand on
-2026-11-21, desktop with F5 on `template/`: OBERVAVE's three panels with their screens, the
-DATA wheel, F3 and F4 as PRG- and PRG+, the cutoff slider, fold and unfold, and the panels
-staying after a stop and going with the tab. All passed.
+The rest of the Devices view, on `feat/devices`. Test on **desktop, launched with F5** on
+`template/`.
+
+| # | Do this | Should happen |
+|---|---|---|
+| 1 | Play `examples/07-vibefm1-obervave.strudel`, open Devices, click the diagonal arrow of one panel | That panel fills the view with a bigger screen; the others hide. Again: back |
+| 2 | Click the arrow up right of one panel | A tab "OBERVAVE @2" opens beside, with the screen moving; the view's panel says "in a tab" |
+| 3 | In the tab, click F3 and F4, drag a slider | As in the view: the program and the sound change |
+| 4 | Close the tab | The view's panel draws again by itself |
+| 5 | Fold a panel, close the song's tab, play the song again | The panel comes back folded |
+| 6 | Turn on the setting `strdltn.experimental.shrubEditor`, open Devices | A SHRUB panel at the end with Xfer's editor; it plays after a click on a key. Folding and unfolding keeps its patch |
+
+Expected still broken: the F1 to F6 row is wider than the screen when maximized; SHRUB's
+sound is not in the mix (by design, see the drawer).
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.

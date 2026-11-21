@@ -1,7 +1,7 @@
 // The Devices view: one panel per firmware copy that plays, side by side as devices sit in a track of Live. Each panel
 // shows the firmware's own display, its six soft keys and its parameters as knobs. The firmware runs in the engine's
 // AudioWorklet; this page only draws what comes and sends back what the hand does. See "Devices" in
-// doc/ARCHITECTURE.md.
+// doc/ARCHITECTURE.md. The same page, with one device, is the tab a panel is taken out into.
 //
 // One frame in flight per panel (spike F1): the page answers each frame with `painted` once it is on the canvas, and
 // only then does the worklet send the next. In a Codespace that keeps the delay at one frame instead of seconds.
@@ -20,14 +20,17 @@ const H = 320;
 const BUTTON = 3;
 const ENCODER = 4;
 const VE_DATA = 6;
+const SHRUB_URL = 'https://shrub.audio/editor/';
 
 interface Saved {
-	/** Panels folded, by `<engine>/<key>`. Open is the default: a device that plays is what one wants to see. */
+	/** Panels folded, by `<id>@<orbit>`: the same firmware on the same orbit stays folded in the next song or session. */
 	folded: string[];
+	shrubFolded?: boolean;
 }
 const saved = (vscode.getState() as Saved | undefined) ?? { folded: [] };
 const folded = new Set(saved.folded);
-const keep = () => vscode.setState({ folded: [...folded] } satisfies Saved);
+let shrubFolded = !!saved.shrubFolded;
+const keep = () => vscode.setState({ folded: [...folded], shrubFolded } satisfies Saved);
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
 	const node = document.createElement(tag);
@@ -59,26 +62,60 @@ const empty = app.appendChild(el('div', 'empty', 'No firmware plays. A song with
 const row = app.appendChild(el('div', 'panels'));
 const panels = new Map<string, Panel>();
 const id = (d: { engine: string; key: string }) => `${d.engine}/${d.key}`;
+let devices: ViewDevice[] = [];
+/** What this page is, from the host: a tab with one device (`only`), the devices in tabs (`out`), SHRUB on. */
+let page: { only?: string; out: string[]; shrub: boolean } = { out: [], shrub: false };
+/** The panel that fills the view, by `<engine>/<key>`, or 'shrub'. */
+let maximized: string | undefined;
+let shrub: HTMLElement | undefined;
 
 window.addEventListener('message', (event: MessageEvent<ToDevices>) => {
 	const message = event.data;
-	if (message.type === 'devices') show(message.devices);
-	else if (message.type === 'frame') paint(message);
+	if (message.type === 'devices') {
+		devices = message.devices;
+		show();
+	} else if (message.type === 'page') {
+		page = message;
+		app.classList.toggle('tab', !!page.only);
+		show();
+	} else if (message.type === 'frame') paint(message);
 });
 
 // A hidden view stops the drawing; shown again, the open panels ask for frames again.
-document.addEventListener('visibilitychange', () => {
-	for (const panel of panels.values()) setDrawing(panel, !document.hidden && !folded.has(id(panel.device)));
-});
+document.addEventListener('visibilitychange', refresh);
 
-function show(devices: ViewDevice[]): void {
-	const wanted = new Set(devices.map(id));
+/** A panel draws while it can be seen: not folded, not in a tab, the page shown, and not behind a maximized one. */
+function visible(panel: Panel): boolean {
+	const key = id(panel.device);
+	if (document.hidden) return false;
+	if (page.only) return page.only === key;
+	if (page.out.includes(key) || folded.has(panel.device.key)) return false;
+	return !maximized || maximized === key;
+}
+
+function refresh(): void {
+	for (const [key, panel] of panels) {
+		panel.root.classList.toggle('folded', !page.only && folded.has(panel.device.key));
+		panel.root.classList.toggle('out', !page.only && page.out.includes(key));
+		panel.root.classList.toggle('max', maximized === key);
+		setDrawing(panel, visible(panel));
+	}
+	shrub?.classList.toggle('folded', shrubFolded);
+	shrub?.classList.toggle('max', maximized === 'shrub');
+	app.classList.toggle('maximized', !!maximized);
+	report();
+}
+
+function show(): void {
+	const list = page.only ? devices.filter((d) => id(d) === page.only) : devices;
+	const wanted = new Set(list.map(id));
 	for (const [key, panel] of panels) {
 		if (wanted.has(key)) continue;
 		panel.root.remove();
 		panels.delete(key);
+		if (maximized === key) maximized = undefined;
 	}
-	for (const device of devices) {
+	for (const device of list) {
 		const key = id(device);
 		const known = panels.get(key);
 		if (known && sameParams(known.device.params, device.params)) {
@@ -88,11 +125,11 @@ function show(devices: ViewDevice[]): void {
 		known?.root.remove();
 		const panel = build(device);
 		panels.set(key, panel);
-		row.appendChild(panel.root);
-		setDrawing(panel, !document.hidden && !folded.has(key));
+		row.insertBefore(panel.root, shrub ?? null);
 	}
-	empty.hidden = devices.length > 0;
-	report();
+	showShrub(page.shrub && !page.only);
+	empty.hidden = list.length > 0 || !!shrub;
+	refresh();
 }
 
 function sameParams(a: DeviceParam[], b: DeviceParam[]): boolean {
@@ -105,25 +142,35 @@ function setDrawing(panel: Panel, on: boolean): void {
 	request(panel.device.engine, { action: 'draw', key: panel.device.key, on });
 }
 
-function build(device: ViewDevice): Panel {
-	const key = id(device);
-	const root = el('section', 'panel');
-	root.classList.toggle('folded', folded.has(key));
+/** The header of a panel: fold, name, where, and maximize and take out on the right. */
+function header(root: HTMLElement, name: string, where: string, actions: { fold(): void; max(): void; out(): void }): void {
 	const head = root.appendChild(el('header'));
 	const fold = head.appendChild(el('button', 'fold'));
 	fold.title = 'Fold or unfold';
-	head.appendChild(el('span', 'name', device.id.toUpperCase()));
-	head.appendChild(el('span', 'where', `orbit ${device.orbit} · ${device.song}`));
-	head.title = `${device.id} on orbit ${device.orbit}, played by ${device.song}`;
+	fold.addEventListener('click', actions.fold);
+	head.appendChild(el('span', 'name', name));
+	head.appendChild(el('span', 'where', where));
+	head.appendChild(el('span', 'gap'));
+	head.appendChild(el('span', 'note', 'in a tab, unfold to bring it back'));
+	const max = head.appendChild(el('button', 'max-button', '⤢'));
+	max.title = 'Fill the view, or back';
+	max.addEventListener('click', actions.max);
+	const out = head.appendChild(el('button', 'out-button', '↗'));
+	out.title = 'Take out into an editor tab';
+	out.addEventListener('click', actions.out);
+}
 
-	const body = root.appendChild(el('div', 'body'));
+function build(device: ViewDevice): Panel {
+	const key = id(device);
+	const root = el('section', 'panel');
+	root.title = `${device.id} on orbit ${device.orbit}, played by ${device.song}`;
+	const body = el('div', 'body');
 	const screen = body.appendChild(el('div', 'screen'));
 	const canvas = screen.appendChild(el('canvas'));
 	canvas.width = W;
 	canvas.height = H;
 	canvas.title = 'The firmware\'s display. The wheel turns its DATA encoder.';
-	const g = canvas.getContext('2d')!;
-	const image = g.createImageData(W, H);
+	const image = canvas.getContext('2d')!.createImageData(W, H);
 	const keys = screen.appendChild(el('div', 'keys'));
 	for (let i = 0; i < 6; i++) {
 		const button = keys.appendChild(el('button', 'key', `F${i + 1}`));
@@ -170,17 +217,55 @@ function build(device: ViewDevice): Panel {
 		}
 	}
 
-	const panel: Panel = { device, root, canvas, image, knobs, frames: 0, drawing: false };
-	fold.addEventListener('click', () => {
-		const now = !folded.has(key);
-		if (now) folded.add(key);
-		else folded.delete(key);
-		keep();
-		root.classList.toggle('folded', now);
-		setDrawing(panel, !now && !document.hidden);
-		report();
+	header(root, device.id.toUpperCase(), `orbit ${device.orbit} - ${device.song}`, {
+		fold: () => {
+			// A panel in a tab comes back by unfolding: this page draws it again, and the tab stops getting frames.
+			if (page.out.includes(key)) page = { ...page, out: page.out.filter((k) => k !== key) };
+			else if (folded.has(device.key)) folded.delete(device.key);
+			else folded.add(device.key);
+			keep();
+			refresh();
+		},
+		max: () => {
+			maximized = maximized === key ? undefined : key;
+			refresh();
+		},
+		out: () => post({ type: 'takeOut', engine: device.engine, key: device.key }),
 	});
-	return panel;
+	root.appendChild(body);
+	return { device, root, canvas, image, knobs, frames: 0, drawing: false };
+}
+
+/**
+ * The SHRUB editor (Xfer's site) as a panel, behind the setting strdltn.experimental.shrubEditor. It is its own synth:
+ * its sound is not in our mix. Folded, it is hidden with CSS and not removed, so its unsaved patches stay.
+ */
+function showShrub(on: boolean): void {
+	if (!on) {
+		shrub?.remove();
+		shrub = undefined;
+		if (maximized === 'shrub') maximized = undefined;
+		return;
+	}
+	if (shrub) return;
+	shrub = row.appendChild(el('section', 'panel shrub'));
+	header(shrub, 'SHRUB', 'Xfer, its own sound, not in the mix', {
+		fold: () => {
+			shrubFolded = !shrubFolded;
+			keep();
+			refresh();
+		},
+		max: () => {
+			maximized = maximized === 'shrub' ? undefined : 'shrub';
+			refresh();
+		},
+		out: () => post({ type: 'takeOutShrub' }),
+	});
+	const body = shrub.appendChild(el('div', 'body'));
+	const frame = body.appendChild(el('iframe'));
+	frame.src = SHRUB_URL;
+	frame.allow = 'autoplay';
+	frame.title = 'SHRUB editor';
 }
 
 function format(param: DeviceParam, v: number): string {
@@ -212,7 +297,7 @@ function paint(message: Extract<ToDevices, { type: 'frame' }>): void {
 }
 
 function report(): void {
-	post({ type: 'state', panels: [...panels.values()].map((p) => ({ key: p.device.key, open: !folded.has(id(p.device)), frames: p.frames })) });
+	post({ type: 'state', panels: [...panels.values()].map((p) => ({ key: p.device.key, open: visible(p), frames: p.frames })) });
 }
 
 post({ type: 'ready' });

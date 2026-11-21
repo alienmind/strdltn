@@ -730,6 +730,21 @@ export async function run(): Promise<void> {
 			if (!played) bad.unshift('did not play');
 			else if (!last('editor', file, 'report:')?.includes('started=true')) bad.unshift('did not start');
 			if (bad.length) fileProblems[vscode.workspace.asRelativePath(file)] = [...new Set(bad)].slice(0, 5);
+			// The Devices view while OBERVAVE plays (phase 4 step 7): its copies, their parameters, the frames that
+			// reached the view, and a picture. Then one panel maximized, and taken out into a tab and back.
+			if (file.path.endsWith('07-vibefm1-obervave.strudel')) {
+				await vscode.commands.executeCommand('strdltn.devices.focus');
+				const framesAt = api.devices().frames;
+				await until(() => api.devices().frames > framesAt + 30, 15000);
+				const now = api.devices();
+				steps.devices = {
+					list: now.devices.map((d) => `${d.key} params=${d.params.length}`),
+					frames: now.frames - framesAt,
+					panels: now.state?.panels,
+				};
+				await shot('devices');
+				save();
+			}
 			await vscode.commands.executeCommand('strdltn.stop');
 			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 			save();

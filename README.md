@@ -98,6 +98,7 @@ browser.
 - A Devices tab in the bottom panel, next to the Mixer: one panel per firmware that plays
   (`s("vibefm1:obervave")`), with the firmware's own screen, its six soft keys F1 to F6
   and its parameters as sliders. The mouse wheel over the screen turns its DATA knob.
+- Fold a panel, fill the view with it, or take it out into a tab of its own.
 
 ![OBERVAVE playing on two orbits, each with its own panel in the Devices tab](doc/screenshot-devices.png)
 

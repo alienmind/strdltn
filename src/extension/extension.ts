@@ -49,6 +49,8 @@ export interface StrdltnApi {
 	browserPreviews(): string[];
 	/** The Mixer's model of the song in front. */
 	mixer(): ReturnType<MixerView['current']>;
+	/** The firmware copies the Devices view lists, the frames passed on, and what its page reports. */
+	devices(): ReturnType<DevicesView['current']>;
 	/** Unfolds the named strips of the Mixer, folds the others, and returns what it reports. */
 	mixerShow(unfold: string[]): ReturnType<MixerView['show']>;
 	/** Moves a fader of the Mixer, as a drag would. For the test. */
@@ -590,6 +592,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		browserMessage: (message) => browser.handle(message),
 		browserPreviews: () => [...browser.previews],
 		mixer: () => mixer.current(),
+		devices: () => devices.current(),
 		mixerShow: async (unfold) => {
 			if (!mixerPlace.floating) await vscode.commands.executeCommand('strdltn.mixer.focus');
 			return mixer.show(unfold);

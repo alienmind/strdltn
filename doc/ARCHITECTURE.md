@@ -1075,11 +1075,29 @@ The firmware runs in the AudioWorklet of the engine that plays the song; the vie
 
 The view's page is not kept while hidden (no `retainContextWhenHidden`): a hidden page draws nothing.
 
+**Fold, maximize, take out.** A panel folds with its arrow; the fold is kept per `<id>@<orbit>`, so the same
+firmware on the same orbit stays folded in the next song. Maximize (the diagonal arrow) hides the other panels and
+gives the screen the room of the view; the screen keeps its 3:2 with `object-fit: contain`. Take out (the arrow up
+right) opens an editor tab `strdltn.deviceTab` with the same page for that one device. The firmware stays in the
+engine; only its picture moves. The host keeps, per copy, the page that asked to draw it last (`owner` in
+`DevicesView`): frames go only there, and a `draw off` or a `painted` from another page is ignored, so one frame
+stays in flight per copy wherever it is shown. In the view, a panel that is in a tab says so; unfolding it brings
+the picture back to the view, and the tab stops getting frames. A tab whose copy ends closes itself.
+
+**SHRUB.** With the setting `strdltn.experimental.shrubEditor` on, the view ends with a SHRUB panel: Xfer's editor
+(`https://shrub.audio/editor/`) in a frame, the same CSP as the mockup tab (`frame-src https://shrub.audio`). It is
+its own synth, not in our mix. Folded, it is hidden with CSS and not removed, so its unsaved patches stay. Its take
+out opens the mockup tab ("SHRUB editor panel" below). Phase 4 step 6.
+
 Checked by hand on 2026-11-21 in a development host on Windows, with `template/examples/07-vibefm1-obervave.strudel`
 playing: OBERVAVE's panels for orbits 2 and 3 in view, each with its own display ("56 DEEP BASS", "44 DARK PAD")
 and its parameter values moving; the panel of orbit 4 is off to the right and was not looked at. Picture: `doc/screenshot-devices.png`. The maintainer's hand test of the same day passed: all three panels, the
-wheel, F3 and F4 (PRG- and PRG+), a parameter slider, fold and unfold. Not checked yet: a Codespace, and the
-integration test (step 7).
+wheel, F3 and F4 (PRG- and PRG+), a parameter slider, fold and unfold. Maximize and take out were then checked in a
+development host with clicks sent through DevTools, from screenshots: one panel fills the view; the tab shows the
+whole screen while the view's panel says "in a tab" and the other panels keep drawing. The SHRUB panel was seen with
+the setting on, its frame blank because shrub.audio did not answer from that machine that evening. The integration
+test records the copies, the frames that reached the view and a picture while `07-vibefm1-obervave.strudel` plays
+(`steps.devices`, `tmp/shots/devices.png`). Not checked: a Codespace.
 
 ## SHRUB editor panel
 

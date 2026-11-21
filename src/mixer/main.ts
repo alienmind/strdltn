@@ -1,13 +1,14 @@
-// The Mixer view: one strip per chain of the song in front, side by side as in the
-// Session view of Live, with the sliders as faders and the sidechain as cables. The host
-// sends the model it read from the code; this page draws it and keeps which strips are
-// unfolded. See "Mixer panel" in doc/DAW-PLAN.md.
+// The Music panel: the control panel of the song in front. A top bar with Play, Stop and
+// the BPM, then the mixer: one strip per chain, side by side as in the Session view of
+// Live, with the sliders as faders and the sidechain as cables. The host sends the model
+// it read from the code; this page draws it and keeps which strips are unfolded. See
+// "Mixer panel" in doc/DAW-PLAN.md.
 //
-// A fader changes the sound at once and the number in the code after a moment. Mute,
-// solo and cable drags are still to come (phase 3 of the plan).
+// A fader changes the sound at once and the number in the code after a moment. M, S, G,
+// the BPM box and the transport buttons are edits or commands the host carries out.
 import './mixer.css';
 import type { MixerChain, MixerModel, MixerSlider } from '../shared/chains.ts';
-import type { FromMixer, ToMixer } from '../shared/mixer.ts';
+import { DEFAULT_BPM, type FromMixer, type ToMixer } from '../shared/mixer.ts';
 import { type CableSpec, CableLayer } from './cables.ts';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): unknown; setState(state: unknown): void };
@@ -32,6 +33,55 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
 const app = document.getElementById('app')!;
 app.insertAdjacentHTML('beforeend', jackSymbols());
 const bar = app.appendChild(el('div', 'bar'));
+// The top bar is made once and updated in place: a redraw while the BPM is typed must not
+// take the field away. Record and record automation come here later.
+const transport = bar.appendChild(el('div', 'transport'));
+const playButton = transport.appendChild(el('button', 'play'));
+playButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>';
+playButton.title = 'Play / update (Ctrl+Enter in the editor)';
+playButton.addEventListener('click', () => post({ type: 'transport', action: 'play' }));
+const stopButton = transport.appendChild(el('button', 'stop'));
+stopButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><rect x="3" y="3" width="10" height="10" fill="currentColor"/></svg>';
+stopButton.title = 'Stop (Ctrl+.)';
+stopButton.addEventListener('click', () => post({ type: 'transport', action: 'stop' }));
+const bpmBox = bar.appendChild(el('label', 'bpm'));
+bpmBox.appendChild(el('span', '', 'BPM'));
+const bpmInput = bpmBox.appendChild(el('input'));
+bpmInput.inputMode = 'decimal';
+bpmInput.size = 5;
+const songName = bar.appendChild(el('span', 'song'));
+const staleNote = bar.appendChild(el('span', 'stale', 'code does not parse, showing the last good state'));
+/** What the BPM field shows when it is not being typed in. */
+function showTempo(): void {
+	const tempo = model?.tempo;
+	bpmInput.classList.toggle('default', !tempo);
+	bpmInput.disabled = !model || (!!tempo && tempo.bpm === undefined);
+	bpmInput.title = !tempo
+		? `Strudel's default, ${DEFAULT_BPM}: the song has no setcpm(). Type a number to write one`
+		: tempo.bpm === undefined
+			? 'The song sets its tempo with something that is not a plain number. Change it in the code'
+			: 'Type a number and press Enter to write setcpm(<bpm>/4). Double click: back to the default';
+	if (document.activeElement !== bpmInput) bpmInput.value = String(tempo ? (tempo.bpm ?? '?') : DEFAULT_BPM);
+}
+function commitTempo(): void {
+	const bpm = Number(bpmInput.value.replace(',', '.'));
+	const now = model?.tempo ? model.tempo.bpm : DEFAULT_BPM;
+	if (Number.isFinite(bpm) && bpm > 0 && bpm !== now) post({ type: 'tempo', bpm });
+	else showTempo();
+}
+bpmInput.addEventListener('keydown', (event) => {
+	if (event.key === 'Enter') bpmInput.blur();
+	if (event.key === 'Escape') {
+		bpmInput.value = '';
+		bpmInput.blur();
+	}
+});
+bpmInput.addEventListener('change', () => commitTempo());
+bpmInput.addEventListener('blur', () => showTempo());
+bpmInput.addEventListener('dblclick', () => {
+	bpmInput.blur();
+	if (model?.tempo) post({ type: 'tempo' });
+});
 const strips = app.appendChild(el('div', 'strips'));
 const cables = new CableLayer(strips);
 
@@ -75,6 +125,9 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 			if (dragging) drawLater = true;
 			else draw();
 			break;
+		case 'playing':
+			playButton.classList.toggle('on', message.on);
+			break;
 		case 'show':
 			unfolded.clear();
 			message.unfold.forEach((name) => unfolded.add(name));
@@ -87,12 +140,10 @@ post({ type: 'ready' });
 draw();
 
 function draw(): void {
-	bar.replaceChildren();
-	bar.appendChild(el('span', 'song', song ?? 'No song'));
-	if (error) {
-		const stale = bar.appendChild(el('span', 'stale', 'code does not parse, showing the last good state'));
-		stale.title = error;
-	}
+	songName.textContent = song ?? 'No song';
+	staleNote.hidden = !error;
+	staleNote.title = error ?? '';
+	showTempo();
 	strips.classList.toggle('old', !!error);
 	strips.querySelectorAll('.strip, .empty').forEach((node) => node.remove());
 	if (!model) {
@@ -145,8 +196,11 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 		keep();
 		draw();
 	});
-	const name = head.appendChild(el('button', 'name', chain.name));
-	name.title = `${chain.label}:  -  click to show it in the code${chain.nameRule !== 'label' ? `\n(named from: ${chain.nameRule})` : ''}`;
+	// A bare chain (a song without labels, as most snippets) is the whole song: it takes the file's name.
+	const name = head.appendChild(el('button', 'name', chain.bare && song ? song.replace(/\.strudel$/, '') : chain.name));
+	name.title = chain.bare
+		? 'The whole song: it has no labels, so its last expression is what plays. Click to show it in the code'
+		: `${chain.label}:  -  click to show it in the code${chain.nameRule !== 'label' ? `\n(named from: ${chain.nameRule})` : ''}`;
 	name.addEventListener('click', () => post({ type: 'reveal', chain: index }));
 
 	// M, S and G stacked beside the faders, as the track buttons of Live's mixer.
@@ -156,6 +210,11 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 		const b = badges.appendChild(el('button', `badge${on ? ' on' : ''}`, text));
 		b.title = title;
 		b.addEventListener('click', () => post({ type: 'toggle', chain: index, button }));
+		// Mute and solo write on the label, and a bare chain has none.
+		if (chain.bare && button !== 'gain') {
+			b.disabled = true;
+			b.title = 'No label to mute or solo: put $: in front of the line to make it a chain';
+		}
 	};
 	badge('M', chain.muted, chain.muted ? `Muted: the label ${chain.label} starts or ends with _. Click to unmute` : 'Mute: writes _ in front of the label', 'mute');
 	badge('S', chain.solo, chain.solo ? `Solo: the label ${chain.label} starts with S. Click to end the solo` : 'Solo: writes S in front of the label', 'solo');

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { BROWSER_PAGES, type BrowserFilterState, type BrowserPage, type FromBrowser, type ToBrowser, viewOf } from '../shared/browser';
+import type { BrowserFilterState, BrowserPage, FromBrowser, ToBrowser } from '../shared/browser';
 import {
 	type CatalogItem,
 	type FunctionDoc,
@@ -29,28 +29,29 @@ export interface BrowserActions {
 	insert(text: string, bare?: string): Promise<void>;
 }
 
-/** Which items a page shows. The Reference holds what is read, the Browser what is played and inserted. */
-/** Which view an item is shown in: sounds in the Library, what is written in Songs and Snippets, what is read in the Reference. */
-export const pageOf = (item: CatalogItem): BrowserPage => (item.kind === 'sound' ? 'library' : item.kind === 'function' ? 'reference' : 'songs');
-const others = (page: BrowserPage): BrowserPage[] => BROWSER_PAGES.map((p) => p.page).filter((p) => p !== page);
+const FILTER_KEY = 'strdltn.browserFilter';
+const NO_FILTER: BrowserFilterState = { category: 'all', query: '', chips: [] };
 
 /**
- * The Browser: three views in the side bar, Library (sounds), Songs and Snippets, and
- * Reference (functions, later the tutorial), with seven colors, categories, places and
- * tag chips, like the browser of Live. All three are the same page with their own items:
- * one host, one user file, one search field (in the Library). The maintainer wanted them
- * apart, as the separate views of vstrudel were, and the search shared. A tree cannot
- * show colors, chips or a search field, so these replaced the old trees.
+ * The Browser: four views in the side bar, like the browser of Live split into its parts.
+ * Library (sounds, with the one search field, the colors and the Built-in button), Songs
+ * and Snippets, and Reference (functions, later the tutorial) pick what is shown; Results
+ * shows it, from every view, in one list with chips and a details pane. The maintainer
+ * wanted the parts apart, as the separate views of vstrudel were, with one search, one
+ * set of colors and one list of results. A tree cannot show colors, chips or a search
+ * field, so these replaced the old trees.
  *
- * The host owns the data. It builds the items, keeps the user's colors and tags in
- * `strdltn.index.json`, and does what a row asks (play, insert, open). The webview owns
- * what is on screen: the filters, the open headings, the selection.
+ * All four are the same page. The host owns the data and the filter: it builds the items,
+ * keeps the user's colors and tags in `strdltn.index.json`, keeps the filter for all
+ * views, and does what a row asks (play, insert, open). A view that changes the filter
+ * sends it here, and the host hands it to the others.
  */
 export class BrowserView {
 	private readonly views = new Map<BrowserPage, vscode.WebviewView>();
-	private readonly states = new Map<BrowserPage, Extract<FromBrowser, { type: 'state' }>>();
-	/** The search text, the same in both pages. */
-	private query = '';
+	/** What Results reported last. */
+	private lastState?: Extract<FromBrowser, { type: 'state' }>;
+	/** The filter of all views. Kept per workspace, so a reload shows the same. */
+	private filter: BrowserFilterState;
 	private sounds: SoundInfo[] = [];
 	private functions: FunctionDoc[] = [];
 	private items: CatalogItem[] = [];
@@ -66,6 +67,7 @@ export class BrowserView {
 		private readonly actions: BrowserActions,
 	) {
 		this.preview = context.globalState.get(PREVIEW_KEY, true);
+		this.filter = { ...NO_FILTER, ...context.workspaceState.get<Partial<BrowserFilterState>>(FILTER_KEY) };
 		snippets.onDidChange(() => this.rebuild());
 		songs.onDidChange(() => this.rebuild());
 	}
@@ -90,12 +92,12 @@ export class BrowserView {
 		return this.sounds;
 	}
 
-	/** The provider of one of the two views. */
+	/** The provider of one of the four views. */
 	provider(page: BrowserPage): vscode.WebviewViewProvider {
 		return {
 			resolveWebviewView: (view) => {
 				this.views.set(page, view);
-				setPage(this.context, view.webview, 'browser', ['dist', 'media']);
+				setPage(this.context, view.webview, 'browser');
 				view.webview.onDidReceiveMessage((message: FromBrowser) => void this.handle(message, page));
 				view.onDidDispose(() => this.views.get(page) === view && this.views.delete(page));
 			},
@@ -108,19 +110,14 @@ export class BrowserView {
 		this.post({ type: 'focusSearch' }, 'library');
 	}
 
-	/** Sets what the Browser shows. For the integration test. */
-	show(filter: Partial<BrowserFilterState>, open?: string[], page: BrowserPage = 'library'): void {
-		this.post({ type: 'show', filter, open }, page);
-		// The search text is one for all views.
-		if (filter.query !== undefined && filter.query !== this.query) {
-			this.query = filter.query;
-			for (const p of others(page)) this.post({ type: 'show', filter: { query: this.query } }, p);
-		}
+	/** Sets what the Browser shows, as clicks would. For the integration test. */
+	show(filter: Partial<BrowserFilterState>, open?: string[]): void {
+		this.setFilter({ ...this.filter, ...filter }, undefined, open);
 	}
 
-	/** What the webview reported last: the filter, and how many results and rows it shows. */
-	state(page: BrowserPage = 'library'): Extract<FromBrowser, { type: 'state' }> | undefined {
-		return this.states.get(page);
+	/** What Results reported last: the filter, and how many results and rows it shows. */
+	state(): Extract<FromBrowser, { type: 'state' }> | undefined {
+		return this.lastState;
 	}
 
 	/** The items a filter gives, worked out here with the same functions the webview uses. */
@@ -142,23 +139,17 @@ export class BrowserView {
 		this.items = [...soundItems(this.sounds), ...snippetItems, ...this.songs.all().map(songItem), ...this.functions.map(functionItem)];
 		// A pack loads hundreds of sounds one by one, and each change would send 2000 items.
 		clearTimeout(this.pushTimer);
-		this.pushTimer = setTimeout(() => {
-			for (const page of this.views.keys()) this.post({ type: 'items', items: this.pageItems(page) }, page);
-		}, 150);
+		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
 	}
 
-	private pageItems(page: BrowserPage): CatalogItem[] {
-		return this.items.filter((item) => pageOf(item) === page);
+	/** The filter changed in one view: the others follow. */
+	private setFilter(filter: BrowserFilterState, from?: BrowserPage, open?: string[]): void {
+		this.filter = filter;
+		void this.context.workspaceState.update(FILTER_KEY, filter);
+		for (const [page, view] of this.views) if (page !== from) void view.webview.postMessage({ type: 'filter', filter, open } satisfies ToBrowser);
 	}
 
-	/** Tells each page how many items of the other pages the search text finds. */
-	private countElsewhere(): void {
-		const query = this.query.trim();
-		const counts = new Map(BROWSER_PAGES.map(({ page }) => [page, query ? filterItems(this.pageItems(page), { query, category: 'all', chips: [] }, this.user).length : 0]));
-		for (const page of this.views.keys()) this.post({ type: 'elsewhere', counts: others(page).map((p) => ({ page: p, count: counts.get(p) ?? 0 })) }, page);
-	}
-
-	/** To one page, or to both when no page is named. */
+	/** To one view, or to all when no view is named. */
 	private post(message: ToBrowser, page?: BrowserPage): void {
 		for (const [id, view] of this.views) if (!page || id === page) void view.webview.postMessage(message);
 	}
@@ -168,13 +159,10 @@ export class BrowserView {
 	}
 
 	/** What a message of the webview asks. Public for the integration test, which cannot click in a webview. */
-	async handle(message: FromBrowser, page: BrowserPage = 'library'): Promise<void> {
+	async handle(message: FromBrowser, page: BrowserPage = 'results'): Promise<void> {
 		switch (message.type) {
 			case 'ready': {
-				const view = this.views.get(page);
-				const logo = page === 'library' ? (view?.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', 'logo.jpg')).toString() ?? '') : '';
-				this.post({ type: 'init', page, logo, items: this.pageItems(page), user: this.user, preview: this.preview }, page);
-				return this.post({ type: 'show', filter: { query: this.query } }, page);
+				return this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter }, page);
 			}
 			case 'play': {
 				const item = this.item(message.id);
@@ -231,24 +219,13 @@ export class BrowserView {
 				this.preview = message.on;
 				await this.context.globalState.update(PREVIEW_KEY, message.on);
 				return this.post({ type: 'preview', on: message.on });
-			case 'state': {
-				this.states.set(page, message);
-				// One search for both views: the field is in the Browser, the Reference follows it.
-				// Only a change made in that page counts: a late report must not undo typing in the other.
-				if (message.typed && message.filter.query !== this.query) {
-					this.query = message.filter.query;
-					for (const p of others(page)) this.post({ type: 'show', filter: { query: this.query } }, p);
-				}
-				this.countElsewhere();
+			case 'state':
+				this.lastState = message;
 				return;
-			}
+			case 'filter':
+				return this.setFilter(message.filter, page);
 			case 'focusSearch':
 				return this.focusSearch();
-			case 'searchIn': {
-				await vscode.commands.executeCommand(`${viewOf(message.page)}.focus`);
-				this.post({ type: 'show', filter: { query: message.query, category: 'all', chips: [], color: undefined, place: undefined } }, message.page);
-				return;
-			}
 			case 'log':
 				this.output.appendLine(`browser: ${message.message}`);
 				return;

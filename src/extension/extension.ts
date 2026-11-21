@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { type BrowserFilterState, type BrowserPage, type FromBrowser, viewOf } from '../shared/browser';
+import { type BrowserFilterState, type FromBrowser, viewOf } from '../shared/browser';
 import { CATEGORIES } from '../shared/catalog';
 import { insideString } from '../shared/context';
 import type { SoundInfo } from '../shared/protocol';
@@ -41,11 +41,9 @@ export interface StrdltnApi {
 	/** The headings of a category in the Browser: the banks of Drums, the folders of Songs. */
 	browserGroups(category: BrowserFilterState['category']): string[];
 	/** Sets what the Browser shows, and returns what it reports back. */
-	browserShow(filter: Partial<BrowserFilterState>, open?: string[], page?: BrowserPage): Promise<unknown>;
+	browserShow(filter: Partial<BrowserFilterState>, open?: string[]): Promise<unknown>;
 	/** Handles a message as if the Browser had sent it: a click on a row, a color. */
 	browserMessage(message: FromBrowser): Promise<void>;
-	/** What a page of the Browser reported last. */
-	browserState(page: BrowserPage): unknown;
 	/** The Mixer's model of the song in front. */
 	mixer(): ReturnType<MixerView['current']>;
 	/** Unfolds the named strips of the Mixer, folds the others, and returns what it reports. */
@@ -56,6 +54,8 @@ export interface StrdltnApi {
 	mixerPlace(where: 'float' | 'tab' | 'dock'): Promise<{ floating: boolean; pages: number }>;
 	/** M, S or G of a chain, as a click sends it. */
 	mixerToggle(chain: number, button: 'mute' | 'solo' | 'gain'): Promise<void>;
+	/** The BPM box: a number, or undefined as a double click. */
+	mixerTempo(bpm: number | undefined): Promise<void>;
 	/** The remote sample packs seen so far and whether they are in the cache. */
 	packs(): { source: string; files: number; complete: boolean; note?: string }[];
 	previewSounds(): boolean;
@@ -87,9 +87,16 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		evaluate: (document) => {
 			for (const session of sessions) if (session.document === document && session.ready && session.started) session.play();
 		},
+		transport: (document, action) => {
+			const session = [...sessions].find((s) => s.document === document && s.ready);
+			if (session) return action === 'play' ? session.play() : session.stop();
+			// No engine has the song yet: open it and play, as the play button of its title would.
+			if (action === 'play') void vscode.commands.executeCommand('vscode.open', document.uri).then(() => vscode.commands.executeCommand('strdltn.play'));
+		},
+		isPlaying: (document) => [...sessions].some((s) => s.document === document && s.started),
 	});
 	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
-	const mixerPlace = new Place(mixer, { viewId: 'strdltn.mixer', tabType: 'strdltn.mixerTab', title: 'Mixer', contextKey: 'strdltn.mixerFloating' });
+	const mixerPlace = new Place(mixer, { viewId: 'strdltn.mixer', tabType: 'strdltn.mixerTab', title: 'Music', contextKey: 'strdltn.mixerFloating' });
 	const diagnostics = vscode.languages.createDiagnosticCollection('strdltn');
 	// Right side, beside the language of the file: it is about the file in front.
 	const status = vscode.window.createStatusBarItem('strdltn.status', vscode.StatusBarAlignment.Right, 101);
@@ -116,8 +123,19 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			browser.setSounds(list);
 			rememberSoundsSoon(list);
 		},
-		onState: () => updateStatus(),
+		onState: (session) => {
+			// A song that starts brings the Mixer to the front, as the maintainer asked: while
+			// it plays, that is where its levels are.
+			mixer.setPlaying(session.document, session.started);
+			if (session.started && !playing.has(session)) {
+				playing.add(session);
+				void mixerPlace.reveal();
+			} else if (!session.started) playing.delete(session);
+			updateStatus();
+		},
 	};
+	/** The sessions that played at the last state report, to see a song start. */
+	const playing = new Set<Session>();
 
 	const find = (uri: vscode.Uri, mode: Session['mode']) =>
 		[...sessions].find((s) => s.mode === mode && s.document.uri.toString() === uri.toString());
@@ -160,6 +178,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.window.registerWebviewViewProvider('strdltn.browser', browser.provider('library'), { webviewOptions: { retainContextWhenHidden: true } }),
 		vscode.window.registerWebviewViewProvider('strdltn.songs', browser.provider('songs'), { webviewOptions: { retainContextWhenHidden: true } }),
 		vscode.window.registerWebviewViewProvider('strdltn.reference', browser.provider('reference'), { webviewOptions: { retainContextWhenHidden: true } }),
+		vscode.window.registerWebviewViewProvider('strdltn.results', browser.provider('results'), { webviewOptions: { retainContextWhenHidden: true } }),
 		// The Mixer keeps its page too, so its strips stay unfolded behind the Terminal tab.
 		vscode.window.registerWebviewViewProvider('strdltn.mixer', mixerPlace, { webviewOptions: { retainContextWhenHidden: true } }),
 		vscode.commands.registerCommand('strdltn.mixer.float', () => mixerPlace.float()),
@@ -538,17 +557,17 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		browserCounts: () => Object.fromEntries(CATEGORIES.map(({ id }) => [id, browser.find({ category: id }).length])),
 		browserFind: (filter) => browser.find(filter).map((item) => item.id),
 		browserGroups: (category) => [...new Set(browser.find({ category }).map((item) => item.group))].sort(),
-		browserShow: async (filter, open, page = 'library') => {
-			await vscode.commands.executeCommand(`${viewOf(page)}.focus`);
+		browserShow: async (filter, open) => {
+			// The filter is the same in every view; Results shows what it picks.
+			await vscode.commands.executeCommand(viewOf('results') + '.focus');
 			// A view opened for the first time needs a moment before it takes messages.
-			for (let i = 0; i < 20 && !browser.state(page); i++) await new Promise((resolve) => setTimeout(resolve, 250));
-			browser.show(filter, open, page);
+			for (let i = 0; i < 20 && !browser.state(); i++) await new Promise((resolve) => setTimeout(resolve, 250));
+			browser.show(filter, open);
 			// The webview reports what it shows after it has drawn.
 			await new Promise((resolve) => setTimeout(resolve, 600));
-			return browser.state(page);
+			return browser.state();
 		},
 		browserMessage: (message) => browser.handle(message),
-		browserState: (page) => browser.state(page),
 		mixer: () => mixer.current(),
 		mixerShow: async (unfold) => {
 			if (!mixerPlace.floating) await vscode.commands.executeCommand('strdltn.mixer.focus');
@@ -556,6 +575,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		},
 		mixerSlider: (index, value) => mixer.moveSlider(index, value),
 		mixerToggle: (chain, button) => mixer.toggle(chain, button),
+		mixerTempo: (bpm) => mixer.setTempo(bpm),
 		mixerPlace: async (where) => {
 			if (where === 'dock') await mixerPlace.dock();
 			else await mixerPlace.float(where === 'float');

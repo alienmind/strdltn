@@ -84,6 +84,7 @@ export interface SavedSearch {
 	query: string;
 	category: CategoryId;
 	place?: PlaceId;
+	builtin?: boolean;
 	color?: number;
 	chips: string[];
 }

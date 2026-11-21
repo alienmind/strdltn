@@ -1,37 +1,51 @@
-// Messages between the extension host and the Browser view. Both sides import this file.
+// Messages between the extension host and the Browser's views. Both sides import this file.
 import type { CatalogItem, CategoryId, PlaceId, SavedSearch, UserIndex } from './catalog.ts';
 
-/** What the Browser shows: the category, the search and the filters. Kept by the webview between starts. */
+/**
+ * What the Browser shows: the category, the search and the filters. One for all views: the
+ * host keeps it and hands it to each of them.
+ */
 export interface BrowserFilterState {
 	category: CategoryId;
+	/** With category "all": only the items of this view, the "All" row of that view. */
+	scope?: BrowserPage;
 	place?: PlaceId;
+	/** The Built-in button of the Library: only built in, only not built in, or both (undefined). */
+	builtin?: boolean;
 	color?: number;
 	query: string;
 	chips: string[];
 }
 
 /**
- * The three views of the side bar that show the Browser's page, each with its own items.
- * The Library is the first and holds the logo and the one search field of all three.
+ * The four views of the side bar, all made from the same page. Library, Songs and Snippets,
+ * and Reference pick what is shown. Library also holds the one search field and
+ * the colors. Results shows what all of that picks, from every view, in one list.
  */
-export type BrowserPage = 'library' | 'songs' | 'reference';
+export type BrowserPage = 'library' | 'songs' | 'reference' | 'results';
 export const BROWSER_PAGES: { page: BrowserPage; view: string; title: string }[] = [
 	{ page: 'library', view: 'strdltn.browser', title: 'Library' },
 	{ page: 'songs', view: 'strdltn.songs', title: 'Songs and Snippets' },
 	{ page: 'reference', view: 'strdltn.reference', title: 'Reference' },
+	{ page: 'results', view: 'strdltn.results', title: 'Results' },
 ];
 export const viewOf = (page: BrowserPage): string => BROWSER_PAGES.find((p) => p.page === page)!.view;
 
+/** Which view picks an item: sounds in the Library, what is written in Songs and Snippets, what is read in the Reference. */
+export const pageOf = (item: CatalogItem): BrowserPage => (item.kind === 'sound' ? 'library' : item.kind === 'function' ? 'reference' : 'songs');
+
+/** The items a filter starts from: all of them, or those of one view when its "All" row is picked. */
+export const scoped = (items: CatalogItem[], filter: BrowserFilterState): CatalogItem[] =>
+	filter.scope && filter.category === 'all' ? items.filter((item) => pageOf(item) === filter.scope) : items;
+
 export type ToBrowser =
-	| { type: 'init'; page: BrowserPage; logo: string; items: CatalogItem[]; user: UserIndex; preview: boolean }
+	| { type: 'init'; page: BrowserPage; items: CatalogItem[]; user: UserIndex; preview: boolean; filter: BrowserFilterState }
 	| { type: 'items'; items: CatalogItem[] }
 	| { type: 'user'; user: UserIndex }
 	| { type: 'preview'; on: boolean }
 	| { type: 'focusSearch' }
-	/** How many items of each other page match the same search text. */
-	| { type: 'elsewhere'; counts: { page: BrowserPage; count: number }[] }
-	/** Sets what the Browser shows, as a click would. For commands and the integration test. */
-	| { type: 'show'; filter: Partial<BrowserFilterState>; open?: string[] };
+	/** The filter changed in another view, or by a command. `open` opens headings in Results, for the integration test. */
+	| { type: 'filter'; filter: BrowserFilterState; open?: string[] };
 
 export type FromBrowser =
 	| { type: 'ready' }
@@ -49,10 +63,10 @@ export type FromBrowser =
 	| { type: 'saveSearch'; search: SavedSearch }
 	| { type: 'deleteSearch'; name: string }
 	| { type: 'setPreview'; on: boolean }
+	/** The user changed the filter in this view. */
+	| { type: 'filter'; filter: BrowserFilterState }
 	/** Ctrl+F in a view without a search field: the Library's field gets the cursor. */
 	| { type: 'focusSearch' }
-	/** Opens another page, which already shows the same search. */
-	| { type: 'searchIn'; page: BrowserPage; query: string }
-	/** What is on screen now. The integration test reads it. */
-	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number; typed?: boolean }
+	/** What Results shows now. The integration test reads it. */
+	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number }
 	| { type: 'log'; message: string };

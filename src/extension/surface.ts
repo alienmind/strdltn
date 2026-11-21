@@ -86,6 +86,22 @@ export class Place implements vscode.WebviewViewProvider {
 		if (window) await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
 	}
 
+	/**
+	 * Brings the surface to the front without taking the focus, so typing goes on in the
+	 * editor. A view that was never opened has no `show`: its focus command opens it, and
+	 * the focus goes back to the editor group.
+	 */
+	async reveal(): Promise<void> {
+		// Already in sight: nothing to do. Seen in the integration test: revealing on every
+		// Play took the keyboard focus from the Strudel editor, and the first keys typed after
+		// Play were lost. Skipping the reveal when visible fixed it; whether `show(true)` alone
+		// takes the focus was not isolated.
+		if (this.panel) return this.panel.visible ? undefined : this.panel.reveal(undefined, true);
+		if (this.view) return this.view.visible ? undefined : this.view.show(true);
+		await vscode.commands.executeCommand(`${this.options.viewId}.focus`);
+		await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+	}
+
 	/** Puts the surface back into its view. Closing the floating tab does the same. */
 	async dock(): Promise<void> {
 		const panel = this.panel;

@@ -37,8 +37,13 @@ export interface MixerSlider {
 }
 
 export interface MixerChain {
-	/** The label as it is written: `$kick`, `lowendbass`, `_$snare`, `$`. */
+	/** The label as it is written: `$kick`, `lowendbass`, `_$snare`, `$`. Empty for a bare chain. */
 	label: string;
+	/**
+	 * A song without labels plays its last expression, as most snippets are written. That
+	 * expression is the one chain, with no label to put `_` or `S` on.
+	 */
+	bare?: boolean;
 	/** What the strip says on top: "kick". */
 	name: string;
 	/** How the name was found: 'label', or a rule of src/shared/context.ts for an anonymous `$:`. */
@@ -76,6 +81,88 @@ export interface MixerModel {
 	ducks: DuckCable[];
 	/** Sliders that act on no chain: in `setcps()`, or not used. The strip "global". */
 	global: number[];
+	/** The song's `setcpm()` or `setcps()`, when it has one. */
+	tempo?: Tempo;
+}
+
+/**
+ * The tempo a song sets. Strudel counts cycles, not beats: `setcpm(140/4)` is 140 BPM in
+ * 4/4, as upstream's own documentation of `setcpm` says. With no call, the scheduler runs
+ * at 0.5 cycles a second (`this.cps = 0.5` in cyclist.mjs of @strudel/core 1.2.6), so 120
+ * BPM.
+ */
+export interface Tempo {
+	/** Beats a minute at 4 beats a cycle, or undefined when the value is not a plain number (a slider, a pattern). */
+	bpm?: number;
+	/** The whole statement. */
+	from: number;
+	to: number;
+}
+
+export { DEFAULT_BPM } from './mixer.ts';
+const TEMPO_CALLS: Record<string, number> = { setcpm: 4, setCpm: 4, setcps: 240, setCps: 240 };
+
+/** The last top-level `setcpm(...)` or `setcps(...)`; the last one is what the song plays at. */
+function findTempo(statements: Node[]): { statement: Node; bpm?: number } | undefined {
+	for (let i = statements.length - 1; i >= 0; i--) {
+		const statement = statements[i];
+		const call = statement.type === 'ExpressionStatement' ? (statement.expression as Node) : undefined;
+		if (call?.type !== 'CallExpression' || call.callee.type !== 'Identifier' || !(call.callee.name in TEMPO_CALLS)) continue;
+		const value = arithmetic(call.arguments[0] as Node | undefined);
+		const bpm = value === undefined ? undefined : Math.round(value * TEMPO_CALLS[call.callee.name] * 100) / 100;
+		return { statement, bpm };
+	}
+	return undefined;
+}
+
+/** A number, or plain arithmetic of numbers (`140/4`). Anything else is not read. */
+function arithmetic(node: Node | undefined): number | undefined {
+	if (!node) return undefined;
+	if (node.type === 'BinaryExpression' && ['+', '-', '*', '/'].includes(node.operator)) {
+		const a = arithmetic(node.left);
+		const b = arithmetic(node.right);
+		if (a === undefined || b === undefined) return undefined;
+		return node.operator === '+' ? a + b : node.operator === '-' ? a - b : node.operator === '*' ? a * b : b === 0 ? undefined : a / b;
+	}
+	if (node.type === 'ParenthesizedExpression') return arithmetic(node.expression);
+	return numberOf(node);
+}
+
+/**
+ * The edit of the BPM box. A number writes `setcpm(<bpm>/4)`, in place of the song's tempo
+ * call or as the first statement of the song (after its header comments). No number (a
+ * double click) takes the call out, line and all, so the song plays at Strudel's default.
+ */
+export function tempoEdit(code: string, bpm: number | undefined): { from: number; to: number; insert: string } | undefined {
+	let program: Node;
+	try {
+		program = parse(code, { ecmaVersion: 2022, allowAwaitOutsideFunction: true, sourceType: 'script' }) as unknown as Node;
+	} catch {
+		return undefined;
+	}
+	const statements = (program.body as Node[]) ?? [];
+	const found = findTempo(statements);
+	if (bpm === undefined) {
+		if (!found) return undefined;
+		let { start, end } = found.statement;
+		// The whole line when the call is alone on it.
+		const lineStart = code.lastIndexOf('\n', start - 1) + 1;
+		const lineEnd = code.indexOf('\n', end);
+		if (!code.slice(lineStart, start).trim() && !code.slice(end, lineEnd < 0 ? code.length : lineEnd).trim()) {
+			start = lineStart;
+			end = lineEnd < 0 ? code.length : lineEnd + 1;
+		}
+		return { from: start, to: end, insert: '' };
+	}
+	if (!Number.isFinite(bpm) || bpm <= 0) return undefined;
+	const call = `setcpm(${Math.round(bpm * 100) / 100}/4)`;
+	if (found) {
+		const expression = found.statement.expression as Node;
+		return { from: expression.start, to: expression.end, insert: call };
+	}
+	const first = statements[0];
+	const at = first ? first.start : code.length;
+	return { from: at, to: at, insert: `${call}\n` };
 }
 
 /**
@@ -104,7 +191,7 @@ export function labelEdit(code: string, chain: number, button: 'mute' | 'solo'):
 	const model = readChains(code);
 	if ('error' in model) return undefined;
 	const target = model.chains[chain];
-	if (!target || code.slice(target.from, target.from + target.label.length) !== target.label) return undefined;
+	if (!target || target.bare || code.slice(target.from, target.from + target.label.length) !== target.label) return undefined;
 	return { from: target.from, to: target.from + target.label.length, insert: toggledLabel(target.label, button) };
 }
 
@@ -121,7 +208,7 @@ export function gainEdit(code: string, chain: number): { from: number; to: numbe
 	const target = model.chains[chain];
 	const statement = target && chainStatements(code)[chain];
 	if (!statement) return undefined;
-	const expression = statement.body.expression as Node;
+	const expression = expressionOf(statement);
 	let gainCall: Node | undefined;
 	for (let node = expression; node?.type === 'CallExpression' && node.callee.type === 'MemberExpression'; node = node.callee.object) {
 		if (node.callee.property?.name === 'gain') gainCall = node;
@@ -146,7 +233,32 @@ export function gainEdit(code: string, chain: number): { from: number; to: numbe
 /** The labeled statements that are chains, in the order of the code, as `readChains` finds them. */
 function chainStatements(code: string): Node[] {
 	const program = parse(code, { ecmaVersion: 2022, allowAwaitOutsideFunction: true, sourceType: 'script' }) as unknown as Node;
-	return ((program.body as Node[]) ?? []).filter((statement) => statement.type === 'LabeledStatement' && statement.body?.type === 'ExpressionStatement');
+	return findChains((program.body as Node[]) ?? []);
+}
+
+/** Calls that set the song up and play nothing: a last line `setcps(.5)` is not the pattern. */
+const SETUP = new Set(['samples', 'setcps', 'setCps', 'setcpm', 'setCpm', 'initHydra', 'hush', 'aliasBank', 'soundAlias', 'register']);
+
+/**
+ * The statements that are chains: every labeled one, as the transpiler plays them. A song
+ * with none plays the value of its last expression, so that one is the chain (bare).
+ */
+function findChains(statements: Node[]): Node[] {
+	const labeled = statements.filter((statement) => statement.type === 'LabeledStatement' && statement.body?.type === 'ExpressionStatement');
+	if (labeled.length) return labeled;
+	for (let i = statements.length - 1; i >= 0; i--) {
+		const statement = statements[i];
+		if (statement.type !== 'ExpressionStatement') continue;
+		const expression = statement.expression as Node;
+		if (expression.type === 'AwaitExpression' || expression.type === 'AssignmentExpression') continue;
+		if (expression.type === 'CallExpression' && expression.callee.type === 'Identifier' && SETUP.has(expression.callee.name)) continue;
+		return [statement];
+	}
+	return [];
+}
+
+function expressionOf(statement: Node): Node {
+	return (statement.type === 'LabeledStatement' ? statement.body.expression : statement.expression) as Node;
 }
 
 /** The model of a song, or the error of the parser when the code does not parse (half typed). */
@@ -162,13 +274,14 @@ export function readChains(code: string): MixerModel | { error: string } {
 	// Chains, in the order of the code.
 	const chains: MixerChain[] = [];
 	const chainNodes: Node[] = [];
-	for (const statement of statements) {
-		if (statement.type !== 'LabeledStatement' || statement.body?.type !== 'ExpressionStatement') continue;
-		const label = statement.label.name as string;
-		const named = chainName(label);
+	for (const statement of findChains(statements)) {
+		const bare = statement.type !== 'LabeledStatement';
+		const label = bare ? '' : (statement.label.name as string);
+		const named = bare ? undefined : chainName(label);
 		const fallback = named ? undefined : visualLabel(code, statement.start);
 		chains.push({
 			label,
+			...(bare ? { bare } : {}),
 			name: named ?? fallback!.text,
 			nameRule: named ? 'label' : fallback!.rule,
 			from: statement.start,
@@ -176,7 +289,7 @@ export function readChains(code: string): MixerModel | { error: string } {
 			muted: label.startsWith('_') || label.endsWith('_'),
 			solo: label.length > 1 && label.startsWith('S'),
 			controls: [],
-			...routing(statement.body.expression),
+			...routing(expressionOf(statement)),
 		});
 		chainNodes.push(statement);
 	}
@@ -261,7 +374,8 @@ export function readChains(code: string): MixerModel | { error: string } {
 	});
 
 	const global = sliders.filter((slider) => !slider.chains.length).map((slider) => slider.index);
-	return { chains, sliders, ducks, global };
+	const tempo = findTempo(statements);
+	return { chains, sliders, ducks, global, ...(tempo ? { tempo: { bpm: tempo.bpm, from: tempo.statement.start, to: tempo.statement.end } } : {}) };
 }
 
 /**

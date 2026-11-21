@@ -59,12 +59,18 @@
 			{
 				"command": "strdltn.play",
 				"title": "strdltn: Play / Update",
-				"icon": "$(play)"
+				"icon": {
+					"light": "media/play.svg",
+					"dark": "media/play.svg"
+				}
 			},
 			{
 				"command": "strdltn.stop",
 				"title": "strdltn: Stop",
-				"icon": "$(debug-stop)"
+				"icon": {
+					"light": "media/stop.svg",
+					"dark": "media/stop.svg"
+				}
 			},
 			{
 				"command": "strdltn.stopAll",
@@ -128,12 +134,12 @@
 			},
 			{
 				"command": "strdltn.mixer.float",
-				"title": "strdltn: Float the Mixer in its own window",
+				"title": "strdltn: Float the Music panel in its own window",
 				"icon": "$(window)"
 			},
 			{
 				"command": "strdltn.mixer.dock",
-				"title": "strdltn: Dock the Mixer in the panel",
+				"title": "strdltn: Dock the Music panel",
 				"icon": "$(layout-panel)"
 			}
 		],
@@ -337,7 +343,7 @@
 			"panel": [
 				{
 					"id": "strdltn-mixer",
-					"title": "Mixer",
+					"title": "Music",
 					"icon": "media/strdltn.svg"
 				}
 			]
@@ -347,23 +353,32 @@
 				{
 					"id": "strdltn.browser",
 					"name": "Library",
-					"type": "webview"
+					"type": "webview",
+					"initialSize": 4
 				},
 				{
 					"id": "strdltn.songs",
 					"name": "Songs and Snippets",
-					"type": "webview"
+					"type": "webview",
+					"initialSize": 2
 				},
 				{
 					"id": "strdltn.reference",
 					"name": "Reference",
-					"type": "webview"
+					"type": "webview",
+					"initialSize": 2
+				},
+				{
+					"id": "strdltn.results",
+					"name": "Results",
+					"type": "webview",
+					"initialSize": 6
 				}
 			],
 			"strdltn-mixer": [
 				{
 					"id": "strdltn.mixer",
-					"name": "Mixer",
+					"name": "Music",
 					"type": "webview",
 					"when": "!strdltn.mixerFloating"
 				}

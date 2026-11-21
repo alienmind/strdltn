@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { gainEdit, labelEdit, type MixerModel, readChains } from '../shared/chains';
+import { gainEdit, labelEdit, type MixerModel, readChains, tempoEdit } from '../shared/chains';
 import type { FromMixer, ToMixer } from '../shared/mixer';
 import { lf, lineColumn } from '../shared/sync';
 import { setPage, type Surface } from './surface';
@@ -14,6 +14,9 @@ export interface MixerActions {
 	moveSlider(document: vscode.TextDocument, index: number, from: number | undefined, value: string): boolean;
 	/** Evaluates the song again when it is playing, so a mute or solo is heard at once. */
 	evaluate(document: vscode.TextDocument): void;
+	/** Plays or stops the song, as the buttons of the editor's title do. */
+	transport(document: vscode.TextDocument, action: 'play' | 'stop'): void;
+	isPlaying(document: vscode.TextDocument): boolean;
 }
 
 /** How long a fader waits after its last move before it writes the code, when no engine has the song. As the stage's sliders did. */
@@ -104,6 +107,7 @@ export class MixerView implements Surface {
 			case 'ready':
 				this.pages++;
 				this.send();
+				this.post({ type: 'playing', on: this.playing });
 				// A page made by a move between dock and float starts with every strip folded.
 				if (this.unfolded) this.post({ type: 'show', unfold: this.unfolded });
 				return;
@@ -116,6 +120,11 @@ export class MixerView implements Surface {
 				return this.moveSlider(message.index, message.value);
 			case 'toggle':
 				return void this.toggle(message.chain, message.button);
+			case 'tempo':
+				return void this.setTempo(message.bpm);
+			case 'transport':
+				if (this.document) this.actions.transport(this.document, message.action);
+				return;
 			case 'state':
 				this.lastState = message;
 				if (message.strips.length) this.unfolded = message.strips.filter((strip) => strip.unfolded).map((strip) => strip.name);
@@ -167,7 +176,27 @@ export class MixerView implements Surface {
 		const document = this.document;
 		if (!document) return;
 		const text = lf(document.getText());
-		const change = button === 'gain' ? gainEdit(text, chain) : labelEdit(text, chain, button);
+		await this.write(document, text, button === 'gain' ? gainEdit(text, chain) : labelEdit(text, chain, button));
+	}
+
+	/** The BPM box: `setcpm(<bpm>/4)` written, or taken out for Strudel's default. Heard at once when playing. */
+	async setTempo(bpm: number | undefined): Promise<void> {
+		const document = this.document;
+		if (!document) return;
+		const text = lf(document.getText());
+		await this.write(document, text, tempoEdit(text, bpm));
+	}
+
+	/** Says whether a song plays. The Play and Stop buttons show it when it is the song in front. */
+	setPlaying(document: vscode.TextDocument, on: boolean): void {
+		if (document !== this.document) return;
+		this.playing = on;
+		this.post({ type: 'playing', on });
+	}
+	private playing = false;
+
+	/** One edit of the song, by line and column of its `\n` text, then evaluated if it plays. */
+	private async write(document: vscode.TextDocument, text: string, change: { from: number; to: number; insert: string } | undefined): Promise<void> {
 		if (!change) return;
 		const from = lineColumn(text, change.from);
 		const to = lineColumn(text, change.to);
@@ -193,6 +222,8 @@ export class MixerView implements Surface {
 	private use(document: vscode.TextDocument): void {
 		this.document = document;
 		this.model = this.error = undefined;
+		this.playing = this.actions.isPlaying(document);
+		this.post({ type: 'playing', on: this.playing });
 		this.read();
 	}
 

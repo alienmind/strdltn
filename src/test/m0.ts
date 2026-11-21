@@ -329,6 +329,13 @@ export async function run(): Promise<void> {
 				await click('gainOffRiser', 1, 'gain');
 				await click('unsoloKick', 0, 'solo');
 				results.model = api.mixer().model?.chains.map((c) => `${c.label} muted=${c.muted} solo=${c.solo} gain=${c.gain !== undefined}`);
+				// The BPM box: typed, then a double click back to Strudel's default.
+				await api.mixerTempo(128);
+				await sleep(600);
+				results.tempo128 = { line: (await textLf(uri)).split('\n')[1], bpm: api.mixer().model?.tempo?.bpm };
+				await api.mixerTempo(undefined);
+				await sleep(600);
+				results.tempoDefault = { lines: (await textLf(uri)).split('\n').length, tempo: api.mixer().model?.tempo ?? 'none' };
 				await api.mixerShow([]);
 				await shot('mixer-buttons');
 			} finally {
@@ -382,11 +389,11 @@ export async function run(): Promise<void> {
 		);
 		// What the Browser shows for a few filters, as the webview reports it, and the same
 		// filters worked out in the host.
-		const everything = { query: '', chips: [], color: undefined, place: undefined };
+		const everything = { query: '', chips: [], color: undefined, place: undefined, scope: undefined };
 		steps.browserAll = await api.browserShow({ ...everything, category: 'all' });
 		await sleep(800);
 		await shot('browser');
-		steps.browserSongs = await api.browserShow({ ...everything, category: 'songs' }, ['examples'], 'songs');
+		steps.browserSongs = await api.browserShow({ ...everything, category: 'songs' }, ['examples']);
 		await sleep(800);
 		await shot('files-view');
 		const tr909 = api.browserGroups('drums').find((bank) => /^rolandtr909$/i.test(bank));
@@ -398,17 +405,17 @@ export async function run(): Promise<void> {
 		steps.browserChips = await api.browserShow({ ...everything, category: 'drums', chips: ['Drums/Kick', 'Maker/Roland'] });
 		await sleep(800);
 		await shot('browser-chips');
-		steps.browserFunctions = await api.browserShow({ ...everything, category: 'functions', query: 'lpf' }, undefined, 'reference');
+		steps.browserFunctions = await api.browserShow({ ...everything, category: 'functions', query: 'lpf' });
 		await sleep(800);
 		await shot('reference');
-		// The functions are in the Reference view, the songs and snippets in their own: the Library has sounds only.
-		steps.browserHasNoFunctions = await api.browserShow({ ...everything, category: 'all', query: 'lpf' });
+		// One search over every view: lpf finds functions, snippets and songs together.
+		steps.browserSearchAll = await api.browserShow({ ...everything, category: 'all', query: 'lpf' });
 		await sleep(500);
-		await shot('browser-elsewhere');
-		// The link "N in Reference" of the result bar, as its click sends it.
-		await api.browserMessage({ type: 'searchIn', page: 'reference', query: 'filter' });
-		await sleep(1200);
-		steps.referenceFromBrowser = api.browserState('reference');
+		await shot('browser-global');
+		// "All" of the Library: sounds only, so lpf finds nothing there.
+		steps.browserLibraryOnly = await api.browserShow({ ...everything, category: 'all', scope: 'library', query: 'lpf' });
+		// "All" of the Reference.
+		steps.browserReferenceOnly = await api.browserShow({ ...everything, category: 'all', scope: 'reference', query: 'filter' });
 		// A color from the dots of the details pane: the project file keeps it. The file is
 		// removed again when the test made it, so the template stays as it is in git.
 		const indexFile = vscode.Uri.joinPath(folder, 'strdltn.index.json');
@@ -547,7 +554,7 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
 		await vscode.commands.executeCommand('notifications.clearAll');
 		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(demo));
-		steps.browserSnippets = await api.browserShow({ ...everything, category: 'snippets' }, undefined, 'songs');
+		steps.browserSnippets = await api.browserShow({ ...everything, category: 'snippets' });
 		await sleep(800);
 		await shot('snippets-view');
 		const snippetBody = 's("[~ hh]*4").bank("RolandTR909").gain(.6)';

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { gainEdit, labelEdit, type MixerModel, readChains, toggledLabel } from './chains.ts';
+import { DEFAULT_BPM, gainEdit, labelEdit, type MixerModel, readChains, tempoEdit, toggledLabel } from './chains.ts';
 
 function model(code: string): MixerModel {
 	const result = readChains(code);
@@ -202,4 +202,40 @@ test('G adds a gain fader and takes it out again', () => {
 	// A gain inside a function is not the chain's own.
 	const inner = '$a: s("bd").sometimes(x => x.gain(slider(0.5)))';
 	assert.equal(model(inner).chains[0].gain === undefined || gainEdit(inner, 0) === undefined, true);
+});
+
+test('a song without labels is one bare chain: its last expression, setup calls skipped', () => {
+	const snippet = 'samples("github:tidalcycles/dirt-samples")\nnote("c2*8").s("sawtooth").gain(slider(0.8))\nsetcps(0.5)\n';
+	const m = model(snippet);
+	assert.equal(m.chains.length, 1);
+	assert.equal(m.chains[0].bare, true);
+	assert.equal(m.chains[0].label, '');
+	assert.notEqual(m.chains[0].gain, undefined);
+	// No label to mute or solo; G still works.
+	assert.equal(labelEdit(snippet, 0, 'mute'), undefined);
+	const off = gainEdit(snippet, 0)!;
+	assert.equal(snippet.slice(0, off.from) + off.insert + snippet.slice(off.to), 'samples("github:tidalcycles/dirt-samples")\nnote("c2*8").s("sawtooth")\nsetcps(0.5)\n');
+	// With one label, the labels are the chains, as the transpiler plays them.
+	assert.deepEqual(model('s("hh*8")\n$kick: s("bd*4")\n').chains.map((c) => c.label), ['$kick']);
+});
+
+test('the BPM box reads and writes setcpm, and its default is 120', () => {
+	const apply = (code: string, bpm: number | undefined) => {
+		const e = tempoEdit(code, bpm);
+		return e ? code.slice(0, e.from) + e.insert + code.slice(e.to) : code;
+	};
+	assert.equal(DEFAULT_BPM, 120);
+	assert.equal(model('setcpm(140/4)\n$: s("bd")').tempo?.bpm, 140);
+	assert.equal(model('setcps(0.5)\n$: s("bd")').tempo?.bpm, 120);
+	assert.equal(model('setCpm(30)\n$: s("bd")').tempo?.bpm, 120);
+	assert.equal(model('$: s("bd")').tempo, undefined);
+	// A slider as tempo is not a number we can show.
+	assert.equal(model('setcpm(slider(30, 20, 40))\n$: s("bd")').tempo?.bpm, undefined);
+	// Typed: into the call, or as the first statement after the header comments.
+	assert.equal(apply('// @title x\nsetcps(0.5)\n$: s("bd")', 128), '// @title x\nsetcpm(128/4)\n$: s("bd")');
+	assert.equal(apply('// @title x\n$: s("bd")', 90), '// @title x\nsetcpm(90/4)\n$: s("bd")');
+	// Double click: the line goes, so Strudel's default plays.
+	assert.equal(apply('// @title x\nsetcpm(128/4)\n$: s("bd")', undefined), '// @title x\n$: s("bd")');
+	assert.equal(tempoEdit('$: s("bd")', undefined), undefined);
+	assert.equal(tempoEdit('$: s("bd")', -3), undefined);
 });

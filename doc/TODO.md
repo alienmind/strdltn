@@ -39,6 +39,7 @@ Next in line:
 | 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
 | 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
 | 6 | Functions in the Browser: an "Insert an example" button beside "Insert at the cursor" | Noted, not built. See "Insert an example" in `doc/DAW-PLAN.md` |
+| 6c | Dock and float: the Mixer, the stage and later windows open as a panel tab, an editor tab or a window of their own, from one copy of the code | Planned, not built. Decision 22 (the stage) waits. See "Dock and float" in `doc/DAW-PLAN.md` |
 | 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
 
 ## Next: test by hand

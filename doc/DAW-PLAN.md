@@ -825,6 +825,59 @@ shown (measured), so when a song is played and the Browser does not exist yet, t
 opens the side bar on the Browser first (`strdltn.browser.focus`), which creates the
 engine.
 
+### Dock and float
+
+The maintainer wants every feature window to work both ways: docked as a tab of the
+bottom panel, like the Mixer now, or floating on its own, like the stage. This applies to
+the Mixer, the stage, the Devices and their panels, the arrangement view and the
+sequencing devices of phase 11. The Browser can use it too.
+
+**What VS Code gives.** It has two kinds of webview, and only one of them can float:
+
+| Kind | Where it can be | Floats | Made |
+|---|---|---|---|
+| `WebviewView` | Side bar, secondary side bar, bottom panel. The user drags it between them | No. Views stay in the main window (expected, not tested in 1.147) | Declared in `package.json`, a fixed number |
+| `WebviewPanel` | An editor tab, in any group. "Move into New Window" (`workbench.action.moveEditorToNewWindow`) puts it in a window of its own | Yes | At run time, any number |
+
+Both expose the same `vscode.Webview`: `html`, `postMessage`, `onDidReceiveMessage`,
+`asWebviewUri`. That is what makes one copy of the code enough.
+
+**One feature, two hosts.** A feature is written once, as a `Surface`: its HTML, its
+script in `dist/`, its message handler and its state. A surface never knows where it is
+shown. Two small hosts show it:
+
+- `DockHost`, a `WebviewViewProvider` for a view declared in `package.json`
+  (`strdltn.mixer`, later `strdltn.devices`, `strdltn.stage`).
+- `FloatHost`, which creates a `WebviewPanel` and, for "float", runs
+  `workbench.action.moveEditorToNewWindow` after it.
+
+Each host hands its `Webview` to the surface with `attach(webview)`. A button in the title
+bar moves the surface: "Float" in the view's title (`view/title` menu), "Dock" in the
+tab's title (`editor/title` menu). A move attaches the surface to the new host, closes the
+old one and sends the state again: folds, the song it follows, the strip that was open.
+The state lives in the host-side surface, not in the page, so a new page draws the same
+picture. A setting per feature (`strdltn.mixer.place`, `strdltn.stage.place`: `dock`,
+`tab` or `float`) says where it opens first. The Mixer's code today is close to this:
+`MixerView` builds the page from `view.webview` only, and only `resolveWebviewView` ties
+it to a view.
+
+**What a move costs.**
+
+| Feature | Holds | A move |
+|---|---|---|
+| Mixer, Browser, arrangement, sequencing devices | Nothing that a new page cannot get back from the host | Free. A new page draws the same strips |
+| Stage | The engine: the `AudioContext`, the scheduler, Hydra | The page is new, so the sound stops and needs a click to start again (a webview starts no sound without a click inside it) |
+| Devices | Firmwares run in the engine of the song (decision 11) | Free, the display is relayed |
+
+So the stage can dock and float with the same code, but each move stops the sound until
+phase 6 takes the engine out of the stage page. Until then the stage moves only when
+stopped, or warns first (decision 22). Whether a `WebviewView` keeps its page when it is
+dragged to another place with `retainContextWhenHidden` is not measured. Spike W1 checks
+that, and whether a view can float at all in the VS Code we run.
+
+The take-out button of the Devices panels is this same mechanism, for one panel at a
+time.
+
 ### Devices
 
 Live shows the device of the selected track at the bottom of the screen. We show the
@@ -1143,6 +1196,7 @@ Under `tmp/`, each deleted when its answer is written down.
 |---|---|---|---|
 | D1 | Can we mark every event with the id of its chain by wrapping `Pattern.prototype.p` in `beforeEval`? | In the webview, with `demo.strudel`: log the ids seen in the trigger | ARCHITECTURE "Mixer". Only the activity light depends on it |
 | D3 | How late is a message from one webview to another through the host, on desktop and in a Codespace? | Timestamps on 1000 messages | ARCHITECTURE "Measured" |
+| W1 | Does a webview view keep its page when the user drags it to another place, and can a view float in a window of its own? Does `workbench.action.moveEditorToNewWindow` float a `WebviewPanel` that was just created, and does the page survive it? | The Mixer: drag it, float a tab with it, log `ready` messages and a counter in the page | ARCHITECTURE "Mixer". Gates "Dock and float" |
 | D4 | Can text be dragged from a webview view into the native editor and into the Strudel editor? | A draggable row with `text/plain` | ARCHITECTURE "Browser". If not: click and Enter only |
 | S5 | Can the extension host send MIDI on time? | As in `doc/TODO.md` | TODO "MIDI" |
 | S6 | Can a webview list the sound cards by name? | As in `doc/TODO.md` | TODO "Sound card" |
@@ -1255,7 +1309,10 @@ cable drags, the activity light (D1).
 3. Cable drag: the drag cable, the hit test on strips, connect, refuse, pull off, and the
    new orbit for a target on orbit 1.
 4. The activity light, after D1.
-5. Hand test by the maintainer: the table is written when the build exists.
+5. Dock and float for the Mixer: `Surface`, `DockHost`, `FloatHost`, the two title
+   buttons, `strdltn.mixer.place`. Spike W1 first. The stage follows in the same way once
+   decision 22 is answered.
+6. Hand test by the maintainer: the table is written when the build exists.
 
 Size: 2 to 3 sessions.
 
@@ -1447,6 +1504,7 @@ Size: unknown, at least one session per device.
 | 19 | Record typing that is not evaluated, to replay the writing of the code like a video? | Off by default, as an option. It makes the file large and adds no sound |
 | 20 | Insert as code: `s("bd").bank("RolandTR909")` or `s("RolandTR909_bd")`? | Answered by the maintainer: `s()` with `.bank()`. Built |
 | 21 | Phase 1b (previews in the Browser) before the Mixer? | Answered by the maintainer: no, last, with phase 6, because it is part of the change of architecture |
+| 22 | Moving the stage between dock, tab and float makes a new page, so the sound stops until phase 6. Allow the move only when stopped, warn and stop, or wait with the stage until phase 6? | Warn and stop. One click starts it again |
 
 ## Risks
 

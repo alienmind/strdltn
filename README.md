@@ -9,22 +9,24 @@ open a `.strudel` file.**
 
 [Strudel](https://strudel.cc) is a language for making music with code. [str]dltn Live[code] embeds
 the real Strudel, the same editor and the same sound engine as strudel.cc, and adds
-panels around it for the things a web page cannot give you:
+panels around it for the things a web page cannot give you, in the manner of Ableton
+Live:
 
-- **Files**: the songs of your project, without everything else.
-- **Sounds**: every instrument you can play, to browse, hear and insert. Drum machines
-  by bank, synths, soundfonts, and your own samples.
-- **Snippets**: your own library of reusable code, with a description and a preview of
-  each piece, one click away from your song.
+- **Music panel**: a mixer for the song you play, with a strip per part, faders, mute,
+  solo, sidechain cables you drag, Play, Stop and BPM. Every change is plain Strudel code.
+- **Browser**: every sound, snippet, song and function, with one search, colors and tags.
+  Click a sound to hear it, even with no song open.
 - **Your files**: songs, samples and snippets are plain files in a folder, so they work
   with git, search and everything else in your editor.
+
+![demo.strudel playing: the Strudel editor, the Browser on the left, the Music panel below](doc/screenshot-overview.png)
 
 It also runs in **GitHub Codespaces**. That gives a second way to use it: keep each
 music project as a repository and open it in a browser from any machine, with nothing
 installed. Fork this repository, open your fork in a Codespace, and start from the
 `template/` folder.
 
-Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.0.1.** See
+Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.2.0.** See
 `doc/TODO.md` for what is missing.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
@@ -166,15 +168,33 @@ playing. Hydra visuals work too.
 
 A button in the title bar switches the same file to the native VS Code editor, for
 bigger edits with your own keys, extensions and AI completion. Press play there and a
-stage opens beside the code. It lists the sliders of the song, then its visuals. Each
-row is named from your code: the name of the pattern (`$kick:`), the name of a variable,
-the comment above the line, or the code itself. Drag a slider there and the number in
-the code follows.
+stage opens below the code with the visuals of the song. Each is named from your code:
+the name of the pattern (`$kick:`), the name of a variable, the comment above the line,
+or the code itself. The sliders are faders in the Music panel.
+
+![The native editor with the stage below it and the Music panel](doc/screenshot-stage.png)
+
+[Hydra](https://hydra.ojack.xyz) works as on strudel.cc: call `initHydra()` and the
+visuals draw behind your code, driven by your pattern.
+
+![Hydra shapes behind the code](doc/screenshot-hydra.png)
 
 Edits made outside the editor, by git or by an agent, show up at once, even while the
 song plays.
 
+### The Music panel
+
+![The Music panel: Play, Stop, BPM, and a strip per part with faders, M, S, G and sidechain cables](doc/screenshot-music.png)
+
+The bottom panel has a tab called Music, the control panel of the song in front. Each
+part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, G adds
+or removes a gain fader. Drag from the jack at the foot of a strip onto another strip and
+the first ducks the second (`.duck()`); pull the cable off to stop. Type a BPM to set the
+tempo. Every change is an edit of the song, so undo takes it back.
+
 ### The Browser
+
+<img src="doc/screenshot-browser.png" alt="The Browser: Library with the search and colors, Songs and Snippets, Reference, and Results" width="300" align="right">
 
 The [str]dltn Live[code] icon in the activity bar opens the Browser, four views that
 each fold and move on their own. The first three pick what is shown, the last shows it.

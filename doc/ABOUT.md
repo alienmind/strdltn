@@ -16,7 +16,7 @@ engine, and adds panels around it, in the manner of Ableton Live: a browser of e
 sound, snippet, song and function, a Music panel with a mixer for the song you play, and
 your music as plain files in a project.
 
-![The Strudel editor in VS Code, with the Sounds and Snippets views](screenshot-sounds.png)
+![demo.strudel playing: the Strudel editor, the Browser on the left, the Music panel below](screenshot-overview.png)
 
 [Download the latest release](https://github.com/alienmind/strdltn/releases/latest) | [Source on GitHub](https://github.com/alienmind/strdltn)
 
@@ -113,13 +113,13 @@ it because the scope grew beyond a VS Code extension.
 
 ### The Strudel editor
 
-![The Strudel editor playing a song](screenshot-editor.png)
-
 [str]dltn Live[code] does not imitate Strudel. It hosts the upstream Strudel packages, so you get
 the same editor and engine as on strudel.cc, and new Strudel features arrive with a
 version bump.
 
 ### The Music panel
+
+![The Music panel: Play, Stop, BPM, and a strip per part with faders, M, S, G and sidechain cables](screenshot-music.png)
 
 The bottom panel has a tab called Music. It shows the song in front as a mixer: a strip
 for each part, with its faders, M, S and G, and orange cables for the sidechain. Drag
@@ -128,6 +128,8 @@ the code gets `.duck("2")` and, if needed, an `.orbit()` of its own for the targ
 change is an edit of the song, so undo takes it back and the song stays plain Strudel.
 
 ### Sounds
+
+<img src="screenshot-browser.png" alt="The Browser: Library with the search and colors, Songs and Snippets, Reference, and Results" width="300" align="right">
 
 The **Library** lists what the engine can play, and **Results** shows what you pick.
 Click a sound to hear it, even with no song open. The buttons on the row type it where
@@ -194,7 +196,7 @@ One button in the title bar switches a file between two editors:
   other extensions, AI completion. Press play there and a **stage** opens beside the
   code.
 
-![The native editor on the left, the stage on the right](screenshot-stage.png)
+![The native editor with the stage below it and the Music panel](screenshot-stage.png)
 
 The stage shows the visuals of the song. Each one is named from your code: the name of
 the pattern (`$kick:`), the name of a variable, the comment above the line, or the code

@@ -378,6 +378,17 @@ samples and the packs of its songs, and is for a workspace that has no list yet.
 of a running engine always replaces the kept one. Preview needs an engine and says so.
 We chose a kept list over an engine of its own, see the drawer.
 
+**Screenshots.** The pictures in `doc/` (`screenshot-*.png`, used by the README and
+`doc/ABOUT.md`) come from the integration test. Its last step ("9. Pictures for
+README.md and doc/ABOUT.md") plays `demo.strudel` in the Strudel editor, shows the
+Library on Drums with the TR-909 open in Results and the Music panel with bass unfolded,
+and saves `tmp/shots/doc-overview.png`. From a run of `pnpm test:vscode` (the Hydra and
+stage shots only come from the full run), the pictures are cut by hand with Pillow:
+`screenshot-overview.png`, `-stage.png` and `-hydra.png` are the whole window at half
+size (1440 by 900), `-music.png` and `-browser.png` are the Music panel and the side bar
+cut out of the overview, at half size. The window title says "[Extension Development
+Host]" (decision 11 of `doc/TODO.md`). Made on 2026-11-21 for 0.2.0.
+
 **Logo and icons.** The Browser has no logo any more: the maintainer took it out on
 2026-11-21 (its colors did not match the theme and it took room), and `media/logo.jpg`
 went with it. `doc/logo.jpg` stays for the README and `doc/ABOUT.md`.

@@ -57,7 +57,8 @@ an older build left.
 | # | Do this | Should happen |
 |---|---------|---------------|
 | 1 | Look at the activity bar and open [str]dltn Live[code] | Icon `[str]` over `dltn`. Four views: Library, Songs and Snippets, Reference, Results. No big logo, no "Categories" or "Places" headings |
-| 2 | Library | Search field, the seven color dots, the Built-in button, then All, Sounds, Drums, Samples, Instruments |
+| 2 | Library | Search field; right under it the seven color dots with Built-in to their right; then All, Sounds, Drums, Samples, Instruments |
+| 2a | Fold Results. Click Drums; fold it again and click a color; fold it again and type in the search | Each time Results opens by itself. While typing, the cursor stays in the search field |
 | 3 | Type `lpf` in the search | Results lists sounds, snippets, songs and functions in one list |
 | 4 | Click Functions in the Reference, click it again, then click All in the Library | Results: only functions, then everything, then only sounds |
 | 5 | Click Built-in three times | Results: only built in, then only your project and packs, then everything. The button says which |
@@ -67,7 +68,7 @@ an older build left.
 | 9 | Put the cursor in the code, select `sawtooth` in Results, press Enter | `note("c3").s("sawtooth")` is typed |
 | 10 | Songs and Snippets > Songs, click a song in Results | It opens |
 | 11 | Right click a snippet in Results > Edit tags..., add `test` | The file gets `// @tags ..., test`, the chip Tag > test exists |
-| 12 | With a filter set, press the save button in Results' bar, name it | A row with that name under the colors. A click brings the filter back |
+| 12 | With a filter set, press the save button in Results' bar, name it | Collections appears in the Library with that row. A click brings the filter back |
 
 ### Music panel
 

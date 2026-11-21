@@ -196,7 +196,7 @@ results, and the categories of each kind of thing apart.
 
 | View | id | Shows |
 |---|---|---|
-| Library | `strdltn.browser` | The logo, the search field, Collections (seven colors, the Built-in button, saved searches), and the categories of sounds: All, Sounds, Drums, Samples, Instruments |
+| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and the categories of sounds: All, Sounds, Drums, Samples, Instruments |
 | Songs and Snippets | `strdltn.songs` | Its categories: All, Snippets, Songs |
 | Reference | `strdltn.reference` | Its categories: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
 | Results | `strdltn.results` | The chips, the result bar, the results of all views in one list, and the details pane |
@@ -214,6 +214,14 @@ to the host, which sends it to the other three; the view that made the change al
 shows it, so typing is never undone by an echo. Ctrl+F in a view without the search
 field puts the cursor in the Library's. Colors, tags and saved searches come from the
 one user file.
+
+**Results opens itself.** Every change of the filter made in Library, Songs and Snippets
+or Reference expands Results when it is folded, so a click or a search shows its results
+at once (asked by the maintainer on 2026-11-21). The host calls `show(true)` on the
+Results view, which keeps the focus where it is, so typing in the search goes on. A
+Results view that was never opened has no `WebviewView` yet: then its focus command
+opens it and the host puts the cursor back in the search field. Not measured yet whether
+that last case loses a key typed in between.
 
 **Built-in.** Places (project, packs, built in) is gone. The maintainer sees where an
 item comes from as one more condition, so the Library has one button under the colors

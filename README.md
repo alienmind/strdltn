@@ -179,11 +179,12 @@ Everything you set, in any of them, acts on Results.
 
 - **Search** (Library). Ctrl+F in any of the views, or Ctrl+Alt+F from anywhere, puts the
   cursor here. Esc clears it. It searches everything.
-- **Collections** (Library). Seven color dots. A click shows everything with that color.
-  Right click a dot to rename it ("Favorites" is the first). Under them, the Built-in
-  button: click once for only what comes with Strudel, again for only what does not (your
-  project and the packs your songs load), again for everything. Saved searches are listed
-  here too.
+- **Colors** (Library, under the search). Seven color dots. A click shows everything with
+  that color. Right click a dot to rename it ("Favorites" is the first). Beside them, the
+  Built-in button: click once for only what comes with Strudel, again for only what does
+  not (your project and the packs your songs load), again for everything.
+- **Collections** (Library). Your saved searches, once you have saved one.
+- Every click and every search opens Results, if it is folded.
 - **Categories.** The rows of each view: Sounds (synths, soundfonts), Drums (by bank),
   Samples and Instruments (VIBE FM firmwares) in the Library; Snippets and Songs in Songs
   and Snippets; Functions (every function of Strudel, with its documentation) in the

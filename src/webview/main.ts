@@ -261,6 +261,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		text: () => mirror.editor.state.doc.toString(),
 		head: () => mirror.editor.state.selection.main.head,
 		focused: () => mirror.editor.hasFocus,
+		record: recorder(),
 	};
 
 	// Ctrl+Enter and Alt+Enter in the editor are upstream's keymap, which calls
@@ -901,4 +902,85 @@ async function probe(name: string, attempt: () => Promise<string>): Promise<void
 		new Promise<string>((resolve) => setTimeout(() => resolve('no answer after 5 s'), 5000)),
 	]);
 	log('info', `${name}: ${outcome}`);
+}
+
+/**
+ * For the test and the promo video (doc/VIDEO.md): records what superdough sends to the
+ * speakers, as a 16-bit stereo WAV that a runner pulls through DevTools in base64 chunks.
+ * It taps `destinationGain`, the node in front of `ac.destination`, so it hears the whole
+ * mix, firmwares included, and nothing else of the machine.
+ */
+function recorder() {
+	let left: Float32Array[] = [];
+	let right: Float32Array[] = [];
+	let node: ScriptProcessorNode | undefined;
+	let wav: Uint8Array | undefined;
+	const CHUNK = 1 << 20;
+	return {
+		start(): string {
+			const ac = strudelWebaudio.getAudioContext();
+			const tap = (strudelWebaudio.getSuperdoughAudioController() as any).output?.destinationGain as AudioNode | undefined;
+			if (!tap) return 'no output yet: play first';
+			left = [];
+			right = [];
+			wav = undefined;
+			const processor = ac.createScriptProcessor(4096, 2, 2);
+			processor.onaudioprocess = (e: AudioProcessingEvent) => {
+				left.push(e.inputBuffer.getChannelData(0).slice());
+				right.push(e.inputBuffer.getChannelData(1).slice());
+			};
+			tap.connect(processor);
+			// A ScriptProcessorNode runs only when it is connected onward. Its output is silent.
+			processor.connect(ac.destination);
+			node = processor;
+			return `recording at ${ac.sampleRate} Hz`;
+		},
+		/**
+		 * Stops and builds the WAV, scaled so its loudest sample sits at -0.4 dB: the mix can go past full scale (it
+		 * clips at the speakers then), and a 16-bit file would clip too. Returns the chunks of 1 MB and the peak before
+		 * the scaling, 1 being full scale.
+		 */
+		stop(): { chunks: number; peak: number } {
+			node?.disconnect();
+			node = undefined;
+			const rate = strudelWebaudio.getAudioContext().sampleRate;
+			const frames = left.reduce((n, b) => n + b.length, 0);
+			const out = new DataView(new ArrayBuffer(44 + frames * 4));
+			const text = (at: number, s: string) => [...s].forEach((c, i) => out.setUint8(at + i, c.charCodeAt(0)));
+			text(0, 'RIFF');
+			out.setUint32(4, 36 + frames * 4, true);
+			text(8, 'WAVEfmt ');
+			out.setUint32(16, 16, true);
+			out.setUint16(20, 1, true);
+			out.setUint16(22, 2, true);
+			out.setUint32(24, rate, true);
+			out.setUint32(28, rate * 4, true);
+			out.setUint16(32, 4, true);
+			out.setUint16(34, 16, true);
+			text(36, 'data');
+			out.setUint32(40, frames * 4, true);
+			let peak = 0;
+			for (const buffers of [left, right]) for (const b of buffers) for (let i = 0; i < b.length; i++) peak = Math.max(peak, Math.abs(b[i]));
+			const scale = peak > 0 ? 0.95 / peak : 1;
+			let at = 44;
+			left.forEach((l, b) => {
+				const r = right[b];
+				for (let i = 0; i < l.length; i++, at += 4) {
+					out.setInt16(at, l[i] * scale * 32767, true);
+					out.setInt16(at + 2, r[i] * scale * 32767, true);
+				}
+			});
+			wav = new Uint8Array(out.buffer);
+			left = [];
+			right = [];
+			return { chunks: Math.ceil(wav.length / CHUNK), peak };
+		},
+		chunk(i: number): string {
+			if (!wav) return '';
+			let s = '';
+			const part = wav.subarray(i * CHUNK, (i + 1) * CHUNK);
+			for (let j = 0; j < part.length; j += 0x8000) s += String.fromCharCode(...part.subarray(j, j + 0x8000));
+			return btoa(s);
+		},
+	};
 }

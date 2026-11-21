@@ -1,9 +1,14 @@
 # Promo video
 
 How to make a promo video of [str]dltn Live[code]: a walkthrough of the features, captured from a real VS Code
-window, with zooms, captions, a voice-over, and a song of ours as the music. Not started: this page is the recipe,
-ported on 2026-11-21 from the one the maintainer used for MuseColor (`../musicapp/doc/VIDEO.md`, project in
-`../musicapp/video/`). Nothing of it is built here yet.
+window, with zooms, captions, a voice-over, and a song of ours as the music. The recipe was ported on 2026-11-21
+from the one the maintainer used for MuseColor (`../musicapp/doc/VIDEO.md`, project in `../musicapp/video/`).
+
+Status (2026-11-21): a first cut renders end to end, about 36 s: five captured scenes and an end card with the
+GitHub address, a Piper voice, and `demo.strudel` from its drop under all of it, ducked under the voice. The
+draft and the final are in `tmp/promo/out/`. The final is an asset of the release v0.3.0:
+`https://github.com/alienmind/strdltn/releases/download/v0.3.0/strdltn-promo.mp4`. GitHub serves it as a download,
+not as a video that plays in place, so for a post the file is uploaded to the site itself.
 
 ## Tools
 
@@ -33,7 +38,7 @@ the tests), and every generated file under `tmp/promo/`, which git ignores.
 |---|---|---|
 | Voice | `pnpm voice` (needs `pip install piper-tts`) | `tmp/promo/voice/<voice>/<scene>.wav`, `durations.json` |
 | Capture | `pnpm capture`, or `pnpm capture 05-devices` for one scene | `tmp/promo/captures/<scene>/*.jpg`, `manifest.json` |
-| Sound | see "Sound" | `tmp/promo/song/<scene>.wav` |
+| Song | `pnpm capture song` (part of `pnpm capture`) | `tmp/promo/song/demo.wav` |
 | Preview | `pnpm studio` | |
 | Draft | `pnpm render:draft` | `tmp/promo/out/promo-draft.mp4` (960x540) |
 | Final | `pnpm render` | `tmp/promo/out/promo.mp4` (1920x1080) |
@@ -63,28 +68,35 @@ have in `scripts/test-vscode.mjs` covers most of it:
 - Real input through DevTools (`Input.dispatchMouseEvent`, `Input.dispatchKeyEvent`): clicks, typing in the Strudel
   editor, a fader dragged. The test already types into the editor this way.
 - The audio overlay clicked with `Runtime.evaluate` and `userGesture: true`, as the test does.
-- Record frames, not a video file. MuseColor listens to Chrome's screencast events (`Page.startScreencast`), saves
-  every repaint as a JPEG with its time, and lays them on a 30 fps grid. The same should work on the VS Code
-  window's DevTools target; expected, not tried. The webviews are frames inside that window, so they are in the
-  picture.
-- No mouse pointer shows in a capture. Inject a round fake cursor that follows the mouse events, and move it with
-  eased steps, never in one jump.
+- Record frames, not a video file. `video/scripts/capture.mjs` listens to Chrome's screencast events
+  (`Page.startScreencast`) on the VS Code window's target, saves every repaint as a JPEG with its time, and lays
+  them on a 30 fps grid, as MuseColor does. Measured: it works, webviews included, about 60 repaints a second while a
+  song plays.
+- The scenes are set up by `video/scripts/driver.cjs`, which runs inside the capture's VS Code
+  (`extensionTestsPath`) and talks to the runner through files. It reverts and closes every song it opened, so the
+  template is not written.
+- The window asks for 1920x1080, but the screen limits it: on the maintainer's PC the frames are 1440x900 (16:10).
+  The composition scales them to cover 16:9 and crops a little top and bottom; zooms stay under 2.1x.
+- No mouse pointer shows in a capture. The first cut needs none: every action goes through the extension's API
+  (`browserShow`, `mixerShow`, `mixerSlider`, `mixerReveal`). A later cut with clicks wants MuseColor's fake cursor.
 - Wait for the samples and the firmware to load before the first frame. A scene that opens on a loading state is
   unusable.
 
 ## Sound
 
-The music is our own: the song the scene plays. That is the point of the video, and it needs no licence. Two ways
-to get it, neither tried:
+The music is our own: `demo.strudel`, recorded from the engine. The engine's test hook has `record`
+(`src/webview/main.ts`): a `ScriptProcessorNode` on superdough's `destinationGain`, the node in front of the
+speakers, collects the whole mix, firmwares included, and nothing else of the machine. The window is muted
+(`--mute-audio`); the graph still runs. The capture records the whole song (`songSeconds`) once, with nothing else
+going on, and pulls the WAV through DevTools in 1 MB base64 chunks. The composition starts it at `songStart`
+(90.2 s, the DROP).
 
-1. **From the engine.** In the webview, connect superdough's output to a `MediaStreamAudioDestinationNode` and record
-   it with `MediaRecorder` while the scene is captured, then hand the file to the host. Same clock as the picture,
-   no system audio. Needs a test hook in the webview.
-2. **From the system.** Record the sound card's output while the capture runs. Simpler, but it catches every other
-   sound of the machine, and its start has to be lined up with the frames by hand.
+Measured on 2026-11-21: the demo's mix peaks at 2.59 times full scale (+8.3 dB). The speakers clip that; the
+recorder scales the take so its peak sits at 0.95 before it writes 16 bits, and says the peak it found. The song's
+levels need to come down (see `doc/TODO.md`).
 
-Under the voice the song steps down, as MuseColor's music does: its volume is a function of time, about 0.55 in the
-open and 0.16 under the voice, with 0.25 s ramps.
+Under the voice the song steps down, as MuseColor's music does: its volume is a function of time, 0.8 in the open
+and 0.22 under the voice, with 0.25 s ramps. That is the sidechain, done without audio analysis.
 
 ## Scenes
 
@@ -110,10 +122,21 @@ A first outline, about 60 s. Every scene shows something that works today.
 - **Remotion.** Free for individuals and small teams. Companies above a size limit need a paid licence.
 - **VS Code.** The window is VS Code's. Showing it in a video is common practice; we use no Microsoft logo of our own.
 
+## Decisions for the first cut
+
+| Topic | Decision | Why |
+|---|---|---|
+| Voice | Piper `en_US-ryan-high`, the model MuseColor downloaded (`voiceModels` in the config) | Free and offline. The final engine is the maintainer's choice |
+| Name | Not spoken; on the end card only | How "[str]dltn" is pronounced is the maintainer's to say |
+| Song | `demo.strudel` from its DROP | The maintainer's own song, and the energy is there |
+| Scenes | Hook, Browser, Mixer, Devices (OBERVAVE from the VIBE FM SDK), files, end card | The features of the README, and the firmwares |
+| End card | Logo, "A live coding DAW for Strudel, in VS Code", `github.com/alienmind/strdltn`, the not-official note and the credits | The URL last, as asked |
+| Headless Chrome for Remotion | Copied from MuseColor's `node_modules/.remotion` | Its download host did not answer on 2026-11-21 |
+
 ## Open points
 
-- Which song: `demo.strudel` or one written for the video.
-- Voice engine and voice.
-- Whether the capture should also show a Codespace in the browser.
-- Whether `Page.startScreencast` works on the VS Code window's target (expected, not tried).
-- The sound: from the engine or from the system.
+- Watch the cut and fix timing, camera moves and wording.
+- The demo's levels (it clips by 8.3 dB), then record the song again.
+- Final voice engine, and its terms for commercial use.
+- A vertical cut.
+- Whether to show a Codespace in the browser too.

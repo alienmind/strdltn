@@ -5,7 +5,7 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.3.0, not tagged.** The version started again for
+**`main` holds everything, version 0.3.0, released as `v0.3.0` (made by hand: the workflow has never run on this fork, see "Release" in ARCHITECTURE). Enable Actions in the repository's Actions tab before the next tag.** The version started again for
 this project. The tag 1.0.0 is the vstrudel release. The extension is [str]dltn
 Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
 `.strdltn/`, so it installs beside vstrudel without a clash. Settings of vstrudel
@@ -22,7 +22,7 @@ four views with one filter. The tag `v0.2.0` was never made.
 
 Phase 4, Devices, is merged (PR #6) and is version 0.3.0, with the demo song as an
 arrangement that plays itself and a disclaimer on top of the README that this is not an
-official Strudel project. The tag `v0.3.0` and a promote wait for the maintainer. Its spikes ran on desktop on
+official Strudel project. A promote waits for the maintainer. Its spikes ran on desktop on
 2026-11-21 (ARCHITECTURE "Firmware" and "SHRUB editor panel"): F2 gave the control events,
 F1 showed that whole display frames go through the host as `Uint8Array` at 30 to 120 a
 second on desktop, about 4 ms late, but at only about 4 MB a second in a Codespace, so the
@@ -51,7 +51,8 @@ Next in line:
 | 6e | Track colors: every chain gets a color by itself (the next of the palette), kept as `// @color <name>` on the line above the chain, changeable in the Mixer, used later by the session view | Planned, not built. Decision 24 answered: colored by themselves. See "Track colors" in `doc/DAW-PLAN.md` |
 | 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 answered: the workshop first, then the learn pages. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
 | 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
-| 8 | A promo video: a walkthrough of the features, captured from a real VS Code window, with voice-over and our own song | Recipe written, not started. See `doc/VIDEO.md` |
+| 8 | A promo video: a walkthrough of the features, captured from a real VS Code window, with voice-over and our own song | First cut rendered (36 s), not watched yet. See `doc/VIDEO.md` |
+| 9 | The demo's levels: its mix peaks at 2.59 times full scale (+8.3 dB), measured by the video's recorder, so it clips at the speakers. Bring the parts down until the peak is under 1 | Measured, not fixed. See "Sound" in `doc/VIDEO.md` |
 
 ## Next: test by hand
 

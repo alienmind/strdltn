@@ -1,0 +1,11 @@
+{
+  "voice": "en_US-ryan-high",
+  "voiceModels": "../../musicapp/tmp/promo/voices",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "url": "github.com/alienmind/strdltn",
+  "song": "demo.strudel",
+  "songSeconds": 182,
+  "songStart": 90.2
+}

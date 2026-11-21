@@ -1,0 +1,42 @@
+{
+  "title": "[str]dltn Live[code] promo, draft 1",
+  "language": "en",
+  "scenes": [
+    {
+      "id": "01-hook",
+      "voice": "Live coding music, right inside VS Code. Your editor becomes a DAW.",
+      "screen": "demo.strudel playing in the Strudel editor, the code lighting up, the Mixer below.",
+      "zoom": "The whole window, then the lit code."
+    },
+    {
+      "id": "02-browser",
+      "voice": "Browse every sound, drum kit and snippet. Click one to hear it, then drop it into your song.",
+      "screen": "The Library: everything, then the TR-909, then a search.",
+      "zoom": "The Browser in the side bar."
+    },
+    {
+      "id": "03-mixer",
+      "voice": "A mixer with a strip per part. Faders and sidechain cables write themselves back as code.",
+      "screen": "The Mixer with the bass unfolded, a fader moving, the number in the code following.",
+      "zoom": "The Mixer, then the code."
+    },
+    {
+      "id": "04-devices",
+      "voice": "It plays real synth firmwares from The Firmware Hub, each with its own screen and knobs.",
+      "screen": "07-vibefm1-obervave.strudel playing, the Devices tab with OBERVAVE's screens moving.",
+      "zoom": "The firmware's screen."
+    },
+    {
+      "id": "05-files",
+      "voice": "Songs are plain files, so git, Codespaces and AI agents just work.",
+      "screen": "The Explorer with the template's songs and samples, the demo open.",
+      "zoom": "The file tree."
+    },
+    {
+      "id": "06-close",
+      "voice": "Free and open source. Get it on GitHub.",
+      "screen": "End card: the logo, the name, github.com/alienmind/strdltn.",
+      "zoom": "None."
+    }
+  ]
+}

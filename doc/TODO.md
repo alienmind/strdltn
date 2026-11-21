@@ -5,7 +5,7 @@ from here.
 
 ## State
 
-**`main` holds everything up to PR #6. Version 0.3.0 is on the branch `release-0.3.0`, not tagged.** The version started again for
+**`main` holds everything, version 0.3.0, not tagged.** The version started again for
 this project. The tag 1.0.0 is the vstrudel release. The extension is [str]dltn
 Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
 `.strdltn/`, so it installs beside vstrudel without a clash. Settings of vstrudel

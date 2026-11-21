@@ -50,27 +50,10 @@ Next in line:
 
 ## Next: test by hand
 
-The maintainer tested the branch `feat/mixer` by hand on 2026-11-21 (side bar with four
-views, Results, colors, Built-in, previews without a song, the Music panel with Play,
-Stop, BPM, Record buttons, M, S, G, layout, float and dock): all passed. Left: the cable
-drags, built after that. Test on **desktop, launched with F5** on `template/`.
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 0a | Open the side bar of the extension | Its title is "[str]dltn" (VS Code may show it as "[Str]Dltn"). At the top of the Library, one row of Music Controls: green Play, red Stop, the two Record circles, BPM, the song's name; then the search |
-| 0b | Look at the bottom panel | The tab is called Mixer and holds only the strips |
-| 0c | Fold the Songs and Snippets view, then unfold it | Music Controls stay one row high in the Library. Play in them plays the song the Mixer shows |
-| 0d | Play `demo.strudel`, look at the Mixer | kick, snare, hh and hhr show a green line under their faders that pumps with their notes (they have `._scope()`); the others a gray flat line. Stop: the green ones go flat |
-| 0e | Click the gray scope of bass, then click it again | `._scope()` appears at the end of the bass chain and its scope turns green and moves; the second click takes it out |
-| 1 | Open `demo.strudel` and the Mixer | Every strip has one jack at its foot. Kick's three orange cables go from kick's jack to the jacks of bass, lowendbass and riser |
-| 2 | Drag from the jack of snare onto the strip of bass | The cable follows the pointer; bass is outlined in blue. Dropped: snare gets `.duck("2")` and a cable to bass |
-| 3 | Drag from the jack of hh onto the strip of vocals (no `.orbit()`) | vocals gets `.orbit(5)` (the next free orbit), hh gets `.duck("5")`, one cable |
-| 4 | Ctrl+Z in the editor | Both edits of step 3 go back with one undo |
-| 5 | Grab the end of a cable at the bass strip and drop it on empty space | The cable is gone; `.duck()` of its chain loses that orbit, or goes |
-| 6 | Grab the end of a kick cable at riser and drop it on lowendbass | The cable moves; kick's duck list changes in one edit |
-| 7 | Drag a jack onto its own strip | The cable turns red; dropping does nothing |
-| 7a | Alt+drag from the jack of bass (it is ducked) onto vocals | A new cable from bass; its cable from kick stays |
-| 8 | Play the song while doing 2 and 5 | The ducking is heard at once and goes away at once |
+Nothing waits. The maintainer tested the branch `feat/mixer` by hand on 2026-11-21: the
+side bar in four views, Results, colors, Built-in, previews without a song, Music
+Controls in the Library, the Mixer with M, S, G, layout, float and dock, cable drags with
+one jack per strip, and the pump meter. All passed.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.

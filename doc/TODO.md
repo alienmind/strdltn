@@ -263,9 +263,14 @@ The ways it could reach a song, best first:
 4. An emulator of the FM-1's chip that plays the `.fwsc` as it is. One exists:
    fm1-emu (`github.com/joakimeriksson/fm1-emu`, MIT, Rust built to wasm, with a JIT that
    turns the firmware's hot code into wasm). It plays 200 FM-1 firmwares and M-VAVE's stock
-   firmware. Whether it plays SHRUB, how fast it runs next to Strudel and how late its sound
-   is are not known: spike F4 in `doc/DAW-PLAN.md`. Xfer's terms for running SHRUB in an
-   emulator are not known either.
+   firmware. Measured on 2026-11-21 with fm1-emu's own `fm1_web.wasm` (its GitHub Pages
+   deploy of that day) and its headless `web/bench.mjs` in Node 24 on the maintainer's
+   Windows PC: SHRUB V1.11 (`SHRUB-V1.11.fwsc`, from the maintainer) boots and its default
+   chord sounds, but it runs at 0.76x real time at 240 MHz, 0.84x at 160 and 0.88x at 120,
+   with most 128-frame blocks over their 2.9 ms. Felucca 1.8.2 in the same setup runs at
+   2.7x. So SHRUB in wasm would drop out on this PC; in Chrome it is expected to be about
+   the same, not measured. How late its sound is and Xfer's terms for running it in an
+   emulator are not known. Spike F4 in `doc/DAW-PLAN.md`.
 
 ### Coverage of the hub's firmwares
 

@@ -381,11 +381,11 @@ We chose a kept list over an engine of its own, see the drawer.
 **Screenshots.** The pictures in `doc/` (`screenshot-*.png`, used by the README and
 `doc/ABOUT.md`) come from the integration test. Its last step ("9. Pictures for
 README.md and doc/ABOUT.md") plays `demo.strudel` in the Strudel editor, shows the
-Library on Drums with the TR-909 open in Results and the Music panel with bass unfolded,
+Library on Drums with the TR-909 open in Results and the Mixer with bass unfolded,
 and saves `tmp/shots/doc-overview.png`. From a run of `pnpm test:vscode` (the Hydra and
 stage shots only come from the full run), the pictures are cut by hand with Pillow:
 `screenshot-overview.png`, `-stage.png` and `-hydra.png` are the whole window at half
-size (1440 by 900), `-music.png` and `-browser.png` are the Music panel and the side bar
+size (1440 by 900), `-music.png` and `-browser.png` are the Mixer and the side bar
 cut out of the overview, at half size. The window title says "[Extension Development
 Host]" (decision 11 of `doc/TODO.md`). Made on 2026-11-21 for 0.2.0.
 
@@ -414,8 +414,9 @@ smooth edges of the JPEG. Checked as a CSS mask in Edge in a dark and a light co
 changes, cut it again. `media/icon.png` still shows `[str]` over `[code]`. The icons inside the Browser are inline SVG in `src/browser/icons.ts`
 that take the text color; `media/icons/` holds the older files the trees used.
 
-**Title.** VS Code capitalizes the title of the side bar: "[str]dltn Live[code]" shows as
-"[Str]Dltn Live[Code]". Seen in the screenshots of the test. An extension cannot turn
+**Title.** The side bar is called "[str]dltn" since 2026-11-21 (before: "[str]dltn
+Live[code]"). VS Code capitalizes the title of the side bar: "[str]dltn Live[code]" showed
+as "[Str]Dltn Live[Code]". Seen in the screenshots of the test. An extension cannot turn
 that off.
 
 Measured in the quick test on VS Code 1.147 with the template: 2222 items (151 sounds,
@@ -425,12 +426,16 @@ gives 6.
 
 ## Mixer
 
-The Music panel: a webview view, `strdltn.mixer`, in a container of its own in the bottom
-panel (next to Terminal and Problems), or floating in a window of its own (see "Dock and
-float"). The maintainer named it Music on 2026-11-21: it is the control panel of the song,
-with the mixer as one part. The ids keep "mixer", so nothing else had to change.
+Two views of one page and one host (`MixerView`): the **Mixer**, `strdltn.mixer`, in a
+container of its own in the bottom panel (next to Terminal and Problems), or floating in a
+window of its own (see "Dock and float"); and **Music Controls**, `strdltn.controls`, at
+the top of the side bar above the Library. The host tells each page its role (`role`
+message): the Mixer shows the song's name and the strips, Music Controls the song's name,
+Play, Stop, Record and BPM. For a while on 2026-11-21 they were one tab called Music; the
+maintainer split them again so each can be dragged to another place, and the bottom tab
+is called Mixer again.
 
-**Top bar.** Play (green) and Stop (a red square) play the song the panel shows, through
+**Music Controls.** Play (green) and Stop (a red square) play the song both views show, through
 its engine; with none, Play opens the song and plays it. Play is lit while the song
 plays. Then the BPM box: the song's `setcpm()` or `setcps()` as beats a minute at 4 beats
 a cycle (`readChains` gives `tempo`), or 120 in gray when the song has none, which is
@@ -438,7 +443,8 @@ Strudel's default (`cps = 0.5` in cyclist.mjs of @strudel/core 1.2.6). Typing a 
 Enter writes `setcpm(<bpm>/4)`, upstream's own form for BPM, in place of the call or as the
 first statement after the header comments (`tempoEdit`). A double click takes the call
 out, line and all. A tempo that is not plain arithmetic (a slider) disables the box. The
-bar is built once and updated in place, so a redraw while typing keeps the field.
+bar is built once and updated in place, so a redraw while typing keeps the field. In a
+narrow side bar it wraps onto two lines.
 Record and record automation come here later (see "Recording" in `doc/DAW-PLAN.md`).
 
 **Layout.** Faders are as tall as the panel allows, from 48 up to 400 pixels. In a panel
@@ -480,6 +486,26 @@ label has only the labeled chains, as the transpiler plays them. Measured over
 front (`Place.reveal`): `view.show(true)` for a view that exists, the floating tab's
 `reveal(undefined, true)`, or the view's focus command and the focus back to the editor
 for a view never opened. The cursor stays in the editor in the first two cases.
+
+**Scopes.** A chain with an inline `._scope()` shows its wave under its faders while the
+song plays, as the maintainer asked (2026-11-21). The scope's canvas in the code belongs
+to the engine's page, so the Mixer cannot draw on it; the engine sends the data instead.
+Upstream's `._scope()` gives its pattern an analyser named by the widget id
+(`.analyze(id)` in scope.mjs of @strudel/webaudio 1.3.0). After each evaluation the
+engine keeps its `_scope` widgets with their id and where the call ends in the code
+(`rememberScopes` in `src/webview/main.ts`), moved along with edits like the sliders.
+While the song plays it reads each with `getAnalyzerData('time', id)` every 50 ms, cuts
+it to 64 points and sends `scopes`; the host passes them to the Mixer of that song, and
+the page draws each wave in the strip whose chain holds that position. Half a second
+without frames (stopped) and the waves go flat. Every strip has the scope box: green when
+the chain has its own `._scope()` (`MixerChain.scope`), a gray flat line when not. A
+click on a gray one adds `._scope()` at the end of the chain, so the engine gives it an
+analyser on the next evaluation; a click on a green one takes it out (`scopeEdit` in
+`src/shared/chains.ts`), as G does for the gain. The maintainer asked for that on
+2026-11-21. A `._scope()` inside a function is not the chain's own. `.scope()` without the
+underscore draws on the page behind the code with one shared analyser and is not sent.
+How late the frames arrive through the host is not measured (spike D3); the integration
+test counts the frames that arrive while `demo.strudel` plays.
 
 **Cable drags.** Every strip has one jack at its foot. The cables the chain sends (its
 duck) start there and the cables that duck it end there: the first build had two jacks

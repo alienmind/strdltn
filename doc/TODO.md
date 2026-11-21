@@ -19,7 +19,7 @@ sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRU
 two decks to DJ with, recorded automation and an arrangement view)
 is in `doc/DAW-PLAN.md`, with the order of work the maintainer set ("Order of work"):
 the Mixer next (phases 2 and 3), the engine in a worker last. Phase 1, the Browser, is
-merged (PR #4). Phases 2 and 3 (the Music panel with its mixer, and the Browser in
+merged (PR #4). Phases 2 and 3 (the Mixer, Music Controls, and the Browser in
 four views) are version 0.2.0 on the branch `feat/mixer`, in pull request #5, which
 waits for the maintainer to merge; then tag `v0.2.0`. On that branch: a strip per
 chain of the song in front, faders that move the sound and write the code, M and S, and
@@ -57,7 +57,12 @@ drags, built after that. Test on **desktop, launched with F5** on `template/`.
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Open `demo.strudel` and the Music panel | Every strip has one jack at its foot. Kick's three orange cables go from kick's jack to the jacks of bass, lowendbass and riser |
+| 0a | Open the side bar of the extension | Its title is "[str]dltn" (VS Code may show it as "[Str]Dltn"). At the top, Music Controls: green Play, red Stop, the two Record circles, BPM, the song's name. Then Library |
+| 0b | Look at the bottom panel | The tab is called Mixer and holds only the strips |
+| 0c | Drag Music Controls into the bottom panel, and the Mixer into the side bar | Both move and keep working; Play in Music Controls plays the song the Mixer shows |
+| 0d | Play `demo.strudel`, look at the Mixer | kick, snare, hh and hhr show a moving green wave under their faders (they have `._scope()`); the others a gray flat line. Stop: the green ones go flat |
+| 0e | Click the gray scope of bass, then click it again | `._scope()` appears at the end of the bass chain and its scope turns green and moves; the second click takes it out |
+| 1 | Open `demo.strudel` and the Mixer | Every strip has one jack at its foot. Kick's three orange cables go from kick's jack to the jacks of bass, lowendbass and riser |
 | 2 | Drag from the jack of snare onto the strip of bass | The cable follows the pointer; bass is outlined in blue. Dropped: snare gets `.duck("2")` and a cable to bass |
 | 3 | Drag from the jack of hh onto the strip of vocals (no `.orbit()`) | vocals gets `.orbit(5)` (the next free orbit), hh gets `.duck("5")`, one cable |
 | 4 | Ctrl+Z in the editor | Both edits of step 3 go back with one undo |
@@ -86,8 +91,8 @@ with none: 3 of 4 runs had one failure.
 
 Editor and document always agreed, so it is not the text sync. The test now records
 whether VS Code took the host's edit; in run 3 it did. What changed just before:
-the Music panel is revealed when a song starts (`Place.reveal`), Play/Stop and BPM in its
-top bar, and Results opens by itself. Next step: run `pnpm test:quick` a few times with
+the Mixer is revealed when a song starts (`Place.reveal`), Play/Stop and BPM (now in
+Music Controls), and Results opens by itself. Next step: run `pnpm test:quick` a few times with
 the reveal on play switched off, and a few with it on, to see whether the failures follow
 it.
 

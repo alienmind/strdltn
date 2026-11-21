@@ -13,10 +13,10 @@ open a `.strudel` file.**
 web page, and a web page is a hard place to keep a growing pile of songs, samples and
 reusable ideas. [str]dltn Live[code] embeds the real Strudel, the same editor and the same sound
 engine, and adds panels around it, in the manner of Ableton Live: a browser of every
-sound, snippet, song and function, a Music panel with a mixer for the song you play, and
+sound, snippet, song and function, a mixer and music controls for the song you play, and
 your music as plain files in a project.
 
-![demo.strudel playing: the Strudel editor, the Browser on the left, the Music panel below](screenshot-overview.png)
+![demo.strudel playing: the Strudel editor, the Browser on the left, the Mixer below](screenshot-overview.png)
 
 [Download the latest release](https://github.com/alienmind/strdltn/releases/latest) | [Source on GitHub](https://github.com/alienmind/strdltn)
 
@@ -24,8 +24,8 @@ Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Co
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
 from a browser on any machine, with nothing installed.
 
-> **Version 0.2.0.** A Music panel with a mixer: a strip per part of the song, faders,
-> mute, solo and sidechain cables you drag, Play, Stop and BPM. The browser split into
+> **Version 0.2.0.** A Mixer: a strip per part of the song, faders, mute, solo and
+> sidechain cables you drag. Music Controls with Play, Stop and BPM. The browser split into
 > Library, Songs and Snippets, Reference and Results, with one search, and previews that
 > play with no song open. See "What is missing" at the end.
 
@@ -56,18 +56,21 @@ it because the scope grew beyond a VS Code extension.
 - Ctrl+. stops the song in front. Press it again to stop a song that plays in another
   tab. "strdltn: Stop all" stops every song.
 
-**Music panel**
+**Mixer and Music Controls**
 
 - A mixer in the bottom panel: one strip per part of the song (`$kick:`, `bass:`), side by
   side as in the Session view of Live. A song or snippet without parts is one strip.
 - Each slider in the code is a fader. Moving it changes the sound at once and the number
-  in the code a moment later.
+  in the code a moment later. Under the faders, a scope shows the part's wave; a click on a
+  gray one adds `._scope()` to the part.
 - M mutes, S solos, G adds or removes a gain fader. Each writes Strudel's own code, so the
   song plays the same on strudel.cc.
 - Sidechain as cables: drag from a strip's jack onto another strip to duck it, pull the
   cable off to stop. The code gets the `.duck()` and `.orbit()` for it.
-- Play, Stop and the BPM of the song. Type a BPM to set it, double click for Strudel's 120.
-- The panel can float in a window of its own, and comes to the front when a song plays.
+- Music Controls at the top of the side bar: Play, Stop and the BPM of the song. Type a
+  BPM to set it, double click for Strudel's 120.
+- The Mixer can float in a window of its own, and comes to the front when a song plays.
+  Mixer and Music Controls are separate views: drag either to another place.
 
 **Sounds**
 
@@ -117,11 +120,11 @@ it because the scope grew beyond a VS Code extension.
 the same editor and engine as on strudel.cc, and new Strudel features arrive with a
 version bump.
 
-### The Music panel
+### The Mixer
 
-![The Music panel: Play, Stop, BPM, and a strip per part with faders, M, S, G and sidechain cables](screenshot-music.png)
+![The Mixer: a strip per part with faders, M, S, G and sidechain cables](screenshot-music.png)
 
-The bottom panel has a tab called Music. It shows the song in front as a mixer: a strip
+The bottom panel has a tab called Mixer. It shows the song in front: a strip
 for each part, with its faders, M, S and G, and orange cables for the sidechain. Drag
 from the jack at the foot of a strip onto another strip and the first ducks the second;
 the code gets `.duck("2")` and, if needed, an `.orbit()` of its own for the target. Every
@@ -196,11 +199,11 @@ One button in the title bar switches a file between two editors:
   other extensions, AI completion. Press play there and a **stage** opens beside the
   code.
 
-![The native editor with the stage below it and the Music panel](screenshot-stage.png)
+![The native editor with the stage below it and the Mixer](screenshot-stage.png)
 
 The stage shows the visuals of the song. Each one is named from your code: the name of
 the pattern (`$kick:`), the name of a variable, the comment above the line, or the code
-itself. The sliders are in the Music panel.
+itself. The sliders are in the Mixer.
 
 ### Hydra visuals
 
@@ -261,7 +264,7 @@ On a Mac use Cmd in place of Ctrl.
 - No completion or documentation on hover in the code yet. The Reference lists the
   functions; the tutorial of strudel.cc is planned for it.
 - Soundfonts, supersaw and firmwares still need a song open to preview.
-- Record and Record Automation are in the Music panel, but not built yet.
+- Record and Record Automation are in Music Controls, but not built yet.
 - It is not on the VS Code Marketplace yet. Install it from the `.vsix` file.
 
 ## Thanks

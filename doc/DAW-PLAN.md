@@ -1163,7 +1163,7 @@ controller, which is how a DJ will want to use them.
 ### Recording and arrangement
 
 **Where the buttons go.** The maintainer placed them on 2026-11-21: in the top bar of
-the Music panel, after Play, Stop and BPM. Record is a red filled circle, Record
+Music Controls, after Play, Stop and BPM. Record is a red filled circle, Record
 Automation an empty red circle.
 
 The maintainer wants a Record button. While it is on, everything the performer does is
@@ -1401,7 +1401,9 @@ both modes, and the stage lost its slider rows. Spike D3 was not run as planned:
 fader goes host -> engine, and the integration test moves it while typing without a
 problem, but its latency is not measured. Also done: M, S and G (decisions 5 and 3,
 answered 2026-11-21), and dock and float. Not started: cable drags, the activity light
-(D1). Cable drags are built (step 3).
+(D1). Cable drags are built (step 3). Scopes under the faders are built too, for chains
+with `._scope()` (asked by the maintainer on 2026-11-21, see "Scopes" under "Mixer" in
+`doc/ARCHITECTURE.md`).
 
 0. Spike D3, then the stage loses its slider rows (step 4 of phase 2).
 1. Faders move the sound and write the code, through the existing `slider` message.

@@ -12,14 +12,15 @@ the real Strudel, the same editor and the same sound engine as strudel.cc, and a
 panels around it for the things a web page cannot give you, in the manner of Ableton
 Live:
 
-- **Music panel**: a mixer for the song you play, with a strip per part, faders, mute,
-  solo, sidechain cables you drag, Play, Stop and BPM. Every change is plain Strudel code.
+- **Mixer**: a strip per part of the song you play, with faders, mute, solo and sidechain
+  cables you drag. Every change is plain Strudel code.
+- **Music Controls**: Play, Stop and the BPM of the song, at the top of the side bar.
 - **Browser**: every sound, snippet, song and function, with one search, colors and tags.
   Click a sound to hear it, even with no song open.
 - **Your files**: songs, samples and snippets are plain files in a folder, so they work
   with git, search and everything else in your editor.
 
-![demo.strudel playing: the Strudel editor, the Browser on the left, the Music panel below](doc/screenshot-overview.png)
+![demo.strudel playing: the Strudel editor, the Browser on the left, the Mixer below](doc/screenshot-overview.png)
 
 It also runs in **GitHub Codespaces**. That gives a second way to use it: keep each
 music project as a repository and open it in a browser from any machine, with nothing
@@ -66,9 +67,9 @@ browser.
 - Ctrl+. stops the song in front. Press it again to stop a song that plays in another
   tab. "strdltn: Stop all" stops every song.
 
-**Music panel**
+**Mixer and Music Controls**
 
-- A top bar with Play, Stop and the BPM of the song. Type a BPM to write `setcpm(<bpm>/4)`;
+- Music Controls, a view at the top of the side bar, with Play, Stop and the BPM of the song. Type a BPM to write `setcpm(<bpm>/4)`;
   double click it to go back to Strudel's default, 120.
 - A mixer in the bottom panel, next to Terminal: one strip per chain of the song in front
   (`$kick:`, `bass:`), side by side as in the Session view of Live.
@@ -84,8 +85,11 @@ browser.
   target that had none.
 - A fader changes the sound at once and the number in the code a moment later, like the
   slider in the code. Moving the slider in the code moves the fader.
+- A scope under the faders of each strip: green and moving while the song plays when the
+  chain has `._scope()`, a gray flat line when not. A click adds or removes `._scope()`.
 - A song or snippet without `$:` labels shows as one strip named after the file.
-- The Music panel comes to the front when a song starts playing.
+- The Mixer comes to the front when a song starts playing.
+- Mixer and Music Controls are separate views: drag either to another place.
 - The window button in the Mixer's title floats it in a window of its own. The dock
   button, or closing that window, puts it back in the panel.
 
@@ -170,9 +174,9 @@ A button in the title bar switches the same file to the native VS Code editor, f
 bigger edits with your own keys, extensions and AI completion. Press play there and a
 stage opens below the code with the visuals of the song. Each is named from your code:
 the name of the pattern (`$kick:`), the name of a variable, the comment above the line,
-or the code itself. The sliders are faders in the Music panel.
+or the code itself. The sliders are faders in the Mixer.
 
-![The native editor with the stage below it and the Music panel](doc/screenshot-stage.png)
+![The native editor with the stage below it and the Mixer](doc/screenshot-stage.png)
 
 [Hydra](https://hydra.ojack.xyz) works as on strudel.cc: call `initHydra()` and the
 visuals draw behind your code, driven by your pattern.
@@ -182,15 +186,15 @@ visuals draw behind your code, driven by your pattern.
 Edits made outside the editor, by git or by an agent, show up at once, even while the
 song plays.
 
-### The Music panel
+### The Mixer and Music Controls
 
-![The Music panel: Play, Stop, BPM, and a strip per part with faders, M, S, G and sidechain cables](doc/screenshot-music.png)
+![The Mixer: a strip per part with faders, M, S, G and sidechain cables](doc/screenshot-music.png)
 
-The bottom panel has a tab called Music, the control panel of the song in front. Each
-part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, G adds
+The bottom panel has a tab called Mixer, for the song in front. Each part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, G adds
 or removes a gain fader. Drag from the jack at the foot of a strip onto another strip and
 the first ducks the second (`.duck()`); pull the cable off to stop. Type a BPM to set the
-tempo. Every change is an edit of the song, so undo takes it back.
+tempo in Music Controls, at the top of the side bar, with Play and Stop. Every change is
+an edit of the song, so undo takes it back.
 
 ### The Browser
 

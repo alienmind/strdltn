@@ -258,8 +258,9 @@ test('a cable dropped on a strip writes the duck, and a new orbit when the targe
 	const one = apply(song, duckEdits(song, 0, 1));
 	assert.equal(one, '$kick: s("bd*4").duck("2")\n$bass: note("c2").s("saw").orbit(2)\n$pad: note("c4").s("sine")\n');
 	// Onto a chain on orbit 1 by default: it gets orbit 3, the next free one, and the list grows.
+	// The list is "2:3": "2,3" would be a stack and play the kick once per orbit.
 	const two = apply(one, duckEdits(one, 0, 2));
-	assert.equal(two, '$kick: s("bd*4").duck("2,3")\n$bass: note("c2").s("saw").orbit(2)\n$pad: note("c4").s("sine").orbit(3)\n');
+	assert.equal(two, '$kick: s("bd*4").duck("2:3")\n$bass: note("c2").s("saw").orbit(2)\n$pad: note("c4").s("sine").orbit(3)\n');
 	assert.deepEqual(model(two).ducks.map((d) => `${d.from}>${d.to}@${d.orbit}`), ['0>1@2', '0>2@3']);
 	// Again on the same target changes nothing.
 	assert.deepEqual(duckEdits(two, 0, 1), { edits: [] });

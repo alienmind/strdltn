@@ -129,6 +129,7 @@ function draw(): void {
 // ---- scopes -----------------------------------------------------------------------------
 
 let scopesIdle: ReturnType<typeof setTimeout> | undefined;
+let unmatchedLogged = 0;
 
 /** Draws each wave in the strip of the chain it is in, as a line across the canvas, like upstream's scope. */
 function drawScopes(frames: ScopeFrame[]): void {
@@ -136,6 +137,11 @@ function drawScopes(frames: ScopeFrame[]): void {
 	const drawn = new Set<number>();
 	for (const frame of frames) {
 		const chain = model.chains.findIndex((c) => frame.at >= c.from && frame.at <= c.to);
+		if (chain < 0 && Date.now() - unmatchedLogged > 2000) {
+			// An investigation aid: a scope whose place in the code is in no chain is not drawn.
+			unmatchedLogged = Date.now();
+			post({ type: 'log', message: `scope at ${frame.at} is in no chain (chains: ${model.chains.map((c) => `${c.name} ${c.from}-${c.to}`).join(', ')})` });
+		}
 		if (chain < 0 || drawn.has(chain) || !frame.wave.length) continue;
 		const canvas = strips.querySelector<HTMLCanvasElement>(`canvas.scope[data-chain="${chain}"]`);
 		if (!canvas) continue;
@@ -159,9 +165,14 @@ function drawWave(canvas: HTMLCanvasElement, wave: number[]): void {
 	g.lineWidth = 1.5 * devicePixelRatio;
 	g.beginPath();
 	const points = wave.length > 1 ? wave : [0, 0];
+	// Scaled to its own peak, as a scope set to auto: a quiet chain (hi-hats at 0.05) drew
+	// a line one pixel high at upstream's fixed scale and looked flat to the maintainer.
+	// Below 0.001 it is silence, and stays a flat line.
+	const peak = Math.max(...points.map(Math.abs));
+	const gain = peak > 0.001 ? 1 / peak : 0;
 	points.forEach((value, i) => {
 		const x = (i / (points.length - 1)) * width;
-		const y = height / 2 - Math.max(-1, Math.min(1, value)) * (height / 2) * 0.9;
+		const y = height / 2 - value * gain * (height / 2) * 0.85;
 		if (i) g.lineTo(x, y);
 		else g.moveTo(x, y);
 	});

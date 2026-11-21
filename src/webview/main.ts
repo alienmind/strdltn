@@ -719,7 +719,8 @@ function sendScopes(): void {
 			const wave: number[] = [];
 			if (data?.length) {
 				const step = data.length / SCOPE_POINTS;
-				for (let i = 0; i < SCOPE_POINTS; i++) wave.push(Math.round(data[Math.floor(i * step)] * 100) / 100);
+				// Four decimals: a quiet chain moves in the third, and two cut it to a flat line.
+				for (let i = 0; i < SCOPE_POINTS; i++) wave.push(Math.round(data[Math.floor(i * step)] * 10000) / 10000);
 			}
 			return { at, wave };
 		});

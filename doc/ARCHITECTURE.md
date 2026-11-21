@@ -58,6 +58,9 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/mixer.ts` | The Mixer in the bottom panel: follows the song in front and sends its model. See "Mixer" |
 | `src/shared/chains.ts`, `mixer.ts` | The model of a song for the Mixer (chains, sliders, duck cables), read with acorn, and the messages. `chains.test.ts` holds the cases |
 | `src/mixer/main.ts`, `cables.ts` | The page of the Mixer and its cables. Built as `dist/mixer.js` |
+| `src/extension/devices.ts` | The Devices view in the bottom panel: the firmware copies per engine, frames to the view, requests back. See "Devices" |
+| `src/devices/main.ts` | The page of the Devices view: a panel per firmware copy with its display, F1 to F6 and its parameters. Built as `dist/devices.js` |
+| `src/shared/devices.ts` | The messages between the engine, the host and the Devices view |
 | `src/shared/snippet.ts` | Splits a snippet file into header fields and code. |
 | `src/shared/context.ts` | The rules that name a slider or a visual from the code around it. `context.test.ts` holds the cases. |
 | `src/extension/packs.ts` | Downloads the remote samples a song loads into `.strdltn/cache/`, measures the cache and empties it. |
@@ -1048,6 +1051,34 @@ one frame in flight per panel: the view answers when it has painted, and only th
 frame. On desktop that gives the full rate; in a Codespace it gives whatever the connection carries, about 12 to 15
 frames a second for one panel on this one, with a delay of one frame instead of seconds. `Uint8Array` arrived as
 `Uint8Array` there too. Compressing the frame (OBERVAVE's screen is mostly flat colour) is not measured.
+
+## Devices
+
+The Devices view is a tab of the bottom panel beside the Mixer (`strdltn.devices`, in its own container
+`strdltn-devices`). It shows one panel per firmware copy that plays: one per firmware and orbit, as `vibefm1` runs
+them. A panel has the firmware's own display, six soft keys F1 to F6 under it, and the parameters the firmware
+declared (`vibe_wasm_param_info`) as sliders beside it. Built on 2026-11-21 on `feat/devices`; phase 4 steps 1 to 4
+of `doc/DAW-PLAN.md`.
+
+The firmware runs in the AudioWorklet of the engine that plays the song; the view is another webview. So:
+
+| From | To | Message | What |
+|---|---|---|---|
+| worklet | engine page | `ready` with the parameter list | When the copy starts. The page keeps the copies that run in `running` (`src/webview/vibe/index.ts`) |
+| engine | host | `devices {devices}` | When a copy starts or ends. The host keeps a list per engine (`DevicesView`) and sends the view all of them, with the song's file name and an id per engine |
+| view | host | `request {engine, action, key, ...}` | Routed to the engine by its id, as `device {request}` |
+| view | worklet | `draw {on}` | A panel open and shown: draw. Folded, or the view hidden: stop |
+| worklet | view | `frame {px, values}` | `vibe_wasm_draw` between two blocks, about 30 a second, the whole 480 x 320 RGB565 frame as a `Uint8Array`, and every parameter's value. A frame equal to the last with the same values is not sent |
+| view | worklet | `painted` | After the frame is on the canvas. The worklet sends no second frame before it: one frame in flight per panel, the rule of spike F1. A page that goes away without answering leaves the worklet waiting, so it draws nothing more until a new page asks |
+| view | worklet | `param {index, value}` | A slider moved: `vibe_wasm_param_set` at the current frame. The slider stops following the frames while the hand holds it |
+| view | worklet | `control {event, id, down, value}` | F1 to F6 as `VIBE_EV_BUTTON` (3) ids 0 to 5, down and up; the mouse wheel on the display as `VIBE_EV_ENCODER` (4) id `VE_DATA` (6), one detent a notch |
+
+The view's page is not kept while hidden (no `retainContextWhenHidden`): a hidden page draws nothing.
+
+Checked by hand on 2026-11-21 in a development host on Windows, with `template/examples/07-vibefm1-obervave.strudel`
+playing: OBERVAVE's panels for orbits 2 and 3 in view, each with its own display ("56 DEEP BASS", "44 DARK PAD")
+and its parameter values moving; the panel of orbit 4 is off to the right and was not looked at. Picture: `doc/screenshot-devices.png`. Not checked yet: the soft keys, the wheel and the
+sliders by hand, a Codespace, and the integration test (step 7).
 
 ## SHRUB editor panel
 

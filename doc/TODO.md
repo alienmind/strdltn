@@ -25,8 +25,13 @@ Work now is phase 4, Devices, on the branch `feat/devices`. Its spikes ran on de
 F1 showed that whole display frames go through the host as `Uint8Array` at 30 to 120 a
 second on desktop, about 4 ms late, but at only about 4 MB a second in a Codespace, so the
 relay sends one frame in flight per panel. F3 showed that the SHRUB editor loads and plays
-in a webview view. The SDK headers are cloned in `tmp/sdk/` (gitignored). Next: build phase 4
-from step 1.
+in a webview view. The SDK headers are cloned in `tmp/sdk/` (gitignored).
+
+Phase 4 steps 1 to 4 are built: the Devices view in the bottom panel, a panel per firmware
+copy with its own display, F1 to F6, the DATA wheel and its parameters (ARCHITECTURE
+"Devices"). Next: the hand test below, then step 7 (the integration test records the devices
+and takes a picture), then steps 5 and 6 (fold, maximize, take out; the SHRUB panel in the
+view). The `fm1emu:` way and the coverage of the hub wait (see "Firmware Hub").
 
 Next in line:
 
@@ -46,7 +51,22 @@ Next in line:
 
 ## Next: test by hand
 
-Nothing waits. The maintainer tested the branch `feat/mixer` by hand on 2026-11-21: the
+The Devices view, on the branch `feat/devices`. Test on **desktop, launched with F5** on
+`template/`.
+
+| # | Do this | Should happen |
+|---|---|---|
+| 1 | Open `examples/07-vibefm1-obervave.strudel`, play it, open the Devices tab of the bottom panel | Three panels, OBERVAVE on orbits 2, 3 and 4, each with its display moving |
+| 2 | Turn the mouse wheel over a display | The firmware's selection moves, as its DATA encoder would |
+| 3 | Click F1 to F6 under a display | The firmware changes page, as its soft keys would |
+| 4 | Drag the "A Cutoff" slider of orbit 2 | The bass changes at once, and the display shows the new value |
+| 5 | Fold a panel with its arrow, unfold it | Folded, its display stops; unfolded, it moves again |
+| 6 | Stop the song | The panels go away |
+
+Expected still broken: no fold of the whole view, no maximize or take out, no SHRUB panel
+in the view yet.
+
+Earlier: nothing waits. The maintainer tested the branch `feat/mixer` by hand on 2026-11-21: the
 side bar in four views, Results, colors, Built-in, previews without a song, Music
 Controls in the Library, the Mixer with M, S, G, layout, float and dock, cable drags with
 one jack per strip, and the pump meter. All passed.

@@ -6,6 +6,7 @@ import type { SoundInfo } from '../shared/protocol';
 import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
 import { FirmwareCache } from './firmware';
+import { DevicesView } from './devices';
 import { MixerView } from './mixer';
 import { Place } from './surface';
 import { lf, lineColumn } from '../shared/sync';
@@ -105,6 +106,9 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		controls: (state) => browser.setControls(state),
 	});
 	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
+	// The Devices view keeps no page while hidden: a hidden page draws nothing, and the worklet stops at the frame it
+	// waits an answer for. A new page asks for frames again.
+	const devices = new DevicesView(context, output);
 	const mixerPlace = new Place(mixer, { viewId: 'strdltn.mixer', tabType: 'strdltn.mixerTab', title: 'Mixer', contextKey: 'strdltn.mixerFloating' });
 	const diagnostics = vscode.languages.createDiagnosticCollection('strdltn');
 	// Right side, beside the language of the file: it is about the file in front.
@@ -125,10 +129,13 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		diagnostics,
 		onDispose: (session) => {
 			sessions.delete(session);
+			devices.forget(session);
 			updateStatus();
 		},
 		// Every engine loads the same packs, so the list of the engine that spoke last is the list.
 		onScopes: (document, scopes) => mixer.setScopes(document, scopes),
+		onDevices: (session, list) => devices.setDevices(session, list),
+		onFrame: (session, key, px, values) => devices.frame(session, key, px, values),
 		onSounds: (list) => {
 			browser.setSounds(list);
 			rememberSoundsSoon(list);
@@ -191,6 +198,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.window.registerWebviewViewProvider('strdltn.results', browser.provider('results'), { webviewOptions: { retainContextWhenHidden: true } }),
 		// The Mixer keeps its page too, so its strips stay unfolded behind the Terminal tab.
 		vscode.window.registerWebviewViewProvider('strdltn.mixer', mixerPlace, { webviewOptions: { retainContextWhenHidden: true } }),
+		vscode.window.registerWebviewViewProvider('strdltn.devices', devices),
 		vscode.commands.registerCommand('strdltn.mixer.float', () => mixerPlace.float()),
 		vscode.commands.registerCommand('strdltn.mixer.dock', () => mixerPlace.dock()),
 		diagnostics,

@@ -1,0 +1,83 @@
+/* The Devices view. Every color is a theme variable of VS Code, except the firmware's own display. */
+* { box-sizing: border-box; }
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	overflow: hidden;
+	color: var(--vscode-foreground);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size, 13px);
+	background: transparent;
+	user-select: none;
+}
+#app { height: 100%; display: flex; flex-direction: column; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+[hidden] { display: none !important; }
+
+.empty { padding: 10px 12px; color: var(--vscode-descriptionForeground); }
+
+/* Panels side by side, as devices in a track of Live. They scroll sideways. */
+.panels { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 6px 8px; overflow-x: auto; overflow-y: hidden; }
+
+.panel {
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	border: 1px solid var(--vscode-panel-border, #444);
+	border-radius: 4px;
+	background: var(--vscode-sideBar-background, transparent);
+}
+.panel header {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 8px;
+	border-bottom: 1px solid var(--vscode-panel-border, #444);
+}
+.panel .fold::before { content: '\25BE'; display: inline-block; width: 1em; }
+.panel.folded .fold::before { content: '\25B8'; }
+.panel .name { font-weight: 600; letter-spacing: .04em; }
+.panel .where { color: var(--vscode-descriptionForeground); font-size: 11px; white-space: nowrap; }
+.panel.folded .body { display: none; }
+
+.body { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 8px; }
+
+/* The display keeps its 3:2 and fills the height the panel has. */
+.screen { flex: none; display: flex; flex-direction: column; gap: 4px; height: 100%; }
+.screen canvas {
+	flex: 1;
+	min-height: 0;
+	aspect-ratio: 3 / 2;
+	height: 100%;
+	max-height: 320px;
+	image-rendering: pixelated;
+	background: #000;
+	border-radius: 3px;
+}
+.keys { flex: none; display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+.key {
+	padding: 2px 0;
+	font-size: 11px;
+	border-radius: 2px;
+	background: var(--vscode-button-secondaryBackground, #3a3d41);
+	color: var(--vscode-button-secondaryForeground, #fff);
+}
+.key:active { background: var(--vscode-button-background, #0e639c); color: var(--vscode-button-foreground, #fff); }
+
+/* Parameters: a column of small sliders beside the display, scrolling when there are many. */
+.params {
+	flex: none;
+	width: 220px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding-right: 4px;
+}
+.param { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 6px; font-size: 11px; }
+.param .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.param .pvalue { color: var(--vscode-descriptionForeground); font-variant-numeric: tabular-nums; }
+.param input { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--vscode-focusBorder, #007fd4); }

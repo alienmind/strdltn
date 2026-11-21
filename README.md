@@ -93,6 +93,14 @@ browser.
 - The window button in the Mixer's title floats it in a window of its own. The dock
   button, or closing that window, puts it back in the panel.
 
+**Devices**
+
+- A Devices tab in the bottom panel, next to the Mixer: one panel per firmware that plays
+  (`s("vibefm1:obervave")`), with the firmware's own screen, its six soft keys F1 to F6
+  and its parameters as sliders. The mouse wheel over the screen turns its DATA knob.
+
+![OBERVAVE playing on two orbits, each with its own panel in the Devices tab](doc/screenshot-devices.png)
+
 **Browser**
 
 - A Browser in the side bar, like the browser of Ableton Live, in four views. Library

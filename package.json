@@ -346,6 +346,12 @@
 					"title": "Mixer",
 					"icon": "media/strdltn.svg"
 				}
+,
+				{
+					"id": "strdltn-devices",
+					"title": "Devices",
+					"icon": "media/strdltn.svg"
+				}
 			]
 		},
 		"views": {
@@ -381,6 +387,13 @@
 					"name": "Mixer",
 					"type": "webview",
 					"when": "!strdltn.mixerFloating"
+				}
+			],
+			"strdltn-devices": [
+				{
+					"id": "strdltn.devices",
+					"name": "Devices",
+					"type": "webview"
 				}
 			]
 		},

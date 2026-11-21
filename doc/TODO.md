@@ -5,31 +5,23 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.0.1.** The version starts again for this project. The branch
-`experimental` was merged into it: Firmware Hub (VIBE FM firmwares from a `firmware/`
+**`main` holds everything, version 0.2.0, not tagged.** The version started again for
+this project. The tag 1.0.0 is the vstrudel release. The extension is [str]dltn
+Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
+`.strdltn/`, so it installs beside vstrudel without a clash. Settings of vstrudel
+(`vstrudel.*`) do not carry over. Firmware Hub (VIBE FM firmwares from a `firmware/`
 folder or an address, played as `vibefm1:<id>`, with `.progNum()` and a cache) and the
-experimental SHRUB editor panel are back on `main`. The tag 1.0.0 is the vstrudel release
-without these two features. The extension is renamed to [str]dltn Live[code]: id
-`strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it
-installs beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry
-over.
+experimental SHRUB editor panel are on `main`.
 
-The plan to make this a DAW (one Browser view with tags and search, a Mixer panel with
-sidechain and MIDI cables, a Devices view with a panel per firmware and the SHRUB window, MIDI, one engine,
-two decks to DJ with, recorded automation and an arrangement view)
-is in `doc/DAW-PLAN.md`, with the order of work the maintainer set ("Order of work"):
-the Mixer next (phases 2 and 3), the engine in a worker last. Phase 1, the Browser, is
-merged (PR #4). Phases 2 and 3 (the Mixer, Music Controls, and the Browser in
-four views) are version 0.2.0 on the branch `feat/mixer`, in pull request #5, which
-waits for the maintainer to merge; then tag `v0.2.0`. On that branch: a strip per
-chain of the song in front, faders that move the sound and write the code, M and S, and
-the duck cables. The stage has no slider rows any more. On the same branch: the text
-sync between the editor and the document was rewritten (text was corrupted, worst on
-files with `\r\n` line endings), and clicks in the Strudel editor land where clicked.
-Both were reproduced and are checked by the integration test with real input. The hand
-test is below. The bottom panel is now called Music: a top bar with Play, Stop and BPM,
-then the mixer, whose M, S and G edit the code and which can float. The side bar is four
-views with one filter. Next in phase 3: cable drags.
+The plan to make this a DAW is in `doc/DAW-PLAN.md`, with the order of work the
+maintainer set ("Order of work"). Phase 1, the Browser, is merged (PR #4). Phases 2 and
+3 are merged (PR #5, version 0.2.0): the Music panel with Play, Stop and BPM, the Mixer
+with a strip per chain, faders that write the code, M, S and G, duck cables with cable
+drags, pump meters, float and dock, Music Controls in the Library, and the side bar in
+four views with one filter. The tag `v0.2.0` and a promote wait for the maintainer.
+
+Work now is phase 4, Devices, on the branch `feat/devices`. Spikes F1, F2 and F3 come
+first (see "Phase 0: spikes" in `doc/DAW-PLAN.md`).
 
 Next in line:
 
@@ -37,7 +29,6 @@ Next in line:
 |---|---|---|
 | 1 | MIDI: devices in the Browser, playing through them, mappings | Spike done, not built. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
-| 3 | The hand test below | Waiting for the maintainer |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
 | 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |

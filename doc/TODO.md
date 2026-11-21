@@ -57,11 +57,11 @@ The Devices view, on the branch `feat/devices`. Test on **desktop, launched with
 | # | Do this | Should happen |
 |---|---|---|
 | 1 | Open `examples/07-vibefm1-obervave.strudel`, play it, open the Devices tab of the bottom panel | Three panels, OBERVAVE on orbits 2, 3 and 4, each with its display moving |
-| 2 | Turn the mouse wheel over a display | The firmware's selection moves, as its DATA encoder would |
-| 3 | Click F1 to F6 under a display | The firmware changes page, as its soft keys would |
+| 2 | Turn the mouse wheel over a display | Something on the screen moves, as OBERVAVE's DATA knob would. Note what |
+| 3 | Click F3 and F4 under a display (PRG- and PRG+ on OBERVAVE's screen) | The program number and name at the top of its screen change |
 | 4 | Drag the "A Cutoff" slider of orbit 2 | The bass changes at once, and the display shows the new value |
 | 5 | Fold a panel with its arrow, unfold it | Folded, its display stops; unfolded, it moves again |
-| 6 | Stop the song | The panels go away |
+| 6 | Stop the song, then close its tab | Stopped, the panels stay (the copies keep running, silent); closed, they go away |
 
 Expected still broken: no fold of the whole view, no maximize or take out, no SHRUB panel
 in the view yet.

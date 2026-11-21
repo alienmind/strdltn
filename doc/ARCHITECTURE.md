@@ -318,10 +318,13 @@ Consolas Bold, stretched tall to fill the square (the width is set by `[code]`, 
 height had room). The first version had four lines (`[str]`, `dltn`, `live`, `[code]`)
 and the maintainer could not read it in the activity bar. `media/icon.png` (256 by 256)
 is the `icon` of `package.json`, shown in the Extensions view and the Marketplace, in the
-blue of the logo (`#40A9C6`) on black. `media/strdltn.svg` is the activity bar icon. VS
-Code paints that one in one color of the theme, so it is the same layout as plain paths
-with `fill="currentColor"`: the glyphs turned into outlines, so it does not depend on the
-fonts of the machine. The icons inside the Browser are inline SVG in `src/browser/icons.ts`
+blue of the logo (`#40A9C6`) on black. `media/strdltn.svg` is the activity bar icon, and
+the icon of the Mixer's tab in the bottom panel. VS Code paints it in one color of the
+theme, so it is plain paths with `fill="currentColor"`: the glyphs turned into outlines,
+so it does not depend on the fonts of the machine. The maintainer asked for `[str]` over
+`dltn` in it, without brackets on the second line. Its `d` and `t` are the outlines of
+the earlier icon moved into place, and `l` and `n` were drawn by hand in the same weight,
+since no font tool was at hand. `media/icon.png` still shows `[code]`. The icons inside the Browser are inline SVG in `src/browser/icons.ts`
 that take the text color; `media/icons/` holds the older files the trees used.
 
 **Title.** VS Code capitalizes the title of the side bar: "[str]dltn Live[code]" shows as

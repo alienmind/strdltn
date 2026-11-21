@@ -63,6 +63,8 @@ export interface MixerChain {
 	duckUnknown?: boolean;
 	/** True when the chain names its orbit itself (`.orbit(2)`); else it plays on orbit 1, everyone's default. */
 	orbitSet?: boolean;
+	/** True when the chain has an inline `._scope()` of its own: the Mixer draws its wave. */
+	scope?: boolean;
 	/** The slider of its `.gain()`, the one fader a folded strip shows. */
 	gain?: number;
 	/** Every other slider it uses, in the order of the code. */
@@ -281,6 +283,24 @@ export function duckEdits(code: string, from: number, to: number, move?: number)
 	return { edits: edits.sort((a, b) => b.from - a.from) };
 }
 
+/**
+ * The edit of the scope box under a strip, as G is for gain: a chain without `._scope()`
+ * gets one at its end, so the engine gives it an analyser and the Mixer its wave; a chain
+ * with one on its own spine loses it. A `._scope()` inside a function is not the chain's
+ * own, so nothing then.
+ */
+export function scopeEdit(code: string, chain: number): { from: number; to: number; insert: string } | undefined {
+	const model = readChains(code);
+	if ('error' in model) return undefined;
+	const statement = chainStatements(code)[chain];
+	if (!model.chains[chain] || !statement) return undefined;
+	const expression = expressionOf(statement);
+	const call = spineCall(expression, ['_scope']);
+	if (call) return { from: call.callee.object.end, to: call.end, insert: '' };
+	if (model.chains[chain].scope) return undefined;
+	return { from: expression.end, to: expression.end, insert: '._scope()' };
+}
+
 /** A cable pulled off and dropped on nothing: its orbit leaves the duck list, and `.duck()` goes with the last one. */
 export function unduckEdits(code: string, from: number, orbit: number): Edits {
 	const model = readChains(code);
@@ -358,6 +378,7 @@ export function readChains(code: string): MixerModel | { error: string } {
 			solo: label.length > 1 && label.startsWith('S'),
 			controls: [],
 			...routing(expressionOf(statement)),
+			...(spineCall(expressionOf(statement), ['_scope']) ? { scope: true } : {}),
 		});
 		chainNodes.push(statement);
 	}

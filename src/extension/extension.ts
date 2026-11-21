@@ -55,12 +55,12 @@ export interface StrdltnApi {
 	/** Floats the Mixer (in a new window when `window`) or docks it. Returns the place and how many pages it has had. */
 	mixerPlace(where: 'float' | 'tab' | 'dock'): Promise<{ floating: boolean; pages: number }>;
 	/** M, S or G of a chain, as a click sends it. */
-	mixerToggle(chain: number, button: 'mute' | 'solo' | 'gain'): Promise<void>;
+	mixerToggle(chain: number, button: 'mute' | 'solo' | 'gain' | 'scope'): Promise<void>;
 	/** The BPM box: a number, or undefined as a double click. */
 	mixerTempo(bpm: number | undefined): Promise<void>;
 	/** A sidechain cable dropped on a strip, or pulled off onto nothing. */
 	mixerCable(from: number, drop: { to: number; move?: number } | { orbit: number }): Promise<void>;
-	/** Puts the editor's cursor on a chain of the Music panel's song. */
+	/** Puts the editor's cursor on a chain of the Mixer's song. */
 	mixerReveal(chain: number): void;
 	/** The remote sample packs seen so far and whether they are in the cache. */
 	packs(): { source: string; files: number; complete: boolean; note?: string }[];
@@ -103,7 +103,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		isPlaying: (document) => [...sessions].some((s) => s.document === document && s.started),
 	});
 	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
-	const mixerPlace = new Place(mixer, { viewId: 'strdltn.mixer', tabType: 'strdltn.mixerTab', title: 'Music', contextKey: 'strdltn.mixerFloating' });
+	const mixerPlace = new Place(mixer, { viewId: 'strdltn.mixer', tabType: 'strdltn.mixerTab', title: 'Mixer', contextKey: 'strdltn.mixerFloating' });
 	const diagnostics = vscode.languages.createDiagnosticCollection('strdltn');
 	// Right side, beside the language of the file: it is about the file in front.
 	const status = vscode.window.createStatusBarItem('strdltn.status', vscode.StatusBarAlignment.Right, 101);
@@ -126,6 +126,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			updateStatus();
 		},
 		// Every engine loads the same packs, so the list of the engine that spoke last is the list.
+		onScopes: (document, scopes) => mixer.setScopes(document, scopes),
 		onSounds: (list) => {
 			browser.setSounds(list);
 			rememberSoundsSoon(list);
@@ -188,6 +189,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.window.registerWebviewViewProvider('strdltn.results', browser.provider('results'), { webviewOptions: { retainContextWhenHidden: true } }),
 		// The Mixer keeps its page too, so its strips stay unfolded behind the Terminal tab.
 		vscode.window.registerWebviewViewProvider('strdltn.mixer', mixerPlace, { webviewOptions: { retainContextWhenHidden: true } }),
+		vscode.window.registerWebviewViewProvider('strdltn.controls', mixer.controlsProvider(), { webviewOptions: { retainContextWhenHidden: true } }),
 		vscode.commands.registerCommand('strdltn.mixer.float', () => mixerPlace.float()),
 		vscode.commands.registerCommand('strdltn.mixer.dock', () => mixerPlace.dock()),
 		diagnostics,

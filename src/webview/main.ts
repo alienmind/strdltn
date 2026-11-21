@@ -194,12 +194,14 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		},
 		afterEval: ({ meta }: { meta: { widgets?: unknown[] } }) => {
 			rememberSliders(meta?.widgets ?? []);
+			rememberScopes(meta?.widgets ?? []);
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
 			post({ type: 'evaluated' });
 		},
 		onToggle: (started: boolean) => {
 			// The firmwares follow the transport of the song.
 			transport(started);
+			sendScopes();
 			postState();
 		},
 		onEvalError: (error: Error & { pos?: unknown }) => {
@@ -683,6 +685,46 @@ let pendingWrites: LiveSlider[] = [];
 /** Follows the text. Called for every change of the document, ours or anyone's. */
 function mapSliders(changes: { mapPos(position: number, assoc?: number): number }): void {
 	for (const slider of [...liveSliders, ...pendingWrites]) slider.from = changes.mapPos(slider.from, -1);
+	for (const scope of liveScopes) scope.at = changes.mapPos(scope.at, -1);
+}
+
+/**
+ * The inline scopes of the last evaluation, for the Mixer, which draws each under its
+ * strip. Upstream's `._scope()` gives its pattern an analyser named by the widget id
+ * (`.analyze(id)` in scope.mjs of @strudel/webaudio 1.3.0), and `getAnalyzerData` reads it.
+ * `at` is where the call ends, moved along with every edit since.
+ */
+let liveScopes: { id: string; at: number }[] = [];
+let scopeTimer: ReturnType<typeof setInterval> | undefined;
+/** Points per wave sent to the Mixer: enough for a strip 60 pixels wide. */
+const SCOPE_POINTS = 64;
+
+function rememberScopes(widgets: any[]): void {
+	liveScopes = widgets.filter((widget) => widget.type === '_scope').map((widget) => ({ id: getWidgetID(widget), at: widget.to }));
+	sendScopes();
+}
+
+/** About 20 times a second while the song plays and has scopes; nothing otherwise. */
+function sendScopes(): void {
+	const playing = !!mirror?.repl?.scheduler?.started;
+	if (!playing || !liveScopes.length) {
+		clearInterval(scopeTimer);
+		scopeTimer = undefined;
+		return;
+	}
+	scopeTimer ??= setInterval(() => {
+		if (!mirror?.repl?.scheduler?.started) return sendScopes();
+		const scopes = liveScopes.map(({ id, at }) => {
+			const data = strudelWebaudio.getAnalyzerData('time', id) as Float32Array | undefined;
+			const wave: number[] = [];
+			if (data?.length) {
+				const step = data.length / SCOPE_POINTS;
+				for (let i = 0; i < SCOPE_POINTS; i++) wave.push(Math.round(data[Math.floor(i * step)] * 100) / 100);
+			}
+			return { at, wave };
+		});
+		post({ type: 'scopes', scopes });
+	}, 50);
 }
 
 function dockGroup(title: string): HTMLElement {

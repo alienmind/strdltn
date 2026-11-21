@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { DocumentWrites, lf, lineColumn, SyncHost, type SyncUpdate } from '../shared/sync';
-import { type EditorSettings, type EngineState, type FromWebview, type Mode, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { type EditorSettings, type EngineState, type FromWebview, type Mode, type ScopeFrame, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { findPackSources } from '../shared/packs';
 import type { PackCache } from './packs';
 import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
@@ -16,6 +16,8 @@ export interface SessionHost {
 	diagnostics: vscode.DiagnosticCollection;
 	onDispose(session: Session): void;
 	onSounds(sounds: SoundInfo[]): void;
+	/** The waves of the song's inline scopes, for the Mixer. */
+	onScopes?(document: vscode.TextDocument, scopes: ScopeFrame[]): void;
 	/** The engine state, the error or the active tab changed. The status bar follows. */
 	onState(session: Session): void;
 }
@@ -232,6 +234,9 @@ export class Session {
 			}
 			case 'sounds':
 				this.host.onSounds(message.sounds);
+				break;
+			case 'scopes':
+				this.host.onScopes?.(this.document, message.scopes);
 				break;
 			case 'log': {
 				const line = `[${this.mode}] ${message.level}: ${message.message}`;

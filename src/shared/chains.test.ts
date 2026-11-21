@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { DEFAULT_BPM, duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, tempoEdit, toggledLabel, unduckEdits } from './chains.ts';
+import { DEFAULT_BPM, duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, scopeEdit, tempoEdit, toggledLabel, unduckEdits } from './chains.ts';
 
 function model(code: string): MixerModel {
 	const result = readChains(code);
@@ -266,4 +266,19 @@ test('a cable dropped on a strip writes the duck, and a new orbit when the targe
 	assert.ok('refused' in duckEdits(song, 0, 0));
 	assert.ok('refused' in duckEdits('$a: s("bd")\n$b: s("hh").orbit(pick([1,2], 0))', 0, 1));
 	assert.ok('refused' in duckEdits('$a: s("bd").duck("<2 3>")\n$b: s("hh").orbit(2)', 0, 1));
+});
+
+test('the scope box adds ._scope() to a chain and takes it out again', () => {
+	const apply = (code: string, e?: { from: number; to: number; insert: string }) => (e ? code.slice(0, e.from) + e.insert + code.slice(e.to) : code);
+	const song = '$kick: s("bd*4").gain(.8)\n$hh: s("hh*8")._scope() // hats\n  .delay(.2)\n';
+	assert.deepEqual(model(song).chains.map((c) => !!c.scope), [false, true]);
+	const on = apply(song, scopeEdit(song, 0));
+	assert.equal(on.split('\n')[0], '$kick: s("bd*4").gain(.8)._scope()');
+	assert.equal(model(on).chains[0].scope, true);
+	// Off from the middle of a chain: the comment and the calls after it stay.
+	assert.equal(apply(song, scopeEdit(song, 1)), '$kick: s("bd*4").gain(.8)\n$hh: s("hh*8") // hats\n  .delay(.2)\n');
+	// A scope inside a function is not the chain's own: the box stays gray and does nothing.
+	const inner = '$a: s("bd").sometimes(x => x._scope())';
+	assert.equal(model(inner).chains[0].scope, undefined);
+	assert.equal(apply(inner, scopeEdit(inner, 0)), '$a: s("bd").sometimes(x => x._scope())._scope()');
 });

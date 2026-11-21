@@ -88,6 +88,15 @@ export type ToWebview =
 	/** The answer to `cacheFiles`. `base` is the address of the cached folder when every file is in it. */
 	| { type: 'cachedFiles'; id: number; base?: string };
 
+/**
+ * One `._scope()` of a song at one moment: where it is in the code (the end of the call,
+ * in the editor's `\n` text) and its wave, cut to a few points between -1 and 1.
+ */
+export interface ScopeFrame {
+	at: number;
+	wave: number[];
+}
+
 export type FromWebview =
 	| { type: 'ready' }
 	/** The webview's unconfirmed changes, on top of `version`. Dropped by the host when it has moved on. */
@@ -98,6 +107,8 @@ export type FromWebview =
 	/** A song called `samples(map, base)` with a remote base. The host says whether it has these files. */
 	| { type: 'cacheFiles'; id: number; base: string; files: string[] }
 	| { type: 'sounds'; sounds: SoundInfo[] }
+	/** The inline scopes of the song while it plays, about 20 times a second, for the Mixer. */
+	| { type: 'scopes'; scopes: ScopeFrame[] }
 	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string };
 
 export interface TextChange {

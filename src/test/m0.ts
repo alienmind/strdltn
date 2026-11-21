@@ -321,7 +321,7 @@ export async function run(): Promise<void> {
 			try {
 				await vscode.commands.executeCommand('vscode.openWith', uri, 'default');
 				await until(() => api.mixer().song?.endsWith('zz-mixer-test.strudel') === true && api.mixer().model?.chains.length === 2, 5000);
-				const click = async (name: string, chain: number, button: 'mute' | 'solo' | 'gain') => {
+				const click = async (name: string, chain: number, button: 'mute' | 'solo' | 'gain' | 'scope') => {
 					await api.mixerToggle(chain, button);
 					await sleep(600);
 					results[name] = (await textLf(uri)).split('\n').slice(1, 3);
@@ -332,6 +332,8 @@ export async function run(): Promise<void> {
 				await click('gainOnRiser', 1, 'gain');
 				await click('gainOffRiser', 1, 'gain');
 				await click('unsoloKick', 0, 'solo');
+				await click('scopeOnRiser', 1, 'scope');
+				await click('scopeOffRiser', 1, 'scope');
 				results.model = api.mixer().model?.chains.map((c) => `${c.label} muted=${c.muted} solo=${c.solo} gain=${c.gain !== undefined}`);
 				// The BPM box: typed, then a double click back to Strudel's default.
 				await api.mixerTempo(128);
@@ -752,7 +754,7 @@ export async function run(): Promise<void> {
 		}
 		// 9. Pictures for README.md and doc/ABOUT.md: the window as a user sees it while a
 		// song plays. The Strudel editor on the kick and its sliders and scopes, the Library
-		// on Drums with the TR-909 open in Results, the Music panel with bass unfolded.
+		// on Drums with the TR-909 open in Results, the Mixer with bass unfolded.
 		// The pictures in doc/ are cut out of it, see "Screenshots" in doc/ARCHITECTURE.md.
 		await vscode.commands.executeCommand('vscode.openWith', demo, EDITOR);
 		await until(() => has('editor', demo, 'local samples'), 30000);
@@ -763,7 +765,10 @@ export async function run(): Promise<void> {
 		await api.mixerShow(['bass']);
 		const kick = api.mixer().model?.chains.findIndex((chain) => chain.name === 'kick') ?? -1;
 		if (kick >= 0) api.mixerReveal(kick);
+		const framesBefore = api.mixer().scopeFrames;
 		await sleep(3000);
+		// The scopes of the song reach the Mixer while it plays, about 20 frames a second.
+		steps.mixerScopes = { frames: api.mixer().scopeFrames - framesBefore, scopes: api.mixer().lastScopes };
 		await shot('doc-overview');
 		await vscode.commands.executeCommand('strdltn.stop');
 		result.finished = true;

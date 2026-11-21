@@ -134,12 +134,12 @@
 			},
 			{
 				"command": "strdltn.mixer.float",
-				"title": "strdltn: Float the Music panel in its own window",
+				"title": "strdltn: Float the Mixer in its own window",
 				"icon": "$(window)"
 			},
 			{
 				"command": "strdltn.mixer.dock",
-				"title": "strdltn: Dock the Music panel",
+				"title": "strdltn: Dock the Mixer in the panel",
 				"icon": "$(layout-panel)"
 			}
 		],
@@ -336,20 +336,26 @@
 			"activitybar": [
 				{
 					"id": "strdltn",
-					"title": "[str]dltn Live[code]",
+					"title": "[str]dltn",
 					"icon": "media/strdltn.svg"
 				}
 			],
 			"panel": [
 				{
 					"id": "strdltn-mixer",
-					"title": "Music",
+					"title": "Mixer",
 					"icon": "media/strdltn.svg"
 				}
 			]
 		},
 		"views": {
 			"strdltn": [
+				{
+					"id": "strdltn.controls",
+					"name": "Music Controls",
+					"type": "webview",
+					"initialSize": 1
+				},
 				{
 					"id": "strdltn.browser",
 					"name": "Library",
@@ -378,7 +384,7 @@
 			"strdltn-mixer": [
 				{
 					"id": "strdltn.mixer",
-					"name": "Music",
+					"name": "Mixer",
 					"type": "webview",
 					"when": "!strdltn.mixerFloating"
 				}

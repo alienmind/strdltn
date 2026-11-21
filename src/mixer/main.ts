@@ -1,5 +1,5 @@
-// The Music panel: the control panel of the song in front. A top bar with Play, Stop and
-// the BPM, then the mixer: one strip per chain, side by side as in the Session view of
+// The Mixer and Music Controls, one page in two views (see `setRole`). Music Controls: Play,
+// Stop and the BPM. The Mixer: one strip per chain, side by side as in the Session view of
 // Live, with the sliders as faders and the sidechain as cables. The host sends the model
 // it read from the code; this page draws it and keeps which strips are unfolded. See
 // "Mixer panel" in doc/DAW-PLAN.md.
@@ -8,7 +8,8 @@
 // the BPM box and the transport buttons are edits or commands the host carries out.
 import './mixer.css';
 import type { MixerChain, MixerModel, MixerSlider } from '../shared/chains.ts';
-import { DEFAULT_BPM, type FromMixer, type ToMixer } from '../shared/mixer.ts';
+import { DEFAULT_BPM, type FromMixer, type MixerRole, type ToMixer } from '../shared/mixer.ts';
+import type { ScopeFrame } from '../shared/protocol.ts';
 import { type CableSpec, CableLayer } from './cables.ts';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): unknown; setState(state: unknown): void };
@@ -128,6 +129,9 @@ function formatValue(value: number, slider: MixerSlider): string {
 window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 	const message = event.data;
 	switch (message.type) {
+		case 'role':
+			setRole(message.role);
+			break;
 		case 'model':
 			song = message.song;
 			model = message.model;
@@ -137,6 +141,10 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 			break;
 		case 'playing':
 			playButton.classList.toggle('on', message.on);
+			if (!message.on) clearScopes();
+			break;
+		case 'scopes':
+			drawScopes(message.scopes);
 			break;
 		case 'show':
 			unfolded.clear();
@@ -178,6 +186,64 @@ function draw(): void {
 		.map((duck) => ({ key: cableKey(duck.from, duck.to!, duck.orbit), from: jacks.out[duck.from], to: jacks.in[duck.to!], kind: 'sidechain', label: `orbit ${duck.orbit}` }));
 	drawCables();
 	report();
+}
+
+// ---- scopes -----------------------------------------------------------------------------
+
+let scopesIdle: ReturnType<typeof setTimeout> | undefined;
+
+/** Draws each wave in the strip of the chain it is in, as a line across the canvas, like upstream's scope. */
+function drawScopes(frames: ScopeFrame[]): void {
+	if (!model) return;
+	const drawn = new Set<number>();
+	for (const frame of frames) {
+		const chain = model.chains.findIndex((c) => frame.at >= c.from && frame.at <= c.to);
+		if (chain < 0 || drawn.has(chain) || !frame.wave.length) continue;
+		const canvas = strips.querySelector<HTMLCanvasElement>(`canvas.scope[data-chain="${chain}"]`);
+		if (!canvas) continue;
+		drawn.add(chain);
+		drawWave(canvas, frame.wave);
+	}
+	// No frames for a while (stopped, or the scope left the code): the lines go flat.
+	clearTimeout(scopesIdle);
+	scopesIdle = setTimeout(clearScopes, 500);
+}
+
+/** A wave, or a flat line when there is none. Gray for a chain without a scope, green with one. */
+function drawWave(canvas: HTMLCanvasElement, wave: number[]): void {
+	if (!canvas.isConnected) return;
+	const style = getComputedStyle(canvas);
+	const width = (canvas.width = Math.max(1, canvas.clientWidth * devicePixelRatio));
+	const height = (canvas.height = Math.max(1, canvas.clientHeight * devicePixelRatio));
+	const g = canvas.getContext('2d')!;
+	g.clearRect(0, 0, width, height);
+	g.strokeStyle = style.color;
+	g.lineWidth = 1.5 * devicePixelRatio;
+	g.beginPath();
+	const points = wave.length > 1 ? wave : [0, 0];
+	points.forEach((value, i) => {
+		const x = (i / (points.length - 1)) * width;
+		const y = height / 2 - Math.max(-1, Math.min(1, value)) * (height / 2) * 0.9;
+		if (i) g.lineTo(x, y);
+		else g.moveTo(x, y);
+	});
+	g.stroke();
+}
+
+function clearScopes(): void {
+	strips.querySelectorAll<HTMLCanvasElement>('canvas.scope').forEach((canvas) => drawWave(canvas, []));
+}
+
+// ---- the two views ----------------------------------------------------------------------
+
+/**
+ * Mixer: the song's name and the strips. Music Controls: Play, Stop, Record, BPM and the
+ * song's name, at the top of the side bar. One page, so both show the same model.
+ */
+function setRole(role: MixerRole): void {
+	document.body.dataset.role = role;
+	transport.hidden = bpmBox.hidden = role !== 'controls';
+	strips.hidden = role === 'controls';
 }
 
 // ---- cable drags ------------------------------------------------------------------------
@@ -308,6 +374,14 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 	// No gain slider: a fader that cannot move, until G puts one in the code.
 	if (!shown.length) faders.appendChild(disabledFader(sliders.length));
 
+	// The chain's scope under its faders. With `._scope()` in the chain it is green and moves
+	// while the song plays; without, a gray flat line, and a click adds the `._scope()`, as
+	// G does for the gain. A click on a green one takes it out again.
+	const scope = strip.appendChild(el('canvas', `scope${chain.scope ? '' : ' off'}`));
+	scope.dataset.chain = String(index);
+	scope.title = chain.scope ? 'Scope of the chain (._scope()). Click to take it out of the code' : 'No scope. Click to add ._scope() to the chain';
+	scope.addEventListener('click', () => post({ type: 'toggle', chain: index, button: 'scope' }));
+	requestAnimationFrame(() => drawWave(scope, []));
 	const foot = strip.appendChild(el('footer'));
 	const route = foot.appendChild(el('div', 'route'));
 	route.appendChild(el('span', 'orbit', chain.orbit === undefined ? 'orbit ?' : `orbit ${chain.orbit}`)).title =

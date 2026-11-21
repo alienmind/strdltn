@@ -36,7 +36,7 @@ music project as a repository and open it in a browser from any machine, with no
 installed. Fork this repository, open your fork in a Codespace, and start from the
 `template/` folder.
 
-Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.3.0.** See
+Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.4.0**, in progress: MIDI on desktop. See
 `doc/TODO.md` for what is missing.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
@@ -171,13 +171,16 @@ browser.
 - Ready for AI assistants such as Copilot: the template tells them that "add a bass line"
   means a change to the song you have open, and gives them the Strudel reference and
   tutorial to look things up.
+- MIDI on desktop: Strudel's `.midi()` plays a synth or a drum machine on a MIDI device,
+  in time with the sound, and `midin()` and `midikeys()` read a controller or a keyboard.
+  `midimaps()` and `defaultmidimap()` name the CCs. See `examples/09-midi-out.strudel`.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 
 Experimental, off by default: the setting `strdltn.experimental.shrubEditor` adds a tab
 with Xfer's SHRUB web editor, to see how it would look. It is not connected to your songs.
 
-Not there yet: MIDI, sound across a switch of editor, completion and hover in the code,
+Not there yet: MIDI in Codespaces, MIDI devices in the Browser and the Mixer, sound across a switch of editor, completion and hover in the code,
 the Marketplace. See `doc/TODO.md`.
 
 ## A closer look

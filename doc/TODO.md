@@ -40,7 +40,7 @@ Next in line:
 
 | # | What | State |
 |---|---|---|
-| 1 | MIDI: devices in the Browser, playing through them, mappings | Spikes done (S5 passed on 2026-11-21), not built. Phase 5 of `doc/DAW-PLAN.md`, on `feat/midi`. See "MIDI" |
+| 1 | MIDI: devices in the Browser, playing through them, mappings | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
@@ -56,6 +56,19 @@ Next in line:
 | 11 | A wave editor panel: open a sample from the Browser or the project and edit it in the IDE (select, cut, copy, paste, trim, fade, normalize), saved back as a file | Asked for on 2026-11-21, not designed. Built on AudioMass, not written by us: decision 16. See "Wave editor" |
 
 ## Next: test by hand
+
+MIDI, on `feat/midi`. Test on **desktop, launched with F5** on `template/`, with a MIDI
+synth and a controller plugged in.
+
+| # | Do this | Should happen |
+|---|---|---|
+| M1 | Play `examples/09-midi-out.strudel` as it is | The chords play on the Microsoft GS Wavetable Synth, in time with the drums. The Output channel "strdltn" lists the MIDI ports |
+| M2 | Write your synth's name in `.midi("...")`, Ctrl+Enter | The chords move to the synth; the CUTOFF slider moves its filter, if the synth takes CC 74 |
+| M3 | Stop while a chord sounds | No note hangs |
+| M4 | Add `const cc = await midin("<your controller>")` and `.lpf(cc(1).range(200, 4000))` on the drums, play, turn knob 1 | The drums' filter follows the knob |
+| M5 | Unplug the synth while it plays, plug it back | A warning in the Output channel, then the notes come back within a few seconds |
+
+Expected still broken: no MIDI in the Browser or the Mixer; nothing in a Codespace.
 
 The rest of the Devices view, on `feat/devices`. Test on **desktop, launched with F5** on
 `template/`.
@@ -149,11 +162,20 @@ it.
 
 ### What to build
 
+Built on `feat/midi` (2026-11-21): the bridge, `.midi()`, `midin()`, `midikeys()`,
+`midimaps()`, `defaultmidimap()`, notes off on stop, and `examples/09-midi-out.strudel`
+(ARCHITECTURE "MIDI"). Measured end to end through loopMIDI; not tested by hand with a
+device yet ("Next: test by hand"). Left, in this order:
+
 1. A MIDI category in the Browser with two headings, outputs (instruments)
-   and inputs (controllers). A click types the device name.
-2. `.midi()` for outputs through the bridge.
-3. `midin()` and `midikeys()` for inputs through the bridge, in the other direction.
-4. Mappings set up in the side bar, so a song needs no setup code: which CC of which
+   and inputs (controllers). A click types the device name. `MidiBridge.listPorts()` and
+   `onPorts` are there for it.
+2. The MIDI strips, the "midi" jack and the MIDI cables of the Mixer; MIDI learn on
+   faders, mute and solo ("MIDI in the Browser and the Mixer" in `doc/DAW-PLAN.md`).
+3. In Codespaces the MIDI category says that devices need desktop. Today `midin()` there
+   fails after 5 s with "MIDI works on desktop VS Code only"; not tried in a Codespace.
+4. The demo with its `midin` lines back in, for the maintainer's MPK mini 3.
+5. Mappings set up in the side bar, so a song needs no setup code: which CC of which
    controller drives what, and which control of a synth is which CC. Strudel already
    has the pieces to target (`midimaps`, `defaultmidimap`, `midin`), see below.
 

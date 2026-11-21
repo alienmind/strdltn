@@ -1534,7 +1534,48 @@ Reload Window" in the development host after a change.
 ## MIDI
 
 A webview may not use WebMIDI, so MIDI goes through the extension host with
-`@julusian/midi` (see "MIDI" in `doc/TODO.md`). Nothing is built yet. Spike S5 measured
+`@julusian/midi` 3.9.0 (MIT), see "MIDI" in `doc/TODO.md`.
+
+```
+webview (src/webview/midi.ts)          host (src/extension/midi.ts)     worker (midi-worker.ts)
+.midi() onTrigger -> hapMessages   -> midiOut {port?, bytes, at} ->  resolves the port, queue,
+  at = heard time on the host clock                                  sleeps, spins, sends
+midiPing every 5 s                 <- midiPong {now}                 reads the ports every 2 s
+midin()/midikeys() <- midiIn       <- for engines that listen    <- input message
+stop -> midiPanic                  -> panic(engine)              -> notes off of that engine
+```
+
+- Our `.midi()`, `midin()`, `midikeys()`, `midimaps()` and `defaultmidimap()` take the
+  upstream names and options, so a song from strudel.cc runs. `@strudel/midi` is not
+  bundled (it needs WebMIDI). The rules that turn a hap into bytes, pick a port and keep
+  the queue are in `src/shared/midi.ts`, with unit tests.
+- Time: `onTrigger` gives the AudioContext time a note is due. The webview turns it into
+  the time it is heard with `getOutputTimestamp()`, then into the host's clock
+  (`performance.timeOrigin + performance.now()` on both sides) with the offset that
+  `ClockOffset` keeps from pings: the guess of the shortest round trip of the last 8. A
+  note leaves about 100 ms early; `latencyMs` of `.midi()` adds to its time.
+- The worker starts with the first MIDI message of a song, so a song without MIDI never
+  loads the native module. It owns every port (a WinMM port opens once only). It resolves
+  the port a song names (index, name, part of a name, else the first IAC or first port)
+  itself, because it reads the ports before it takes a message; so the first notes of a
+  song do not wait for the port list. A port opens when its first events arrive, and an
+  active sensing byte warms it up.
+- Panic: a stop drops the engine's queued events and sends a note off for each note it
+  holds; closing the extension sends CC 123 on every channel of every open port too.
+- Packaging: the worker is its own bundle, `dist/midi-worker.cjs`. The loader of
+  `@julusian/midi` looks for the binaries in `<bundle's folder>/prebuilds`, so the build
+  copies them to `dist/prebuilds/` (2.2 MB, every platform). `pnpm-workspace.yaml` says
+  `false` for its install script, which only checks for them or runs node-gyp.
+
+Measured end to end on 2026-11-21, in a muted VS Code 1.147 window with a song that sends
+`note("c3*8")` at 120 BPM to loopMIDI, the notes taken back from loopMIDI's input by
+another process: 55 notes, the spacing within 0.09 ms of 250 ms in the middle, 1.0 ms at
+the 95th percentile, 1.34 ms at worst; the worker sent at most 0.02 ms late. A second run
+with `midin('loopMIDI')` reading CC 7 into the velocity: the velocity followed the CC
+(13, then 127), spacing 3.1 ms at worst. Not measured: how close the MIDI is to the sound
+of the same song at the speakers.
+
+Spike S5 measured
 how exactly the host can send, on 2026-11-21, on the maintainer's Windows 11 machine, in
 VS Code 1.147's Electron 43.8.9 run as Node (`ELECTRON_RUN_AS_NODE=1`), with
 `@julusian/midi` 3.9.0. The setup: a `worker_thread` keeps the notes in a queue ordered

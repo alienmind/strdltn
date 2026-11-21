@@ -85,8 +85,9 @@ browser.
   target that had none.
 - A fader changes the sound at once and the number in the code a moment later, like the
   slider in the code. Moving the slider in the code moves the fader.
-- A scope under the faders of each strip: green and moving while the song plays when the
-  chain has `._scope()`, a gray flat line when not. A click adds or removes `._scope()`.
+- A pump meter under the faders of each strip: it pumps with the chain's notes while the
+  song plays, green when the chain has `._scope()`, a gray flat line when not. A click
+  adds or removes `._scope()`.
 - A song or snippet without `$:` labels shows as one strip named after the file.
 - The Mixer comes to the front when a song starts playing.
 - The window button in the Mixer's title floats it in a window of its own. The dock

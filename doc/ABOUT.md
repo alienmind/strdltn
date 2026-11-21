@@ -61,8 +61,8 @@ it because the scope grew beyond a VS Code extension.
 - A mixer in the bottom panel: one strip per part of the song (`$kick:`, `bass:`), side by
   side as in the Session view of Live. A song or snippet without parts is one strip.
 - Each slider in the code is a fader. Moving it changes the sound at once and the number
-  in the code a moment later. Under the faders, a scope shows the part's wave; a click on a
-  gray one adds `._scope()` to the part.
+  in the code a moment later. Under the faders, a meter pumps with the part's notes; a click
+  on a gray one adds `._scope()` to the part.
 - M mutes, S solos, G adds or removes a gain fader. Each writes Strudel's own code, so the
   song plays the same on strudel.cc.
 - Sidechain as cables: drag from a strip's jack onto another strip to duck it, pull the

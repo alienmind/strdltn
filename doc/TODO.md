@@ -60,7 +60,7 @@ drags, built after that. Test on **desktop, launched with F5** on `template/`.
 | 0a | Open the side bar of the extension | Its title is "[str]dltn" (VS Code may show it as "[Str]Dltn"). At the top of the Library, one row of Music Controls: green Play, red Stop, the two Record circles, BPM, the song's name; then the search |
 | 0b | Look at the bottom panel | The tab is called Mixer and holds only the strips |
 | 0c | Fold the Songs and Snippets view, then unfold it | Music Controls stay one row high in the Library. Play in them plays the song the Mixer shows |
-| 0d | Play `demo.strudel`, look at the Mixer | kick, snare, hh and hhr show a moving green wave under their faders (they have `._scope()`); the others a gray flat line. Stop: the green ones go flat |
+| 0d | Play `demo.strudel`, look at the Mixer | kick, snare, hh and hhr show a green line under their faders that pumps with their notes (they have `._scope()`); the others a gray flat line. Stop: the green ones go flat |
 | 0e | Click the gray scope of bass, then click it again | `._scope()` appears at the end of the bass chain and its scope turns green and moves; the second click takes it out |
 | 1 | Open `demo.strudel` and the Mixer | Every strip has one jack at its foot. Kick's three orange cables go from kick's jack to the jacks of bass, lowendbass and riser |
 | 2 | Drag from the jack of snare onto the strip of bass | The cable follows the pointer; bass is outlined in blue. Dropped: snare gets `.duck("2")` and a cable to bass |

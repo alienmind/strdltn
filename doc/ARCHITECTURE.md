@@ -489,25 +489,31 @@ front (`Place.reveal`): `view.show(true)` for a view that exists, the floating t
 `reveal(undefined, true)`, or the view's focus command and the focus back to the editor
 for a view never opened. The cursor stays in the editor in the first two cases.
 
-**Scopes.** A chain with an inline `._scope()` shows its wave under its faders while the
-song plays, as the maintainer asked (2026-11-21). The scope's canvas in the code belongs
-to the engine's page, so the Mixer cannot draw on it; the engine sends the data instead.
-Upstream's `._scope()` gives its pattern an analyser named by the widget id
-(`.analyze(id)` in scope.mjs of @strudel/webaudio 1.3.0). After each evaluation the
-engine keeps its `_scope` widgets with their id and where the call ends in the code
-(`rememberScopes` in `src/webview/main.ts`), moved along with edits like the sliders.
-While the song plays it reads each with `getAnalyzerData('time', id)` every 50 ms, cuts
-it to 64 points and sends `scopes`; the host passes them to the Mixer of that song, and
-the page draws each wave in the strip whose chain holds that position. Half a second
-without frames (stopped) and the waves go flat. Every strip has the scope box: green when
-the chain has its own `._scope()` (`MixerChain.scope`), a gray flat line when not. A
-click on a gray one adds `._scope()` at the end of the chain, so the engine gives it an
-analyser on the next evaluation; a click on a green one takes it out (`scopeEdit` in
-`src/shared/chains.ts`), as G does for the gain. The maintainer asked for that on
-2026-11-21. A `._scope()` inside a function is not the chain's own. `.scope()` without the
-underscore draws on the page behind the code with one shared analyser and is not sent.
-How late the frames arrive through the host is not measured (spike D3); the integration
-test counts the frames that arrive while `demo.strudel` plays.
+**Pump meter.** Under the faders of each strip, a box that pumps with the chain while the
+song plays: a line of its level over the last two seconds or so, which jumps on each note
+by the note's gain (times `velocity`) and halves every 0.12 s. Asked by the maintainer on
+2026-11-21 as "scopes pumping below the sliders". It is drawn from the notes, not from
+the audio. The engine tags the notes of each chain with the chain's label: in
+`beforeEval`, right after the repl puts a fresh `Pattern.prototype.p` in place, we wrap it
+(`tagChains` in `src/webview/main.ts`; anonymous `$:` are numbered `$#0`, `$#1` in order).
+This is spike D1 of `doc/DAW-PLAN.md`, built. The repl's `defaultOutput` is wrapped too,
+so each note is seen with the audio time it sounds; a timer sends each chain's level
+every 50 ms (`scopes`, a `ScopeFrame` per chain), the host passes them to the Mixer of
+that song, and the page keeps a short history per chain and draws it. Half a second
+without frames (stopped) and the lines go flat.
+
+The box is green and pumps for a chain with its own `._scope()` (`MixerChain.scope`), and
+gray and flat otherwise. A click on a gray one adds `._scope()` at the end of the chain (so
+the inline scope also shows in the editor), a click on a green one takes it out
+(`scopeEdit` in `src/shared/chains.ts`), as G does for the gain.
+
+The first build drew each chain's real waveform from its `._scope()` analyser
+(`getAnalyzerData('time', id)`). With `demo.strudel` every frame read silence: its line
+`all(x=>x.fft(4).scope({pos:0,smear:.95}))` puts `.scope()` (analyser 1) on every chain,
+and `analyze` holds one id per note, so superdough had analyser `1` only (measured
+2026-11-21, from the log). See "Per-chain scopes from the analysers" in the drawer. How
+late the levels arrive through the host is not measured (spike D3); the integration test
+counts the frames that arrive while `demo.strudel` plays.
 
 **Cable drags.** Every strip has one jack at its foot. The cables the chain sends (its
 duck) start there and the cables that duck it end there: the first build had two jacks

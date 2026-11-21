@@ -277,6 +277,17 @@ different and each keystroke wrote stale text over the document. On a file with 
 line endings every keystroke was a diff over the whole file, because the editor holds
 `\n`: in the integration test every case on such a file came out corrupted.
 
+## Per-chain scopes from the analysers
+
+The first scopes under the Mixer's faders read each chain's real waveform from the
+analyser its `._scope()` creates (`getAnalyzerData('time', id)` of superdough). In
+`demo.strudel` they stayed flat: its line `all(x=>x.fft(4).scope(...))` puts `.scope()`
+on every chain, `.scope()` without an id analyses into analyser 1, and a note carries one
+`analyze` id, so the last one wins and superdough had analyser `1` only (2026-11-21).
+upstream's own scopes in the stage were flat for the same reason. A song is free to do
+this, so the Mixer cannot count on per-chain analysers. It draws a level from the notes
+instead ("Pump meter" in `doc/ARCHITECTURE.md`).
+
 ## Music Controls as a side bar view
 
 The maintainer wanted Play, Stop, Record and BPM as a view of their own at the top of the

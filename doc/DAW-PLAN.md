@@ -1294,7 +1294,7 @@ Under `tmp/`, each deleted when its answer is written down.
 
 | # | Question | How | Answer goes to |
 |---|---|---|---|
-| D1 | Can we mark every event with the id of its chain by wrapping `Pattern.prototype.p` in `beforeEval`? | In the webview, with `demo.strudel`: log the ids seen in the trigger | ARCHITECTURE "Mixer". Only the activity light depends on it |
+| D1 | Can we mark every event with the id of its chain by wrapping `Pattern.prototype.p` in `beforeEval`? | In the webview, with `demo.strudel`: log the ids seen in the trigger | Built on 2026-11-21 for the pump meter ("Pump meter" in ARCHITECTURE "Mixer"); the activity light can use the same tags. Hand test pending |
 | D3 | How late is a message from one webview to another through the host, on desktop and in a Codespace? | Timestamps on 1000 messages | ARCHITECTURE "Measured" |
 | W1 | Does a webview view keep its page when the user drags it to another place, and can a view float in a window of its own? Does `workbench.action.moveEditorToNewWindow` float a `WebviewPanel` that was just created, and does the page survive it? | The Mixer: drag it, float a tab with it, log `ready` messages and a counter in the page | ARCHITECTURE "Mixer". Gates "Dock and float" |
 | D4 | Can text be dragged from a webview view into the native editor and into the Strudel editor? | A draggable row with `text/plain` | ARCHITECTURE "Browser". If not: click and Enter only |
@@ -1401,8 +1401,8 @@ both modes, and the stage lost its slider rows. Spike D3 was not run as planned:
 fader goes host -> engine, and the integration test moves it while typing without a
 problem, but its latency is not measured. Also done: M, S and G (decisions 5 and 3,
 answered 2026-11-21), and dock and float. Not started: cable drags, the activity light
-(D1). Cable drags are built (step 3). Scopes under the faders are built too, for chains
-with `._scope()` (asked by the maintainer on 2026-11-21, see "Scopes" under "Mixer" in
+(D1). Cable drags are built (step 3). A pump meter under the faders is built too, from the
+notes of each chain (spike D1) (asked by the maintainer on 2026-11-21, see "Pump meter" under "Mixer" in
 `doc/ARCHITECTURE.md`).
 
 0. Spike D3, then the stage loses its slider rows (step 4 of phase 2).

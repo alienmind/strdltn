@@ -138,7 +138,7 @@ In `@strudel/core` 1.2.6 and `superdough` 1.3.0, the versions we pin.
   `audioController.getOrbit(orbit)` for a bus. The bus holds the delay and the reverb of
   that orbit, so `room` and `delay` are shared by everything on one orbit. The default
   orbit is 1.
-- `.duck("2,3,4")` on a pattern calls `audioController.duck(...)`, which pulls down the
+- `.duck("2:3:4")` on a pattern calls `audioController.duck(...)`, which pulls down the
   volume of those orbits at each event. `duckattack`, `duckdepth` and `duckonset` shape
   it. That is the sidechain. `template/demo.strudel` has it: `$kick` ducks the orbits 2,
   3 and 4, `$bass` plays on orbit 2, `lowendbass` on 3, `$riser` on 4.
@@ -723,7 +723,7 @@ A MIDI cable also changes the sound of the chain: `.midi()` marks its events as
 "dominant", and superdough then does not play them. The chain is heard only from the
 device. The strip shows that with its own sound name greyed out.
 
-**What a cable means in Strudel.** `.duck("2,3,4")` on `$kick:` pulls down the volume of
+**What a cable means in Strudel.** `.duck("2:3:4")` on `$kick:` pulls down the volume of
 the orbits 2, 3 and 4 on each kick. A chain is ducked when it plays on one of those
 orbits with `.orbit(n)`. So a cable goes from the "duck" jack of the kick strip to the
 strip of every chain on a ducked orbit, and carries the number of the orbit as its

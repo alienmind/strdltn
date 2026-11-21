@@ -40,7 +40,7 @@ Next in line:
 
 | # | What | State |
 |---|---|---|
-| 1 | MIDI: devices in the Browser, playing through them, mappings | Spike done, not built. See "MIDI" |
+| 1 | MIDI: devices in the Browser, playing through them, mappings | Spikes done (S5 passed on 2026-11-21), not built. Phase 5 of `doc/DAW-PLAN.md`, on `feat/midi`. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
@@ -53,6 +53,8 @@ Next in line:
 | 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
 | 8 | A promo video: a walkthrough of the features, captured from a real VS Code window, with voice-over and our own song | First cut rendered (36 s), not watched yet. See `doc/VIDEO.md` |
 | 9 | The demo's levels: its mix peaks at 2.59 times full scale (+8.3 dB), measured by the video's recorder, so it clips at the speakers. Bring the parts down until the peak is under 1 | Measured, not fixed. See "Sound" in `doc/VIDEO.md` |
+| 10 | Sample packs from the file system: drag files or a folder from the OS onto the Browser, or "Add folder", and the pack is imported and sorted by what each sound is (kick, snare, hat, ...) into a folder structure of its own | Asked for on 2026-11-21, not designed. See "Importing sample packs" |
+| 11 | A wave editor panel: open a sample from the Browser or the project and edit it in the IDE (select, cut, copy, paste, trim, fade, normalize), saved back as a file | Asked for on 2026-11-21, not designed. Built on AudioMass, not written by us: decision 16. See "Wave editor" |
 
 ## Next: test by hand
 
@@ -112,6 +114,8 @@ it.
 | 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
 | 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
 | 15 | SHRUB: write to Xfer (steve@xferrecords.com) and ask for a VIBE FM build? See "SHRUB" | Nothing sent |
+| 16 | The wave editor (item 11) builds on AudioMass. How does it come in? AudioMass is not on npm and has no releases or tags, so "an upstream release, pinned" does not exist for it. The choices: a git submodule pinned to a commit, or a copy of one commit in the repo with its MIT license. A submodule keeps the history and the pin visible; it also makes every clone and the `.vsix` build need `git submodule update`. The rule "no submodule" in CLAUDE.md is about Strudel, which comes from npm | Nothing done |
+| 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Not built |
 
 
 ## MIDI
@@ -135,8 +139,12 @@ it.
 
 - Desktop is possible: devices are listed and played from the extension host. The
   webview gets its own `.midi()` that posts each note with its time to the host.
-- The host must not use a plain timer to send. To try: a worker thread that waits with
-  `Atomics.wait`, or sending a little early and spinning for the last millisecond.
+- The host must not use a plain timer to send. Spike S5 (2026-11-21) passed the 2 ms bar:
+  a worker thread that sleeps with `Atomics.wait` to 17 ms before a note and spins from
+  there sent to the UMC404HD at most 0.45 ms late in 1000 notes, with high process
+  priority. Numbers and traps in "MIDI" in `doc/ARCHITECTURE.md`. Open: whether we may
+  raise the priority of the whole extension host (without it, outliers of 20 to 80 ms),
+  and the CPU the spin costs on a dense song.
 - Codespaces is not possible this way: the extension host is remote and cannot see a
   device on the user's machine. No design yet.
 
@@ -189,6 +197,47 @@ Receiving:
 The maintainer's `demo.strudel` was written for an "MPK mini 3" with eight knobs as a
 mixer. Its `midin` lines are commented out and sliders stand in for the knobs. When the
 bridge exists, that file is the first test.
+
+## Importing sample packs
+
+The maintainer already wrote this sorting once. The latest version is `patchbay`
+(`../patchbay/scripts/fetch_samples.py`, last commit 2026-08-01, MIT, by AlienMind). Its
+rules started from an older one in `../trackster` (`src/utils/autoTag.ts`, which tags
+instead of copying, plus MFCC k-means in `src/utils/clustering.ts`; that repo has no
+license). `../ableton-rackutils` has none. What patchbay does:
+
+- Classifies by names only, in stages, the first answer wins: the enclosing folder says
+  loop, break or sequence; then regexes over the file name (with `_-.()[]` as spaces);
+  then the same regexes over the parent folders, nearest first.
+- Categories in rule order: loop, ohat, hat, clap, rim, snare, kick, tom, misc (perc,
+  cymbals, glitch), fx (vox, synth, risers, bass). `\d{2,3}\s?bpm` in a file name means a
+  loop. The key in a name is not read.
+- Copies to `<target>/<category>/<category>_NNN.<ext>`, numbering on from the highest
+  number there, never renames or deletes, logs each copy to `manifests/reorg_log.csv`.
+  A SHA-1 match skips a duplicate. Unknowns are reported and left. Loops are recognised
+  but not placed. Only `.wav`, `.aif`, `.aiff`, `.flac`. Dry run unless `--apply`.
+
+For us: the rules ported to TypeScript in `src/shared/`, with unit tests from patchbay's
+cases (it is the maintainer's own MIT code, so the rules may come over as they are). The
+target is a folder the Browser already reads as a pack, with a `strudel.json`, so the
+sorted sounds play as `s("mypack_kick:3")` or a bank. Open: whether the numbered names
+(`kick_001`) are right for Strudel, where index order already numbers them; whether
+loops get a folder of their own; whether audio features (trackster's k-means, or
+patchbay's planned "third stage") come in later for files with names that say nothing.
+Dragging from the OS onto a webview view: not measured yet.
+
+## Wave editor
+
+A panel to edit a sample's wave in the IDE: select, cut, copy, paste, trim, fade,
+normalize, and save back. The maintainer does not want to write a wave editor; the base
+is AudioMass (audiomass.co, github.com/pkalogiros/AudioMass, MIT, "bundled third-party
+libraries keep their own licenses", see its `THIRD_PARTY_NOTICES.md`). It is plain
+JavaScript on wavesurfer.js with its regions plugin, and has a multitrack mode, effects,
+LUFS, an EQ, markers, a recorder, a tempo estimator, a denoiser (RNNoise in wasm), and
+WAV, MP3 and FLAC encoders. It is not on npm and has no releases or tags; how it comes in
+is decision 16. Expected, not tested: it runs in a webview panel, with its file loading
+and saving replaced by messages to the host. First spike: load AudioMass in a webview,
+open a WAV from the workspace, save one back.
 
 ## Firmware Hub
 
@@ -466,14 +515,14 @@ column says, then delete the spike. None of these is started unless it says so.
 | S2 | Can the weights be served from `tmp/strdltn-models/` through `asWebviewUri`, or does the runtime insist on its own download? | Same spike as S1, with the files fetched by the extension host first | Works or not, and what had to be configured | "Local model" below |
 | S3 | Does a completion extension with a local server complete `.strudel` files? | Install llama.cpp (or Ollama) on the host and `llama.vscode` (or Continue) in the test profile. Type in a `.strudel` file in the native editor | Whether it offers anything, whether it needs `.strudel` mapped to JavaScript, tokens per second on the CPU | "Completion from another extension" below |
 | S4 | Do local reference files change what stock completion offers? | With Copilot on, type the start of a rare function in a `.strudel` file, first without and then with a reference file open in another tab, then with it only on disk | What was offered in each of the three cases | "Strudel's documentation as local examples" below |
-| S5 | Can the extension host send MIDI on time? | A worker thread that waits with `Atomics.wait`, or sends early and spins for the last millisecond. Measure with the silent "all notes off" message, as the first MIDI spike did | How late a send is: middle, 95th percentile, worst. The bar is 2 ms | "MIDI" above |
 | S6 | Can a webview list the sound cards by name? | Ask for the microphone once in the webview, then call `enumerateDevices()` again | Whether VS Code allows the request, and the list that comes back | "Sound card" above |
 | S7 | Does the pack cache work in Codespaces? | Open `examples/05-coastline.strudel` in a Codespace | Whether the files arrive in `.strdltn/cache/` and play from there | "Measured" in `doc/ARCHITECTURE.md` |
 
 Already done, with their answers in `doc/ARCHITECTURE.md` and the drawer: sound in a
 webview, WebMIDI in a webview (refused), WebGPU in a webview (works), a native MIDI
-module in the extension host (works, but a plain timer is too late), audio outputs seen
-by a webview (one, without a name).
+module in the extension host (works, but a plain timer is too late), sending MIDI on
+time from a worker thread (S5, passed), audio outputs seen by a webview (one, without a
+name).
 ## Local model
 
 Planned, not started. No code until the maintainer says so. The goal: completion and
@@ -642,6 +691,19 @@ outside the container, on the real GPU. Docker is installed here. Ollama is not.
 7. The recommended completion extension and the offline container, as its own piece of
    work, since it needs a server.
 ## Noted for later, not planned
+
+**Ideas from openDAW.** openDAW (opendaw.org, github.com/andremichelle/openDAW, AGPL-3.0,
+TypeScript) is a DAW in the browser. AGPL means we take ideas from it, not code. From
+its device list (read 2026-11-21), the ones that fit a Strudel DAW: Playfield (a sample
+drum computer with an effect chain per pad, close to our drum pad of phase 11); Composite
+and FX Composite (several instruments or effect chains under one set of notes, mixed
+dry/wet, like our Stacks in the Mixer); Frequency Split and Stereo Split (an effect chain
+per band or per side); Maximizer (a brickwall limiter on the master, which would have
+caught the demo's clipping); Revamp (an equalizer with a spectrum); Apparat, Werkstatt and
+Spielwerk (an instrument, an effect and a MIDI effect scripted in JavaScript); Tone3000
+(Neural Amp Modeler); a vocoder and autotune. It also hosts WebCLAP plugins (CLAP built
+to wasm) with their own windows and automation, which is an option beside WAM for
+"Plugins on Strudel channels" below. And Live Rooms, a shared session.
 
 **Pictures of the drum machines.** The maintainer asked for a hover on each drum machine
 bank that shows the real instrument: a diagram of the device from above, all devices at

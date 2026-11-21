@@ -559,10 +559,13 @@ another `const`). The label of a fader is the call whose arguments hold the slid
 constant, walking up through anything that is not a call: `.gain(KICK_VOL.mul(2))` gives
 "gain". Arithmetic (`mul`, `add`, `sub`, `div`, `mod`) is walked through too, so a slider
 that scales a curve, `.lpf(curve.mul(OPEN))`, gives "lpf"; the demo writes its arrangement
-that way. `.orbit(n)` and `.duck("2,3,4")` count only on the chain's own calls; one inside a
+that way. `.orbit(n)` and `.duck("2:3:4")` count only on the chain's own calls; one inside a
 function, or a value that is not a literal, makes the orbit unknown. superdough takes the
 duck orbits as a list (`"2:3"`) or one per event (`"2,3,4"`, a stack), so both read as
-the same set.
+the same set. We write only `"2:3"`: a stack plays the chain once per orbit. The demo's
+`.duck("2,3,4,5")` played its kick four times over, and the whole mix peaked at 2.59 times
+full scale; with `"2:3:4:5"` the same take peaked at 1.41 (measured 2026-11-21 with the
+recorder of `doc/VIDEO.md`).
 
 **The host.** `MixerView` follows the `.strudel` file of the active tab, in either
 editor. Any other tab (the Mixer itself, a terminal, a stage) keeps the last song. The
@@ -1527,6 +1530,43 @@ build, and `production` or `development`.
 
 For fast work on the work in progress: `pnpm watch`, press F5 once, and use "Developer:
 Reload Window" in the development host after a change.
+
+## MIDI
+
+A webview may not use WebMIDI, so MIDI goes through the extension host with
+`@julusian/midi` (see "MIDI" in `doc/TODO.md`). Nothing is built yet. Spike S5 measured
+how exactly the host can send, on 2026-11-21, on the maintainer's Windows 11 machine, in
+VS Code 1.147's Electron 43.8.9 run as Node (`ELECTRON_RUN_AS_NODE=1`), with
+`@julusian/midi` 3.9.0. The setup: a `worker_thread` keeps the notes in a queue ordered
+by due time; the main thread posts each note 100 to 150 ms before it is due, a new one
+every 10 to 30 ms, and is kept busy 0 to 20 ms of every 50; 1000 notes a run.
+
+| How the worker waits | Port | Late: middle | 95th | 99th | worst |
+|---|---|---|---|---|---|
+| Plain `setTimeout` on the main thread | loopMIDI | 0.16 ms | 10.9 ms | 16.2 ms | 20.9 ms |
+| `Atomics.wait` to 1 ms before, then spin | loopMIDI | 0 | 1.0 ms | 10.0 ms | 35.7 ms |
+| The same, process priority high | loopMIDI | 0 | 0.84 ms | 1.15 ms | 1.6 ms |
+| The same, process priority high | UMC404HD (hardware) | 5.7 ms | 13.6 ms | 14.9 ms | 17.1 ms |
+| `Atomics.wait` to 17 ms before, then spin, priority high | UMC404HD | 0 | 0 | 0.10 ms | 0.45 ms |
+| The same | Microsoft GS Wavetable Synth | 0 | 0 | 0.02 ms | 10.6 ms |
+
+What we learned from it:
+
+- `Atomics.wait` sleeps in steps of Windows' timer tick, 15.6 ms, unless something in the
+  process asked for a finer timer. Opening the loopMIDI port seems to do that (its runs
+  overslept by about 1 ms); the hardware port and the GS synth do not (10 to 15 ms). A
+  sender that trusts a short sleep is exact only by luck. So the worker sleeps until 17 ms
+  before a note and spins from there. That costs CPU: the whole process used 0.55 of a
+  core against 0.2 for the short margin, with the main thread's own load in both.
+- High process priority (`os.setPriority`) removed the long outliers of 20 to 80 ms.
+  Whether the extension may raise the priority of the whole extension host is open: it
+  would also raise every other extension.
+- The GS Wavetable Synth's `sendMessage` itself sometimes blocks 8 to 14 ms. It is a
+  software synth; a hardware port returned in under 0.5 ms.
+- A WinMM output can be open in one place only: a second `openPort` fails with
+  `MMRESULT 4` (already allocated). One owner per port, the worker.
+- The first notes after start are late (4 to 74 ms): the first send costs about 40 ms. A
+  silent message at open warms it up.
 
 ## Release
 

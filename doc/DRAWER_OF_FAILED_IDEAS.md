@@ -139,6 +139,15 @@ time and the extension host sends it with `setTimeout`. In the host's runtime on
 a 20 ms timer fired 10 ms late in the middle and 80 ms late at worst. That is audible. A
 bridge needs a better clock, see "MIDI" in `doc/TODO.md`.
 
+## Waiting for a MIDI note with Atomics.wait to the last millisecond
+
+Tried, in spike S5 (2026-11-21). A worker thread slept with `Atomics.wait` until 1 ms
+before a note and spun from there. With the loopMIDI port it was exact; with a hardware
+port (UMC404HD) and the GS synth the notes came 6 ms late in the middle and 15 ms at the
+99th percentile, because the sleep runs on Windows' 15.6 ms timer tick unless something
+in the process asked for a finer one. The worker now sleeps to 17 ms before and spins.
+The numbers are in "MIDI" in `doc/ARCHITECTURE.md`.
+
 ## Copying other people's examples that have no license
 
 Designed. The maintainer's `algorave` repository has songs and helper code by other

@@ -81,15 +81,15 @@ const PAD_IN    = [0, 0, 0, "<0!4 1!4>", 1, 1, 1, "<1!4 0!6>"]
 //  \_____\___/|_| |_|\__|_|  \___/ |_||___/
 
 // The level of each part. The arrangement brings parts in and out; these set how loud.
-const KICK_VOL=slider(0.607,0,1)
-const SNARE_VOL=slider(0.484,0,1)
-const HH_VOL=slider(0.325,0,1)
-const HHR_VOL=slider(0.202,0,1)
+const KICK_VOL=slider(0.5,0,1)
+const SNARE_VOL=slider(0.4,0,1)
+const HH_VOL=slider(0.26,0,1)
+const HHR_VOL=slider(0.16,0,1)
 const VOCALS_VOL=slider(1,0,1)
-const BASS_VOL=slider(1,0,1)
-const SUB_VOL=slider(0.452,0,1)
-const CLAP_VOL=slider(0.35,0,1)
-const PAD_VOL=slider(0.3,0,1)
+const BASS_VOL=slider(0.6,0,1)
+const SUB_VOL=slider(0.35,0,1)
+const CLAP_VOL=slider(0.28,0,1)
+const PAD_VOL=slider(0.24,0,1)
 
 
 //  _    _                  _

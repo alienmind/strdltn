@@ -253,6 +253,11 @@
 					"default": false,
 					"description": "Write every MIDI message, in and out, to the Output channel strdltn, as text: which device, the channel, the note or the CC and its value. To find out what a controller sends and whether a song hears it."
 				},
+				"strdltn.midi.highPriority": {
+					"type": "boolean",
+					"default": false,
+					"description": "Desktop only. While a song uses MIDI, run the extension host at high process priority. It removes MIDI notes that come 20 to 80 ms late, but every other extension in the same host gets the higher priority too."
+				},
 				"strdltn.render.cycles": {
 					"type": "number",
 					"default": 16,

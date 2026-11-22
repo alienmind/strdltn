@@ -21,8 +21,8 @@ arrangement (PR #6, 0.3.0); phase 5, MIDI on desktop through the extension host,
 and Record of a song to `.wav` and `.mp3`, level meters with a Master strip on the Mixer,
 and the demo's new mix (PR #9, 0.4.0). A promote waits for the maintainer.
 
-Work in flight is on the branch `feat/open-snippets`: items 12 and 13 below, built and
-waiting for the hand test.
+Work in flight is on the branch `feat/open-snippets`: items 12 and 13 below and the
+setting of decision 17, built and waiting for the hand test.
 
 Next in line:
 
@@ -62,6 +62,8 @@ folder open.
 | 3 | Right click a snippet, "Open the file" | The Strudel editor, not the native one |
 | 4 | Double click a song in Songs | The Strudel editor |
 | 5 | Double click a render (`.wav`) | VS Code's media preview plays it, as before |
+| 6 | Turn on `strdltn.midi.highPriority`, play `template/examples/09-midi-out.strudel` with a MIDI port, look at the Output strdltn and the process `Code.exe` of the extension host in Task Manager, Details | `[midi] the extension host runs at high priority`, and Task Manager shows High |
+| 7 | Turn the setting off | `[midi] the extension host is back to its own priority`, Normal in Task Manager |
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -104,8 +106,8 @@ it.
 | 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
 | 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
 | 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. The SHRUB editor panel stays as an experiment behind its setting; the fm1-emu way stays open. Its editor cannot reach a real FM-1 from VS Code: a webview has no MIDI, and a frame of another site cannot be given ours. In a browser ("Open in browser") it can, if VS Code does not hold the FM-1's port: a Windows MIDI port opens in one program at a time |
-| 16 | The wave editor (item 11) builds on AudioMass. How does it come in? AudioMass is not on npm and has no releases or tags, so "an upstream release, pinned" does not exist for it. The choices: a git submodule pinned to a commit, or a copy of one commit in the repo with its MIT license. A submodule keeps the history and the pin visible; it also makes every clone and the `.vsix` build need `git submodule update`. The rule "no submodule" in CLAUDE.md is about Strudel, which comes from npm | Nothing done |
-| 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Not built |
+| 16 | The wave editor (item 11) builds on AudioMass, which is not on npm and has no releases or tags. How does it come in? | Answered 2026-11-22: from the maintainer's fork `alienmind/AudioMass`, pinned to a tag we make there. The tag `strdltn-1` is made. See "Wave editor" |
+| 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Answered 2026-11-22: behind a setting, off. Built on `feat/open-snippets` as `strdltn.midi.highPriority`, waiting for the hand test |
 
 
 ## MIDI
@@ -232,8 +234,11 @@ is AudioMass (audiomass.co, github.com/pkalogiros/AudioMass, MIT, "bundled third
 libraries keep their own licenses", see its `THIRD_PARTY_NOTICES.md`). It is plain
 JavaScript on wavesurfer.js with its regions plugin, and has a multitrack mode, effects,
 LUFS, an EQ, markers, a recorder, a tempo estimator, a denoiser (RNNoise in wasm), and
-WAV, MP3 and FLAC encoders. It is not on npm and has no releases or tags; how it comes in
-is decision 16. Expected, not tested: it runs in a webview panel, with its file loading
+WAV, MP3 and FLAC encoders. It is not on npm and has no releases or tags, so it comes from
+the maintainer's fork `github.com/alienmind/AudioMass` at the tag `strdltn-1` (commit
+`21f5ee1` of the branch `production`, made on 2026-11-22; decision 16). A newer AudioMass
+gets a new tag `strdltn-<n>` on the fork. Expected, not tested: pnpm takes it as
+`github:alienmind/AudioMass#strdltn-1`, so no submodule and no copy. Expected, not tested: it runs in a webview panel, with its file loading
 and saving replaced by messages to the host. First spike: load AudioMass in a webview,
 open a WAV from the workspace, save one back.
 

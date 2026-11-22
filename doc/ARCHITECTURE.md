@@ -1710,8 +1710,10 @@ What we learned from it:
   before a note and spins from there. That costs CPU: the whole process used 0.55 of a
   core against 0.2 for the short margin, with the main thread's own load in both.
 - High process priority (`os.setPriority`) removed the long outliers of 20 to 80 ms.
-  Whether the extension may raise the priority of the whole extension host is open: it
-  would also raise every other extension.
+  It is the priority of the whole extension host, so every other extension is raised
+  too. That is why it is the setting `strdltn.midi.highPriority`, off by default: the
+  bridge raises the priority when its worker starts and puts the old one back when the
+  worker ends or the setting goes off.
 - The GS Wavetable Synth's `sendMessage` itself sometimes blocks 8 to 14 ms. It is a
   software synth; a hardware port returned in under 0.5 ms.
 - A WinMM output can be open in one place only: a second `openPort` fails with
@@ -1735,9 +1737,13 @@ without changing the version, without a tag and without `pnpm promote`.
    Window".
 5. When `doc/ABOUT.md` changed, refresh the home page (see "Public page").
 
-Found on 2026-11-21: the workflow has never run on this repository (zero runs; Actions shows as enabled). GitHub
-keeps workflows off in a fork until someone enables them once in the repository's Actions tab, so the tag `v0.3.0`
-built nothing. That release was made by hand, the same steps as `ci.yml`: the tag checked out, `pnpm typecheck`,
+Found on 2026-11-21: the workflow has never run on this repository (zero runs; Actions shows as enabled), so the
+tag `v0.3.0` built nothing. Measured on 2026-11-22: still zero runs after the merge of PR #9 to `main`, although the
+API says Actions is enabled with all actions allowed and `ci.yml` is `active`. The repository is not a fork in
+GitHub's eyes (`fork: false`), so the fork rule (workflows off until enabled once) is not the reason, or not the
+whole one. vstrudel ran the same workflow 32 times, the last on 2026-11-20 at 14:48, six minutes before this
+repository was made. Expected, not tested: the Actions tab of the repository shows a banner with a button that
+turns the workflows on, which the API does not offer. That release was made by hand, the same steps as `ci.yml`: the tag checked out, `pnpm typecheck`,
 `pnpm test:unit`, `pnpm package`, a copy as `strdltn.vsix`, then `gh release create v0.3.0 *.vsix --generate-notes`.
 The promo video went in as a third asset, `strdltn-promo.mp4`. GitHub serves release assets as
 `application/octet-stream` whatever type they were uploaded with, so a link to it downloads the file; it does not play

@@ -104,7 +104,7 @@ export type ToWebview =
 	| { type: 'midiIn'; port: string; bytes: number[] }
 	/** A VS Code command bound to an editing key (Ctrl+F...) asks CodeMirror to run its action. */
 	| { type: 'editorAction'; action: EditorAction }
-	/** MIDI learn for the slider under the cursor: the next CC of any input goes into `.knob(...)`. */
+	/** Ctrl+Alt+K: the page answers `knobLearnAt` with the slider under its cursor. */
 	| { type: 'knobLearn' };
 
 /** The editing actions of the Strudel editor that VS Code's keys reach through our commands. */
@@ -158,8 +158,8 @@ export type FromWebview =
 	| { type: 'midiPanic' }
 	/** A slider's value changed live (a drag, a knob, a fader): `from` is where its number is now. For the Mixer. */
 	| { type: 'sliderLive'; from: number; value: number }
-	/** Where MIDI learn is: waiting for a knob, done with a CC, no slider at the cursor, no knob moved, no MIDI. */
-	| { type: 'knobLearn'; state: 'waiting' | 'done' | 'noSlider' | 'timeout' | 'noMidi'; cc?: number };
+	/** MIDI learn for the slider whose number starts at `from` (undefined: no slider there). The host does the learn. */
+	| { type: 'knobLearnAt'; from?: number };
 
 export interface TextChange {
 	from: number;

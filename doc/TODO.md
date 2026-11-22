@@ -26,14 +26,16 @@ Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 Work in flight is on the branch `feat/knobs` (the maintainer, 2026-11-22): first the
 spike of item 14 (keybindings in the Strudel editor), then item 15 (sliders on knobs),
 with the four open questions of "Sliders on knobs" answered. The spike of item 14 passed:
-Ctrl+F and Ctrl+G work in the Strudel editor. Ctrl+H, Ctrl+D, Ctrl+Shift+L and item 15
-are built and wait for the hand test.
+Ctrl+F and Ctrl+G work in the Strudel editor. Ctrl+H, Ctrl+D, Ctrl+Shift+L, item 15 and
+item 19 (knob buttons in both editors and on the Mixer's faders, MIDI learn in the host)
+are built and wait for the hand test. The branch closes after that: every MIDI feature
+asked for is in it (the maintainer, 2026-11-22).
 
 Next in line:
 
 | # | What | State |
 |---|---|---|
-| 19 | Line actions: a gutter left of the line numbers, in the Strudel editor and the native editor, with a knob button on every line that has a slider. A click captures the next knob (MIDI learn). Lines without an action keep an empty gap, so everything stays aligned; more line actions will come. The same knob button on every fader of the Mixer. High priority, the first thing after `feat/knobs` passes its tests (the maintainer, 2026-11-22). Replaces Ctrl+Alt+K as the main way to learn a knob, which the maintainer finds too convoluted. See "Line actions" | Planned, not built |
+| 19 | Line actions: a gutter left of the line numbers, in the Strudel editor and the native editor, with a knob button on every line that has a slider. A click captures the next knob (MIDI learn). Lines without an action keep an empty gap, so everything stays aligned; more line actions will come. The same knob button on every fader of the Mixer. Replaces Ctrl+Alt+K as the main way to learn a knob, which the maintainer finds too convoluted. On `feat/knobs`: the maintainer wants this branch to close with every MIDI feature in it (2026-11-22). See "Line actions" | Built on `feat/knobs`, waiting for the hand test |
 | 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Ctrl+F and Ctrl+G passed the hand test; Ctrl+H, Ctrl+D, Ctrl+Shift+L built, waiting for it. Keys CodeMirror takes first do not follow a rebinding yet |
 | 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with MIDI learn. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Built on `feat/knobs`, waiting for the hand test |
 | 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
@@ -57,29 +59,27 @@ Next in line:
 ## Next: test by hand
 
 Test on **desktop, F5 from this repo** (branch `feat/knobs`), the MPK mini 3 plugged in,
-with the template folder open and the Output strdltn shown.
+with the template folder open and the Output strdltn shown. Checks 1 to 4 of the first
+table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K).
 
 | # | Do this | Should happen |
 |---|---|---|
-| 1 | In the Strudel editor, select a word, press Ctrl+H | The search bar opens with the cursor in the replace field |
-| 2 | Put the cursor on `kick`, press Ctrl+D twice | The next two `kick` are selected too, as three cursors |
-| 3 | Cursor on `kick`, press Ctrl+Shift+L | Every `kick` is selected |
-| 4 | Open `examples/02-acid-techno.strudel`, put the cursor inside a `slider(...)` call, press Ctrl+Alt+K, turn knob 1 | Status bar: "Move a knob...", then "Knob on CC 1 mapped". The code gets `.knob(1)` after the slider, and the snippet `register('knob', ...)` after the header |
-| 5 | Play the song, turn knob 1 far from the slider's value, then slowly toward it | Nothing moves until the knob passes the value. Then the slider, the sound and the number in the code follow the knob |
-| 6 | Drag the slider with the mouse somewhere else, then turn the knob | The knob lets go, and takes over again once it passes the new value |
-| 7 | Double click another slider's widget, turn knob 2 | Same as 4, with `.knob(2)`; the snippet is not added twice |
-| 8 | Press Ctrl+Alt+K with the cursor outside any slider | Status bar: "Put the cursor in a slider(...) call first" |
-| 9 | Press Ctrl+Alt+K in a slider, touch nothing for 10 s | "No knob moved: nothing mapped" |
-| 10 | Stop, save, reopen the file, play, turn knob 1 | The knob works after the new evaluation (pickup first) |
-| 11 | Unfold the strip of the slider you mapped in the Mixer, turn the knob | The Mixer's fader and its number follow the knob while it turns. Also when you drag the slider in the code |
+| 1 | Open `examples/02-acid-techno.strudel` in the Strudel editor | A knob button left of the line number of every line with a `slider(...)`, filled with the color on the line mapped before. Other lines have an empty gap; lines with a scope under them keep their button beside the number |
+| 2 | Click an empty knob button, turn knob 2 | Status bar "Move a knob...", then "Knob on CC 2 mapped". `.knob(2)` on that slider; the button fills |
+| 3 | Play, turn knob 2 far from the slider's value, then toward it | Nothing moves until the knob passes the value. Then the slider, the sound and the number in the code follow |
+| 4 | Drag that slider with the mouse elsewhere, turn the knob | The knob lets go, and takes over again once it passes the new value |
+| 5 | In the Mixer, unfold the strip of that slider, turn the knob, then drag the slider in the code | The fader and its number follow while it moves, both times |
+| 6 | In the Mixer, click the knob button under another fader, turn knob 3 | `.knob(3)` on that slider's call in the code, also when the strip uses a constant (`const ... = slider(...)`). The button shows 3 |
+| 7 | Switch to the native editor (Ctrl+Alt+M) | Knob icons in the margin left of the line numbers, on the same lines, filled where mapped |
+| 8 | In the native editor, click a knob icon, turn knob 4 | Mapped as in 2. Output: `[knobs] native editor: line N selected whole by the mouse...`. If nothing happens, say so: that is the spike |
+| 9 | In the native editor, click the line number of a slider line | Tell what happens: expected to start learn too (the catch of check 8) |
+| 10 | Right click a line number of a slider line, "Map a MIDI knob to this line's slider", turn knob 5 | Mapped as in 2 |
+| 11 | Click a knob button, touch nothing for 10 s | "No knob moved: nothing mapped" |
+| 12 | Stop, close and reopen the file, play, turn knob 2 | The knob works after the new evaluation, pickup first |
 
-Checks 1 to 4 passed on 2026-11-22. In that test the Mixer's fader did not follow the knob:
-the Mixer read the code only 300 ms after the last change, and a knob writes every 150 ms.
-Fixed: every live move of a slider (`cm-slider`) goes to the Mixer as `sliderLive`. Check
-11 is for that fix.
-
-Expected still broken: MIDI learn only in the Strudel editor, not on the stage. On
-strudel.cc the knob does nothing (by design, see ARCHITECTURE "Sliders on knobs").
+Expected still broken: on strudel.cc the knob does nothing (by design, ARCHITECTURE
+"Sliders on knobs"). Revert `examples/02-acid-techno.strudel` afterwards unless the
+mappings should stay.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.

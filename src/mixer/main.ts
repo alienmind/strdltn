@@ -401,6 +401,13 @@ function fader(slider: MixerSlider): HTMLElement {
 	if (slider.constant || slider.detail !== slider.label) box.appendChild(el('span', 'detail', slider.detail));
 	const output = box.appendChild(el('output', 'value', String(slider.value)));
 	output.dataset.slider = String(slider.index);
+	// MIDI learn for this slider, as the knob button left of its line in the code. The host
+	// puts `.knob(cc)` on the slider call wherever it is written, a constant included.
+	const knob = box.appendChild(el('button', `knob${slider.knob === undefined ? '' : ' on'}`));
+	knob.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8.5" r="5.5" fill="var(--knob-fill)" stroke="currentColor" stroke-width="1.5"/><path d="M8 8.5 5 5" stroke="var(--knob-mark)" stroke-width="1.5" stroke-linecap="round"/></svg>';
+	if (slider.knob !== undefined) knob.appendChild(el('span', 'cc', String(slider.knob)));
+	knob.title = slider.knob === undefined ? 'Click, then turn a knob on your MIDI controller: it moves this fader' : `Knob on CC ${slider.knob}. Click to map another`;
+	knob.addEventListener('click', () => post({ type: 'knob', index: slider.index }));
 	input.addEventListener('pointerdown', () => (dragging = true));
 	input.addEventListener('input', () => {
 		const value = formatValue(Number(input.value), slider);

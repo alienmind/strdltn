@@ -298,3 +298,8 @@ test('the scope box adds ._scope() to a chain and takes it out again', () => {
 	assert.equal(model(inner).chains[0].scope, undefined);
 	assert.equal(apply(inner, scopeEdit(inner, 0)), '$a: s("bd").sometimes(x => x._scope())._scope()');
 });
+
+test('a slider with a knob says its CC', () => {
+	const song = 'const CUT = slider(800, 200, 4000).knob(74)\n$bass: note("c2").lpf(CUT).gain(slider(.5))';
+	assert.deepEqual(model(song).sliders.map((s) => s.knob), [74, undefined]);
+});

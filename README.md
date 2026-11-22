@@ -195,8 +195,8 @@ browser.
   devices; a click types `.midi('name')` or `midin('name')`. See `examples/09-midi-out.strudel`.
   To see what a controller sends, run "strdltn: Show MIDI messages in the Output": every
   message in and out shows in Output > strdltn.
-- Knobs on sliders: put the cursor in a `slider(...)` and press Ctrl+Alt+K (or double click
-  the slider), then turn a knob. The code gets `.knob(cc)`, and from then that knob moves
+- Knobs on sliders: click the knob button left of a line with a `slider(...)`, or on a fader
+  of the Mixer (or press Ctrl+Alt+K in a slider), then turn a knob. The code gets `.knob(cc)`, and from then that knob moves
   the slider, the sound and the number in the code. It takes over once it reaches the
   slider's value, so the sound does not jump. On strudel.cc the song still plays, without
   the knob.

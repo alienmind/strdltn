@@ -16,6 +16,8 @@ export interface MixerActions {
 	moveSlider(document: vscode.TextDocument, index: number, from: number | undefined, value: string): boolean;
 	/** Evaluates the song again when it is playing, so a mute or solo is heard at once. */
 	evaluate(document: vscode.TextDocument): void;
+	/** MIDI learn for the slider whose number starts at `from`. */
+	learnKnob(document: vscode.TextDocument, from: number): Promise<void>;
 	/** Plays, stops, records or renders the song, as the buttons of Music Controls ask. */
 	transport(document: vscode.TextDocument, action: TransportAction): void;
 	isPlaying(document: vscode.TextDocument): boolean;
@@ -151,6 +153,11 @@ export class MixerView implements Surface {
 			}
 			case 'slider':
 				return this.moveSlider(message.index, message.value);
+			case 'knob': {
+				const slider = this.model?.sliders[message.index];
+				if (this.document && slider) void this.actions.learnKnob(this.document, slider.from);
+				return;
+			}
 			case 'toggle':
 				return void this.toggle(message.chain, message.button);
 			case 'duck':

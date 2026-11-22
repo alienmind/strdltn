@@ -34,6 +34,8 @@ export interface MixerSlider {
 	detail: string;
 	/** The chains that use it, by index. */
 	chains: number[];
+	/** The CC of `.knob(cc)` on the slider call, when a knob is mapped to it. */
+	knob?: number;
 }
 
 export interface MixerChain {
@@ -407,9 +409,15 @@ export function readChains(code: string): MixerModel | { error: string } {
 	// Sliders, in the order of the code.
 	const sliders: MixerSlider[] = [];
 	const sliderAt = new Map<Node, number>();
-	walk(program, [], (node) => {
+	walk(program, [], (node, parents) => {
 		if (!isSliderCall(node)) return;
 		const [value, min, max, step] = node.arguments as Node[];
+		const member = parents[parents.length - 1];
+		const call = parents[parents.length - 2];
+		const knob =
+			member?.type === 'MemberExpression' && member.object === node && member.property?.name === 'knob' && call?.type === 'CallExpression' && call.callee === member
+				? numberOf(call.arguments[0])
+				: undefined;
 		sliderAt.set(node, sliders.length);
 		sliders.push({
 			index: sliders.length,
@@ -422,6 +430,7 @@ export function readChains(code: string): MixerModel | { error: string } {
 			label: '',
 			detail: sliderLabel(code, value.start).text,
 			chains: [],
+			...(knob === undefined ? {} : { knob }),
 		});
 	});
 

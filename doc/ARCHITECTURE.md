@@ -1757,18 +1757,35 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   number in the code: the code follows 150 ms late, so a turning knob would read its own
   move as a drag and let go. A drag, a fader or an edit that sets another value drops the
   knob until it catches up again. A new evaluation starts every knob over.
-- MIDI learn: `strdltn.knobLearn` (Ctrl+Alt+K) for the slider whose call holds the cursor
-  (`sliderAt`), or a double click on a slider's widget. The next CC of any input within
-  10 s writes `.knob(cc)` after the slider call, or changes the number of the one there
-  (`knobEdits`). The page tells the host how it went (`knobLearn`), and the host shows it
-  in the status bar and the Output. The knob works at once, without evaluating again.
+- MIDI learn is done by the host (`src/extension/knobs.ts`, `KnobLearn.learn`), which owns
+  the ports: `MidiBridge.captureCC` opens every input and waits up to 10 s for the next CC.
+  Then `knobEdits` writes `.knob(cc)` on the slider call, or changes the number of the one
+  there, plus the snippet the first time, as one `WorkspaceEdit`, and the song is evaluated
+  again where it plays, so the knob works at once. It works with no song playing and in
+  either editor. The places that ask, each giving where the slider's number starts:
+  - the knob button left of a line in the Strudel editor: a CodeMirror `gutter()` of ours
+    with `Prec.highest`, so it comes before upstream's line numbers (`lineActions` in
+    `src/webview/main.ts`). The page sends `knobLearnAt`;
+  - a double click on a slider's widget (`knobLearnAt` too);
+  - the knob button on every fader of the Mixer, which knows its slider's `from`.
+    `readChains` reads `.knob(n)` on a slider as `MixerSlider.knob`, so the button shows
+    the CC;
+  - in the native editor: an icon in the glyph margin on every line with a slider
+    (`gutterIconPath`, filled when mapped), and the line number menu
+    (`editor/lineNumber/context`, "Map a MIDI knob to this line's slider");
+  - `strdltn.knobLearn` (Ctrl+Alt+K) for the slider under the cursor, in either editor.
+- The native editor's icon: VS Code's API gives no click on a gutter icon. A click in the
+  glyph margin is expected to select the whole line, as a click on a line number does, and
+  `onDidChangeTextEditorSelection` with `kind == Mouse` sees that. `KnobLearn` takes a whole
+  line selected by the mouse on a line with a slider as a click on its knob, and logs it.
+  Expected, not measured; the catch is that a click on that line's number does the same.
 - The Mixer's faders follow live. The Mixer reads the code again only 300 ms after the
   last change, and a turning knob writes every 150 ms, so its fader waited until the knob
   stopped. Now the page passes every `cm-slider` message (a drag, a knob, a fader) to the
   host as `sliderLive` with where the number is now, and the Mixer moves the fader of the
   slider that starts there. Not while one of its own faders is held.
-- Learn works in the Strudel editor only. A knob already in the code should work on the
-  stage too, as the fader does: expected, not tested.
+- A knob already in the code should work on the stage too, as the fader does: expected,
+  not tested.
 
 ## Release
 

@@ -102,6 +102,10 @@ button:disabled { cursor: default; opacity: .35; }
 .fader .detail { font-size: 10px; color: var(--vscode-descriptionForeground); }
 .fader .value { font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; opacity: .85; }
 .fader.off { opacity: .4; }
+/* MIDI learn for the fader's slider. Filled, with its CC, once a knob is mapped. */
+.fader .knob { display: inline-flex; align-items: center; gap: 2px; margin-top: 2px; padding: 0 2px; border: 0; background: none; cursor: pointer; color: var(--vscode-descriptionForeground); opacity: .6; --knob-fill: none; --knob-mark: currentColor; font-size: 10px; }
+.fader .knob:hover { opacity: 1; }
+.fader .knob.on { color: var(--vscode-charts-orange, #d29922); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
 .fader.off input { accent-color: var(--vscode-disabledForeground, #888); }
 
 /* The chain's scope under its faders: the theme's green, as upstream's scopes are a plain line. */

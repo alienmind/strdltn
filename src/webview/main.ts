@@ -3,7 +3,7 @@
 // or widget in a later @strudel release arrives with a version bump.
 import { Annotation, Prec, StateEffect, Transaction, type EditorSelection } from '@codemirror/state';
 import { gotoLine, openSearchPanel, selectNextOccurrence, selectSelectionMatches } from '@codemirror/search';
-import { EditorView } from '@codemirror/view';
+import { EditorView, gutter, GutterMarker } from '@codemirror/view';
 import * as strudelCodemirror from '@strudel/codemirror';
 import * as strudelCore from '@strudel/core';
 import * as strudelDraw from '@strudel/draw';
@@ -20,7 +20,7 @@ import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../
 import { SyncClient, type SyncUpdate } from '../shared/sync';
 import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { initMidi, listenEverywhere, midiMessage, midiScope, midiStopped, onControlChange, setMidiMuted } from './midi';
-import { findKnobs, type KnobBinding, knobEdits, type Pickup, pickup, sliderAt } from '../shared/knob';
+import { findKnobs, type KnobBinding, type Pickup, pickup, sliderAt } from '../shared/knob';
 import { addFirmware, deviceRequest, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -133,7 +133,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			}
 			break;
 		case 'knobLearn':
-			if (mirror && mode === 'editor') learnKnob(sliderAt(mirror.editor.state.doc.toString(), mirror.editor.state.selection.main.head));
+			if (mirror && mode === 'editor') post({ type: 'knobLearnAt', from: sliderAt(mirror.editor.state.doc.toString(), mirror.editor.state.selection.main.head) });
 			break;
 		case 'select':
 			if (mirror && mode === 'editor') {
@@ -320,11 +320,13 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 	evaluateUpstream = mirror.evaluate.bind(mirror);
 	mirror.evaluate = () => play();
 
+	if (mode === 'editor') mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(lineActions()) });
+
 	// A double click on a slider's widget starts MIDI learn for it. Upstream's widget input
 	// carries `from`, where its number starts.
 	(mirror.editor.dom as HTMLElement).addEventListener('dblclick', (event) => {
 		const input = (event.target as HTMLElement).closest?.('.cm-slider')?.querySelector('input') as (HTMLInputElement & { from?: number }) | null;
-		if (input?.from !== undefined) void learnKnob(input.from);
+		if (input?.from !== undefined) post({ type: 'knobLearnAt', from: input.from });
 	});
 
 	unlockElement.addEventListener('click', () => {
@@ -781,7 +783,6 @@ function sliderNow(id: string): { from: number; value: number } | undefined {
 }
 
 onControlChange((cc, value) => {
-	if (learning) return finishLearn(cc);
 	for (const knob of knobs) {
 		if (knob.binding.cc !== cc) continue;
 		const slider = sliderNow(`slider_${knob.binding.from}`);
@@ -793,51 +794,57 @@ onControlChange((cc, value) => {
 });
 
 /**
- * MIDI learn: the next CC of any input is written into `.knob(...)` of the slider whose
- * number starts at `from` (the cursor's slider, or a double click on its widget). The
- * snippet that defines `knob` goes in at the top the first time. Ten seconds to move a knob.
+ * Line actions: a column left of the line numbers (`Prec.highest` puts it before upstream's
+ * gutters). A knob button on every line with a slider; a click asks the host for MIDI
+ * learn on the first slider of the line. Other lines keep the column empty, so the code
+ * stays aligned. CodeMirror lays the gutter out per line, so a widget between two lines
+ * leaves a gap here too and the button stays beside its line number.
  */
-let learning: { from: number; timer: ReturnType<typeof setTimeout> } | undefined;
+const KNOB_ICON =
+	'<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8.5" r="5.5" fill="var(--knob-fill)" stroke="currentColor" stroke-width="1.5"/><path d="M8 8.5 5 5" stroke="var(--knob-mark)" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
-async function learnKnob(from: number | undefined): Promise<void> {
-	if (from === undefined) return post({ type: 'knobLearn', state: 'noSlider' });
-	if (!(await listen())) return post({ type: 'knobLearn', state: 'noMidi' });
-	if (learning) clearTimeout(learning.timer);
-	learning = {
-		from,
-		timer: setTimeout(() => {
-			learning = undefined;
-			post({ type: 'knobLearn', state: 'timeout' });
-		}, 10_000),
-	};
-	post({ type: 'knobLearn', state: 'waiting' });
-}
-
-function finishLearn(cc: number): void {
-	const target = learning!;
-	clearTimeout(target.timer);
-	learning = undefined;
-	const live = liveSliders.find((s) => s.from === target.from);
-	const edits = knobEdits(mirror.editor.state.doc.toString(), target.from, cc);
-	if (!edits) return post({ type: 'knobLearn', state: 'noSlider' });
-	// mapSliders follows this edit, so `live.from` is where the number is afterwards.
-	mirror.editor.dispatch({ changes: edits });
-	// The knob works at once, without evaluating again, when the slider has an id.
-	const binding = live && findKnobs(mirror.editor.state.doc.toString()).find((k) => k.from === live.from);
-	if (live && binding) {
-		const id = Number(live.id.slice('slider_'.length));
-		knobs = [...knobs.filter((k) => k.binding.from !== id), { binding: { ...binding, from: id }, state: { engaged: false } }];
+class KnobMarker extends GutterMarker {
+	constructor(readonly cc: number | undefined) {
+		super();
 	}
-	post({ type: 'knobLearn', state: 'done', cc });
+	eq(other: KnobMarker): boolean {
+		return other.cc === this.cc;
+	}
+	toDOM(): Node {
+		const button = document.createElement('span');
+		button.className = `strdltn-knob${this.cc === undefined ? '' : ' on'}`;
+		button.innerHTML = KNOB_ICON;
+		button.title = this.cc === undefined ? 'Click, then turn a knob: it moves this slider' : `Knob on CC ${this.cc}. Click to map another`;
+		return button;
+	}
 }
 
-// Every live move of a slider, whoever made it (upstream's widget, a Mixer fader, a knob),
-// is a `cm-slider` window message. The Mixer hears of it by where the number is now.
-window.addEventListener('message', (event: MessageEvent) => {
-	if (event.data?.type !== 'cm-slider') return;
-	const slider = liveSliders.find((s) => s.id === event.data.id);
-	if (slider) post({ type: 'sliderLive', from: slider.from, value: Number(event.data.value) });
-});
+function lineActions() {
+	const sliderLine = (text: string) => /\bslider\s*\(/.exec(text);
+	return Prec.highest(
+		gutter({
+			class: 'strdltn-actions',
+			lineMarker(view, line) {
+				const text = view.state.doc.lineAt(line.from).text;
+				if (!sliderLine(text)) return null;
+				const cc = /\.knob\(\s*(\d+)\s*\)/.exec(text)?.[1];
+				return new KnobMarker(cc === undefined ? undefined : Number(cc));
+			},
+			lineMarkerChange: (update) => update.docChanged,
+			initialSpacer: () => new KnobMarker(undefined),
+			domEventHandlers: {
+				mousedown(view, line, event) {
+					if (!(event.target as HTMLElement).closest('.strdltn-knob')) return false;
+					const docLine = view.state.doc.lineAt(line.from);
+					const at = sliderLine(docLine.text);
+					if (!at) return false;
+					post({ type: 'knobLearnAt', from: sliderAt(view.state.doc.toString(), docLine.from + at.index + at[0].length) });
+					return true;
+				},
+			},
+		}),
+	);
+}
 
 /** Writes for sliders typed since the last evaluation, which have no id yet. */
 let pendingWrites: LiveSlider[] = [];

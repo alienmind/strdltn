@@ -101,6 +101,10 @@
 				"title": "strdltn: Map a MIDI knob to the slider at the cursor"
 			},
 			{
+				"command": "strdltn.knobLearnLine",
+				"title": "Map a MIDI knob to this line's slider"
+			},
+			{
 				"command": "strdltn.editor.find",
 				"title": "strdltn: Find in the Strudel editor"
 			},
@@ -180,6 +184,12 @@
 			}
 		],
 		"menus": {
+			"editor/lineNumber/context": [
+				{
+					"command": "strdltn.knobLearnLine",
+					"when": "editorLangId == strudel"
+				}
+			],
 			"editor/title": [
 				{
 					"command": "strdltn.play",
@@ -222,7 +232,11 @@
 			"commandPalette": [
 				{
 					"command": "strdltn.knobLearn",
-					"when": "activeCustomEditorId == strdltn.editor"
+					"when": "activeCustomEditorId == strdltn.editor || editorLangId == strudel"
+				},
+				{
+					"command": "strdltn.knobLearnLine",
+					"when": "false"
 				},
 				{
 					"command": "strdltn.editor.find",
@@ -279,7 +293,7 @@
 				"command": "strdltn.knobLearn",
 				"key": "ctrl+alt+k",
 				"mac": "cmd+alt+k",
-				"when": "activeCustomEditorId == strdltn.editor"
+				"when": "activeCustomEditorId == strdltn.editor || editorLangId == strudel && editorTextFocus"
 			},
 			{
 				"command": "strdltn.editor.find",

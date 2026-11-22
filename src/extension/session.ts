@@ -22,6 +22,8 @@ export interface SessionHost {
 	onSounds(sounds: SoundInfo[]): void;
 	/** The waves of the song's inline scopes, for the Mixer. */
 	onScopes?(document: vscode.TextDocument, scopes: ScopeFrame[]): void;
+	/** MIDI learn for a slider of the song, by where its number starts. */
+	onKnobLearn?(document: vscode.TextDocument, from: number | undefined): Promise<void>;
 	/** A slider of the song moved live, for the Mixer. */
 	onSliderLive?(document: vscode.TextDocument, from: number, value: number): void;
 	/** The engine state, the error or the active tab changed. The status bar follows. */
@@ -151,8 +153,6 @@ export class Session {
 	select(offset: number): void {
 		this.post({ type: 'select', offset });
 	}
-
-	private learnMessage?: vscode.Disposable;
 
 	/** MIDI learn for the slider at the cursor of the Strudel editor. */
 	knobLearn(): void {
@@ -298,20 +298,9 @@ export class Session {
 			case 'evaluated':
 				this.showError(message.error);
 				break;
-			case 'knobLearn': {
-				const text = {
-					waiting: 'Move a knob on your MIDI controller (10 s)',
-					done: `Knob on CC ${message.cc} mapped to the slider`,
-					noSlider: 'Put the cursor in a slider(...) call first',
-					timeout: 'No knob moved: nothing mapped',
-					noMidi: 'No MIDI here: knobs work on desktop VS Code only',
-				}[message.state];
-				this.host.output.appendLine(`[knobs] ${text}`);
-				// The waiting message stays until the answer replaces it.
-				this.learnMessage?.dispose();
-				this.learnMessage = vscode.window.setStatusBarMessage(`$(${message.state === 'waiting' ? 'loading~spin' : message.state === 'done' ? 'check' : 'warning'}) strdltn: ${text}`, message.state === 'waiting' ? 11_000 : 5000);
+			case 'knobLearnAt':
+				void this.host.onKnobLearn?.(this.document, message.from);
 				break;
-			}
 			case 'cacheFiles': {
 				const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
 				const cached = folder && (await this.host.packs.files(message.base, message.files, folder));
@@ -521,6 +510,11 @@ export class Session {
 	.dock-slot { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
 	.dock-slot input[type=range] { flex: 1; max-width: 320px; accent-color: var(--vscode-focusBorder, #3794ff); }
 	.dock-slot output { width: 64px; font-family: var(--vscode-editor-font-family, monospace); opacity: .85; }
+	/* Line actions, left of the line numbers (main.ts, lineActions). */
+	.strdltn-actions .cm-gutterElement { padding: 0 2px 0 4px; display: flex; align-items: center; }
+	.strdltn-knob { display: inline-flex; cursor: pointer; color: var(--vscode-descriptionForeground, #8b949e); opacity: .6; --knob-fill: none; --knob-mark: currentColor; }
+	.strdltn-knob:hover { opacity: 1; }
+	.strdltn-knob.on { color: var(--vscode-charts-orange, #d29922); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
 	#unlock { position: fixed; z-index: 4; inset: 0; display: none; align-items: center; justify-content: center;
 		background: rgba(0, 0, 0, 0.7); color: #fff; font: 16px sans-serif; cursor: pointer; }
 	#unlock.visible { display: flex; }

@@ -452,9 +452,11 @@ row is built once and updated in place, so a redraw while typing keeps the field
 narrow side bar it wraps onto two lines.
 Record and record automation come here later (see "Recording" in `doc/DAW-PLAN.md`).
 
-**Layout.** Faders are as tall as the panel allows, from 48 up to 400 pixels. In a panel
-at least 420 pixels tall, M, S and G sit in a row above the fader; lower, they stand
-beside it and take no height (a CSS media query on the page's height).
+**Layout.** Top to bottom: the name, the peak of the level meter, the gain fader on its
+meter (as tall as the panel allows), M and S side by side, the scope with the gain's value
+in its corner, and the jack, centered, which tells the orbit in its tooltip. Asked by the
+maintainer on 2026-11-22, who found the stacked M, S, G and the "gain" text under the
+fader too much: the strip no longer grows when a gain fader comes or goes.
 Phase 2 of `doc/DAW-PLAN.md`, and phase 3 in progress.
 
 **Dock and float.** The button with the window icon in the Mixer's title floats it:
@@ -539,7 +541,10 @@ the same before the drop so the cable can turn red. Redraws of the model wait wh
 cable is held, as for a fader. The integration test sends the drop messages on the
 scratch song and reads the text; the drag gesture itself is tested by hand.
 
-**M, S and G.** Three buttons stacked on the left of each strip, blue when on. Each
+**M, S and the gain toggle.** M and S are two buttons above the scope, blue when on. The
+gain toggle has no button since 2026-11-22: a click on the gain fader's triangle without
+moving it (`clickToToggle` in `src/mixer/main.ts`) takes the gain fader out, and a chain
+without one shows a dim triangle at the bottom of the meter that puts one in. Each
 click is an edit of the code made by the host from the text as it is at that moment
 (`toggledLabel`, `labelEdit`, `gainEdit` in `src/shared/chains.ts`), written into the
 document with a `WorkspaceEdit`. The editor takes it as any edit from outside (see "Text
@@ -548,8 +553,7 @@ silences a label that ends with `_` before it looks at the solo. After a mute or
 the host evaluates the song again if it plays (`MixerActions.evaluate`), since upstream
 reads the labels only on evaluation. G adds `.gain(slider(1, 0, 1))` at the end of the
 chain's own spine, or makes a fixed `.gain(0.8)` a slider, and G off removes the
-`.gain(...)` call that holds the fader. A chain without a gain fader shows a disabled
-fader. The integration test clicks all three on a scratch song (`zz-mixer-test.strudel`)
+`.gain(...)` call that holds the fader. A chain without a gain fader shows the dim triangle. The integration test clicks all three on a scratch song (`zz-mixer-test.strudel`)
 and reads the text after each click.
 
 Sliders are counted in the order of the code, the same order as the transpiler's widgets,

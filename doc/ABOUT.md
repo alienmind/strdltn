@@ -66,8 +66,8 @@ it because the scope grew beyond a VS Code extension.
 - Each slider in the code is a fader. Moving it changes the sound at once and the number
   in the code a moment later. Under the faders, a meter pumps with the part's notes; a click
   on a gray one adds `._scope()` to the part.
-- M mutes, S solos, G adds or removes a gain fader. Each writes Strudel's own code, so the
-  song plays the same on strudel.cc.
+- M mutes, S solos, and a click on the gain fader's triangle adds or removes it. Each writes
+  Strudel's own code, so the song plays the same on strudel.cc.
 - Sidechain as cables: drag from a strip's jack onto another strip to duck it, pull the
   cable off to stop. The code gets the `.duck()` and `.orbit()` for it.
 - Music Controls at the top of the Library: Play, Stop and the BPM of the song. Type a
@@ -127,7 +127,7 @@ version bump.
 ![The Mixer: a strip per part with faders, M, S, G and sidechain cables](screenshot-music.png)
 
 The bottom panel has a tab called Mixer. It shows the song in front: a strip
-for each part, with its faders, M, S and G, and orange cables for the sidechain. Drag
+for each part, with its fader on a level meter, M and S, and orange cables for the sidechain. Drag
 from the jack at the foot of a strip onto another strip and the first ducks the second;
 the code gets `.duck("2")` and, if needed, an `.orbit()` of its own for the target. Every
 change is an edit of the song, so undo takes it back and the song stays plain Strudel.

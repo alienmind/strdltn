@@ -299,43 +299,61 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 
 	// M, S and G stacked beside the faders, as the track buttons of Live's mixer.
 	const body = strip.appendChild(el('div', 'body'));
-	const badges = body.appendChild(el('div', 'badges'));
-	const badge = (text: string, on: boolean, title: string, button: 'mute' | 'solo' | 'gain') => {
-		const b = badges.appendChild(el('button', `badge${on ? ' on' : ''}`, text));
+	const faders = body.appendChild(el('div', 'faders'));
+	const shown = open ? sliders : chain.gain !== undefined ? [chain.gain] : [];
+	const toggleGain = () => post({ type: 'toggle', chain: index, button: 'gain' });
+	for (const i of shown) {
+		const box = faders.appendChild(fader(m.sliders[i!]));
+		// The gain fader sits on the chain's level meter, as in Live's mixer, with no text: its value is over the scope.
+		if (i === chain.gain) {
+			box.querySelectorAll('.label, .detail, .value').forEach((node) => node.remove());
+			addMeter(box, String(index));
+			clickToToggle(box.querySelector('input')!, toggleGain, 'Drag to set the gain. Click the triangle to take the gain fader out of the code');
+		}
+	}
+	// No gain fader: the meter still shows the chain, and a dim triangle at the bottom puts one in the code.
+	if (chain.gain === undefined) {
+		const box = faders.insertBefore(el('div', 'fader off'), faders.firstChild);
+		addMeter(box, String(index));
+		const off = box.querySelector('.meter-well')!.appendChild(el('button', 'off-thumb'));
+		off.title = 'No gain fader. Click to put one in the code';
+		off.addEventListener('click', toggleGain);
+	}
+
+	// M and S side by side above the scope, as the track buttons under Live's meters.
+	const ms = strip.appendChild(el('div', 'ms'));
+	const button = (text: string, on: boolean, title: string, which: 'mute' | 'solo') => {
+		const b = ms.appendChild(el('button', `badge${on ? ' on' : ''}`, text));
 		b.title = title;
-		b.addEventListener('click', () => post({ type: 'toggle', chain: index, button }));
+		b.addEventListener('click', () => post({ type: 'toggle', chain: index, button: which }));
 		// Mute and solo write on the label, and a bare chain has none.
-		if (chain.bare && button !== 'gain') {
+		if (chain.bare) {
 			b.disabled = true;
 			b.title = 'No label to mute or solo: put $: in front of the line to make it a chain';
 		}
 	};
-	badge('M', chain.muted, chain.muted ? `Muted: the label ${chain.label} starts or ends with _. Click to unmute` : 'Mute: writes _ in front of the label', 'mute');
-	badge('S', chain.solo, chain.solo ? `Solo: the label ${chain.label} starts with S. Click to end the solo` : 'Solo: writes S in front of the label', 'solo');
-	badge('G', chain.gain !== undefined, chain.gain !== undefined ? 'Gain fader on. Click to take it out of the code' : 'No gain fader. Click to add one to the code', 'gain');
-
-	const faders = body.appendChild(el('div', 'faders'));
-	const shown = open ? sliders : chain.gain !== undefined ? [chain.gain] : [];
-	for (const i of shown) {
-		const box = faders.appendChild(fader(m.sliders[i!]));
-		// The gain fader sits on the chain's level meter, as in Live's mixer.
-		if (i === chain.gain) addMeter(box, String(index));
-	}
-	// No gain slider: a fader that cannot move, until G puts one in the code. The meter still shows the chain.
-	if (chain.gain === undefined) addMeter(faders.insertBefore(disabledFader(sliders.length), faders.firstChild), String(index));
+	button('M', chain.muted, chain.muted ? `Muted: the label ${chain.label} starts or ends with _. Click to unmute` : 'Mute: writes _ in front of the label', 'mute');
+	button('S', chain.solo, chain.solo ? `Solo: the label ${chain.label} starts with S. Click to end the solo` : 'Solo: writes S in front of the label', 'solo');
 
 	// The chain's scope under its faders. With `._scope()` in the chain it is green and moves
 	// while the song plays; without, a gray flat line, and a click adds the `._scope()`, as
 	// G does for the gain. A click on a green one takes it out again.
-	const scope = strip.appendChild(el('canvas', `scope${chain.scope ? '' : ' off'}`));
+	const scopeBox = strip.appendChild(el('div', 'scope-box'));
+	const scope = scopeBox.appendChild(el('canvas', `scope${chain.scope ? '' : ' off'}`));
+	// The gain's value, over the scope. A fader move updates it, as it updates every output of its slider.
+	if (chain.gain !== undefined) {
+		const gain = m.sliders[chain.gain];
+		const value = scopeBox.appendChild(el('output', 'scope-value', String(gain.value)));
+		value.dataset.slider = String(gain.index);
+		value.title = `Gain${gain.constant ? ` (${gain.constant})` : ''}`;
+	}
 	scope.dataset.chain = String(index);
 	scope.title = chain.scope ? 'Scope of the chain (._scope()). Click to take it out of the code' : 'No scope. Click to add ._scope() to the chain';
 	scope.addEventListener('click', () => post({ type: 'toggle', chain: index, button: 'scope' }));
 	requestAnimationFrame(() => drawWave(scope, []));
 	const foot = strip.appendChild(el('footer'));
-	const route = foot.appendChild(el('div', 'route'));
-	route.appendChild(el('span', 'orbit', chain.orbit === undefined ? 'orbit ?' : `orbit ${chain.orbit}`)).title =
-		chain.orbit === undefined ? 'The orbit is not a number we can read here' : `Plays on orbit ${chain.orbit}. room and delay are shared per orbit`;
+	// The orbit is said in the jack's tooltip, with what the jack does.
+	const orbitText = chain.orbit === undefined ? 'Orbit: not a number we can read here' : `Orbit ${chain.orbit}: room and delay are shared per orbit`;
 	// One jack per strip, as the maintainer asked: the cables this chain sends (its duck)
 	// start here, and the cables that duck it end here. A drag from a jack where a cable
 	// ends pulls that cable off; from a jack with none, or with Alt held, it starts a new one.
@@ -343,10 +361,11 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 	const sends = m.ducks.some((d) => d.from === index && d.to !== undefined);
 	const incoming = m.ducks.find((d) => d.to === index);
 	const said = [
+		orbitText,
 		chain.duckUnknown ? 'Ducks: orbits not readable, edit them in the code' : ducks.length ? `Ducks orbits ${ducks.join(', ')}` : '',
 		incoming ? `Ducked by ${m.chains[incoming.from]?.name} on orbit ${incoming.orbit}. Drag to pull that cable off; Alt+drag for a new cable` : 'Drag onto another strip to duck it',
 	].filter(Boolean);
-	const socket = foot.appendChild(jack(sends || isDucked, said.join('. ')));
+	const socket = foot.appendChild(jack(sends || isDucked, said.join('.\n')));
 	socket.addEventListener('pointerdown', (event) => {
 		const pointer = event as PointerEvent;
 		if (incoming && !pointer.altKey) startDrag(pointer, incoming.from, { orbit: incoming.orbit, to: index });
@@ -385,19 +404,6 @@ function fader(slider: MixerSlider): HTMLElement {
 	return box;
 }
 
-function disabledFader(others: number): HTMLElement {
-	const box = el('div', 'fader off');
-	const input = box.appendChild(el('input'));
-	input.type = 'range';
-	input.min = '0';
-	input.max = '1';
-	input.value = '1';
-	input.disabled = true;
-	box.title = `No gain slider in this chain${others ? ` (${others} other slider${others > 1 ? 's' : ''}: unfold to see them)` : ''}. G adds one.`;
-	box.appendChild(el('span', 'label', 'gain'));
-	box.appendChild(el('output', 'value', 'off'));
-	return box;
-}
 
 /** A jack: the socket of doc/jack.svg, with a plug in it when a cable ends there. */
 function jack(plugged: boolean, title: string): Element {
@@ -504,9 +510,6 @@ function masterStrip(): HTMLElement {
 	const head = strip.appendChild(el('header'));
 	head.appendChild(el('span', 'name', 'Master')).title = 'The whole mix, as it goes to the speakers';
 	const body = strip.appendChild(el('div', 'body'));
-	// An empty row where the chains have M, S and G, so every meter starts at the same height.
-	const badges = body.appendChild(el('div', 'badges spacer'));
-	for (const text of ['M', 'S', 'G']) badges.appendChild(el('span', 'badge', text));
 	const box = body.appendChild(el('div', 'faders')).appendChild(el('div', 'fader'));
 	addMeter(box, 'master');
 	box.appendChild(el('span', 'label', 'out'));
@@ -560,4 +563,18 @@ function drawMeter(canvas: HTMLCanvasElement, state: { left: number; right: numb
 		g.fillRect(xs, Math.round(y(db)), 3 * dpr, dpr);
 		g.fillText(String(-db), xs + 5 * dpr, y(db) + 0.5 * dpr);
 	}
+}
+
+/**
+ * A click on the fader's triangle, without moving it, calls `toggle`; a drag still moves the fader. A click elsewhere in
+ * the lane moves the value there, as a range input does, so it is not a toggle either.
+ */
+function clickToToggle(input: HTMLInputElement, toggle: () => void, title: string): void {
+	input.title = title;
+	let start: { y: number; value: string } | undefined;
+	input.addEventListener('pointerdown', (event) => (start = { y: event.clientY, value: input.value }));
+	input.addEventListener('pointerup', (event) => {
+		if (start && Math.abs(event.clientY - start.y) < 3 && input.value === start.value) toggle();
+		start = undefined;
+	});
 }

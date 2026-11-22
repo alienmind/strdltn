@@ -85,9 +85,12 @@ browser.
 - A strip shows the slider in the chain's `.gain()` as a fader. Unfold it to see every
   other slider of the chain. A slider assigned to a constant (`const KICK_VOL =
   slider(...)`) shows in the chain that uses the constant.
-- M, S and G on each strip. M mutes and S solos the chain, written as upstream's own
-  labels (`_kick:`, `Skick:`); a song that plays is updated at once. G adds a gain fader
-  to the chain (`.gain(slider(1, 0, 1))`) or takes it out.
+- M and S on each strip, above its scope. M mutes and S solos the chain, written as
+  upstream's own labels (`_kick:`, `Skick:`); a song that plays is updated at once.
+- A click on the gain fader's triangle, without dragging it, takes the gain fader out of the
+  code; on a chain without one, the dim triangle puts one in (`.gain(slider(1, 0, 1))`).
+  The gain's value shows in the corner of the strip's scope.
+- The jack at the foot of a strip tells its orbit when the mouse is over it.
 - Sidechain cables: a chain with `.duck("2:3")` is cabled to the chains on those orbits.
   Drag from the jack at the foot of a strip onto another strip to duck it; pull a cable off
   by its end to stop. The code gets the `.duck()`, and an `.orbit()` of its own for a
@@ -224,8 +227,8 @@ song plays.
 
 ![The Mixer: a strip per part with faders, M, S, G and sidechain cables](doc/screenshot-music.png)
 
-The bottom panel has a tab called Mixer, for the song in front. Each part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, G adds
-or removes a gain fader. Drag from the jack at the foot of a strip onto another strip and
+The bottom panel has a tab called Mixer, for the song in front. Each part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, a click on
+the gain fader's triangle adds or removes it. Drag from the jack at the foot of a strip onto another strip and
 the first ducks the second (`.duck()`); pull the cable off to stop. Type a BPM to set the
 tempo in Music Controls, at the top of the Library, with Play and Stop. Every change is
 an edit of the song, so undo takes it back.

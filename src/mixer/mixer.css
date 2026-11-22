@@ -106,9 +106,9 @@ button:disabled { cursor: default; opacity: .35; }
 .strip .scope { display: block; height: 28px; width: calc(100% - 12px); margin: 2px 6px 0; border-radius: 2px; cursor: pointer; color: var(--vscode-charts-green, #89d185); background: var(--vscode-editor-background, rgba(0, 0, 0, .3)); }
 .strip .scope.off { color: var(--vscode-disabledForeground, #888); opacity: .6; }
 .strip .scope:hover { outline: 1px solid var(--vscode-focusBorder, #3794ff); }
-.strip footer { margin-top: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 4px 6px; min-height: 32px; }
+.strip footer { margin-top: auto; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; padding: 4px 6px; min-height: 32px; }
 .route { flex: 1; font-size: 10px; color: var(--vscode-descriptionForeground); }
-.note { width: 100%; font-size: 10px; color: var(--vscode-descriptionForeground); }
+.note { width: 100%; text-align: center; font-size: 10px; color: var(--vscode-descriptionForeground); }
 .jack { display: block; width: 24px; height: 24px; color: var(--sidechain); }
 .jack svg { display: block; }
 
@@ -140,7 +140,8 @@ button:disabled { cursor: default; opacity: .35; }
 /* Level meters, as Live's. Left to right in the well: the fader's lane (13 pixels, METER_LANE in main.ts) with its
    triangle pointing at the bars, the two bars, the scale. The fader's track is clear, so the meter is the track. The
    peak sits above: orange above 0 dB. */
-.fader.metered { width: 60px; }
+/* As wide as its content (lane, two bars, scale), so it sits centered in the strip. */
+.fader.metered { width: 50px; }
 .meter-well { position: relative; width: 100%; height: clamp(60px, calc(100vh - 262px), 400px); margin: 3px 0 5px; }
 .meter-well canvas.meter { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--vscode-descriptionForeground); font-family: var(--vscode-font-family); }
 .fader.metered .meter-well input {
@@ -184,7 +185,36 @@ button:disabled { cursor: default; opacity: .35; }
 .fader.off.metered { opacity: 1; }
 .fader.off.metered .label, .fader.off.metered .value, .fader.off.metered input { opacity: .45; }
 .strip.master .name { font-weight: 600; }
-.badges.spacer { visibility: hidden; }
 @media (min-height: 420px) {
 	.meter-well { height: clamp(60px, calc(100vh - 290px), 400px); }
 }
+
+/* M and S side by side above the scope. */
+.ms { display: flex; justify-content: center; gap: 4px; margin: 4px 6px 0; }
+/* The scope with the gain's value in its corner. */
+.scope-box { position: relative; }
+.scope-box .scope-value {
+	position: absolute;
+	top: 3px;
+	right: 10px;
+	font-family: var(--vscode-editor-font-family, monospace);
+	font-size: 11px;
+	color: var(--vscode-foreground);
+	opacity: .85;
+	pointer-events: none;
+}
+/* No gain fader: a dim triangle at the bottom of the fader's lane, which puts one in the code. */
+.off-thumb {
+	position: absolute;
+	left: 0;
+	bottom: 1px;
+	width: 11px;
+	height: 12px;
+	padding: 0;
+	border: 0;
+	background: var(--vscode-disabledForeground, #888);
+	opacity: .55;
+	clip-path: polygon(0 0, 100% 50%, 0 100%);
+	cursor: pointer;
+}
+.off-thumb:hover { opacity: 1; background: var(--vscode-focusBorder, #3794ff); }

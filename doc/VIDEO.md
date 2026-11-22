@@ -139,7 +139,7 @@ A first outline, about 60 s. Every scene shows something that works today.
 | 4b | Knobs | A knob button red, then green; a knob turned, the slider and the fader following | The knob column beside the code |
 | 5 | Devices | OBERVAVE playing, its own screen and knobs in the Devices tab, F3 and F4 change its sound | The firmware's screen |
 | 6 | Visuals | The stage with Hydra beside the code | The visuals |
-| 7 | Outside edits | An AI agent or git changes the song while it plays, and the sound follows | The edit landing in the code |
+| 7 | Outside edits | Git or another editor changes the song while it plays, and the sound follows | The edit landing in the code |
 | 8 | Close | Logo, `github.com/alienmind/strdltn`, "Runs in VS Code and Codespaces" | None |
 
 ## Licences

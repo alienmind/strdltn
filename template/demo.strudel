@@ -70,7 +70,7 @@ const HH_IN     = [0, "<0!4 1!12>", 1, 1, 1, 1, 1, "<1!8 0!2>"]
 const HHR_IN    = ["<1!9 0>", 0, 1, 1, 1, 1, 1, 0]
 const BASS_IN   = [0, "<0!4 1!12>", 1, 1, 1, 0, 1, "<1!4 0!6>"]
 const ACID_IN   = [0, 0, 1, 0, 1, 1, 1, "<1!2 0!8>"]
-const VOCALS_IN = [1, "<0!4 1!12>", 1, 1, 1, 1, 1, 1]
+const VOCALS_IN = [1, 1, 1, 1, 1, 1, 1, 1]
 const CLAP_IN   = [0, 0, 0, 0, 1, 0, 1, 0]
 // The pad: from bar 9 of the INTRO to the start of the OUTRO
 const PAD_IN    = [0, "<0!8 1!8>", 1, 1, 1, 1, 1, "<1!4 0!6>"]
@@ -117,11 +117,10 @@ const PAD_SPACE=slider(.8,0,1)        // pad: its room
 const VOCALS = ["numbers", "sos-vocals", "sos-vocals", "sos-vocals", "sos-vocals", "sos-vocals", "sos-vocals", "numbers"]
 
 const VOCALS_PATTERN = [
-  // COUNTDOWN: one number a bar, 9 down to 0
-  "<9 8 7 6 5 4 3 2 1 0>",
-  // INTRO: 4 bars of rest, then the phrase every other bar from its first word. Written out:
-  // with "<<0 1 2 ...> ~>" the hidden first 4 bars took 0 and 1, and the intro started on 2
-  "<~!4 0 ~ 1 ~ 2 ~ [3 4] ~ 5 ~ 6 ~>",
+  // COUNTDOWN: a bar of silence, then one number a bar, 8 down to 0
+  "<~ 8 7 6 5 4 3 2 1 0>",
+  // INTRO: a bar of rest, then the phrase every other bar
+  "<~ 0 ~ 1 ~ 2 ~ [3 4] ~ 5 ~ 6 ~ 7 ~ 8>",
   // VERSE: the phrase, every other bar
   "<<0 1 2 [3 4] 5 6 7 8 9 10> ~>",
   // BUILD: the first word, stuttering faster every 2 bars
@@ -133,7 +132,7 @@ const VOCALS_PATTERN = [
   // FINAL DROP: the phrase, every bar
   "<0 1 2 [3 4] 5 6 7 8 9 10>",
   // OUTRO: the countdown again
-  "<9 8 7 6 5 4 3 2 1 0>",
+  "<~ 8 7 6 5 4 3 2 1 0>",
 ]
 
 // A dub delay on a dotted eighth, more of it where there is space
@@ -144,7 +143,7 @@ $vocals: n(part(VOCALS_PATTERN)).s(part(VOCALS))
   // Width: the right side a 32nd late, half way out
   .juxBy(.5, x => x.late(1/32))
   .delay(part(VOCALS_DELAY).mul(VOCALS_ECHO)).delaytime(BEAT * .75).delayfeedback(.45)
-  .room(.3)
+  .room(.3).hpf(part(BUILD_HPF))
   .orbit(6)
   .gain(VOCALS_VOL)._pianoroll()._scope()
 
@@ -175,6 +174,9 @@ const BASS_CUTOFF = [200, saw.slow(16).range(200, 300), saw.slow(16).range(250, 
 const BASS_ENERGY = [1, saw.slow(16).range(1, 2), saw.slow(16).range(2, 3), 3, 4, 1, 4, isaw.slow(10).range(1, 4)]
 const ACID_ENERGY = [1, 1, 2, 1, 3, 1, 4, 2]
 
+// The BUILD thins the band out over its last 4 bars; the DROP opens it again
+const BUILD_HPF = [20, 20, 20, "<20!4 150 400 900 1800>", 20, 20, 20, 20]
+
 
 //   ___
 //  |   \ _ _ _  _ _ __  ___
@@ -189,7 +191,7 @@ $kick: s("[bd]*4").bank("tr909")
 
 // Snare: the backbeat from bar 5 of the INTRO, and in the BUILD a roll that doubles every 2 bars
 const SNARE_PATTERN = ["~", "~ sd ~ sd", "~ sd ~ sd", "<[~ sd]*2!2 sd*4!2 sd*8!2 sd*16!2>", "~ sd ~ sd", "~", "~ sd ~ sd", "~"]
-$snare: s(part(SNARE_PATTERN)).bank("tr909").mask(part(SNARE_IN)).room(.2).gain(SNARE_VOL)
+$snare: s(part(SNARE_PATTERN)).bank("tr909").mask(part(SNARE_IN)).room(.2).hpf(part(BUILD_HPF)).gain(SNARE_VOL)
 
 // 909 claps on 2 and 4 in the drops, a little to the right
 $clap: s("~ cp ~ cp").bank("tr909").mask(part(CLAP_IN)).pan(.6).gain(CLAP_VOL)
@@ -198,13 +200,13 @@ $clap: s("~ cp ~ cp").bank("tr909").mask(part(CLAP_IN)).pan(.6).gain(CLAP_VOL)
 // hammer (as lib/drums/rolling-hats), drifting slowly between left and right
 $hh: s("hh*16").bank("tr909").mask(part(HH_IN))
   .velocity("[.4 .65 .5 1]*4")
-  .pan(sine.slow(2).range(.3, .7)).gain(HH_VOL)._scope()
+  .pan(sine.slow(2).range(.3, .7)).hpf(part(BUILD_HPF)).gain(HH_VOL)._scope()
 
 // Rolling hihat. In the COUNTDOWN its filter opens bar by bar
 const HHR_CUTOFF = [saw.slow(10).range(800, 8000), 8000, 8000, 8000, 8000, 3000, 8000, 8000]
 // Accents on the beat; jux(rev) plays it backwards on the right, for width
 $hhr: s("hh!16").bank("yamaharm50").mask(part(HHR_IN)).velocity("[1 .6 .8 .6]*4")
-  .lpf(part(HHR_CUTOFF).mul(HATS_OPEN)).jux(rev).gain(HHR_VOL)._scope()
+  .lpf(part(HHR_CUTOFF).mul(HATS_OPEN)).hpf(part(BUILD_HPF)).jux(rev).gain(HHR_VOL)._scope()
 
 //   ___             _ _
 //  | _ ) __ _ _____| (_)_ _  ___
@@ -214,7 +216,7 @@ $hhr: s("hh!16").bank("yamaharm50").mask(part(HHR_IN)).velocity("[1 .6 .8 .6]*4"
 // A tb303 whose filter follows the arrangement
 $bass: n(part(BASSLINE_PATTERN).add(part(CHORD_PROGRESSION))).scale("f2:phrygian")._pianoroll()
   .mask(part(BASS_IN))
-  .acid(part(BASS_ENERGY).mul(BASS_SQUELCH)).lpf(part(BASS_CUTOFF).mul(BASS_CUTOFF_MUL)).gain(BASS_VOL)
+  .acid(part(BASS_ENERGY).mul(BASS_SQUELCH)).lpf(part(BASS_CUTOFF).mul(BASS_CUTOFF_MUL)).hpf(part(BUILD_HPF)).gain(BASS_VOL)
   // Pumps with the kick
   .orbit(2)._scope()
 
@@ -223,7 +225,7 @@ $acid: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygian")._
   .rib(10,4)
   .mask(part(ACID_IN))
   .dist(ACID_DRIVE).distvol(.3)
-  .s("sawtooth").lpf(200).lpenv(part(ACID_ENERGY)).lpq(12).gain(ACID_VOL)
+  .s("sawtooth").lpf(200).lpenv(part(ACID_ENERGY)).lpq(12).hpf(part(BUILD_HPF)).gain(ACID_VOL)
   .orbit(3)._scope()
 
 
@@ -251,7 +253,7 @@ const PAD_CUTOFF = [600, 450, saw.slow(16).range(450, 800), saw.slow(8).range(60
 $pad: n(part(CHORD_PROGRESSION).add("[0,2,4]")).scale("f3:phrygian")
   .mask(part(PAD_IN))
   .s("supersaw").detune(.6).attack(.5).release(2)
-  .lpf(part(PAD_CUTOFF).mul(PAD_OPEN)).room(PAD_SPACE)
+  .lpf(part(PAD_CUTOFF).mul(PAD_OPEN)).hpf(part(BUILD_HPF)).room(PAD_SPACE)
   .orbit(5)
   .gain(PAD_VOL)._scope()
 

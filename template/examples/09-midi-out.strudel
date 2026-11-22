@@ -5,14 +5,12 @@
 
 setcpm(124/4)
 
-// Your devices, as the Library's MIDI category lists them: a click there types the name.
-// Single quotes: in double quotes Strudel reads mini-notation.
+// Your devices. A click on one in the Library's MIDI category types its name.
 const SYNTH = 'M-VAVE FM-1'
 const knobs = await midin('MPK mini 3')
 
-// The knobs' CC numbers: the maintainer's MPK mini 3 sends CC 1 to 8 from its eight knobs.
-// "strdltn: Show MIDI messages in the Output" shows what yours send. A knob reads 0 until it
-// moves, so the band starts silent: bring each part in with its knob, as on a mixer.
+// The MPK mini 3's knobs send CC 1 to 8. The band starts silent: bring each part in with its
+// knob, as on a mixer.
 const KICK = knobs(1)
 const HATS = knobs(2)
 const BASS = knobs(3)
@@ -22,9 +20,8 @@ const SYNTH_HARD = knobs(6)
 const SYNTH_OPEN = knobs(7)
 const SYNTH_MACRO = knobs(8)
 
-// The synth's own CC numbers. 74 is the filter on most synths, and on Xfer's SHRUB on the FM-1
-// it moves the cutoff (tried on 2026-11-22). SHRUB takes its four macros on CC 16 to 19 (as
-// reviews say, not from Xfer). The FM-1's stock firmware has its cutoff on CC 2 instead.
+// What the synth listens to: SHRUB on the FM-1 takes its cutoff on CC 74 and its first macro
+// on CC 16.
 const FILTER_CC = 74
 const MACRO_CC = 16
 
@@ -41,8 +38,7 @@ $synth: note("<[c3 eb3 g3 bb3] [ab2 c3 eb3 g3]>*2").midichan(1)
   .velocity(SYNTH_HARD.range(.3, 1))
   .midi(SYNTH)
 
-// Knobs 7 and 8 go on to the synth: 7 as its filter, 8 as SHRUB's first macro. Controls only,
-// no notes.
+// Knobs 7 and 8 go on to the synth: its filter and its first macro.
 $cutoff: ccn(FILTER_CC).ccv(SYNTH_OPEN).seg(16)
   .midi(SYNTH, { isController: true })
 $macro: ccn(MACRO_CC).ccv(SYNTH_MACRO).seg(16)

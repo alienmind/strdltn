@@ -18,9 +18,10 @@ const video = resolve(import.meta.dirname, '..');
 const repo = resolve(video, '..');
 const out = join(repo, 'tmp', 'showcase');
 const FPS = 30;
-// The size the page is laid out at, whatever the screen: 2560x1440, so the Mixer's strips and the cables under them
-// show whole (the maintainer, 2026-11-22: 1920x1080 cut the cables). SIZE=1920x1080 for another.
-const [W, H] = (process.env.SIZE ?? '2560x1440').split('x').map(Number);
+// The size the page is laid out at, whatever the screen. 2560x1440 showed everything but the page sent too few
+// pictures where it is busy (5 to 13 a second in the BUILD), so 1920x1080, with the panel at 57% of the height so
+// the cables still show (the maintainer, 2026-11-22). SIZE=2560x1440 for another.
+const [W, H] = (process.env.SIZE ?? '1920x1080').split('x').map(Number);
 // The song of the take: the demo without its explanatory comments (the maintainer, 2026-11-22). SONG=... for another.
 const SONG = process.env.SONG ?? 'sea_of_souls.strudel';
 
@@ -117,10 +118,10 @@ function keep(jpeg, t) {
  */
 let shooting = false;
 async function watchdog() {
-	if (!casting || shooting || Date.now() / 1000 - lastFrame < 0.4) return;
+	if (!casting || shooting || Date.now() / 1000 - lastFrame < 0.2) return;
 	shooting = true;
 	const t = Date.now() / 1000;
-	const shot = await emulation.send('Page.captureScreenshot', { format: 'jpeg', quality: 90 });
+	const shot = await emulation.send('Page.captureScreenshot', { format: 'jpeg', quality: 70 });
 	if (shot.result) keep(Buffer.from(shot.result.data, 'base64'), t);
 	shooting = false;
 }
@@ -268,7 +269,7 @@ let audioStart = 0;
 async function startScreencast() {
 	casting = true;
 	lastFrame = Date.now() / 1000;
-	await emulation.send('Page.startScreencast', { format: 'jpeg', quality: 92, everyNthFrame: 1, maxWidth: W, maxHeight: H });
+	await emulation.send('Page.startScreencast', { format: 'jpeg', quality: 70, everyNthFrame: 1, maxWidth: W, maxHeight: H });
 	return { send: (method, params) => emulation.send(method, params), close: () => {} };
 }
 

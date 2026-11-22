@@ -199,7 +199,8 @@ $fm: n(part(CHORD_PROGRESSION).add("[0,2,4]")).scale("f3:phrygian")
 //  |   / _` \ V / -_)
 //  |_|_\__,_|\_/\___|
 //
-await initHydra({ feedStrudel: 1})
+const HYDRA_DARK = [1, 1, 1, 1, 0, 1, 0, 1]
+await initHydra({ feedStrudel: 1, pixelRatio: .5 })
 src(s0)
   .kaleid(H("<4 5 6>"))
   .modulateScale(osc(2,-0.25,1))
@@ -211,6 +212,7 @@ src(s0)
   .layer(
       src(s0).luma(0.5, 0.01)
   )
+  .mult(solid(0, 0, 0), H(part(HYDRA_DARK)))
   .out()
 
 all(x=>x.fft(4).scope({pos:0,smear:.95}))

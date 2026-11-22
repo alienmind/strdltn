@@ -5,10 +5,10 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.4.1, tagged `v0.4.1` but with no GitHub release.**
-The tag started no workflow, because Actions was off for this repository until
-2026-11-22 (see "Release" in ARCHITECTURE); it is on now. `v0.3.0` was released by hand.
-`v0.4.1` gets its release when the tag is pushed again, or by hand. The version started again for this
+**`main` holds everything, version 0.4.1, released as `v0.4.1`.** The release was made by
+hand on 2026-11-22, as `v0.3.0` was: the tag started no workflow, because Actions was off
+for this repository until that day (see "Release" in ARCHITECTURE). It is on now, so the
+next tag should build its own release. The version started again for this
 project; the tag 1.0.0 is the vstrudel release. The extension is [str]dltn Live[code]: id
 `strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it installs
 beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry over.

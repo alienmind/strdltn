@@ -213,6 +213,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		const native = vscode.window.activeTextEditor;
 		return [...sessions].find((s) => s.panel.active) ?? (isStrudel(native) ? find(native.document.uri, 'stage') : undefined);
 	};
+	/** The Strudel editor in front, not a stage. */
+	const frontEditor = () => [...sessions].find((s) => s.panel.active && s.mode === 'editor');
 	/** A song that still plays in a tab that is not in front. The one the user was in last. */
 	const playingElsewhere = () =>
 		[...sessions].filter((s) => s.started).sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
@@ -282,6 +284,11 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.commands.registerCommand('strdltn.clearPackCache', clearPackCache),
 		vscode.commands.registerCommand('strdltn.openStage', () => stageForActiveTextEditor()),
 		vscode.commands.registerCommand('strdltn.toggleMode', toggleMode),
+		// VS Code's editing keys in the Strudel editor. Upstream's CodeMirror binds no Ctrl+F
+		// or Ctrl+G, so the key leaves the webview and VS Code runs these, bound under
+		// `activeCustomEditorId == strdltn.editor`. A user rebinds them like any command.
+		vscode.commands.registerCommand('strdltn.editor.find', () => frontEditor()?.editorAction('find')),
+		vscode.commands.registerCommand('strdltn.editor.gotoLine', () => frontEditor()?.editorAction('gotoLine')),
 
 		// The Browser calls these itself. They stay commands for keybindings and for the test,
 		// with a sound or a snippet given by name.

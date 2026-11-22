@@ -97,6 +97,14 @@
 				"title": "strdltn: Clear sample pack cache"
 			},
 			{
+				"command": "strdltn.editor.find",
+				"title": "strdltn: Find in the Strudel editor"
+			},
+			{
+				"command": "strdltn.editor.gotoLine",
+				"title": "strdltn: Go to line in the Strudel editor"
+			},
+			{
 				"command": "strdltn.toggleMode",
 				"title": "strdltn: Toggle Strudel editor / native editor",
 				"icon": "$(arrow-swap)"
@@ -197,6 +205,14 @@
 			],
 			"commandPalette": [
 				{
+					"command": "strdltn.editor.find",
+					"when": "activeCustomEditorId == strdltn.editor"
+				},
+				{
+					"command": "strdltn.editor.gotoLine",
+					"when": "activeCustomEditorId == strdltn.editor"
+				},
+				{
 					"command": "strdltn.previewSound",
 					"when": "false"
 				},
@@ -226,6 +242,18 @@
 				"key": "ctrl+.",
 				"mac": "cmd+.",
 				"when": "activeCustomEditorId == strdltn.editor || editorLangId == strudel"
+			},
+			{
+				"command": "strdltn.editor.find",
+				"key": "ctrl+f",
+				"mac": "cmd+f",
+				"when": "activeCustomEditorId == strdltn.editor"
+			},
+			{
+				"command": "strdltn.editor.gotoLine",
+				"key": "ctrl+g",
+				"mac": "ctrl+g",
+				"when": "activeCustomEditorId == strdltn.editor"
 			},
 			{
 				"command": "strdltn.toggleMode",
@@ -450,6 +478,7 @@
 	},
 	"devDependencies": {
 		"@breezystack/lamejs": "1.2.7",
+		"@codemirror/search": "6.7.2",
 		"@codemirror/state": "^6.7.6",
 		"@codemirror/view": "^6.43.15",
 		"@julusian/midi": "3.9.0",

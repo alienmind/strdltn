@@ -2,6 +2,7 @@
 // a VS Code text document. We host upstream and add nothing to it, so that a new visual
 // or widget in a later @strudel release arrives with a version bump.
 import { Annotation, Prec, StateEffect, Transaction, type EditorSelection } from '@codemirror/state';
+import { gotoLine, openSearchPanel } from '@codemirror/search';
 import { EditorView } from '@codemirror/view';
 import * as strudelCodemirror from '@strudel/codemirror';
 import * as strudelCore from '@strudel/core';
@@ -110,6 +111,15 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'insert':
 			insert(message.text, message.bare, message.argument);
+			break;
+		case 'editorAction':
+			if (mirror && mode === 'editor') {
+				mirror.editor.focus();
+				// openSearchPanel adds the search extension when the editor has none: upstream
+				// leaves search() out of its setup.
+				const ran = message.action === 'find' ? openSearchPanel(mirror.editor) : gotoLine(mirror.editor);
+				log('info', `editor action ${message.action}: ${ran ? 'ran' : 'did nothing'}`);
+			}
 			break;
 		case 'select':
 			if (mirror && mode === 'editor') {

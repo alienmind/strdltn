@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { DocumentWrites, lf, lineColumn, SyncHost, type SyncUpdate } from '../shared/sync';
-import { type EditorSettings, type EngineState, type FromWebview, type Mode, type ScopeFrame, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { type EditorAction, type EditorSettings, type EngineState, type FromWebview, type Mode, type ScopeFrame, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { findPackSources } from '../shared/packs';
 import type { PackCache } from './packs';
 import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
@@ -148,6 +148,12 @@ export class Session {
 	/** Puts the cursor of the Strudel editor at an offset and scrolls to it. */
 	select(offset: number): void {
 		this.post({ type: 'select', offset });
+	}
+
+	/** A key of VS Code reached our command: CodeMirror runs the action. Logged for the keybinding spike. */
+	editorAction(action: EditorAction): void {
+		this.host.output.appendLine(`[keys] ${action}: the key reached VS Code, sent to the Strudel editor`);
+		this.post({ type: 'editorAction', action });
 	}
 
 	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */

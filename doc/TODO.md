@@ -25,7 +25,8 @@ Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 
 Work in flight is on the branch `feat/knobs` (the maintainer, 2026-11-22): first the
 spike of item 14 (keybindings in the Strudel editor), then item 15 (sliders on knobs),
-with the four open questions of "Sliders on knobs" answered.
+with the four open questions of "Sliders on knobs" answered. The spike of item 14 is built
+and waits for the hand test under "Next: test by hand".
 
 Next in line:
 
@@ -53,10 +54,16 @@ Next in line:
 
 ## Next: test by hand
 
-Every hand test on `feat/open-snippets` passed on 2026-11-22, on the maintainer's own VS
-Code after `pnpm promote` (0.4.0-dev, commit `41a081d`): double click and Enter on a
-snippet, "Open the file", songs and renders, the priority setting on and off in Task
-Manager, and the Library with Songs and Snippets in it. Nothing waits for a hand test.
+Test on **desktop, F5 from this repo** (branch `feat/knobs`), with the template folder
+open and the Output strdltn shown.
+
+| # | Do this | Should happen |
+|---|---|---|
+| 1 | Open `demo.strudel` in the Strudel editor, click into the code, press Ctrl+F | CodeMirror's search bar opens at the bottom of the editor. The Output says `[keys] find: the key reached VS Code` |
+| 2 | Type `kick` in that bar, press Enter twice | The cursor jumps to each `kick` in turn |
+| 3 | Press Ctrl+G | CodeMirror's "Go to line" field opens; a number and Enter jump there. The Output says `[keys] gotoLine` |
+| 4 | Switch to the native editor (Ctrl+Alt+M), press Ctrl+F | VS Code's own find, as always. No `[keys]` line |
+| 5 | Keyboard Shortcuts, search `strdltn.editor.find`, bind it to Ctrl+Shift+F3, try it in the Strudel editor | The search bar opens with the new key |
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -464,9 +471,15 @@ keys. Not designed, not measured. What we know and what we expect:
   command, and the command tells the webview which CodeMirror action to run. A user
   rebinds them in Keyboard Shortcuts like any command. What this does not do: follow a
   rebinding of VS Code's own `actions.find` by itself.
-- First spike: with CodeMirror's Ctrl+F removed, does the key reach VS Code from the
-  webview, and does a command bound under `activeCustomEditorId` run? Then the list of
-  actions to map.
+- Read in `@strudel/codemirror` 1.3.0: upstream binds no Ctrl+F and no Ctrl+G. Its
+  `searchKeymap` is commented out, and `search()` too, so nothing is to be removed.
+- The spike, built on `feat/knobs` as the first piece of the real thing: the commands
+  `strdltn.editor.find` (Ctrl+F) and `strdltn.editor.gotoLine` (Ctrl+G) under
+  `activeCustomEditorId == strdltn.editor`. The webview runs `openSearchPanel` and
+  `gotoLine` of `@codemirror/search` 6.7.2 (the copy upstream already uses, now a pinned
+  dependency of ours). The host writes `[keys] find: the key reached VS Code` to the
+  Output strdltn, so the hand test shows which way the key went. Waiting for the hand
+  test. Then the list of actions to map.
 
 ## Open design questions
 

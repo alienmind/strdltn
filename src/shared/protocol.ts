@@ -101,7 +101,12 @@ export type ToWebview =
 	/** The answer to `midiPing`: the host's clock (`epochNow`) when it read the ping. */
 	| { type: 'midiPong'; id: number; sent: number; now: number }
 	/** A message from a MIDI input the song listens to. */
-	| { type: 'midiIn'; port: string; bytes: number[] };
+	| { type: 'midiIn'; port: string; bytes: number[] }
+	/** A VS Code command bound to an editing key (Ctrl+F...) asks CodeMirror to run its action. */
+	| { type: 'editorAction'; action: EditorAction };
+
+/** The editing actions of the Strudel editor that VS Code's keys reach through our commands. */
+export type EditorAction = 'find' | 'gotoLine';
 
 /**
  * The level of one chain at one moment, for the pump meter of the Mixer: it jumps by the

@@ -20,6 +20,13 @@ const PAD = knobs(4)
 const BASS_OPEN = knobs(5)
 const SYNTH_HARD = knobs(6)
 const SYNTH_OPEN = knobs(7)
+const SYNTH_MACRO = knobs(8)
+
+// The synth's own CC numbers. 74 is the filter on most synths. Xfer's SHRUB on the FM-1 takes
+// its four macros on CC 16 to 19 (as reviews say, not from Xfer); a macro moves what the patch
+// gives it, often the filter. The FM-1's stock firmware has its cutoff on CC 2 instead.
+const FILTER_CC = 74
+const MACRO_CC = 16
 
 // The band, in the editor. Knobs 1 to 4: the level of each part.
 $kick: s("bd*4").bank("RolandTR909").duck(2).duckattack(.2).duckdepth(.8).gain(KICK)
@@ -34,6 +41,9 @@ $synth: note("<[c3 eb3 g3 bb3] [ab2 c3 eb3 g3]>*2").midichan(1)
   .velocity(SYNTH_HARD.range(.3, 1))
   .midi(SYNTH)
 
-// Knob 7 goes on to the synth as CC 74, the filter on most synths. Controls only, no notes.
-$cutoff: ccn(74).ccv(SYNTH_OPEN).seg(16)
+// Knobs 7 and 8 go on to the synth: 7 as its filter, 8 as SHRUB's first macro. Controls only,
+// no notes.
+$cutoff: ccn(FILTER_CC).ccv(SYNTH_OPEN).seg(16)
+  .midi(SYNTH, { isController: true })
+$macro: ccn(MACRO_CC).ccv(SYNTH_MACRO).seg(16)
   .midi(SYNTH, { isController: true })

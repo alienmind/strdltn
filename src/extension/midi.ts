@@ -2,6 +2,7 @@
 // plays MIDI talks to this, and this to the worker thread that owns the ports
 // (midi-worker.ts). The worker starts with the first MIDI message of a song, so a song
 // without MIDI never loads the native module.
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { Worker } from 'node:worker_threads';
 import * as vscode from 'vscode';
@@ -31,6 +32,8 @@ export class MidiBridge implements vscode.Disposable {
 
 	/** The setting strdltn.midi.debug: every message in and out goes to the Output as text. */
 	private debug = false;
+	/** The priority the extension host had before strdltn.midi.highPriority raised it. */
+	private priorityBefore: number | undefined;
 	private readonly disposables: vscode.Disposable[] = [];
 
 	constructor(
@@ -38,7 +41,35 @@ export class MidiBridge implements vscode.Disposable {
 		private readonly output: vscode.OutputChannel,
 	) {
 		this.readDebug();
-		this.disposables.push(vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration('strdltn.midi.debug') && this.readDebug()));
+		this.disposables.push(
+			vscode.workspace.onDidChangeConfiguration((e) => {
+				if (e.affectsConfiguration('strdltn.midi.debug')) this.readDebug();
+				if (e.affectsConfiguration('strdltn.midi.highPriority')) this.applyPriority();
+			}),
+		);
+	}
+
+	/**
+	 * The setting strdltn.midi.highPriority, off by default, and only while the worker runs.
+	 * High priority removed MIDI's late notes of 20 to 80 ms in spike S5, but it is the
+	 * priority of the whole extension host, so every other extension in it is raised too
+	 * (decision 17 of doc/TODO.md: the maintainer wants it behind a setting).
+	 */
+	private applyPriority(): void {
+		const want = !!this.worker && vscode.workspace.getConfiguration('strdltn.midi').get<boolean>('highPriority', false);
+		try {
+			if (want && this.priorityBefore === undefined) {
+				this.priorityBefore = os.getPriority();
+				os.setPriority(os.constants.priority.PRIORITY_HIGH);
+				this.output.appendLine('[midi] the extension host runs at high priority');
+			} else if (!want && this.priorityBefore !== undefined) {
+				os.setPriority(this.priorityBefore);
+				this.priorityBefore = undefined;
+				this.output.appendLine('[midi] the extension host is back to its own priority');
+			}
+		} catch (error) {
+			this.output.appendLine(`[midi] priority not changed: ${(error as Error).message}`);
+		}
 	}
 
 	private readDebug(): void {
@@ -115,6 +146,7 @@ export class MidiBridge implements vscode.Disposable {
 		this.worker = undefined;
 		// The panic needs a moment to go out before the thread ends.
 		setTimeout(() => void worker?.terminate(), 50);
+		this.applyPriority();
 		this.portsChanged.dispose();
 		this.disposables.forEach((d) => d.dispose());
 	}
@@ -127,10 +159,12 @@ export class MidiBridge implements vscode.Disposable {
 			worker.on('error', (error) => this.output.appendLine(`[midi] error: ${error.message}`));
 			worker.on('exit', (code) => {
 				if (this.worker === worker) this.worker = undefined;
+				this.applyPriority();
 				this.output.appendLine(`[midi] the worker ended (${code})`);
 			});
 			this.worker = worker;
 			this.output.appendLine('[midi] bridge started');
+			this.applyPriority();
 			return true;
 		} catch (error) {
 			this.output.appendLine(`[midi] does not start: ${(error as Error).message}`);

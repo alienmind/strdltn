@@ -44,15 +44,13 @@ const FILTER_KEY = 'strdltn.browserFilter';
 const NO_FILTER: BrowserFilterState = { category: 'all', query: '', chips: [] };
 
 /**
- * The Browser: four views in the side bar, like the browser of Live split into its parts.
- * Library (sounds, with the one search field, the colors and the Built-in button), Songs
- * and Snippets, and Reference (functions, later the tutorial) pick what is shown; Results
- * shows it, from every view, in one list with chips and a details pane. The maintainer
- * wanted the parts apart, as the separate views of vstrudel were, with one search, one
- * set of colors and one list of results. A tree cannot show colors, chips or a search
- * field, so these replaced the old trees.
+ * The Browser: three views in the side bar, like the browser of Live. Library (sounds,
+ * renders, MIDI ports, songs and snippets, with the one search field, the colors and the
+ * Built-in button) and Reference (functions, later the tutorial) pick what is shown;
+ * Results shows it, from both, in one list with chips and a details pane. A tree cannot
+ * show colors, chips or a search field, so these replaced the old trees.
  *
- * All four are the same page. The host owns the data and the filter: it builds the items,
+ * All three are the same page. The host owns the data and the filter: it builds the items,
  * keeps the user's colors and tags in `strdltn.index.json`, keeps the filter for all
  * views, and does what a row asks (play, insert, open). A view that changes the filter
  * sends it here, and the host hands it to the others.
@@ -105,7 +103,7 @@ export class BrowserView {
 		return this.sounds;
 	}
 
-	/** The provider of one of the four views. */
+	/** The provider of one of the three views. */
 	provider(page: BrowserPage): vscode.WebviewViewProvider {
 		return {
 			resolveWebviewView: (view) => {
@@ -298,16 +296,18 @@ export class BrowserView {
 
 	private async open(item: CatalogItem): Promise<void> {
 		// A render opens in VS Code's own media preview, which plays .wav and .mp3.
-		if (item.kind === 'song' || item.kind === 'render') {
+		// A song or a snippet opens in the Strudel editor by name, not by `vscode.open`: the
+		// native editor is never the default (the maintainer, 2026-11-22), and `vscode.open`
+		// follows the user's `workbench.editorAssociations`. The header of a snippet shows in
+		// the Strudel editor too, so its tags can still be edited by hand there.
+		if (item.kind === 'render') {
 			const uri = item.path && this.songs.uri(item.path);
 			if (uri) await vscode.commands.executeCommand('vscode.open', uri);
 			return;
 		}
-		if (item.kind === 'snippet') {
-			const snippet = this.snippets.find(item.id.slice('snippet:'.length));
-			// The native editor: a snippet is edited as text, header included.
-			if (snippet) await vscode.commands.executeCommand('vscode.openWith', snippet.uri, 'default');
-		}
+		const uri =
+			item.kind === 'song' ? item.path && this.songs.uri(item.path) : item.kind === 'snippet' ? this.snippets.find(item.id.slice('snippet:'.length))?.uri : undefined;
+		if (uri) await vscode.commands.executeCommand('vscode.openWith', uri, 'strdltn.editor');
 	}
 
 	/**

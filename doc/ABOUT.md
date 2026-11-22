@@ -78,8 +78,8 @@ it because the scope grew beyond a VS Code extension.
 
 - All the sounds of strudel.cc: drum machines, piano, the VCSL instruments, the General
   MIDI soundfonts, the synths.
-- A Browser like the one of Ableton Live, in four views: Library (sounds), Songs and
-  Snippets, Reference (every function of Strudel), and Results. One search, seven colors
+- A Browser like the one of Ableton Live, in three views: Library (sounds, renders, MIDI
+  ports, songs and snippets), Reference (every function of Strudel), and Results. One search, seven colors
   and a Built-in switch act on all of them, and Results shows everything they pick in one
   list with tag chips.
 - Drum machines grouped by bank.
@@ -105,7 +105,7 @@ it because the scope grew beyond a VS Code extension.
 **Projects**
 
 - Songs, samples and snippets are plain files: git, search and folders work as usual.
-- Songs and Snippets lists every `.strudel` file of your project, by folder.
+- The Library lists every `.strudel` file of your project, by folder.
 - Ready for AI assistants such as Copilot: the template tells them that "add a bass line"
   means a change to the song you have open, and gives them the Strudel reference and
   tutorial to look things up.
@@ -134,7 +134,7 @@ change is an edit of the song, so undo takes it back and the song stays plain St
 
 ### Sounds
 
-<img src="screenshot-browser.png" alt="The Browser: Library with the search and colors, Songs and Snippets, Reference, and Results" width="300" align="right">
+<img src="screenshot-browser.png" alt="The Browser: Library with the search and colors, Reference, and Results" width="300" align="right">
 
 The **Library** lists what the engine can play, and **Results** shows what you pick.
 Click a sound to hear it, even with no song open. The buttons on the row type it where
@@ -161,7 +161,7 @@ open the file: the pack shows up in the Browser at once, and it is copied into a
 
 ### Snippets
 
-Put `.strudel` files in a `lib/` folder. **Songs and Snippets** shows them by folder.
+Put `.strudel` files in a `lib/` folder. The **Library** shows them under Snippets, by folder.
 Rest the mouse on one to see what it is and its code. A button inserts it at the cursor.
 
 A snippet describes itself in comments at the top of the file:

@@ -1,7 +1,7 @@
-// The page of the Browser's four views. Library, Songs and Snippets and Reference show the
-// categories that pick what is shown (Library also the search and the colors);
-// Results shows the chips, the results and the details. One filter for all four: the host
-// keeps it and hands it to each. See "Browser" in doc/ARCHITECTURE.md.
+// The page of the Browser's three views. Library and Reference show the categories that
+// pick what is shown (Library also the search and the colors); Results shows the chips,
+// the results and the details. One filter for all three: the host keeps it and hands it to
+// each. See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
 import { type BrowserFilterState, type BrowserPage, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
 import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, opens, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
@@ -37,7 +37,7 @@ const saved = (vscode.getState() as Saved | undefined) ?? undefined;
 let items: CatalogItem[] = [];
 let user: UserIndex = emptyUserIndex();
 let preview = true;
-/** Which of the four views this page is. Known from `init`. */
+/** Which of the three views this page is. Known from `init`. */
 let page: BrowserPage = 'library';
 let filter: BrowserFilterState = { category: 'all', query: '', chips: [] };
 const sections: Record<string, boolean> = saved?.sections ?? { collections: true, library: true, places: false };
@@ -72,7 +72,7 @@ const button = (name: string, title: string, onClick: (event: MouseEvent) => voi
 const rowKey = (row: Row) => (row.type === 'heading' ? `h:${row.key}` : row.type === 'item' ? row.item.id : `${row.item.id}#${row.index}`);
 const colorVar = (color: number) => `var(--c${color})`;
 const filtered = () => !!(filter.query.trim() || filter.chips.length || filter.color || filter.place || filter.builtin !== undefined);
-/** The items this view picks from: sounds in the Library, songs and snippets, functions in the Reference. */
+/** The items this view picks from: functions in the Reference, everything else in the Library. */
 const ownItems = () => items.filter((item) => pageOf(item) === page);
 
 // ---- the page ---------------------------------------------------------------------------
@@ -298,7 +298,7 @@ function toggleChip(tag: string, add: boolean): void {
 
 function drawResultbar(): void {
 	resultbar.replaceChildren();
-	const scopes: Record<BrowserPage, string> = { library: 'Library', songs: 'Songs and Snippets', reference: 'Reference', results: '' };
+	const scopes: Record<BrowserPage, string> = { library: 'Library', reference: 'Reference', results: '' };
 	const where = filter.category !== 'all' ? CATEGORIES.find((c) => c.id === filter.category)?.label : filter.scope ? scopes[filter.scope] : '';
 	const parts = [`${results.length} ${results.length === 1 ? 'result' : 'results'}`, where ? `in ${where}` : ''];
 	if (filter.color) parts.push(user.colorNames[filter.color - 1]);
@@ -402,7 +402,7 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		);
 	}
 	node.addEventListener('click', (event) => onRowClick(index, event));
-	node.addEventListener('dblclick', () => activate(rows[index]));
+	node.addEventListener('dblclick', () => openRow(rows[index]));
 	node.addEventListener('contextmenu', (event) => {
 		event.preventDefault();
 		if (!selection.has(key)) select(index, false, false);
@@ -523,7 +523,7 @@ function onRowClick(index: number, event: MouseEvent): void {
 	}
 	select(index, event.ctrlKey || event.metaKey, event.shiftKey);
 	// A click plays a sound when preview is on. It never types: that is Enter, a double
-	// click or the insert button.
+	// click (not on a snippet, which opens) or the insert button.
 	if (preview && !event.ctrlKey && !event.shiftKey && row.type !== 'heading' && row.item.sound) playRow(row);
 }
 
@@ -532,7 +532,17 @@ function playRow(row: Row): void {
 	post({ type: 'play', id: row.item.id, index: row.type === 'variation' ? row.index : undefined });
 }
 
-/** Enter or a double click: a song opens, anything else is typed at the cursor of the editor. */
+/**
+ * A double click: a song or a snippet opens its file, anything else is what Enter does.
+ * Enter still types a snippet, so the keyboard keeps a way to insert one (the maintainer,
+ * 2026-11-22, item 12 of doc/TODO.md).
+ */
+function openRow(row: Row | undefined): void {
+	if (row?.type !== 'heading' && row?.item.kind === 'snippet') return post({ type: 'open', id: row.item.id });
+	activate(row);
+}
+
+/** Enter: a song opens, anything else is typed at the cursor of the editor. */
 function activate(row: Row | undefined): void {
 	if (!row) return;
 	if (row.type === 'heading') return row.insert ? post({ type: 'insertText', text: row.insert }) : toggleHeading(row);
@@ -889,8 +899,8 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			items = message.items;
 			user = message.user;
 			preview = message.preview;
-			// Library: search, colors, categories. Songs and Snippets, Reference:
-			// their categories. Results: chips, results, details.
+			// Library: search, colors, categories. Reference: its categories. Results:
+			// chips, results, details.
 			searchbar.hidden = colorbar.hidden = controlsBox.hidden = page !== 'library';
 			nav.hidden = page === 'results';
 			chips.hidden = resultbar.hidden = resultsBox.hidden = details.hidden = page !== 'results';

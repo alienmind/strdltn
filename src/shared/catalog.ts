@@ -15,13 +15,14 @@ export const CATEGORIES = [
 	{ id: 'drums', label: 'Drums', icon: 'drum' },
 	{ id: 'samples', label: 'Samples', icon: 'sample' },
 	{ id: 'instruments', label: 'Instruments', icon: 'midi' },
-	{ id: 'snippets', label: 'Snippets', icon: 'snippet' },
-	{ id: 'songs', label: 'Songs', icon: 'song' },
-	{ id: 'functions', label: 'Functions', icon: 'function' },
 	// The audio of songs: renders and recordings, next to their song. See src/shared/render.ts.
 	{ id: 'renders', label: 'Render', icon: 'render' },
 	// The MIDI ports of the machine, from the extension host (src/extension/midi.ts). Desktop only.
 	{ id: 'midi', label: 'MIDI', icon: 'midi' },
+	{ id: 'songs', label: 'Songs', icon: 'song' },
+	{ id: 'snippets', label: 'Snippets', icon: 'snippet' },
+	// In the Reference view, not the Library (src/shared/browser.ts, `pageOf`).
+	{ id: 'functions', label: 'Functions', icon: 'function' },
 ] as const;
 export type CategoryId = (typeof CATEGORIES)[number]['id'];
 

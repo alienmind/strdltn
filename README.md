@@ -131,10 +131,10 @@ browser.
 
 **Browser**
 
-- A Browser in the side bar, like the browser of Ableton Live, in four views. Library
-  (search, seven colors, a Built-in switch, and Sounds, Drums, Samples, Instruments),
-  Songs and Snippets, and Reference (every function of Strudel) pick what you see;
-  Results shows it all in one list, with tag chips and details.
+- A Browser in the side bar, like the browser of Ableton Live, in three views. Library
+  (search, seven colors, a Built-in switch, and Sounds, Drums, Samples, Instruments,
+  Render, MIDI, Songs, Snippets) and Reference (every function of Strudel) pick what you
+  see; Results shows it all in one list, with tag chips and details.
 - Search by name, bank, folder, description or tag. Every word must match. `#kick`
   looks only at tags.
 - Tags come by themselves from the names: Kick, Snare, Hihat... for drums, Bass, Pad,
@@ -146,7 +146,7 @@ browser.
   Tags of a snippet go into its own header.
 - Save a search: it becomes a row under Collections.
 - A click on a sound plays it when preview is on. It never types. Enter, a double click
-  or the insert button types the code that plays it at the cursor: `s("bd")`,
+  (not on a snippet, which opens its file) or the insert button types the code that plays it at the cursor: `s("bd")`,
   `s("bd").bank("RolandTR909")`, `note("c3").s("sawtooth")`. Inside a string, only the
   name. Copy gives the name. A bank heading has a button that types
   `.bank("...")`.
@@ -240,10 +240,10 @@ an edit of the song, so undo takes it back.
 
 ### The Browser
 
-<img src="doc/screenshot-browser.png" alt="The Browser: Library with the search and colors, Songs and Snippets, Reference, and Results" width="300" align="right">
+<img src="doc/screenshot-browser.png" alt="The Browser: Library with the search and colors, Reference, and Results" width="300" align="right">
 
-The [str]dltn Live[code] icon in the activity bar opens the Browser, four views that
-each fold and move on their own. The first three pick what is shown, the last shows it.
+The [str]dltn Live[code] icon in the activity bar opens the Browser, three views that
+each fold and move on their own. The first two pick what is shown, the last shows it.
 Everything you set, in any of them, acts on Results.
 
 - **Search** (Library). Ctrl+F in any of the views, or Ctrl+Alt+F from anywhere, puts the
@@ -255,9 +255,9 @@ Everything you set, in any of them, acts on Results.
 - **Collections** (Library). Your saved searches, once you have saved one.
 - Every click and every search opens Results, if it is folded.
 - **Categories.** The rows of each view: Sounds (synths, soundfonts), Drums (by bank),
-  Samples and Instruments (VIBE FM firmwares) in the Library; Snippets and Songs in Songs
-  and Snippets; Functions (every function of Strudel, with its documentation) in the
-  Reference. "All" takes everything of that view. A click on the row that is picked goes
+  Samples, Instruments (VIBE FM firmwares), Render (the audio of your songs), MIDI (the
+  ports of the machine, desktop only), Songs and Snippets in the Library; Functions (every
+  function of Strudel, with its documentation) in the Reference. "All" takes everything of that view. A click on the row that is picked goes
   back to everything.
 - **Chips** (Results). The tags of what is shown, by group. They narrow the results.
 - **Results.** Under headings: the bank, the folder, the category. Arrow keys move,

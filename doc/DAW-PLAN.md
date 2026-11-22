@@ -320,9 +320,9 @@ the name.
 
 ### Reference and tutorial
 
-The side bar is four views now: Library (sounds, with the search and the colors), Songs
-and Snippets, Reference (functions), and Results, which shows what the other three pick
-in one list. Built: see "Browser" in `doc/ARCHITECTURE.md`. The tutorial is the second
+The side bar is three views now: Library (sounds, renders, MIDI, songs and snippets,
+with the search and the colors), Reference (functions), and Results, which shows what the
+other two pick in one list. Built: see "Browser" in `doc/ARCHITECTURE.md`. The tutorial is the second
 category of the Reference, and its lessons show in Results. Planned, not built.
 
 **Source.** The workshop of strudel.cc (`strudel.cc/workshop/getting-started` and the

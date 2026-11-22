@@ -48,6 +48,8 @@ Next in line:
 | # | What | State |
 |---|---|---|
 | 12 | First after this round of hand tests (the maintainer, 2026-11-22). A double click on a search result that is a snippet or a song opens its file. Songs open already (`opens()` in `src/shared/catalog.ts`); a snippet is inserted at the cursor today (`activate()` in `src/browser/main.ts`). Open: whether Enter keeps inserting a snippet, so the keyboard still has a way to insert | Asked for, not built |
+| 13 | The native editor is never the default (the maintainer, 2026-11-22). The manifest already makes the Strudel editor the default; what still opens the native one is the Browser's "Open the file" of a snippet, `vscode.openWith(uri, 'default')` in `src/extension/browser.ts`, where `'default'` is the text editor. Goes with item 12 | Asked for, not built |
+| 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Asked for, not designed |
 | 1 | MIDI: devices in the Browser, playing through them, mappings | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
@@ -153,7 +155,7 @@ it.
 | 6 | A pack is copied whole. `github:eddyflux/crate` is 367 files and 175 MB. Copy everything, or only the files a song has played? | Everything, up to 600 files |
 | 7 | MIDI: build the desktop bridge now, knowing it cannot work in Codespaces? | Not built |
 | 8 | Sound across a mode switch (see "Open design questions") | Sound stops |
-| 9 | Default editor for `.strudel`: the Strudel editor, or the native one with the stage? | The Strudel editor |
+| 9 | Default editor for `.strudel`: the Strudel editor, or the native one with the stage? | Answered 2026-11-22: the Strudel editor, never the native one (item 13) |
 | 10 | Marketplace: publisher id and token (see "Publishing") | Waiting |
 | 11 | Should the test screenshots keep the title "[Extension Development Host]"? The debug text in the corner is gone, the status bar item replaced it | Kept |
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
@@ -444,6 +446,31 @@ To try, in this order:
    `getAudioDevices()` and an audio device setting for this.
 2. If VS Code refuses, there is no way from the webview. The extension host cannot
    route the webview's sound.
+
+## Keybindings in the Strudel editor
+
+The maintainer asked (2026-11-22) that the Strudel editor answer VS Code's keys as the
+user has bound them: Ctrl+F opens the search, and the same for the other editing
+actions. A user can change the keys, so the mapping must follow the actions, not fixed
+keys. Not designed, not measured. What we know and what we expect:
+
+- VS Code has no API that tells an extension which keys a command has. The user's
+  `keybindings.json` can be read from the profile folder, but it holds only the changes,
+  not the defaults, and profiles, Settings Sync and remote hosts move it. Expected
+  fragile; not tried.
+- Expected, not measured here: a key a webview does not handle goes on to the workbench,
+  which runs its own keybinding for it (that is how Ctrl+P works inside a webview).
+  CodeMirror's keymap takes Ctrl+F first today.
+- The way that follows the actions: our own commands (`strdltn.editor.find`,
+  `.replace`, `.gotoLine`, `.selectNextOccurrence`, `.toggleComment`, ...) with the same
+  default keys as VS Code's, under `when: activeCustomEditorId == strdltn.editor`. The
+  webview lets those keys go through (they leave CodeMirror's keymap), VS Code runs our
+  command, and the command tells the webview which CodeMirror action to run. A user
+  rebinds them in Keyboard Shortcuts like any command. What this does not do: follow a
+  rebinding of VS Code's own `actions.find` by itself.
+- First spike: with CodeMirror's Ctrl+F removed, does the key reach VS Code from the
+  webview, and does a command bound under `activeCustomEditorId` run? Then the list of
+  actions to map.
 
 ## Open design questions
 

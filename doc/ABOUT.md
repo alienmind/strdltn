@@ -18,19 +18,25 @@ your music as plain files in a project.
 
 ![demo.strudel playing: the Strudel editor, the Browser on the left, the Mixer below](screenshot-overview.png)
 
-[Download the latest release](https://github.com/alienmind/strdltn/releases/latest) | [Source on GitHub](https://github.com/alienmind/strdltn)
+[Download the latest release](https://github.com/alienmind/strdltn/releases/latest) | [User manual (PDF)](https://github.com/alienmind/strdltn/releases/latest/download/strdltn-manual.pdf) | [Source on GitHub](https://github.com/alienmind/strdltn)
 
 Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Code and
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
 from a browser on any machine, with nothing installed.
 
-> **Version 0.4.0**, in progress: MIDI on desktop. Strudel's `.midi()` plays a device in
-> time with the sound, and `midin()` and `midikeys()` read a controller or a keyboard.
-> Version 0.3.0 brought a Devices view: each firmware a song plays shows its own screen, keys
-> and knobs, and can fill the view or move to a tab of its own. The demo song now plays
-> itself, from a countdown to a countdown, with a fader for every part. Version 0.2.0
-> brought the Mixer, Music Controls and the Browser in four views. See "What is missing" at
-> the end.
+> **Version 0.5.0**: the knobs of your MIDI controller move the sliders of your code. Click
+> the small knob beside a line or under a fader, turn a knob, and it is mapped; the Mixer
+> lists and resets your mappings. The Mixer now starts with the Master strip, and a user
+> manual comes with every release. Version 0.4 brought MIDI on desktop (`.midi()`, `midin()`,
+> `midikeys()`), recording and rendering to `.wav` and `.mp3`, and level meters. Version 0.3
+> brought the Devices view for synth firmwares; 0.2 the Mixer and the Library. See "What is
+> missing" at the end.
+
+> **M-VAVE FM-1 and VIBE FM firmwares.** Got an FM-1? Your song can play it over MIDI, with
+> `.midi('M-VAVE FM-1')`, in time with the rest of the music. And the synth firmwares of the
+> VIBE FM platform, from [The Firmware Hub](https://thefirmwarehub.com), run inside VS Code as
+> instruments of your song, each with its own screen, keys and parameters, with no hardware
+> at all.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
 it because the scope grew beyond a VS Code extension.
@@ -61,8 +67,9 @@ it because the scope grew beyond a VS Code extension.
 
 **Mixer and Music Controls**
 
-- A mixer in the bottom panel: one strip per part of the song (`$kick:`, `bass:`), side by
-  side as in the Session view of Live. A song or snippet without parts is one strip.
+- A mixer in the bottom panel: the Master strip first, then one strip per part of the song
+  (`$kick:`, `bass:`), side by side as in the Session view of Live. A song or snippet
+  without parts is one strip. Two blue buttons unfold every strip or fold them all.
 - Each slider in the code is a fader. Moving it changes the sound at once and the number
   in the code a moment later. Under the faders, a meter pumps with the part's notes; a click
   on a gray one adds `._scope()` to the part.
@@ -73,6 +80,23 @@ it because the scope grew beyond a VS Code extension.
 - Music Controls at the top of the Library: Play, Stop and the BPM of the song. Type a
   BPM to set it, double click for Strudel's 120.
 - The Mixer can float in a window of its own, and comes to the front when a song plays.
+- Level meters on every strip and on the Master, with the peak in dB.
+- Record what you hear, or render the whole song, to `.wav` and `.mp3` next to it.
+
+**MIDI**
+
+- Knobs on sliders: a small knob button beside every line with a `slider(...)`, and under
+  every fader of the Mixer. Click it (it turns red), turn a knob on your controller (it turns
+  green): that knob now moves the slider, the sound and the number in the code. It takes
+  over once it reaches the slider's value, and a dim second handle on the fader shows where
+  your knob is until then.
+- The mapping is plain code, `.knob(74)` after the slider, so it stays with the song. On
+  strudel.cc the song plays without the knob.
+- "Show MIDI Mappings" in the Mixer lists every knob with its line of code; "Reset MIDI
+  Mappings" removes them all.
+- `.midi('device')` plays a synth or a drum machine in time with the sound; `midin()` and
+  `midikeys()` read a controller or a keyboard. The Library lists your devices. Desktop
+  only.
 
 **Sounds**
 
@@ -124,13 +148,23 @@ version bump.
 
 ### The Mixer
 
-![The Mixer: a strip per part with faders, M, S, G and sidechain cables](screenshot-music.png)
+![The Mixer: the Master first, a strip per part with faders, M, S, knob buttons and sidechain cables](screenshot-music.png)
 
-The bottom panel has a tab called Mixer. It shows the song in front: a strip
-for each part, with its fader on a level meter, M and S, and orange cables for the sidechain. Drag
-from the jack at the foot of a strip onto another strip and the first ducks the second;
-the code gets `.duck("2")` and, if needed, an `.orbit()` of its own for the target. Every
-change is an edit of the song, so undo takes it back and the song stays plain Strudel.
+The bottom panel has a tab called Mixer. It shows the song in front: the Master first,
+then a strip for each part, with its fader on a level meter, M and S, a knob button under
+every fader, and orange cables for the sidechain. Drag from the jack at the foot of a strip
+onto another strip and the first ducks the second; the code gets `.duck("2")` and, if
+needed, an `.orbit()` of its own for the target. Every change is an edit of the song, so
+undo takes it back and the song stays plain Strudel.
+
+### MIDI knobs
+
+Every slider of a song can follow a knob of your MIDI controller. Click the small knob
+beside its line, or under its fader: it turns red while it listens. Turn a knob and it turns
+green, and the code says `.knob(74)`. From then on the knob moves the slider, the sound, the
+number in the code and the fader in the Mixer. A knob that sits somewhere else waits until
+it reaches the slider's value, so the sound never jumps; a dim handle on the fader shows
+where it is meanwhile.
 
 ### Sounds
 
@@ -243,8 +277,10 @@ The sound comes out of your browser.
 | Ctrl+Enter | Play, or update the playing pattern |
 | Ctrl+. | Stop the song in front. Again: stop the song that plays in another tab |
 | Ctrl+Alt+M | Switch between the Strudel editor and the native editor |
+| Ctrl+Alt+K | Map a MIDI knob to the slider under the cursor |
+| Ctrl+F, Ctrl+H, Ctrl+G | Find, replace, go to a line in the Strudel editor |
 
-On a Mac use Cmd in place of Ctrl.
+On a Mac use Cmd in place of Ctrl. The [user manual](https://github.com/alienmind/strdltn/releases/latest/download/strdltn-manual.pdf) has all of them.
 
 ## Good to know
 
@@ -261,14 +297,12 @@ On a Mac use Cmd in place of Ctrl.
 
 - MIDI in Codespaces. VS Code does not let an extension's page use MIDI, so MIDI goes
   through the part of the extension that runs on your machine. In a Codespace that part
-  runs in the cloud and cannot see your devices. MIDI devices are not in the Browser or
-  the Mixer yet either.
+  runs in the cloud and cannot see your devices. MIDI devices are not in the Mixer yet.
 - The sound stops when you switch between the two editors.
 - Playing notes are not outlined in the native editor.
 - No completion or documentation on hover in the code yet. The Reference lists the
   functions; the tutorial of strudel.cc is planned for it.
 - Soundfonts, supersaw and firmwares still need a song open to preview.
-- Record and Record Automation are in Music Controls, but not built yet.
 - It is not on the VS Code Marketplace yet. Install it from the `.vsix` file.
 
 ## Thanks

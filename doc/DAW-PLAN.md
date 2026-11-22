@@ -297,8 +297,9 @@ and one line that plays, so Ctrl+Enter makes a sound at once. The text is to be 
 
 **Insert a song.** Asked by the maintainer on 2026-11-20. A song of the Template place
 (the examples) gets an "Insert at the cursor" button beside "Open", which types the
-song's code (without its header) at the cursor, the way a snippet is inserted. Noted,
-not built.
+song's code (without its header) at the cursor, the way a snippet is inserted. Built on
+2026-11-22 for every song, not only the examples: the `insertSong` message, the header cut
+by `parseSnippet`.
 
 Open questions for the maintainer: does "Locate in browser" mean Reveal in Explorer (VS
 Code's side bar), Reveal in File Explorer (Windows), or both as above? Should a new
@@ -310,7 +311,7 @@ messages `newTrack`, `rename {id, name}`, `remove {id}`, `reveal {id, where}` in
 `src/shared/browser.ts`; the handlers in `src/extension/browser.ts`; a case in the
 integration test that creates, renames and removes a track in `tmp/`; README.
 
-**Insert an example.** Asked by the maintainer on 2026-11-20, noted, not built. Every
+**Insert an example.** Asked by the maintainer on 2026-11-20, built on 2026-11-22. Every
 function of the Functions category has an example (`example` of `dist/functions.json`,
 the first of `@strudel/reference`). A function row gets a second button "Insert an
 example" right beside "Insert at the cursor", and the context menu and the details pane

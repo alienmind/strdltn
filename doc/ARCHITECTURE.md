@@ -1804,6 +1804,13 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   on its first move. Without it, mapping a second knob (which evaluates the song) left the
   first one dead: it sat on the value it had written, moved away from it, and never crossed
   it again (seen by the maintainer).
+- The Mixer names a slider's other strips under a fader ("shared: oh"; also under a gain
+  fader, whose other rows are blank), and dims a slider nothing uses ("not used", from
+  `MixerSlider.unused`: no chain, no `setcps()`, no `all(...)` refers to it). "Show MIDI
+  Mappings" warns when one CC moves more than one slider. The gain triangle on a chain
+  without a gain writes `.gain(KICK)` when an unused constant is named after the chain
+  (`KICK`, `KICK_VOL`, `kickGain`; `sameName` in `chains.ts`), not a new slider beside it.
+  The maintainer met all three as confusion on 2026-11-22.
 - A click on a filled knob button (in the gutter of either editor or on a fader) takes that
   knob off (`unmapKnobEdit`). Ctrl+Alt+K, a double click on a widget and the line number
   menu always learn.
@@ -1845,6 +1852,12 @@ without changing the version, without a tag and without `pnpm promote`.
    the checkout is not exactly the tag. Tell the maintainer to run "Developer: Reload
    Window".
 5. When `doc/ABOUT.md` changed, refresh the home page (see "Public page").
+
+The release also carries the user manual as a PDF, `strdltn-manual.pdf`: `ci.yml` runs
+`pnpm manual` (`scripts/manual-pdf.mjs`), which turns `doc/USERMANUAL.md` into one HTML
+page with its images inlined (`marked`) and prints it with the runner's Chrome. No pandoc
+and no LaTeX. The Library links to `releases/latest/download/strdltn-manual.pdf`. Measured
+locally on 2026-11-22 with Chrome on Windows: 19 pages, 680 KB. Not yet seen in CI.
 
 Found on 2026-11-21: the workflow has never run on this repository (zero runs; Actions shows as enabled), so the
 tag `v0.3.0` built nothing. Measured on 2026-11-22: still zero runs after the merge of PR #9 to `main`, although the

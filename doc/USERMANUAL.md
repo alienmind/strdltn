@@ -187,6 +187,8 @@ The row at the top of the Library:
 | Click a sound | Plays it, when the speaker button beside the search is on. It never types |
 | Enter, or double click | Types the code that plays it at the cursor: `s("bd")`, `s("bd").bank("RolandTR909")`, `note("c3").s("sawtooth")`. Inside a string, only the name |
 | Double click a song or a snippet | Opens its file in the Strudel editor |
+| The second insert button of a song | Types the song's code, without its header, at the cursor |
+| "Insert an example" on a function | Types the function's example from the reference at the cursor |
 | Enter on a snippet | Inserts its code at the cursor |
 | Space | Plays |
 | Right click | Colors, insert, copy, open, "Edit tags..." |
@@ -197,6 +199,8 @@ once; soundfonts, supersaw and firmwares need a song open.
 
 Your colors, tags and saved searches are kept in `strdltn.index.json` at the root of your
 project. Commit it and they travel with your songs.
+
+"User manual (PDF)", at the foot of the Library, opens this manual.
 
 ## 5. The Mixer
 
@@ -218,12 +222,12 @@ The Mixer reads your code. It never needs the song to play.
   label under each says the function it feeds ("lpf", "room") and the name of its constant.
 - **Constants.** `const KICK = slider(1, 0, 1)` at the top and `.gain(KICK)` in `$kick:` puts
   that slider on the kick strip. A slider used by two chains shows on both, and their
-  faders move together, because they are one slider. Give each chain its own constant to
-  set them apart.
+  faders move together, because they are one slider: the fader says "shared:" and the
+  other strip's name. Give each chain its own constant to set them apart.
 - **The Master strip.** Always first. Its meter is the whole mix as it reaches the speakers.
   Its inner sliders are the **global** sliders: a slider inside `setcps()`, or inside a line
-  such as `all(x => x.djf(DJ))` that acts on the whole song, or a slider no chain uses at
-  all. If a slider shows up on the Master and seems to do nothing, check that a chain really
+  such as `all(x => x.djf(DJ))` that acts on the whole song, or a slider nothing uses at
+  all. A slider nothing uses is dimmed and says "not used": it changes nothing until a chain
   uses it.
 - **Every change is code.** A fader writes the number in the code; M, S, G and the cables
   write labels and calls. Ctrl+Z in the editor takes any of them back.
@@ -234,7 +238,7 @@ The Mixer reads your code. It never needs the song to play.
 |---|---|
 | Arrow and name | Unfold the inner sliders. A click on the name shows the chain in the code |
 | Peak number | The loudest moment of the last 3 seconds, in dB below full scale. "-Inf" in silence. Orange once it went over 0 dB (clipping); a click clears it |
-| Meter and gain fader | Two bars, left and right, from 0 down to 60 dB. The triangle is the gain fader: drag it. A click without a drag takes the gain fader out of the code; on a chain without one, the dim triangle puts `.gain(slider(1, 0, 1))` in |
+| Meter and gain fader | Two bars, left and right, from 0 down to 60 dB. The triangle is the gain fader: drag it. A click without a drag takes the gain fader out of the code; on a chain without one, the dim triangle puts a gain in: the chain's own constant if one is named after it and unused (`KICK` for kick), else `.gain(slider(1, 0, 1))` |
 | Inner faders | Blue sliders, each with its label, the constant's name and its value |
 | Knob button | Under every fader: maps a MIDI knob to that slider (section 6) |
 | M, S | Mute and solo. They write upstream's labels: `_kick:` mutes, `Skick:` solos |
@@ -309,7 +313,8 @@ click a slider in the Strudel editor; right click a line number in the native ed
 
 - A click on a **green** knob button takes that knob off its slider.
 - **Show MIDI Mappings** in the Mixer lists every mapping: the CC, the line and its code,
-  with a Remove button per row. Esc closes it.
+  with a Remove button per row. A CC that moves more than one slider is marked. Esc closes
+  it.
 - **Reset MIDI Mappings** removes them all at once.
 
 Mappings live only in the code, as `.knob(...)`. There is no other file: copy the song and
@@ -469,18 +474,16 @@ On a Mac, Cmd in place of Ctrl.
 | No sound after play | Click once inside the editor: browsers start no sound without a click |
 | An error | The status bar turns red and the Problems view says where. The song keeps playing what worked last; fix the line and press Ctrl+Enter |
 | A knob does nothing | Turn it all the way down and up once (pickup, section 6). Check that its button is green |
-| A slider on the Master does nothing | No chain uses it: the chain probably has its own slider in `.gain(...)` |
-| Two strips move together | They share one slider. Give each its own constant |
+| A dim slider on the Master says "not used" | No chain uses it: the chain probably has its own slider in `.gain(...)` |
+| Two strips move together | They share one slider ("shared:" under the fader). Give each its own constant |
 | A sample pack is missing | Read the warning in Output > strdltn: offline, or a wrong address |
 | MIDI device not found | The Library's MIDI category lists the exact names; MIDI is desktop only |
 
 Report problems at [github.com/alienmind/strdltn/issues](https://github.com/alienmind/strdltn/issues),
 not to the Strudel project.
 
-## Making a PDF of this manual
+## This manual as a PDF
 
-This file is Markdown with images beside it in `doc/manual/`. Two ways to get a PDF:
-
-- In VS Code, with an extension such as "Markdown PDF": open this file and run "Markdown
-  PDF: Export (pdf)".
-- With [pandoc](https://pandoc.org): `pandoc doc/USERMANUAL.md --resource-path=doc -o manual.pdf`.
+Every release carries this manual as `strdltn-manual.pdf`; "User manual (PDF)" at the foot
+of the Library opens it. From the project's source, `pnpm manual` makes it with Chrome or
+Edge.

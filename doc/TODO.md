@@ -23,7 +23,7 @@ and the demo's new mix (PR #9, 0.4.0, never tagged); a double click that opens s
 the Browser opening files only in the Strudel editor, Songs and Snippets back in the
 Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 
-Work in flight is on the branch `feat/knobs` (the maintainer, 2026-11-22): first the
+Work in flight is on the branch `feat/knobs`, version 0.5.0, to be released today (the maintainer, 2026-11-22): first the
 spike of item 14 (keybindings in the Strudel editor), then item 15 (sliders on knobs),
 with the four open questions of "Sliders on knobs" answered. The spike of item 14 passed:
 Ctrl+F and Ctrl+G work in the Strudel editor. Ctrl+H, Ctrl+D, Ctrl+Shift+L, item 15 and
@@ -46,9 +46,9 @@ Next in line:
 | 2 | A list of sound cards to send the sound to | Not possible in the webview (S6: the microphone is refused, so no names or ids). Windows' per-app output does it by hand. See "Sound card" |
 | 4 | Firmware Marketplace: the hub's firmwares in the Library, Installed and Available, download, a snippet into the code, a preview of the screen in a popup. The next branch after `feat/knobs` (the maintainer, 2026-11-22) | Planned, not built. Step 1, the catalog, first. See "Firmware Marketplace" under "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
-| 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
+| 6a | Songs: an "Insert at the cursor" button beside "Open", which types the song's code without its header | Built on `feat/knobs`, waiting for the hand test |
 | 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
-| 6 | Functions in the Browser: an "Insert an example" button beside "Insert at the cursor" | Noted, not built. See "Insert an example" in `doc/DAW-PLAN.md` |
+| 6 | Functions: an "Insert an example" button beside "Insert at the cursor" | Built on `feat/knobs`, waiting for the hand test |
 | 6c | Dock and float for the stage and later windows (the Mixer has it) | The stage waits for phase 6 (decision 22). See "Dock and float" in `doc/DAW-PLAN.md` |
 | 6e | Track colors: every chain gets a color by itself (the next of the palette), kept as `// @color <name>` on the line above the chain, changeable in the Mixer, used later by the session view | Planned, not built. Decision 24 answered: colored by themselves. See "Track colors" in `doc/DAW-PLAN.md` |
 | 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 answered: the workshop first, then the learn pages. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
@@ -87,6 +87,13 @@ table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K)
 | 21 | Map CC 1, then CC 2 on another slider, then turn CC 1 again | Both knobs move their sliders. CC 1 is not left dead by the second mapping |
 | 22 | Reload the window, open a song with mapped knobs, do not play, turn a knob past its slider's value | The number in the code changes when the knob stops, the Mixer's fader follows while it turns. Press play: the knob changes the sound too |
 | 23 | In the Mixer, the blue ">" then "<" at the top of the left column | ">" unfolds every strip, the Master included; "<" folds them all to their gain |
+| 24 | In the Mixer, a song where a constant is defined but no chain uses it (`const X = slider(.5)`) | Unfold the Master: that fader is dimmed and says "not used" |
+| 25 | A chain with no gain and an unused constant named after it (`const KICK = ...`, `$kick:` without `.gain`): click the dim triangle | The code gets `.gain(KICK)`, not a new slider |
+| 26 | Two chains on one slider (`.gain(HATS)` on both) | Under each fader, "shared:" and the other strip's name |
+| 27 | Map one CC to two sliders, then "Show MIDI Mappings" | A warning names that CC, and its rows are marked |
+| 28 | In the Library, Songs: the second insert button of a song | Its code, without the header, lands at the cursor |
+| 29 | In the Reference, a function's "Insert an example" | The example lands at the cursor |
+| 30 | At the foot of the Library, "User manual (PDF)" | The browser opens `releases/latest/download/strdltn-manual.pdf`. Until v0.5.0 is released it is 404: the link is right, the file comes with the release |
 | 19 | Open `demo.strudel`, play it | The vocals sing as before (from the local `samples/` folder). Until the branch is merged, the Output has one warning: `samples from github:alienmind/strdltn/main/template/samples not loaded` |
 
 Expected still broken: on strudel.cc the knob does nothing (by design, ARCHITECTURE

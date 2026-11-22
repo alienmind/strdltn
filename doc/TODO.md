@@ -5,49 +5,50 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.4.0, not tagged.** `v0.3.0` is the last tag (made by
-hand: the release workflow has never run on this fork, see "Release" in ARCHITECTURE).
-Enable Actions in the repository's Actions tab before the next tag. The version started
-again for this project; the tag 1.0.0 is the vstrudel release. The extension is
-[str]dltn Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
-`.strdltn/`, so it installs beside vstrudel without a clash. Settings of vstrudel
-(`vstrudel.*`) do not carry over.
+**`main` holds everything, version 0.4.1, released as `v0.4.1`.** The release was made by
+hand on 2026-11-22, as `v0.3.0` was: the tag started no workflow, because Actions was off
+for this repository until that day (see "Release" in ARCHITECTURE). It is on now, so the
+next tag should build its own release. The version started again for this
+project; the tag 1.0.0 is the vstrudel release. The extension is [str]dltn Live[code]: id
+`strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it installs
+beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry over.
 
 The plan to make this a DAW is in `doc/DAW-PLAN.md`, with the order of work the
 maintainer set ("Order of work"). Merged so far: phase 1, the Browser (PR #4); phases 2
-and 3, the Music panel, the Mixer and the four side bar views (PR #5, 0.2.0, never
-tagged); phase 4, Devices, with Firmware Hub, the SHRUB editor panel and the demo as an
+and 3, the Music panel, the Mixer and the side bar views (PR #5, 0.2.0, never tagged);
+phase 4, Devices, with Firmware Hub, the SHRUB editor panel and the demo as an
 arrangement (PR #6, 0.3.0); phase 5, MIDI on desktop through the extension host, Render
 and Record of a song to `.wav` and `.mp3`, level meters with a Master strip on the Mixer,
-and the demo's new mix (PR #9, 0.4.0). A promote waits for the maintainer.
+and the demo's new mix (PR #9, 0.4.0, never tagged); a double click that opens snippets,
+the Browser opening files only in the Strudel editor, Songs and Snippets back in the
+Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 
-Work in flight is on the branch `feat/open-snippets`: a double click on a snippet opens
-it (Enter still inserts it), the Browser opens songs and snippets in the Strudel editor
-and never in the native one, the setting `strdltn.midi.highPriority` of decision 17, and
-Songs and Snippets merged back into the Library view (the maintainer, 2026-11-22;
-Reference and Results stay views of their own). Every hand test passed on 2026-11-22.
-`pnpm test:vscode` passed the same day: 38 files with no problem, the Library with 41
-songs and 29 snippets, every case as expected but one typing case, `undo` on the `\r\n`
-song, the open lead under "Integration test".
-This branch is version 0.4.1 (the maintainer, 2026-11-22): 0.4.0 stays untagged, and the
-next tag is `v0.4.1` on `main` after the merge.
+Version 0.5.0 on the branch `feat/knobs`, tested and released on 2026-11-22. Its work: first the
+spike of item 14 (keybindings in the Strudel editor), then item 15 (sliders on knobs),
+with the four open questions of "Sliders on knobs" answered. The spike of item 14 passed:
+Ctrl+F and Ctrl+G work in the Strudel editor. Ctrl+H, Ctrl+D, Ctrl+Shift+L, item 15 and
+item 19 (knob buttons in both editors and on the Mixer's faders, MIDI learn in the host)
+are built and wait for the hand test. The branch closes after that: every MIDI feature
+asked for is in it (the maintainer, 2026-11-22).
 
 Next in line:
 
 | # | What | State |
 |---|---|---|
-| 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Asked for, not designed |
-| 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with a click on its number. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Asked for, not designed |
+| 19 | Line actions: a gutter left of the line numbers, in the Strudel editor and the native editor, with a knob button on every line that has a slider. A click captures the next knob (MIDI learn). Lines without an action keep an empty gap, so everything stays aligned; more line actions will come. The same knob button on every fader of the Mixer. Replaces Ctrl+Alt+K as the main way to learn a knob, which the maintainer finds too convoluted. On `feat/knobs`: the maintainer wants this branch to close with every MIDI feature in it (2026-11-22). See "Line actions" | Built on `feat/knobs`, waiting for the hand test |
+| 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Ctrl+F and Ctrl+G passed the hand test; Ctrl+H, Ctrl+D, Ctrl+Shift+L built, waiting for it. Keys CodeMirror takes first do not follow a rebinding yet |
+| 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with MIDI learn. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Built on `feat/knobs`, waiting for the hand test |
 | 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
 | 17 | Render a pattern to MIDI: a `.mid` file of a song or a chain, and later into the piano roll | Planned, not built. See "MIDI clips: render and record" in `doc/DAW-PLAN.md` |
 | 18 | Record MIDI into a pattern, as Ableton does: arm, play a keyboard while the song plays, the notes written into the song | Planned, not built. Same section |
-| 1 | MIDI: devices in the Browser, playing through them, mappings | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
+| 20 | More line actions: a melody button on every line that plays notes, which opens a piano roll fitted to that line and records notes from a MIDI keyboard, quantized to the tempo; and a drum rack button on every drum line, a grid of pads as Live's Drum Rack, each pad mapped to a note, with a record button per rack (the maintainer, 2026-11-22). Goes with items 18 and 7 | To plan, not designed. See "Line actions: melody and drums" |
+| 1 | MIDI: devices in the Browser, playing through them, mappings. Next: MIDI routing in the Mixer, cables from a chain to the MIDI instrument it plays; its button "Show MIDI Routing" is in the Mixer's utility column, disabled until then (the maintainer, 2026-11-22) | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Not possible in the webview (S6: the microphone is refused, so no names or ids). Windows' per-app output does it by hand. See "Sound card" |
-| 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
+| 4 | Firmware Marketplace: the hub's firmwares in the Library, Installed and Available, download, a snippet into the code, a preview of the screen in a popup. The next branch after `feat/knobs` (the maintainer, 2026-11-22) | Planned, not built. Step 1, the catalog, first. See "Firmware Marketplace" under "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
-| 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
+| 6a | Songs: an "Insert at the cursor" button beside "Open", which types the song's code without its header | Built on `feat/knobs`, waiting for the hand test |
 | 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
-| 6 | Functions in the Browser: an "Insert an example" button beside "Insert at the cursor" | Noted, not built. See "Insert an example" in `doc/DAW-PLAN.md` |
+| 6 | Functions: an "Insert an example" button beside "Insert at the cursor" | Built on `feat/knobs`, waiting for the hand test |
 | 6c | Dock and float for the stage and later windows (the Mixer has it) | The stage waits for phase 6 (decision 22). See "Dock and float" in `doc/DAW-PLAN.md` |
 | 6e | Track colors: every chain gets a color by itself (the next of the palette), kept as `// @color <name>` on the line above the chain, changeable in the Mixer, used later by the session view | Planned, not built. Decision 24 answered: colored by themselves. See "Track colors" in `doc/DAW-PLAN.md` |
 | 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 answered: the workshop first, then the learn pages. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
@@ -58,10 +59,10 @@ Next in line:
 
 ## Next: test by hand
 
-Every hand test on `feat/open-snippets` passed on 2026-11-22, on the maintainer's own VS
-Code after `pnpm promote` (0.4.0-dev, commit `41a081d`): double click and Enter on a
-snippet, "Open the file", songs and renders, the priority setting on and off in Task
-Manager, and the Library with Songs and Snippets in it. Nothing waits for a hand test.
+Every hand check of `feat/knobs` (30 of them) passed on 2026-11-22, and `pnpm test:vscode`
+passed the same day: 38 files with no problem, no typing failure, the Mixer with 10 strips.
+The one warning, the demo's `samples('github:alienmind/strdltn/main/template/samples')`
+answering 404, goes away once the branch is on `main`. Nothing waits for a hand test.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -278,12 +279,44 @@ Read from the hub's pages on 2026-11-20. Not tested.
 | 2 | The hub's catalog in the host: fetched and kept for a day, works offline from the last copy. A firmware picked from it goes through `firmware(url)` and the cache that exists, with a SHA-256 check when the catalog has one | `pnpm test:unit` covers the unpack and the cache paths |
 | 3 | Check the transport with a firmware that has its own sequencer (SLOOP) | It follows play, stop and `setcps` |
 | 4 | `.vp()` for parameters by their id, through `VIBE_EV_PARAM`. `VibeCore` already reads the list and has the event | A slider moves a firmware parameter |
-| 5 | The Firmware view: groups "In this project" and the hub's list by device; name, version, author, license; a click types `s("vibefm1:<id>")` and starts the download; buttons for the hub page, the cheat sheet, the parameters and a test note; a filter box; "Add firmware..." for a `.zip` or `.wasm` from disk | The hand test of the view passes |
+| 5 | Replaced by "Firmware Marketplace" below. Was: the Firmware view: groups "In this project" and the hub's list by device; name, version, author, license; a click types `s("vibefm1:<id>")` and starts the download; buttons for the hub page, the cheat sheet, the parameters and a test note; a filter box; "Add firmware..." for a `.zip` or `.wasm` from disk | The hand test of the view passes |
 | 7 | `.midi("vibefm1:...")`, once the webview's own `.midi()` from "MIDI" exists: names that start with `vibefm1:` go to the firmware, CCs and `midimaps` work too | Code written for an FM-1 over MIDI plays the firmware |
 | 8 | Store: `vibe_host_store` writes go to `.strdltn/firmware-store/<id>/` through the host, and come back on load | Save a sound in a firmware, reload, it is there |
 | 9 | A snippet in `lib/` for a firmware part | |
 | 10 | README and `doc/ABOUT.md`, once the view exists | |
 | 11 | Later: the 480 x 320 display in the stage, from `vibe_wasm_draw` at 30 fps | |
+
+### Firmware Marketplace
+
+The plan for the next branch, asked by the maintainer on 2026-11-22: a place to find the
+hub's firmwares, download them, have them by name and add them to the code. It takes the
+place of step 5 above (the Firmware view) and grows steps 2 and 9.
+
+- **Where:** a Firmware category of the Library, beside Instruments, as Songs and Snippets
+  went back into the Library (not a view of its own). Two groups: **Installed** (the
+  firmwares in the project's `firmware/` folder and in the cache) and **Available** (the
+  hub's catalog, by device). Name, version, author, license, and the search, colors and
+  tags of the Library.
+- **Download:** a button on an Available row, or the first use. It goes through
+  `firmware(url)` and the cache that exists, with a SHA-256 check when the catalog has one.
+  The row moves to Installed.
+- **Into the code:** Insert at the cursor types a snippet that plays the firmware, not only
+  its name: `note("c2 eb2").s("vibefm1:<id>")` with its program (`.progNum()`) and the
+  parameters it is known for. Inside a string or `s()` it types the name alone, as sounds
+  do (`chooseInsert`).
+- **Preview of the screen:** a popup, as the other popup webviews: the firmware's display,
+  480 x 320. For an Installed firmware, run it for a moment and draw a frame, with the
+  drawing the Devices panels already have. For an Available one, a still image if the hub
+  publishes one; else the popup says "download to see it". Not decided: whether a preview
+  may download by itself.
+- **Done when:** the hand test finds a firmware under Available, downloads it, sees its
+  screen, inserts it, and it plays.
+
+Order of work: step 1 (the catalog) first, from Node, read only: fetch
+`play.thefirmwarehub.com/firmware/index.json`, write down its fields and its CORS headers
+in ARCHITECTURE "Firmware". If it cannot be used, the Available group waits for decision 13
+(asking the hub's author for a feed), and the branch builds Installed, the snippet and the
+preview first.
 
 ### Effects on a firmware
 
@@ -436,10 +469,82 @@ $bass: note("c2*8").lpf(slider(800, 200, 4000).knob(74))
   the Mixer's fader does. A click on the number starts MIDI learn: the next CC that moves
   is written into `.knob(...)`.
 
-Open: last-moved-wins or pickup (the knob takes over only once it passes the slider's
-value); the device name in the snippet (the song fails where that device is missing);
-how often a knob may write the code (the fader waits 150 ms); the snippet goes in once,
-at the top, the first time.
+Answered by the maintainer on 2026-11-22:
+
+- Pickup, not last-moved-wins: a knob takes over only once it passes the slider's value,
+  so touching a knob that sits elsewhere does not make the sound jump.
+- No device name in the snippet: it listens to every MIDI input, so the song runs on a
+  machine with another controller, and plays without knobs on one with none. Our
+  `midin()` takes the first input when no name is given and throws when there is no
+  input at all (`openInput()` in `src/webview/midi.ts`), so the snippet cannot be a plain
+  `midin()`. Upstream's `midin()` without a name: not read yet.
+- A knob writes the number in the code as the Mixer's fader does, at most every 150 ms.
+- The snippet goes in once, at the top, the first time a knob is used.
+
+Built on `feat/knobs`, waiting for the hand test (ARCHITECTURE "Sliders on knobs"). One
+change from the design above: on strudel.cc the knob does nothing, it does not change
+the sound. The snippet cannot use `midin()` (see above), and a knob there would not know
+the slider's range.
+
+## Line actions
+
+Asked by the maintainer on 2026-11-22, high priority after `feat/knobs`. A column of
+buttons left of the line numbers, one per line that has an action, an empty gap on the
+others so everything stays aligned. The first action is a knob button on every line with
+a `slider(...)`: a click captures the next knob, as Ctrl+Alt+K does now. More actions
+will come in the same column. It must work in both the Strudel editor and the native
+editor. Lines are not contiguous on screen: inline scopes and other widgets sit between
+them, and the button belongs beside its line number, not beside the widget.
+
+- Strudel editor: a CodeMirror `gutter()` of our own, added with `Prec.highest` so it
+  comes before upstream's line numbers, with a `lineMarker` per line that holds a slider
+  and `domEventHandlers` for the click. CodeMirror lays a gutter out per line block, so a
+  block widget between two lines leaves a gap in the gutter, as the picture of the
+  maintainer wants. Expected, not tried.
+- Native editor: VS Code's glyph margin is left of the line numbers, and a decoration
+  with `gutterIconPath` draws an icon there. The API gives no click on it. Spike first:
+  does a click in the glyph margin move the cursor or the selection
+  (`onDidChangeTextEditorSelection` with `kind == Mouse`), so the click can be told from
+  it? Fallbacks, in order: the line number context menu (`editor/lineNumber/context`, a
+  right click), then a CodeLens above the line. Neither is a button in the gutter.
+- The icon: a small knob drawn by us, in the theme's colors. A knob already mapped shows
+  its CC.
+- The Mixer too (the maintainer, 2026-11-22): the same knob button on every fader of every
+  strip. A click captures the next knob for the slider behind that fader. The fader knows
+  where its slider's number starts (`MixerSlider.from`), so the host asks the page for
+  MIDI learn at that place, and `knobEdits` puts `.knob(cc)` on the slider call itself,
+  wherever it is written: inline in the chain, or in `const KICK_VOL = slider(...)` when the
+  chain uses a constant. A fader already mapped shows its CC. Must work with the song in
+  the native editor too, so learn has to work on the stage, not only in the Strudel
+  editor.
+- Same rules as now: `sliderAt` for the slider of the line (the first one when a line has
+  two; open: a button per slider then?), `knobEdits` for the edit.
+
+## Line actions: melody and drums
+
+Asked by the maintainer on 2026-11-22, to plan, not designed. More icons in the column of
+line actions (see "Line actions"), beside the knob button, on the lines they fit.
+
+- **Melody.** A line that plays notes (`note(...)`, `n(...)` with a `.scale(...)`, and
+  the like) gets a melody button. It opens a piano roll fitted to that line: its range,
+  its scale, its length in cycles. It listens to a MIDI keyboard and writes the notes it
+  hears into the line, quantized to the song's tempo, in the form the line already uses.
+  To discuss, and the maintainer wants options: notes written absolute (`c3 e3 g3`) or
+  relative to the scale of the line (`0 2 4` under `.scale("C:minor")`); what happens to
+  the notes already there (replace, overdub, a new variation); the quantize grid (a
+  sixteenth by default, or the line's own subdivision); a note held across a step.
+- **Drums.** A line that plays a drum kit (`s("bd sd hh")`, a `.bank(...)`) gets a drum
+  rack button. It opens a grid of pads as Live's Drum Rack (the maintainer's picture: four
+  by four, each pad named by its note, C1 to D#2, the sample's name on a pad that has one,
+  M and S and a play button on each). Each pad is mapped to a note of a MIDI controller,
+  and the mapping can be changed. Each rack has a record button: arm it, play the pads while
+  the song plays, and the hits are written into the line, quantized.
+- Goes with item 18 (record MIDI into a pattern) and phase 11 of `doc/DAW-PLAN.md`
+  (devices that write patterns from taps: drum pad, step sequencer, piano roll). Those are
+  the same need, reached from the line of code instead of from a device.
+- Open: how a line is recognized as a melody or a drum line (the parser of
+  `src/shared/chains.ts` reads calls already); a line with both; lines that build their
+  notes from functions (`irand`, `.rib(...)`), which a piano roll cannot write back into.
 
 ## Keybindings in the Strudel editor
 
@@ -462,9 +567,22 @@ keys. Not designed, not measured. What we know and what we expect:
   command, and the command tells the webview which CodeMirror action to run. A user
   rebinds them in Keyboard Shortcuts like any command. What this does not do: follow a
   rebinding of VS Code's own `actions.find` by itself.
-- First spike: with CodeMirror's Ctrl+F removed, does the key reach VS Code from the
-  webview, and does a command bound under `activeCustomEditorId` run? Then the list of
-  actions to map.
+- Read in `@strudel/codemirror` 1.3.0: upstream binds no Ctrl+F and no Ctrl+G. Its
+  `searchKeymap` is commented out, and `search()` too, so nothing is to be removed.
+- The spike, built on `feat/knobs` as the first piece of the real thing: the commands
+  `strdltn.editor.find` (Ctrl+F) and `strdltn.editor.gotoLine` (Ctrl+G) under
+  `activeCustomEditorId == strdltn.editor`. The webview runs `openSearchPanel` and
+  `gotoLine` of `@codemirror/search` 6.7.2 (the copy upstream already uses, now a pinned
+  dependency of ours). The host writes `[keys] find: the key reached VS Code` to the
+  Output strdltn, so the hand test shows which way the key went. Passed the hand test
+  on 2026-11-22 (ARCHITECTURE "VS Code's keys in the Strudel editor").
+- Left: the list of actions to map. Keys CodeMirror's `defaultKeymap` already takes with
+  VS Code's own default (Alt+Up moves a line, Ctrl+/ comments, Ctrl+Shift+K deletes a
+  line, Ctrl+[ and Ctrl+] indent, Ctrl+Alt+Up adds a cursor) work today but do not follow
+  a rebinding: CodeMirror takes the key first. Not tried: whether a key CodeMirror handled
+  still reaches VS Code. Ctrl+H (replace), Ctrl+D (select the next match) and
+  Ctrl+Shift+L (select every match) are built the same way as Ctrl+F, waiting for the
+  hand test.
 
 ## Open design questions
 

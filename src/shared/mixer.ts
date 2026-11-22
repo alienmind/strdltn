@@ -13,10 +13,20 @@ export type ToMixer =
 	/** The waves of the song's inline scopes. The page draws each under the strip it is in. */
 	| { type: 'scopes'; scopes: ScopeFrame[] }
 	/** Whether the song shown plays. The scopes go flat when it stops. */
-	| { type: 'playing'; on: boolean };
+	| { type: 'playing'; on: boolean }
+	/** A slider moved live in the song (a drag, a knob), before the code says so. By where its number starts. */
+	| { type: 'sliderLive'; from: number; value: number }
+	/** Where a knob that waits for pickup is, for a dim second handle on its fader. Undefined: it caught the slider. */
+	| { type: 'knobGhost'; from: number; value?: number }
+	/** The slider whose number starts at `from` waits for a CC: its knob button is red. Undefined: none waits. */
+	| { type: 'knobLearning'; from?: number };
 
 export type FromMixer =
 	| { type: 'ready' }
+	/** The knob button of a fader: MIDI learn for that slider. */
+	| { type: 'knob'; index: number }
+	/** "Remove all knobs": every `.knob(...)` and the snippet out of the song. */
+	| { type: 'unmapKnobs' }
 	/** Put the cursor of the editor at the start of a chain. */
 	| { type: 'reveal'; chain: number }
 	/** A cable from the duck jack of `from` dropped on the strip of `to`. `move`: the orbit of a cable pulled off another strip. */

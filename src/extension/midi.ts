@@ -118,6 +118,30 @@ export class MidiBridge implements vscode.Disposable {
 		this.send({ type: 'panic', source: id });
 	}
 
+	/** MIDI learn waits here for the next CC of any input. */
+	private capture?: (cc: number) => void;
+
+	/**
+	 * The next CC of any input, for MIDI learn: every input is opened for it. Undefined when
+	 * nothing moved within `timeoutMs`, 'noMidi' when MIDI does not load here. A second call
+	 * replaces the first, which then ends as if nothing moved.
+	 */
+	async captureCC(timeoutMs: number): Promise<number | 'noMidi' | undefined> {
+		const ports = await this.listPorts();
+		if (!ports) return 'noMidi';
+		for (const port of ports.inputs) this.send({ type: 'listen', port });
+		this.capture?.(-1);
+		return new Promise((resolve) => {
+			const timer = setTimeout(() => finish(-1), timeoutMs);
+			const finish = (cc: number) => {
+				clearTimeout(timer);
+				if (this.capture === finish) this.capture = undefined;
+				resolve(cc < 0 ? undefined : cc);
+			};
+			this.capture = finish;
+		});
+	}
+
 	/** Every port of the machine, starting the worker if it is not running. Undefined when MIDI does not load here. */
 	async listPorts(): Promise<MidiPorts | undefined> {
 		if (!this.start()) return undefined;
@@ -186,6 +210,7 @@ export class MidiBridge implements vscode.Disposable {
 				this.listenAll();
 				break;
 			case 'input':
+				if (this.capture && (message.bytes[0] & 0xf0) === 0xb0) this.capture(message.bytes[1]);
 				if (this.debug) {
 					const heard = [...this.clients.values()].some((client) => client.listens.has(message.port));
 					this.output.appendLine(`[midi] in <- ${message.port}: ${describeMidi(message.bytes)}${heard ? '' : '   (no song listens to this device)'}`);

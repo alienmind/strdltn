@@ -96,6 +96,16 @@ editor closes the stage of that file, so one file never has two engines.
 Each webview has its own engine today. Switching layout destroys one webview and creates
 another, so the sound stops on a switch. See `doc/TODO.md` for the open question.
 
+**VS Code's keys in the Strudel editor.** A key that CodeMirror does not handle leaves the
+webview, and VS Code runs whatever is bound to it. Measured by hand on 2026-11-22 (desktop,
+F5): Ctrl+F and Ctrl+G reach our commands `strdltn.editor.find` and
+`strdltn.editor.gotoLine`, bound under `activeCustomEditorId == strdltn.editor`; the
+native editor keeps VS Code's own find; and a new key set in Keyboard Shortcuts works.
+The command posts `editorAction` to the webview, which runs `openSearchPanel` or
+`gotoLine` of `@codemirror/search`. Upstream's setup binds neither key (its
+`searchKeymap` and `search()` are commented out in `@strudel/codemirror` 1.3.0).
+`openSearchPanel` adds the search extension itself when the editor has none.
+
 ## Messages
 
 | Direction | Message | Meaning |
@@ -750,7 +760,7 @@ edited.
 
 | Path | Holds |
 |---|---|
-| `demo.strudel` | "Sea of Souls (club mix)" by the maintainer. The test plays it on every run. It uses the vocals in `samples/sos-vocals/` |
+| `demo.strudel` | "Sea of Souls (club mix)" by the maintainer. The test plays it on every run. It uses the vocals in `samples/sos-vocals/`, loaded with `samples('github:alienmind/strdltn/main/template/samples')` from `samples/strudel.json`, so the song also plays when pasted into strudel.cc. In [str]dltn the same files come from the local folder too, and a pack that cannot be read is a warning, not an error of the song (`taggedSamples`): the address works only once the files are on `main` |
 | `examples/` | Songs to learn from: three of ours, Hydra visuals, `coastline` from Strudel's own examples, and "Array (Lil Data Edit)" |
 | `lib/` | Snippets by category, one folder each |
 | `samples/` | Local samples |
@@ -1079,7 +1089,12 @@ Each strip of the Mixer has a level meter behind its gain fader, as in Live's mi
 scale from 0 down to 60 dB, and above them the highest peak of the last 3 seconds in dB ("-Inf" in silence). It turns
 orange once the level went above 0 dB, where it clips at the speakers, and stays orange until a click. Live's number
 holds until a click; ours follows the level down after 3 s, because the maintainer pulled a gain fader down, read the
-held number, and took the meter for one measured before the gain. A Master strip at the end meters the whole mix. Built on
+held number, and took the meter for one measured before the gain. A Master strip meters the whole mix. Since 2026-11-22 it comes first and is always
+there, dim when no song is shown, and the global sliders (in `setcps()` or used by no chain) are its inner sliders,
+folded and unfolded as a chain's own, so there is no strip "global" any more. Every
+fader has the same rows (top, track, label, detail, value, knob button; blank rows where a fader has nothing to show)
+and one track height, `--track` in `mixer.css`, so faders, names and knob buttons line up across strips (the
+maintainer found them misaligned). Built on
 2026-11-22 on `feat/midi`, asked by the maintainer after Record measured the demo peaking at +8.3 dB.
 
 The meters show the real audio, not the notes (the pump meter under the faders still shows the notes). superdough plays
@@ -1723,6 +1738,110 @@ What we learned from it:
 - The first notes after start are late (4 to 74 ms): the first send costs about 40 ms. A
   silent message at open warms it up.
 
+## Sliders on knobs
+
+`slider(800, 200, 4000).knob(74)`: CC 74 of any MIDI input moves that slider, as a drag
+does. The rules are in `src/shared/knob.ts` with tests; the page side is in
+`src/webview/main.ts` ("Sliders on knobs").
+
+- The song defines `knob` itself, with a snippet that MIDI learn puts after the header
+  the first time: `register('knob', (cc, pat) => pat)`. It returns the pattern as it is,
+  so the song is standard Strudel and plays on strudel.cc, where the knob does nothing.
+  This is less than the first design (the knob would change the sound on strudel.cc too):
+  that needed `midin()`, and upstream's `midin()` without a name takes the first input
+  and throws when there is none (read in `@strudel/midi` 1.2.6), while the maintainer
+  wanted any controller and no failure without one. A knob there would also not know the
+  slider's range.
+- In [str]dltn the page reads the bindings from the code it evaluated (`findKnobs`), so
+  each binding's `from` is the slider's id (`slider_<from>`). It listens to every MIDI
+  input (`listenEverywhere`), and a CC goes through `pickup` and then `moveSlider`, the
+  same path as a Mixer fader: the sound at once, the widget and the number in the code at
+  most every 150 ms.
+- Pickup (the maintainer's choice): a knob moves the slider only once it reaches or passes
+  the slider's value. The value it compares with is upstream's `sliderValues[id]`, not the
+  number in the code: the code follows 150 ms late, so a turning knob would read its own
+  move as a drag and let go. A drag, a fader or an edit that sets another value drops the
+  knob until it catches up again. A new evaluation starts every knob over.
+- MIDI learn is done by the host (`src/extension/knobs.ts`, `KnobLearn.learn`), which owns
+  the ports: `MidiBridge.captureCC` opens every input and waits up to 10 s for the next CC.
+  Then `knobEdits` writes `.knob(cc)` on the slider call, or changes the number of the one
+  there, plus the snippet the first time, as one `WorkspaceEdit`, and the song is evaluated
+  again where it plays, so the knob works at once. It works with no song playing and in
+  either editor. The places that ask, each giving where the slider's number starts:
+  - the knob button left of a line in the Strudel editor: a CodeMirror `gutter()` of ours
+    with `Prec.highest`, so it comes before upstream's line numbers (`lineActions` in
+    `src/webview/main.ts`). The page sends `knobLearnAt`;
+  - a double click on a slider's widget (`knobLearnAt` too);
+  - the knob button on every fader of the Mixer, which knows its slider's `from`.
+    `readChains` reads `.knob(n)` on a slider as `MixerSlider.knob`, so the button shows
+    the CC;
+  - in the native editor: an icon in the glyph margin on every line with a slider
+    (`gutterIconPath`, filled when mapped), and the line number menu
+    (`editor/lineNumber/context`, "Map a MIDI knob to this line's slider");
+  - `strdltn.knobLearn` (Ctrl+Alt+K) for the slider under the cursor, in either editor.
+- The native editor's icon: VS Code's API gives no click on a gutter icon. A click in the
+  glyph margin is expected to select the whole line, as a click on a line number does, and
+  `onDidChangeTextEditorSelection` with `kind == Mouse` sees that. `KnobLearn` takes a whole
+  line selected by the mouse on a line with a slider as a click on its knob, and logs it.
+  Expected, not measured; the catch is that a click on that line's number does the same.
+- The Mixer's faders follow live. The Mixer reads the code again only 300 ms after the
+  last change, and a turning knob writes every 150 ms, so its fader waited until the knob
+  stopped. Now the page passes every `cm-slider` message (a drag, a knob, a fader) to the
+  host as `sliderLive` with where the number is now, and the Mixer moves the fader of the
+  slider that starts there. Not while one of its own faders is held.
+- The knob button's colors (the maintainer, 2026-11-22): empty and grey with no knob, red and
+  blinking while it waits for a CC, green once mapped. `KnobLearn.onLearning` says which
+  slider waits; the extension passes it to the pages of the song (`knobLearning`) and the
+  Mixer, and the native editor gets a red icon on that line.
+- A knob that waits for pickup shows where it is: the page sends `knobGhost` (the knob's
+  position in slider units, or undefined once it caught the slider), at most once per
+  slider per frame, and the Mixer draws a dim second handle on the fader: a triangle in the
+  meter's lane for a gain, a dot on the track for the others. Asked by the maintainer on
+  2026-11-22: without it a waiting knob looked dead.
+- Knobs work before the song was ever played (the maintainer, 2026-11-22). Until the first
+  evaluation no slider has an id or a value, so the page reads the bindings from the code as
+  it is (`knobsOfTheCode`, read again when the text changes) and listens to MIDI as soon as
+  the code has a `.knob(`. A knob then moves the number in the code (150 ms after it stops)
+  and the Mixer's fader; the sound follows once the song plays. In the native editor this
+  needs the stage open: without a page, nothing hears MIDI.
+- A new evaluation starts every knob's pickup over. The page keeps each CC's last position
+  across evaluations (`lastPosition`), so a knob that sits on its slider's value is caught
+  on its first move. Without it, mapping a second knob (which evaluates the song) left the
+  first one dead: it sat on the value it had written, moved away from it, and never crossed
+  it again (seen by the maintainer).
+- The Mixer names a slider's other strips under a fader ("shared: oh"; also under a gain
+  fader, whose other rows are blank), and dims a slider nothing uses ("not used", from
+  `MixerSlider.unused`: no chain, no `setcps()`, no `all(...)` refers to it). "Show MIDI
+  Mappings" warns when one CC moves more than one slider. The gain triangle on a chain
+  without a gain writes `.gain(KICK)` when an unused constant is named after the chain
+  (`KICK`, `KICK_VOL`, `kickGain`; `sameName` in `chains.ts`), not a new slider beside it.
+  The maintainer met all three as confusion on 2026-11-22.
+- A click on a filled knob button (in the gutter of either editor or on a fader) takes that
+  knob off (`unmapKnobEdit`). Ctrl+Alt+K, a double click on a widget and the line number
+  menu always learn.
+- While a knob turns, the sound and the handle of the slider's widget in the editor move on
+  every message (`moveSlider` sets the widget's range input), and the number in the code is
+  written once, 150 ms after the knob stops. Tried and dropped on 2026-11-22: writing the
+  code every 15 ms while the knob turns, to make it snappier. Each write is an edit the
+  editor parses, the host receives and the Mixer reads again; at about 60 a second the knob
+  lagged by seconds (seen by the maintainer). The Mixer gets the live value at most once per
+  slider per frame (`sliderLive`).
+- Lost and found on 2026-11-22: the page's `cm-slider` listener that tells the Mixer was
+  cut out by a later edit of the knob code, so the Mixer stopped following knobs and drags
+  without any error. Restored with the per-frame limit.
+- The Mixer has a column of utility buttons left of the strips, written upright to stay
+  narrow (the maintainer, 2026-11-22; more will come). At its top, in the button blue, ">"
+  unfolds every strip (every chain's inner sliders and the Master's global ones) and "<"
+  folds them all back to their gain. "Reset MIDI Mappings" (enabled when a
+  slider has a knob): `removeKnobEdits` takes out every `.knob(cc)` on a slider and the
+  snippet, as one `WorkspaceEdit`, so one Ctrl+Z brings them back. "Show MIDI Mappings": a
+  modal, as Live's MIDI Mappings, with per knob its CC, its line and that line's code
+  (`MixerSlider.line` and `.code`, read by `readChains`) and Remove, the same as a second
+  click on the knob button. "Show MIDI Routing" is there, disabled, for the cables of MIDI
+  instruments (doc/TODO.md, item 1).
+- A knob already in the code should work on the stage too, as the fader does: expected,
+  not tested.
+
 ## Release
 
 The maintainer decides when there is a release. Work between releases is committed
@@ -1739,13 +1858,20 @@ without changing the version, without a tag and without `pnpm promote`.
    Window".
 5. When `doc/ABOUT.md` changed, refresh the home page (see "Public page").
 
+The release also carries the user manual as a PDF, `strdltn-manual.pdf`: `ci.yml` runs
+`pnpm manual` (`scripts/manual-pdf.mjs`), which turns `doc/USERMANUAL.md` into one HTML
+page with its images inlined (`marked`) and prints it with the runner's Chrome. No pandoc
+and no LaTeX. The Library links to `releases/latest/download/strdltn-manual.pdf`. Measured
+locally on 2026-11-22 with Chrome on Windows: 19 pages, 680 KB. Not yet seen in CI.
+
 Found on 2026-11-21: the workflow has never run on this repository (zero runs; Actions shows as enabled), so the
 tag `v0.3.0` built nothing. Measured on 2026-11-22: still zero runs after the merge of PR #9 to `main`, although the
 API says Actions is enabled with all actions allowed and `ci.yml` is `active`. The repository is not a fork in
 GitHub's eyes (`fork: false`), so the fork rule (workflows off until enabled once) is not the reason, or not the
 whole one. vstrudel ran the same workflow 32 times, the last on 2026-11-20 at 14:48, six minutes before this
-repository was made. Expected, not tested: the Actions tab of the repository shows a banner with a button that
-turns the workflows on, which the API does not offer. That release was made by hand, the same steps as `ci.yml`: the tag checked out, `pnpm typecheck`,
+repository was made. The reason, seen on 2026-11-22: the Actions tab showed "Workflows aren't being run on this
+repository" with a button "Enable Actions on this repository", which the API does not offer and does not report
+(it said `enabled: true` all along). One click turned the workflows on. That release was made by hand, the same steps as `ci.yml`: the tag checked out, `pnpm typecheck`,
 `pnpm test:unit`, `pnpm package`, a copy as `strdltn.vsix`, then `gh release create v0.3.0 *.vsix --generate-notes`.
 The promo video went in as a third asset, `strdltn-promo.mp4`. GitHub serves release assets as
 `application/octet-stream` whatever type they were uploaded with, so a link to it downloads the file; it does not play

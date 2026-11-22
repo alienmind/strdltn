@@ -65,6 +65,8 @@ export type FromBrowser =
 	| { type: 'insert'; id: string; index?: number }
 	/** The button of a heading: `.bank("...")`. */
 	| { type: 'insertText'; text: string }
+	/** A song's code, without its header comments, at the cursor. */
+	| { type: 'insertSong'; id: string }
 	| { type: 'copy'; id: string; index?: number }
 	| { type: 'open'; id: string }
 	/** Turns one color on or off for the items. `color` 0 clears every color. */
@@ -80,4 +82,6 @@ export type FromBrowser =
 	| { type: 'focusSearch' }
 	/** What Results shows now. The integration test reads it. */
 	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number }
-	| { type: 'log'; message: string };
+	| { type: 'log'; message: string }
+	/** "User manual (PDF)": the PDF of the latest release, in the user's browser. */
+	| { type: 'openManual' };

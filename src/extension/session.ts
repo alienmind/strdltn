@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { DocumentWrites, lf, lineColumn, SyncHost, type SyncUpdate } from '../shared/sync';
-import { type EditorSettings, type EngineState, type FromWebview, type Mode, type ScopeFrame, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { type EditorAction, type EditorSettings, type EngineState, type FromWebview, type Mode, type ScopeFrame, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { findPackSources } from '../shared/packs';
 import type { PackCache } from './packs';
 import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
@@ -22,6 +22,12 @@ export interface SessionHost {
 	onSounds(sounds: SoundInfo[]): void;
 	/** The waves of the song's inline scopes, for the Mixer. */
 	onScopes?(document: vscode.TextDocument, scopes: ScopeFrame[]): void;
+	/** MIDI learn for a slider of the song, by where its number starts. */
+	onKnobLearn?(document: vscode.TextDocument, from: number | undefined, toggle?: boolean): Promise<void>;
+	/** A knob that waits for pickup moved, for the Mixer's dim handle. */
+	onKnobGhost?(document: vscode.TextDocument, from: number, value: number | undefined): void;
+	/** A slider of the song moved live, for the Mixer. */
+	onSliderLive?(document: vscode.TextDocument, from: number, value: number): void;
 	/** The engine state, the error or the active tab changed. The status bar follows. */
 	onState(session: Session): void;
 	/** The firmware copies this engine runs, for the Devices view. */
@@ -148,6 +154,22 @@ export class Session {
 	/** Puts the cursor of the Strudel editor at an offset and scrolls to it. */
 	select(offset: number): void {
 		this.post({ type: 'select', offset });
+	}
+
+	/** Which slider of this song waits for a CC, for the red knob button. */
+	knobLearning(from: number | undefined): void {
+		this.post({ type: 'knobLearning', from });
+	}
+
+	/** MIDI learn for the slider at the cursor of the Strudel editor. */
+	knobLearn(): void {
+		this.post({ type: 'knobLearn' });
+	}
+
+	/** A key of VS Code reached our command: CodeMirror runs the action. Logged for the keybinding spike. */
+	editorAction(action: EditorAction): void {
+		this.host.output.appendLine(`[keys] ${action}: the key reached VS Code, sent to the Strudel editor`);
+		this.post({ type: 'editorAction', action });
 	}
 
 	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */
@@ -283,6 +305,9 @@ export class Session {
 			case 'evaluated':
 				this.showError(message.error);
 				break;
+			case 'knobLearnAt':
+				void this.host.onKnobLearn?.(this.document, message.from, message.toggle);
+				break;
 			case 'cacheFiles': {
 				const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
 				const cached = folder && (await this.host.packs.files(message.base, message.files, folder));
@@ -294,6 +319,12 @@ export class Session {
 				break;
 			case 'scopes':
 				this.host.onScopes?.(this.document, message.scopes);
+				break;
+			case 'sliderLive':
+				this.host.onSliderLive?.(this.document, message.from, message.value);
+				break;
+			case 'knobGhost':
+				this.host.onKnobGhost?.(this.document, message.from, message.value);
 				break;
 			case 'devices':
 				this.host.onDevices?.(this, message.devices);
@@ -489,6 +520,13 @@ export class Session {
 	.dock-slot { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
 	.dock-slot input[type=range] { flex: 1; max-width: 320px; accent-color: var(--vscode-focusBorder, #3794ff); }
 	.dock-slot output { width: 64px; font-family: var(--vscode-editor-font-family, monospace); opacity: .85; }
+	/* Line actions, left of the line numbers (main.ts, lineActions). */
+	.strdltn-actions .cm-gutterElement { padding: 0 2px 0 4px; display: flex; align-items: center; }
+	.strdltn-knob { display: inline-flex; cursor: pointer; color: var(--vscode-descriptionForeground, #8b949e); opacity: .6; --knob-fill: none; --knob-mark: currentColor; }
+	.strdltn-knob:hover { opacity: 1; }
+	.strdltn-knob.on { color: var(--vscode-charts-green, #3fb950); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
+	.strdltn-knob.learning { color: var(--vscode-charts-red, #f85149); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); animation: strdltn-learn 1s ease-in-out infinite; }
+	@keyframes strdltn-learn { 50% { opacity: .45; } }
 	#unlock { position: fixed; z-index: 4; inset: 0; display: none; align-items: center; justify-content: center;
 		background: rgba(0, 0, 0, 0.7); color: #fff; font: 16px sans-serif; cursor: pointer; }
 	#unlock.visible { display: flex; }

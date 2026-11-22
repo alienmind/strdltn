@@ -101,7 +101,16 @@ export type ToWebview =
 	/** The answer to `midiPing`: the host's clock (`epochNow`) when it read the ping. */
 	| { type: 'midiPong'; id: number; sent: number; now: number }
 	/** A message from a MIDI input the song listens to. */
-	| { type: 'midiIn'; port: string; bytes: number[] };
+	| { type: 'midiIn'; port: string; bytes: number[] }
+	/** A VS Code command bound to an editing key (Ctrl+F...) asks CodeMirror to run its action. */
+	| { type: 'editorAction'; action: EditorAction }
+	/** Ctrl+Alt+K: the page answers `knobLearnAt` with the slider under its cursor. */
+	| { type: 'knobLearn' }
+	/** The slider whose number starts at `from` waits for a CC (its knob button is red); undefined: none waits. */
+	| { type: 'knobLearning'; from?: number };
+
+/** The editing actions of the Strudel editor that VS Code's keys reach through our commands. */
+export type EditorAction = 'find' | 'replace' | 'gotoLine' | 'selectNextMatch' | 'selectAllMatches';
 
 /**
  * The level of one chain at one moment, for the pump meter of the Mixer: it jumps by the
@@ -148,7 +157,13 @@ export type FromWebview =
 	| { type: 'midiOut'; events: MidiOut[] }
 	| { type: 'midiListen'; port: string }
 	/** The song stopped: drop this engine's queued events and turn its notes off. */
-	| { type: 'midiPanic' };
+	| { type: 'midiPanic' }
+	/** A knob that waits for pickup is at `value` (slider units); undefined once it caught the slider. For the Mixer's dim handle. */
+	| { type: 'knobGhost'; from: number; value?: number }
+	/** A slider's value changed live (a drag, a knob, a fader): `from` is where its number is now. For the Mixer. */
+	| { type: 'sliderLive'; from: number; value: number }
+	/** MIDI learn for the slider whose number starts at `from` (undefined: no slider there). The host does the learn. */
+	| { type: 'knobLearnAt'; from?: number; toggle?: boolean };
 
 export interface TextChange {
 	from: number;

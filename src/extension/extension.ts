@@ -7,6 +7,7 @@ import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
 import { FirmwareCache } from './firmware';
 import { DevicesView } from './devices';
+import { KnobLearn } from './knobs';
 import { MidiBridge } from './midi';
 import type { MidiPorts } from '../shared/midi';
 import { MixerView } from './mixer';
@@ -110,6 +111,12 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		}),
 	);
 	if (!vscode.env.remoteName) void midi.listPorts();
+	/** Evaluates the song again where it plays, so a mute, a solo or a new knob is heard at once. */
+	const evaluateIfPlaying = (document: vscode.TextDocument) => {
+		for (const session of sessions) if (session.document === document && session.ready && session.started) session.play();
+	};
+	const knobs = new KnobLearn(context, midi, output, evaluateIfPlaying);
+	context.subscriptions.push(knobs);
 	const mixer = new MixerView(context, output, {
 		reveal: (document, offset) => void revealOffset(document, offset),
 		moveSlider: (document, index, from, value) => {
@@ -117,9 +124,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			session?.moveSlider(index, from, value);
 			return !!session;
 		},
-		evaluate: (document) => {
-			for (const session of sessions) if (session.document === document && session.ready && session.started) session.play();
-		},
+		evaluate: evaluateIfPlaying,
+		learnKnob: (document, from) => knobs.learn(document, from, true),
 		transport: (document, action) => {
 			const session = [...sessions].find((s) => s.document === document && s.ready);
 			if (session) return transportOn(session, action);
@@ -163,6 +169,9 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		},
 		// Every engine loads the same packs, so the list of the engine that spoke last is the list.
 		onScopes: (document, scopes) => mixer.setScopes(document, scopes),
+		onSliderLive: (document, from, value) => mixer.sliderLive(document, from, value),
+		onKnobGhost: (document, from, value) => mixer.knobGhost(document, from, value),
+		onKnobLearn: (document, from, toggle) => knobs.learn(document, from, toggle),
 		onDevices: (session, list) => devices.setDevices(session, list),
 		onFrame: (session, key, px, values) => devices.frame(session, key, px, values),
 		onAudio: async (session, kind, wav, info) => {
@@ -213,6 +222,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		const native = vscode.window.activeTextEditor;
 		return [...sessions].find((s) => s.panel.active) ?? (isStrudel(native) ? find(native.document.uri, 'stage') : undefined);
 	};
+	/** The Strudel editor in front, not a stage. */
+	const frontEditor = () => [...sessions].find((s) => s.panel.active && s.mode === 'editor');
 	/** A song that still plays in a tab that is not in front. The one the user was in last. */
 	const playingElsewhere = () =>
 		[...sessions].filter((s) => s.started).sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
@@ -282,6 +293,29 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.commands.registerCommand('strdltn.clearPackCache', clearPackCache),
 		vscode.commands.registerCommand('strdltn.openStage', () => stageForActiveTextEditor()),
 		vscode.commands.registerCommand('strdltn.toggleMode', toggleMode),
+		// VS Code's editing keys in the Strudel editor. Upstream's CodeMirror binds none of
+		// these keys (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+D, Ctrl+Shift+L), so the key leaves the webview and VS Code runs these, bound under
+		// `activeCustomEditorId == strdltn.editor`. A user rebinds them like any command.
+		knobs.onLearning(({ document, from }) => {
+			for (const session of sessions) if (session.document === document) session.knobLearning(from);
+			mixer.knobLearning(document, from);
+		}),
+		// Ctrl+Alt+K: the Strudel editor knows its own cursor; the native editor's is here.
+		vscode.commands.registerCommand('strdltn.knobLearn', () => {
+			const editor = frontEditor();
+			if (editor) return editor.knobLearn();
+			const native = vscode.window.activeTextEditor;
+			if (isStrudel(native)) return knobs.learnAtOffset(native.document, native.document.offsetAt(native.selection.active));
+		}),
+		// The line number menu of the native editor (a right click on a line number).
+		vscode.commands.registerCommand('strdltn.knobLearnLine', async (arg?: { lineNumber: number; uri: vscode.Uri }) => {
+			if (!arg) return;
+			const document = await vscode.workspace.openTextDocument(arg.uri);
+			return knobs.learnLine(document, arg.lineNumber - 1);
+		}),
+		...(['find', 'replace', 'gotoLine', 'selectNextMatch', 'selectAllMatches'] as const).map((action) =>
+			vscode.commands.registerCommand(`strdltn.editor.${action}`, () => frontEditor()?.editorAction(action)),
+		),
 
 		// The Browser calls these itself. They stay commands for keybindings and for the test,
 		// with a sound or a snippet given by name.

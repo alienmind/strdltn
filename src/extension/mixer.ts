@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, scopeEdit, tempoEdit, unduckEdits } from '../shared/chains';
 import type { ControlsState, FromControls, TransportAction } from '../shared/controls';
+import { removeKnobEdits } from '../shared/knob';
 import type { FromMixer, ToMixer } from '../shared/mixer';
 import type { ScopeFrame } from '../shared/protocol';
 import { lf, lineColumn } from '../shared/sync';
@@ -16,6 +17,8 @@ export interface MixerActions {
 	moveSlider(document: vscode.TextDocument, index: number, from: number | undefined, value: string): boolean;
 	/** Evaluates the song again when it is playing, so a mute or solo is heard at once. */
 	evaluate(document: vscode.TextDocument): void;
+	/** MIDI learn for the slider whose number starts at `from`. */
+	learnKnob(document: vscode.TextDocument, from: number): Promise<void>;
 	/** Plays, stops, records or renders the song, as the buttons of Music Controls ask. */
 	transport(document: vscode.TextDocument, action: TransportAction): void;
 	isPlaying(document: vscode.TextDocument): boolean;
@@ -151,6 +154,16 @@ export class MixerView implements Surface {
 			}
 			case 'slider':
 				return this.moveSlider(message.index, message.value);
+			case 'unmapKnobs': {
+				if (!this.document) return;
+				const text = lf(this.document.getText());
+				return void this.writeAll(this.document, text, { edits: removeKnobEdits(text) });
+			}
+			case 'knob': {
+				const slider = this.model?.sliders[message.index];
+				if (this.document && slider) void this.actions.learnKnob(this.document, slider.from);
+				return;
+			}
 			case 'toggle':
 				return void this.toggle(message.chain, message.button);
 			case 'duck':
@@ -227,6 +240,25 @@ export class MixerView implements Surface {
 		if (!document) return;
 		const text = lf(document.getText());
 		await this.write(document, text, tempoEdit(text, bpm));
+	}
+
+	/**
+	 * A slider moved live (a drag in the editor, a knob). The model is read again only 300 ms
+	 * after the last change of the text, and a turning knob writes every 150 ms, so without
+	 * this the fader waited until the knob stopped (seen by the maintainer on 2026-11-22).
+	 */
+	sliderLive(document: vscode.TextDocument, from: number, value: number): void {
+		if (document === this.document) this.post({ type: 'sliderLive', from, value });
+	}
+
+	/** Where a knob that waits for pickup is: a dim second handle on its fader. */
+	knobGhost(document: vscode.TextDocument, from: number, value: number | undefined): void {
+		if (document === this.document) this.post({ type: 'knobGhost', from, value });
+	}
+
+	/** Which slider of the song waits for a CC: its knob button is red. */
+	knobLearning(document: vscode.TextDocument, from: number | undefined): void {
+		if (document === this.document) this.post({ type: 'knobLearning', from });
 	}
 
 	/** The waves of the scopes of a song, passed on when it is the song the Mixer shows. */

@@ -2,7 +2,8 @@
 // a VS Code text document. We host upstream and add nothing to it, so that a new visual
 // or widget in a later @strudel release arrives with a version bump.
 import { Annotation, Prec, StateEffect, Transaction, type EditorSelection } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { gotoLine, openSearchPanel, selectNextOccurrence, selectSelectionMatches } from '@codemirror/search';
+import { EditorView, gutter, GutterMarker } from '@codemirror/view';
 import * as strudelCodemirror from '@strudel/codemirror';
 import * as strudelCore from '@strudel/core';
 import * as strudelDraw from '@strudel/draw';
@@ -18,7 +19,8 @@ import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
 import { SyncClient, type SyncUpdate } from '../shared/sync';
 import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
-import { initMidi, midiMessage, midiScope, midiStopped, setMidiMuted } from './midi';
+import { initMidi, listenEverywhere, midiMessage, midiScope, midiStopped, onControlChange, setMidiMuted } from './midi';
+import { findKnobs, type KnobBinding, type Pickup, pickup, sliderAt } from '../shared/knob';
 import { addFirmware, deviceRequest, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -110,6 +112,32 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'insert':
 			insert(message.text, message.bare, message.argument);
+			break;
+		case 'editorAction':
+			if (mirror && mode === 'editor') {
+				mirror.editor.focus();
+				// openSearchPanel adds the search extension when the editor has none: upstream
+				// leaves search() out of its setup.
+				const view = mirror.editor;
+				const ran =
+					message.action === 'find' || message.action === 'replace'
+						? openSearchPanel(view)
+						: message.action === 'gotoLine'
+							? gotoLine(view)
+							: message.action === 'selectNextMatch'
+								? selectNextOccurrence(view)
+								: selectSelectionMatches(view);
+				// The search panel holds the replace field too; Ctrl+H puts the cursor there.
+				if (message.action === 'replace') (view.dom.querySelector('.cm-search input[name=replace]') as HTMLInputElement | null)?.focus();
+				log('info', `editor action ${message.action}: ${ran ? 'ran' : 'did nothing'}`);
+			}
+			break;
+		case 'knobLearning':
+			learningFrom = message.from;
+			if (mirror && mode === 'editor') mirror.editor.dispatch({ effects: learningEffect.of(message.from) });
+			break;
+		case 'knobLearn':
+			if (mirror && mode === 'editor') post({ type: 'knobLearnAt', from: sliderAt(mirror.editor.state.doc.toString(), mirror.editor.state.selection.main.head) });
 			break;
 		case 'select':
 			if (mirror && mode === 'editor') {
@@ -225,6 +253,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		},
 		afterEval: ({ meta }: { meta: { widgets?: unknown[] } }) => {
 			rememberSliders(meta?.widgets ?? []);
+			rememberKnobs(mirror.code);
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
 			post({ type: 'evaluated' });
 		},
@@ -249,6 +278,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			EditorView.updateListener.of((update) => {
 				if (!update.docChanged) return;
 				mapSliders(update.changes);
+				listenIfTheCodeHasKnobs();
 				for (const transaction of update.transactions) {
 					if (transaction.docChanged && !transaction.annotation(fromHost)) sync.local(transaction.changes);
 				}
@@ -294,6 +324,16 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 	// press is a user gesture for the browser, so resume() is allowed there.
 	evaluateUpstream = mirror.evaluate.bind(mirror);
 	mirror.evaluate = () => play();
+
+	if (mode === 'editor') mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(lineActions()) });
+	listenIfTheCodeHasKnobs();
+
+	// A double click on a slider's widget starts MIDI learn for it. Upstream's widget input
+	// carries `from`, where its number starts.
+	(mirror.editor.dom as HTMLElement).addEventListener('dblclick', (event) => {
+		const input = (event.target as HTMLElement).closest?.('.cm-slider')?.querySelector('input') as (HTMLInputElement & { from?: number }) | null;
+		if (input?.from !== undefined) post({ type: 'knobLearnAt', from: input.from });
+	});
 
 	unlockElement.addEventListener('click', () => {
 		unlockElement.classList.remove('visible');
@@ -368,7 +408,16 @@ async function taggedSamples(map: any, base?: string, options: Record<string, un
 	if (typeof map === 'string') {
 		const cached = map.startsWith('github:') ? undefined : cachedPacks.get(map);
 		if (cached) return strudelWebaudio.samples(structuredClone(cached.map), base || cached.base, { tag: map, ...options });
-		return strudelWebaudio.samples(map, base, { tag: map, ...options });
+		// A pack that cannot be read (offline, a wrong address, a file not pushed yet) is a
+		// warning, not an error of the song: on strudel.cc the song plays on without it, and
+		// the demo loads its vocals from its own repository, which a branch has not on `main`
+		// yet. The sounds of the project's samples folder are loaded already.
+		try {
+			return await strudelWebaudio.samples(map, base, { tag: map, ...options });
+		} catch (error) {
+			log('warn', `samples from ${map} not loaded: ${(error as Error).message}`);
+			return;
+		}
 	}
 	const remote = base ?? map?._base;
 	if (map && typeof map === 'object' && isRemote(remote) && !hasOwnBases(map)) {
@@ -660,6 +709,8 @@ interface LiveSlider {
 	/** Where the number is in the document now. Kept up to date as the text changes. */
 	from: number;
 	writeTimer?: ReturnType<typeof setTimeout>;
+	/** The value the next write puts in the code. */
+	pending?: string;
 }
 /** The sliders of the last evaluation, in both modes. */
 let liveSliders: LiveSlider[] = [];
@@ -681,6 +732,13 @@ function rememberSliders(widgets: any[]): void {
  * next drag. A number changed behind its back would be cut wrong. So the widget is told
  * the new text in the same step. The write waits 150 ms after the last move: a drag
  * fires an event per pixel, and each one would be an edit of the document.
+ *
+ * What moves at once, on every move: the sound, and the widget's handle in the editor (its
+ * range input; the text it keeps is set with the write). Not the code. A knob first wrote
+ * the code every 15 ms while it turned, as the maintainer asked for a snappier knob: each
+ * write is an edit that the editor parses, the host receives and the Mixer reads again, and
+ * at 60 a second the knob lagged by seconds (2026-11-22). So the code is written once, 150
+ * ms after the last move, and the handle is what follows the hand.
  */
 function moveSlider(index: number, from: number | undefined, value: string): void {
 	// By position when the host could read it, else by index: half typed code does not
@@ -688,17 +746,30 @@ function moveSlider(index: number, from: number | undefined, value: string): voi
 	const slider = from !== undefined ? liveSliders.find((s) => s.from === from) : liveSliders[index];
 	if (slider) window.postMessage({ type: 'cm-slider', value: Number(value), id: slider.id }, '*');
 	if (!slider && from === undefined) return;
+	if (mirror) {
+		const at = slider?.from ?? from;
+		for (const input of (mirror.editor.dom as HTMLElement).querySelectorAll<HTMLInputElement & { from?: number }>('.cm-slider input')) if (input.from === at) input.value = value;
+	}
 	let key = slider ?? pendingWrites.find((p) => p.from === from);
 	if (!key) pendingWrites.push((key = { id: '', from: from! }));
 	const target = key;
+	target.pending = value;
 	clearTimeout(target.writeTimer);
 	target.writeTimer = setTimeout(() => {
+		target.writeTimer = undefined;
 		pendingWrites = pendingWrites.filter((p) => p !== target);
 		const key = target;
+		const value = target.pending!;
 		const doc = mirror.editor.state.doc.toString();
-		const number = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(doc.slice(key.from))?.[0];
+		// The whole number, also when the position landed inside it. Two knobs on one CC once
+		// wrote at once, the first changed the length of the text before the second, and the
+		// second replaced only the tail of its number: `slider(0.5750.535)` (2026-11-22).
+		let start = key.from;
+		while (start > 0 && /[\d.]/.test(doc[start - 1])) start--;
+		if (start > 0 && doc[start - 1] === '-') start--;
+		const number = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(doc.slice(start))?.[0];
 		if (!number || number === value) return;
-		const start = key.from;
+		if (start !== key.from) log('warn', `knobs: a slider's number was found ${key.from - start} characters before where it was expected; written there`);
 		mirror.editor.dispatch({ changes: { from: start, to: start + number.length, insert: value } });
 		// Upstream's widget of this slider, if the editor shows one: its position is kept
 		// by upstream, the text of its number we set.
@@ -710,6 +781,242 @@ function moveSlider(index: number, from: number | undefined, value: string): voi
 		}
 	}, 150);
 }
+
+// Every live move of a slider, whoever made it (upstream's widget, a Mixer fader, a knob),
+// is a `cm-slider` window message. The Mixer hears of it by where the number is now, at
+// most once per slider per frame: a knob sends a value per MIDI message.
+const liveOut = new Map<string, number>();
+let liveFrame = 0;
+window.addEventListener('message', (event: MessageEvent) => {
+	if (event.data?.type !== 'cm-slider') return;
+	liveOut.set(event.data.id, Number(event.data.value));
+	liveFrame ||= requestAnimationFrame(() => {
+		liveFrame = 0;
+		for (const [id, value] of liveOut) {
+			const slider = liveSliders.find((s) => s.id === id);
+			if (slider) post({ type: 'sliderLive', from: slider.from, value });
+		}
+		liveOut.clear();
+	});
+});
+/**
+ * A knob that has not caught its slider yet: where it is, in the slider's units, so the
+ * Mixer draws a dim second handle there (the maintainer, 2026-11-22: without it a knob
+ * that waits for pickup looks dead). `undefined` once it caught the slider. Sent at most
+ * once per slider per frame, by where the slider's number is now.
+ */
+const ghostOut = new Map<number, number | undefined>();
+let ghostFrame = 0;
+function ghost(from: number, value: number | undefined): void {
+	ghostOut.set(from, value);
+	ghostFrame ||= requestAnimationFrame(() => {
+		ghostFrame = 0;
+		for (const [at, v] of ghostOut) post({ type: 'knobGhost', from: at, value: v });
+		ghostOut.clear();
+	});
+}
+
+/**
+ * Sliders on knobs (src/shared/knob.ts). The bindings are read from the code that was
+ * evaluated, so their `from` is the slider's id; the slider's number is found where it is
+ * now through `liveSliders`. A CC moves the slider as a Mixer fader does (`moveSlider`), so
+ * the sound and the widget's handle follow at once, the number in the code 150 ms after the
+ * knob stops.
+ */
+let knobs: { binding: KnobBinding; state: Pickup }[] = [];
+let listening = false;
+
+/**
+ * Where each CC was last, 0 to 1, across evaluations. A new evaluation starts every knob's
+ * pickup over; a knob that sits on its slider's value (it wrote it) and then moves away
+ * never crosses that value again, so it never took over. Seen by the maintainer on
+ * 2026-11-22: mapping CC 2 re-evaluated the song and CC 1 stopped answering. With its last
+ * position known, the first move counts as starting on the value.
+ */
+const lastPosition = new Map<number, number>();
+
+function rememberKnobs(code: string): void {
+	evaluated = true;
+	knobs = findKnobs(code).map((binding) => {
+		const at = lastPosition.get(binding.cc);
+		return { binding, state: { engaged: false, knob: at === undefined ? undefined : binding.min + at * (binding.max - binding.min) } };
+	});
+	if (!knobs.length) return;
+	// Said once per evaluation, so the Output shows whether each knob found its slider.
+	const values = (strudelCodemirror as any).sliderValues ?? {};
+	log('info', `knobs: ${knobs.map(({ binding: b }) => `CC ${b.cc} -> slider_${b.from} (${b.min} to ${b.max})${typeof values[`slider_${b.from}`] === 'number' ? '' : ' NOT FOUND'}`).join(', ')}`);
+	void listen();
+}
+
+/** When each knob last said it waits for pickup, so a turning knob says it once a second. */
+const pickupSaid = new Map<number, number>();
+
+async function listen(): Promise<boolean> {
+	if (listening) return true;
+	try {
+		const inputs = await listenEverywhere();
+		listening = true;
+		log('info', `knobs: listening to ${inputs} MIDI inputs`);
+		return true;
+	} catch (error) {
+		log('warn', `knobs: no MIDI here (${(error as Error).message})`);
+		return false;
+	}
+}
+
+/**
+ * Where a slider's number is now, and the value it plays: upstream's `sliderValues`, which
+ * every drag, fader and knob sets through the `cm-slider` message. Not the number in the
+ * code: that follows 150 ms late, and a turning knob would take it for a drag and let go.
+ */
+function sliderNow(id: string): { from: number; value: number } | undefined {
+	const slider = liveSliders.find((s) => s.id === id);
+	const value = (strudelCodemirror as any).sliderValues?.[id];
+	return slider && typeof value === 'number' ? { from: slider.from, value } : undefined;
+}
+
+/** True once the song was evaluated: its sliders have ids and values, and `knobs` is read from that code. */
+let evaluated = false;
+
+/**
+ * Knobs before the song was ever played (the maintainer, 2026-11-22: "wire knobs even
+ * without playing"). Nothing was evaluated, so no slider has an id or a value; the bindings
+ * are read from the code as it is now, and a knob moves the number in the code and the
+ * Mixer's fader. The sound follows once the song plays. Read again when the text changes,
+ * which during a turn it does not (the code is written 150 ms after the knob stops); the
+ * pickup states carry over by CC and order.
+ */
+let codeKnobs: { doc: unknown; knobs: { binding: KnobBinding; state: Pickup }[] } | undefined;
+function knobsOfTheCode(): { binding: KnobBinding; state: Pickup }[] {
+	const doc = mirror?.editor.state.doc;
+	if (!doc) return [];
+	if (codeKnobs && codeKnobs.doc === doc) return codeKnobs.knobs;
+	const before = codeKnobs?.knobs ?? [];
+	const seen = new Map<number, number>();
+	const knobs = findKnobs(doc.toString()).map((binding) => {
+		const nth = seen.get(binding.cc) ?? 0;
+		seen.set(binding.cc, nth + 1);
+		const old = before.filter((k) => k.binding.cc === binding.cc)[nth];
+		const at = lastPosition.get(binding.cc);
+		return { binding, state: old?.state ?? { engaged: false, knob: at === undefined ? undefined : binding.min + at * (binding.max - binding.min) } };
+	});
+	codeKnobs = { doc, knobs };
+	return knobs;
+}
+
+/** The value in the code of the slider whose number starts at `from`, or the one about to be written there. */
+function valueInCode(from: number): number | undefined {
+	const pending = pendingWrites.find((p) => p.from === from)?.pending;
+	if (pending !== undefined) return Number(pending);
+	const number = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(mirror.editor.state.doc.sliceString(from, from + 32))?.[0];
+	return number === undefined ? undefined : Number(number);
+}
+
+/** Before the first evaluation: listen to MIDI as soon as the code has a knob. */
+function listenIfTheCodeHasKnobs(): void {
+	if (!listening && !evaluated && mirror && /\.knob\s*\(/.test(mirror.editor.state.doc.toString())) void listen();
+}
+
+onControlChange((cc, value) => {
+	lastPosition.set(cc, value);
+	if (!evaluated) {
+		for (const knob of knobsOfTheCode()) {
+			if (knob.binding.cc !== cc) continue;
+			const now = valueInCode(knob.binding.from);
+			if (now === undefined) continue;
+			const step = pickup(knob.state, knob.binding, now, value);
+			knob.state = step.state;
+			ghost(knob.binding.from, step.write === undefined ? step.state.knob : undefined);
+			if (step.write === undefined) continue;
+			moveSlider(-1, knob.binding.from, String(step.write));
+			post({ type: 'sliderLive', from: knob.binding.from, value: step.write });
+		}
+		return;
+	}
+	for (const knob of knobs) {
+		if (knob.binding.cc !== cc) continue;
+		const slider = sliderNow(`slider_${knob.binding.from}`);
+		if (!slider) {
+			if (Date.now() - (pickupSaid.get(cc) ?? 0) > 1000) {
+				pickupSaid.set(cc, Date.now());
+				log('warn', `knobs: CC ${cc} has no slider slider_${knob.binding.from} in this evaluation; the sliders are ${liveSliders.map((s) => s.id).join(', ') || 'none'}`);
+			}
+			continue;
+		}
+		const step = pickup(knob.state, knob.binding, slider.value, value);
+		knob.state = step.state;
+		ghost(slider.from, step.write === undefined ? step.state.knob : undefined);
+		if (step.write !== undefined) moveSlider(-1, slider.from, String(step.write));
+		else if (Date.now() - (pickupSaid.get(cc) ?? 0) > 1000) {
+			pickupSaid.set(cc, Date.now());
+			const at = knob.binding.min + value * (knob.binding.max - knob.binding.min);
+			log('info', `knobs: CC ${cc} is at ${Number(at.toPrecision(4))}, the slider at ${slider.value}: turn the knob past ${slider.value} to take it over`);
+		}
+	}
+});
+
+/**
+ * Line actions: a column left of the line numbers (`Prec.highest` puts it before upstream's
+ * gutters). A knob button on every line with a slider; a click asks the host for MIDI
+ * learn on the first slider of the line. Other lines keep the column empty, so the code
+ * stays aligned. CodeMirror lays the gutter out per line, so a widget between two lines
+ * leaves a gap here too and the button stays beside its line number.
+ */
+const KNOB_ICON =
+	'<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8.5" r="5.5" fill="var(--knob-fill)" stroke="currentColor" stroke-width="1.5"/><path d="M8 8.5 5 5" stroke="var(--knob-mark)" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+/** The slider waiting for a CC (its button is red), by where its number starts. The host says. */
+let learningFrom: number | undefined;
+const learningEffect = StateEffect.define<number | undefined>();
+
+class KnobMarker extends GutterMarker {
+	constructor(
+		readonly cc: number | undefined,
+		readonly learning = false,
+	) {
+		super();
+	}
+	eq(other: KnobMarker): boolean {
+		return other.cc === this.cc && other.learning === this.learning;
+	}
+	toDOM(): Node {
+		const button = document.createElement('span');
+		button.className = `strdltn-knob${this.learning ? ' learning' : this.cc === undefined ? '' : ' on'}`;
+		button.innerHTML = KNOB_ICON;
+		button.title = this.cc === undefined ? 'Click, then turn a knob: it moves this slider' : `Knob on CC ${this.cc}. Click to take it off`;
+		return button;
+	}
+}
+
+function lineActions() {
+	const sliderLine = (text: string) => /\bslider\s*\(/.exec(text);
+	return Prec.highest(
+		gutter({
+			class: 'strdltn-actions',
+			lineMarker(view, line) {
+				const docLine = view.state.doc.lineAt(line.from);
+				const text = docLine.text;
+				if (!sliderLine(text)) return null;
+				const cc = /\.knob\(\s*(\d+)\s*\)/.exec(text)?.[1];
+				const learning = learningFrom !== undefined && learningFrom >= docLine.from && learningFrom <= docLine.to;
+				return new KnobMarker(cc === undefined ? undefined : Number(cc), learning);
+			},
+			lineMarkerChange: (update) => update.docChanged || update.transactions.some((t) => t.effects.some((e) => e.is(learningEffect))),
+			initialSpacer: () => new KnobMarker(undefined),
+			domEventHandlers: {
+				mousedown(view, line, event) {
+					if (!(event.target as HTMLElement).closest('.strdltn-knob')) return false;
+					const docLine = view.state.doc.lineAt(line.from);
+					const at = sliderLine(docLine.text);
+					if (!at) return false;
+					post({ type: 'knobLearnAt', from: sliderAt(view.state.doc.toString(), docLine.from + at.index + at[0].length), toggle: true });
+					return true;
+				},
+			},
+		}),
+	);
+}
+
 /** Writes for sliders typed since the last evaluation, which have no id yet. */
 let pendingWrites: LiveSlider[] = [];
 

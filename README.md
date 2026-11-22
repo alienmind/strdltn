@@ -13,21 +13,36 @@
 > this extension [here](https://github.com/alienmind/strdltn/issues), not to the Strudel
 > project.
 
-**[str]dltn Live[code] is a VS Code extension for Strudel live coding. However it is much more than that...
-it turns your editor in a DAW for Strudel music production.**
+**[str]dltn Live[code] (pronounced "Stroo-del-ton") is a VS Code extension for Strudel live coding.
+However it is much more than that, as it turns your editor in a DAW on top of Strudel.**
 
 [Strudel](https://strudel.cc) is a language for making music with code. [str]dltn Live[code] embeds
 the real Strudel, the same editor and the same sound engine as strudel.cc, and adds
-panels around it for the things a web page cannot give you, in the manner of Ableton
-Live:
+features that you would expect of a DAW, but that play nice with the code on screen.
+You can either use the new panels OR keep writing code OR a mix of both. Some of the features (more underway!):
 
+- **Music Controls**: Play, Stop and the BPM of the song, in one row at the top of the Library.
 - **Mixer**: a strip per part of the song you play, with faders, mute, solo and sidechain
   cables you drag. Every change is plain Strudel code.
-- **Music Controls**: Play, Stop and the BPM of the song, in one row at the top of the Library.
 - **Browser**: every sound, snippet, song and function, with one search, colors and tags.
   Click a sound to hear it, even with no song open.
 - **Your files**: songs, samples and snippets are plain files in a folder, so they work
   with git, search and everything else in your editor.
+
+> ### M-VAVE FM-1 and VIBE FM firmwares
+>
+> **Got an FM-1? Your song can play it.** [str]dltn Live[code] supports the M-VAVE FM-1
+> synth in two ways:
+>
+> - **The real device, over MIDI.** Plug in the FM-1 and send any part of your song to it
+>   with `.midi('M-VAVE FM-1')`, in time with the rest of the music. Its knobs and the knobs
+>   of any controller can move the sliders of your code. Desktop VS Code.
+> - **Its firmwares, inside VS Code.** The synth firmwares of the VIBE FM platform, from
+>   [The Firmware Hub](https://thefirmwarehub.com), run inside the extension as instruments
+>   of your song: `s("vibefm1:obervave")`. Each one gets a panel with its own screen, its
+>   F1 to F6 keys and its parameters, with no hardware at all.
+>
+> See `examples/07-vibefm1-obervave.strudel` and `examples/09-midi-out.strudel`.
 
 ![demo.strudel playing: the Strudel editor, the Browser on the left, the Mixer below](doc/screenshot-overview.png)
 
@@ -36,7 +51,8 @@ music project as a repository and open it in a browser from any machine, with no
 installed. Fork this repository, open your fork in a Codespace, and start from the
 `template/` folder.
 
-Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.4.0**, in progress: MIDI on desktop. See
+Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.5.0**: MIDI knobs on every slider, the Mixer's Master and MIDI mappings, a user
+manual. See
 `doc/TODO.md` for what is missing.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
@@ -107,7 +123,8 @@ browser.
   button, or closing that window, puts it back in the panel.
 
 - A level meter behind each strip's gain fader, as in Live: two bars on a 0 to 60 dB scale, and the highest peak
-  above them, orange when it went over 0 dB. A click starts the peak again. A Master strip meters the whole mix.
+  above them, orange when it went over 0 dB. A click starts the peak again. A Master strip, first, meters the whole mix; unfold it for the global sliders (in
+  `setcps()`, or used by no chain).
 
 **Render and record**
 
@@ -154,6 +171,9 @@ browser.
   the sound against the music.
 - A pane at the bottom shows the selected item: its tags, a snippet's description and
   code, a function's parameters and an example.
+- A song can be inserted at the cursor too (its code, without its header), and a function
+  has "Insert an example".
+- "User manual (PDF)" at the foot of the Library opens the manual of the latest release.
 - The list is there as soon as VS Code starts, before you open a song.
 
 **Sounds**
@@ -195,6 +215,15 @@ browser.
   devices; a click types `.midi('name')` or `midin('name')`. See `examples/09-midi-out.strudel`.
   To see what a controller sends, run "strdltn: Show MIDI messages in the Output": every
   message in and out shows in Output > strdltn.
+- Knobs on sliders: click the knob button left of a line with a `slider(...)`, or on a fader
+  of the Mixer (or press Ctrl+Alt+K in a slider), then turn a knob. The code gets `.knob(cc)`, and from then that knob moves
+  the slider, the sound and the number in the code. It takes over once it reaches the
+  slider's value, so the sound does not jump. In the Mixer, "Show MIDI Mappings" lists every
+  knob with its CC and its line, and "Reset MIDI Mappings" takes them all out. On strudel.cc the song still plays, without
+  the knob.
+- VS Code's keys in the Strudel editor: Ctrl+F finds, Ctrl+H replaces, Ctrl+G goes to a
+  line, Ctrl+D selects the next match, Ctrl+Shift+L every match. Change them in Keyboard
+  Shortcuts under `strdltn.editor.*`.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 

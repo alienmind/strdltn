@@ -5,3 +5,4 @@ tmp/
 *.tsbuildinfo
 .vscode-test/
 .bin/
+strdltn-manual.pdf

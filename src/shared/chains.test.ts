@@ -298,3 +298,30 @@ test('the scope box adds ._scope() to a chain and takes it out again', () => {
 	assert.equal(model(inner).chains[0].scope, undefined);
 	assert.equal(apply(inner, scopeEdit(inner, 0)), '$a: s("bd").sometimes(x => x._scope())._scope()');
 });
+
+test('a slider nothing uses is unused; one in setcps or all() is global but used', () => {
+	const song = 'const KICK = slider(1)\nconst DJ = slider(.5)\nsetcps(slider(.5))\n$kick: s("bd").gain(slider(.8))\nall(x => x.djf(DJ))';
+	const m = model(song);
+	assert.deepEqual(
+		m.global.map((i) => [m.sliders[i].constant ?? m.sliders[i].label, !!m.sliders[i].unused]),
+		[['KICK', true], ['DJ', false], ['setcps', false]],
+	);
+});
+
+test('G on a chain without gain uses the unused constant named after it', () => {
+	const apply = (code: string, e?: { from: number; to: number; insert: string }) => (e ? code.slice(0, e.from) + e.insert + code.slice(e.to) : code);
+	const song = 'const KICK_VOL = slider(.7)\n$kick: s("bd*4")';
+	assert.equal(apply(song, gainEdit(song, 0)), 'const KICK_VOL = slider(.7)\n$kick: s("bd*4").gain(KICK_VOL)');
+	// Used elsewhere already, or another name: a new slider, as before.
+	const other = 'const BASS = slider(.7)\n$kick: s("bd*4")';
+	assert.equal(apply(other, gainEdit(other, 0)), 'const BASS = slider(.7)\n$kick: s("bd*4").gain(slider(1, 0, 1))');
+});
+
+test('a slider with a knob says its CC', () => {
+	const song = 'const CUT = slider(800, 200, 4000).knob(74)\n$bass: note("c2").lpf(CUT).gain(slider(.5))';
+	assert.deepEqual(model(song).sliders.map((s) => s.knob), [74, undefined]);
+	assert.deepEqual(
+		model(song).sliders.map(({ line, code }) => ({ line, code })),
+		[{ line: 1, code: 'const CUT = slider(800, 200, 4000).knob(74)' }, { line: undefined, code: undefined }],
+	);
+});

@@ -3,13 +3,20 @@ title: "[str]dltn Live[code] - User manual"
 subtitle: "Version 0.5"
 ---
 
+![[str]dltn Live[code]](logo.jpg)
+
 # [str]dltn Live[code] - User manual
 
-[str]dltn Live[code] turns VS Code into a studio for [Strudel](https://strudel.cc), the language
-for making music with code. It runs the real Strudel, the same editor and sound engine as
-strudel.cc, and adds what a web page cannot give you: a Library of every sound, a Mixer
-with a strip per part of your song, panels for hardware synth firmwares, MIDI knobs that
-move the sliders of your code, and recording to `.wav` and `.mp3`.
+[str]dltn Live[code], pronounced "Stroo-del-ton", brings [Strudel](https://strudel.cc), the
+language for making music with code, into VS Code, with the same editor and sound engine, and
+adds a few things on top:
+
+- a searchable library of sounds, snippets, songs, examples and techniques, with your own
+  colors and tags;
+- a Mixer with a strip per part of your song, level meters and sidechain cables;
+- MIDI knobs on any slider of your code, with mappings you can list and reset;
+- panels for synth firmwares, each with its own screen and keys;
+- recording and rendering to `.wav` and `.mp3`.
 
 This manual walks through everything you can see and do, one part of the screen at a
 time. It does not teach Strudel itself: for that, the Reference in the side bar holds every

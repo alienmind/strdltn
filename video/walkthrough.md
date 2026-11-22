@@ -25,10 +25,9 @@ Ctrl+Enter, and the song starts: the code lights up, the Mixer meters move.
 
 **Say:**
 This is VS Code. And this is a song. (pause)
-It's written in Strudel, a little language for making music with code. Normally you'd play
-it on the Strudel website. Here it plays right inside my editor, with the real Strudel
-engine, and with a few things a web page can't give you: a mixer, a sound library, MIDI
-knobs, and hardware synths.
+It's written in Strudel, a little language for making music with code, and it plays right
+inside my editor, with the real Strudel engine. On top of that I've got a few extras: a
+mixer, a sound library, MIDI knobs, and hardware synths.
 Let me show you around.
 
 ## 2. Your first sound (0:50)

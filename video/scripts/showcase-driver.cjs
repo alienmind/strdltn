@@ -8,6 +8,7 @@ const path = require('path');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const signals = process.env.SHOWCASE_SIGNALS;
+const SONG = process.env.SHOWCASE_SONG || 'sea_of_souls.strudel';
 // One bar of the demo: 133 BPM, four beats.
 const BAR = (60 / 133) * 4 * 1000;
 // The loopback port the knobs come through: loopMIDI on the maintainer's PC.
@@ -60,7 +61,7 @@ exports.run = async () => {
 			await sleep(120);
 			await cc(number, value);
 			await sleep(1500);
-			const doc = vscode.workspace.textDocuments.find((d) => d.uri.path.endsWith('demo.strudel'));
+			const doc = vscode.workspace.textDocuments.find((d) => d.uri.path.endsWith(SONG));
 			say(`learn ${text}: click ${clicked}, MIDI sent ${sent}, .knob(${number}) in the code: ${!!doc?.getText().includes(`.knob(${number})`)}`);
 		};
 

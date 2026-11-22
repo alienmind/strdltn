@@ -25,7 +25,8 @@ export const Root = () => (
     defaultProps={{ frames: [], fps: 30, audioOffset: 0, window: { w: 1920, h: 1080 }, cursor: [], zoom: [] } satisfies ShowcaseProps}
     calculateMetadata={async () => {
       const take = await json<ShowcaseProps>('manifest.json');
-      return { durationInFrames: take.frames.length, props: take };
+      // The video is as big as the page the take was laid out at (2560x1440 by default).
+      return { durationInFrames: take.frames.length, width: take.window.w, height: take.window.h, props: take };
     }}
   />
   <Composition

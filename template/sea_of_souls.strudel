@@ -1,0 +1,222 @@
+// @title Sea of Souls (club mix)
+// @by AlienMind & ElaDark (voices)
+// @license CC BY-NC-SA 4.0
+// @credits Switch Angel for acid and the trance gate
+// @length 104
+// @details Demo song, strudel cover of Sea of Souls - The Malfunctioning Collective (my side projec!)
+// Spotify: https://open.spotify.com/intl-es/album/7tTw8oiSCbyZWc0EPxJyui?si=YJn3dLUiTIaxqu_W8ObAcg
+// This track serves to showcase several techniques
+//
+setCps(133/60/4)
+
+samples('github:alienmind/strdltn/main/template/samples')
+
+typeof firmware !== 'undefined' && firmware('https://raw.githubusercontent.com/Vibe-FM-SDK/vibe-fm-sdk/main/firmwares/obervave.wasm')
+
+//   ___ _               _
+//  / __| |_ _ _ _  _ __| |_ _  _ _ _ ___
+//  \__ \  _| '_| || / _|  _| || | '_/ -_)
+//  |___/\__|_|  \_,_\__|\__|\_,_|_| \___|
+
+const BARS = [10, 16, 16, 8, 16, 8, 16, 10, 4]
+
+const part = (list) => arrange(...BARS.map((bars, i) => [bars, i < list.length ? reify(list[i]) : silence]))
+
+const BEAT = 60 / 133
+
+register('acid', (amount, pat) => pat.s("sawtooth").lpenv(amount).lpd(.14).lpq(11))
+
+register('trancegate', (density, seed, length, x) => {
+  density = reify(density).add(.5)
+  return x.struct(rand.mul(density).round().seg(16).rib(seed, length)).clip(.7)
+})
+
+const KICK_IN   = [0, 1, 1, "<0!7 1>", 1, 0, 1, "<1!6 0!4>"]
+const SNARE_IN  = [0, "<0!5 1!11>", 1, 1, 1, 0, 1, 0]
+const HH_IN     = [0, "<0!5 1!11>", 1, 1, 1, 1, 1, "<1!8 0!2>"]
+const HHR_IN    = ["<1!9 0>", 0, 1, 1, 1, 1, 1, 0]
+const BASS_IN   = [0, "<0 1!15>", 1, 1, 1, 0, 1, "<1!4 0!6>"]
+const ACID_IN   = [0, 0, 1, 0, 1, 1, 1, "<1!2 0!8>"]
+const VOCALS_IN = [1, 1, 1, 1, 1, 1, 1, 1]
+const CLAP_IN   = [0, 0, 0, 0, 1, 0, 1, 0]
+const PAD_IN    = [0, "<0!9 1!7>", 1, 1, 1, 1, 1, "<1!4 0!6>"]
+const PAD_GATE  = [0, "<0!13 1!3>", 1, 1, 0, 1, "<0!8 1!8>", 0]
+const RISER_IN  = ["<1!9 0>", 1, 1, 1, 1, 1, 1, 1]
+const BUILD_HPF = [20, 20, 20, "<20!4 150 400 900 1800>", 20, 20, 20, 20]
+
+//    ___         _           _
+//   / __|___ _ _| |_ _ _ ___| |___
+//  | (__/ _ \ ' \  _| '_/ _ \ (_-<
+//   \___\___/_||_\__|_| \___/_/__/
+
+const KICK_VOL=slider(0.31,0,1)
+const SNARE_VOL=slider(0.248,0,1)
+const HH_VOL=slider(0.161,0,1)
+const HHR_VOL=slider(0.099,0,1)
+const VOCALS_VOL=slider(0.557,0,1)
+const BASS_VOL=slider(0.178,0,1)
+const ACID_VOL=slider(0.293,0,1)
+const CLAP_VOL=slider(0.174,0,1)
+const PAD_VOL=slider(0.241,0,1)
+const RISER_VOL=slider(0.62,0,1)
+const FM_VOL=slider(0.6,0,1)
+
+const BASS_SQUELCH=slider(1,0,2)      // bass: the filter envelope, the squelch
+const BASS_CUTOFF_MUL=slider(1.208,.5,2)  // bass: the cutoff sweep
+const ACID_DRIVE=slider(1.128,0,6)        // acid: distortion
+const HATS_OPEN=slider(1,.2,1.5)      // hhr: the rolling hats' filter
+const VOCALS_ECHO=slider(1,0,1.5)     // vocals: the dub delay
+const RISER_OPEN=slider(1,.5,2)       // riser: its high-pass
+const PAD_OPEN=slider(1,.5,2)         // pad: its filter
+const PAD_SPACE=slider(.8,0,1)        // pad: its room
+
+//  __   __            _
+//  \ \ / /__  __ __ _| |___
+//   \ V / _ \/ _/ _` | (_-<
+//    \_/\___/\__\__,_|_/__/
+
+const VOCALS = ["numbers", "sos-vocals", "sos-vocals", "sos-vocals", "sos-vocals", "sos-vocals", "sos-vocals", "numbers"]
+
+const VOCALS_PATTERN = [
+  "<~ 8 7 6 5 4 3 2 1 0>",
+  "<~ 0 ~ 1 ~ 2 ~ [3 4] ~ 5 ~ 6 ~ 7 ~ 8>",
+  "<<0 1 2 [3 4] 5 6 7 8 9 10> ~>",
+  "<0*2 0*2 0*4 0*4 0*8 0*8 0*16 ~>",
+  "<<0 1 2 [3 4] 5 6 7 8 9 10> ~>",
+  "<<0 ~ 2 ~> ~>",
+  "<0 1 2 [3 4] 5 6 7 8 9 10>",
+  "<~ 8 7 6 5 4 3 2 1 0>",
+]
+
+const VOCALS_DELAY = [.2, .3, .3, .5, .25, .6, .25, .5]
+
+$vocals: n(part(VOCALS_PATTERN)).s(part(VOCALS))
+  .mask(part(VOCALS_IN))
+  .juxBy(.5, x => x.late(1/32))
+  .delay(part(VOCALS_DELAY).mul(VOCALS_ECHO)).delaytime(BEAT * .75).delayfeedback(.45)
+  .room(.3).hpf(part(BUILD_HPF))
+  .orbit(6)
+  .gain(VOCALS_VOL)._pianoroll()._scope()
+
+//   __  __     _         _
+//  |  \/  |___| |___  __| |_  _
+//  | |\/| / -_) / _ \/ _` | || |
+//  |_|  |_\___|_\___/\__,_|\_, |
+//                          |__/
+
+const CHORD_PROGRESSION = ["0", "0", "0", "0", "<0 7 5 6>", "0", "<0 7 5 6>", "0"]
+
+const BASSLINE_PATTERN = [
+  "0*16",
+  "0*16",
+  "<[-13 0 -13 1]>*4",
+  "0*16",
+  "<[-13 0 1 13]>*4",
+  "0*16",
+  "<[-13 0 1 13]>*4",
+  "0*16",
+]
+
+const BASS_CUTOFF = [200, saw.slow(16).range(200, 300), saw.slow(16).range(250, 450), saw.slow(8).range(300, 2500), 600, 200, 900, isaw.slow(10).range(200, 900)]
+const BASS_ENERGY = [1, saw.slow(16).range(1, 2), saw.slow(16).range(2, 3), 3, 4, 1, 4, isaw.slow(10).range(1, 4)]
+const ACID_ENERGY = [1, 1, 2, 1, 3, 1, 4, 2]
+
+//   ___
+//  |   \ _ _ _  _ _ __  ___
+//  | |) | '_| || | '  \(_-<
+//  |___/|_|  \_,_|_|_|_/__/
+
+$kick: s("[bd]*4").bank("tr909")
+  .mask(part(KICK_IN))
+  .gain(KICK_VOL)
+.duck("2:3:4:5:7").duckattack(.2).duckdepth(.8)._scope()
+
+const SNARE_PATTERN = ["~", "~ sd ~ sd", "~ sd ~ sd", "<[~ sd]*2!2 sd*4!2 sd*8!2 sd*16!2>", "~ sd ~ sd", "~", "~ sd ~ sd", "~"]
+$snare: s(part(SNARE_PATTERN)).bank("tr909").mask(part(SNARE_IN)).room(.2).hpf(part(BUILD_HPF)).gain(SNARE_VOL)
+
+$clap: s("~ cp ~ cp").bank("tr909").mask(part(CLAP_IN)).pan(.6).gain(CLAP_VOL)
+
+$hh: s("hh*16").bank("tr909").mask(part(HH_IN))
+  .velocity("[.4 .65 .5 1]*4")
+  .pan(sine.slow(2).range(.3, .7)).hpf(part(BUILD_HPF)).gain(HH_VOL)._scope()
+
+const HHR_CUTOFF = [saw.slow(10).range(800, 8000), 8000, 8000, 8000, 8000, 3000, 8000, 8000]
+$hhr: s("hh!16").bank("yamaharm50").mask(part(HHR_IN)).velocity("[1 .6 .8 .6]*4")
+  .lpf(part(HHR_CUTOFF).mul(HATS_OPEN)).hpf(part(BUILD_HPF)).jux(rev).gain(HHR_VOL)._scope()
+
+//   ___             _ _
+//  | _ ) __ _ _____| (_)_ _  ___
+//  | _ \/ _` (_-<_-< | | ' \/ -_)
+//  |___/\__,_/__/__/_|_|_||_\___|
+
+$bass: n(part(BASSLINE_PATTERN).add(part(CHORD_PROGRESSION))).scale("f2:phrygian")._pianoroll()
+  .mask(part(BASS_IN))
+  .acid(part(BASS_ENERGY).mul(BASS_SQUELCH)).lpf(part(BASS_CUTOFF).mul(BASS_CUTOFF_MUL)).hpf(part(BUILD_HPF)).gain(BASS_VOL)
+  .orbit(2)._scope()
+
+$acid: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygian")._pianoroll()
+  .rib(10,4)
+  .mask(part(ACID_IN))
+  .dist(ACID_DRIVE).distvol(.3)
+  .s("sawtooth").lpf(perlin.slow(4).range(150, 380)).lpenv(part(ACID_ENERGY))
+  .lpq(perlin.slow(8).early(3).range(10, 15)).hpf(part(BUILD_HPF)).gain(ACID_VOL)
+  .orbit(3)._scope()
+
+//   _____  __
+//  | __\ \/ /
+//  | _| >  <
+//  |_| /_/\_\
+
+const RISER_GAIN = [saw.slow(10).range(0, .35), 0, 0, saw.slow(8).range(0, .5), 0, .1, 0, isaw.slow(10).range(0, .3)]
+const RISER_HPF  = [saw.slow(10).range(200, 2000), 200, 200, saw.slow(8).range(200, 4000), 200, 500, 200, isaw.slow(10).range(200, 2000)]
+const RISER_LPF  = [20000, 20000, 20000, 20000, 20000, 20000, 20000, isaw.slow(10).range(50, 6000)]
+$riser: s("pulse").seg(16).dec(.1).fm(time).fmh(time)
+  .mask(part(RISER_IN))
+  .hpf(part(RISER_HPF).mul(RISER_OPEN)).lpf(part(RISER_LPF)).pan(sine.fast(2))
+  .delay(.4).delaytime(BEAT * .5).delayfeedback(.5).room(.5)
+  .orbit(4)
+  .velocity(part(RISER_GAIN))
+  .gain(RISER_VOL)._scope()
+
+const PAD_CUTOFF = [600, arrange([9, "300"], [4, saw.slow(4).range(300, 2400)], [3, "2400"]), 2400, 2400, 1200, 700, 1800, isaw.slow(10).range(300, 1200)]
+const PAD_HPF = [20, 20, 20, "<20!4 150 400 900 1800>", arrange([12, "20"], [4, saw.slow(4).range(20, 2000)]), 20, 20, 20]
+$pad: n(part(CHORD_PROGRESSION).add("[0,2,4]")).scale("f3:phrygian")
+  .mask(part(PAD_IN))
+  .s("supersaw").detune(.6).attack(.5).release(2)
+  .when(part(PAD_GATE), x => x.trancegate(1.5, 45, 1).attack(.01).release(.1))
+  .lpf(part(PAD_CUTOFF).mul(PAD_OPEN)).hpf(part(PAD_HPF)).room(PAD_SPACE)
+  .orbit(5)
+  .gain(PAD_VOL)._scope()
+
+const FM_IN = [0, 0, 0, 0, 0, 0, 1, 0]
+$fm: n(part(CHORD_PROGRESSION).add("[0,2,4]")).scale("f3:phrygian")
+  .mask(part(FM_IN))
+  .s("vibefm1:obervave").progNum(43).gain(FM_VOL).velocity(FM_VOL)
+  .orbit(7)._scope()
+
+//   ___
+//  | _ \__ ___ _____
+//  |   / _` \ V / -_)
+//  |_|_\__,_|\_/\___|
+//
+await initHydra({ feedStrudel: 1})
+src(s0)
+  .kaleid(H("<4 5 6>"))
+  .modulateScale(osc(2,-0.25,1))
+  .color(
+      H("<0.4 0 0>"),
+      H("<0 0.4 0>"),
+      H("<0 0 0.4>")
+  )
+  .layer(
+      src(s0).luma(0.5, 0.01)
+  )
+  .out()
+
+all(x=>x.fft(4).scope({pos:0,smear:.95}))
+
+// This work is licensed under a Creative Commons
+// Attribution-NonCommercial-ShareAlike 4.0 International License.
+//
+// To view a copy of this license, visit:
+// http://creativecommons.org/licenses/by-nc-sa/4.0/

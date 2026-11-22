@@ -9,10 +9,9 @@ title: "[str]dltn Live[code]"
 **[str]dltn Live[code] is a VS Code extension. It turns your editor into a Strudel IDE whenever you
 open a `.strudel` file.**
 
-[Strudel](https://strudel.cc) is a language for making music with code. Its home is a
-web page, and a web page is a hard place to keep a growing pile of songs, samples and
-reusable ideas. [str]dltn Live[code] embeds the real Strudel, the same editor and the same sound
-engine, and adds panels around it, in the manner of Ableton Live: a browser of every
+[Strudel](https://strudel.cc) is a language for making music with code. [str]dltn Live[code]
+embeds the real Strudel, the same editor and the same sound engine, and adds tools on top of
+it, in the manner of Ableton Live: a browser of every
 sound, snippet, song and function, a mixer and music controls for the song you play, and
 your music as plain files in a project.
 

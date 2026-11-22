@@ -18,6 +18,11 @@ const video = resolve(import.meta.dirname, '..');
 const repo = resolve(video, '..');
 const out = join(repo, 'tmp', 'showcase');
 const FPS = 30;
+// The size the page is laid out at, whatever the screen: 2560x1440, so the Mixer's strips and the cables under them
+// show whole (the maintainer, 2026-11-22: 1920x1080 cut the cables). SIZE=1920x1080 for another.
+const [W, H] = (process.env.SIZE ?? '2560x1440').split('x').map(Number);
+// The song of the take: the demo without its explanatory comments (the maintainer, 2026-11-22). SONG=... for another.
+const SONG = process.env.SONG ?? 'sea_of_souls.strudel';
 
 const exe = process.env.VSCODE_EXE ?? join(repo, '.vscode-test', readdirSync(join(repo, '.vscode-test')).find((d) => d.startsWith('vscode-win32')), 'Code.exe');
 const profile = mkdtempSync(join(tmpdir(), 'showcase-'));
@@ -43,7 +48,7 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(join(out, 'frames'), { recursive: true });
 
 const env = Object.fromEntries(Object.entries(process.env).filter(([n]) => !/^(ELECTRON_|VSCODE_)/.test(n)));
-Object.assign(env, { SHOWCASE_SIGNALS: signals, SHOWCASE_WS: join(repo, 'template') });
+Object.assign(env, { SHOWCASE_SIGNALS: signals, SHOWCASE_WS: join(repo, 'template'), SHOWCASE_SONG: SONG });
 const PORT = 9346;
 const child = spawn(exe, [
 	`--remote-debugging-port=${PORT}`, '--mute-audio',
@@ -83,7 +88,7 @@ const workbench = async () => (await targets()).find((t) => t.type === 'page' &&
 const webviews = async () => (await targets()).filter((t) => t.url.includes('vscode-webview') && t.webSocketDebuggerUrl);
 const HOOK = `(() => { for (const w of [window, ...[...document.querySelectorAll('iframe')].map((f) => { try { return f.contentWindow } catch { return null } })]) if (w && w.__strdltnTest) return w.__strdltnTest; })()`;
 
-// The page laid out at 1920x1080 whatever the screen allows the window (the maintainer's screen gives 1440x900): a
+// The page laid out at W x H whatever the screen allows the window (the maintainer's screen gives 1440x900): a
 // device metrics override, kept on a session that stays open for the whole take.
 let emulation;
 let casting = false;
@@ -94,7 +99,7 @@ async function fullHd() {
 		void emulation.send('Page.screencastFrameAck', { sessionId: m.params.sessionId });
 		if (casting) keep(Buffer.from(m.params.data, 'base64'), m.params.metadata.timestamp);
 	});
-	await emulation.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+	await emulation.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
 }
 
 /** A picture of the window at time t (seconds, as the screencast's timestamps). */
@@ -263,13 +268,13 @@ let audioStart = 0;
 async function startScreencast() {
 	casting = true;
 	lastFrame = Date.now() / 1000;
-	await emulation.send('Page.startScreencast', { format: 'jpeg', quality: 92, everyNthFrame: 1, maxWidth: 1920, maxHeight: 1080 });
+	await emulation.send('Page.startScreencast', { format: 'jpeg', quality: 92, everyNthFrame: 1, maxWidth: W, maxHeight: H });
 	return { send: (method, params) => emulation.send(method, params), close: () => {} };
 }
 
-/** The engine page that plays the demo: the webview whose hook's text is the demo's. */
+/** The engine page that plays the song: the webview whose hook's text is the song's. */
 async function engine() {
-	const head = readFileSync(join(repo, 'template', 'demo.strudel'), 'utf8').split('\n')[0];
+	const head = readFileSync(join(repo, 'template', SONG), 'utf8').split('\n')[0];
 	for (const t of await webviews()) {
 		const s = await session(t.webSocketDebuggerUrl);
 		const text = await s.ev(`(() => { const h = ${HOOK}; return h ? h.text().split('\\n')[0] : null })()`);
@@ -279,6 +284,9 @@ async function engine() {
 	return null;
 }
 
+/** The panel's top edge: 43% of the height, so the panel holds the Mixer's strips and its cables. */
+const PANEL_TOP = Math.round(H * 0.43);
+
 /** The bottom panel to about half the window, by its edge, as a person drags it: the Mixer shows whole. */
 async function tallPanel(wb) {
 	const panel = await wb.ev(`(() => { const p = document.querySelector('.part.panel'); if (!p) return null; const r = p.getBoundingClientRect(); return { x: r.left + r.width / 2, top: r.top }; })()`);
@@ -287,10 +295,10 @@ async function tallPanel(wb) {
 	await wb.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: panel.x, y, button: 'none' });
 	await wb.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: panel.x, y, button: 'left', clickCount: 1 });
 	for (let i = 1; i <= 10; i++) {
-		await wb.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: panel.x, y: y + ((560 - y) * i) / 10, button: 'left' });
+		await wb.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: panel.x, y: y + ((PANEL_TOP - y) * i) / 10, button: 'left' });
 		await sleep(30);
 	}
-	await wb.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: panel.x, y: 560, button: 'left', clickCount: 1 });
+	await wb.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: panel.x, y: PANEL_TOP, button: 'left', clickCount: 1 });
 	await sleep(500);
 }
 
@@ -310,7 +318,7 @@ async function opening() {
 	if (songs) await moveAndClick(wb, songs);
 	await sleep(1500);
 	// 3. The demo in the Results: a double click opens it. Once more if the editor did not come.
-	const demo = await inWebview(rectOf('.row .label', 'demo'), wb);
+	const demo = await inWebview(rectOf('.row .label', SONG.replace(/\.strudel$/, '')), wb);
 	for (let attempt = 0; demo && attempt < 2; attempt++) {
 		await moveAndClick(wb, demo, { double: true });
 		await sleep(4000);

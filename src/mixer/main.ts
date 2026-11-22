@@ -453,11 +453,17 @@ const METER_FLOOR = -60;
 const METER_LANE = 13;
 /** How fast a bar falls when the sound stops, in dB a second, about as Live's. */
 const METER_FALL = 24;
-const meterStates = new Map<string, { left: number; right: number; hold: number; at: number }>();
+/**
+ * How long the peak number holds its highest value before it follows the level down. Live's holds until a click; the
+ * maintainer pulled a gain fader down and read the held number as a meter that did not follow (2026-11-22). A clip
+ * (above 0 dB) still stays orange until a click, so it is not missed.
+ */
+const PEAK_HOLD_MS = 3000;
+const meterStates = new Map<string, { left: number; right: number; hold: number; holdAt: number; clipped: boolean; at: number }>();
 
 function meterState(key: string) {
 	let state = meterStates.get(key);
-	if (!state) meterStates.set(key, (state = { left: -Infinity, right: -Infinity, hold: -Infinity, at: 0 }));
+	if (!state) meterStates.set(key, (state = { left: -Infinity, right: -Infinity, hold: -Infinity, holdAt: 0, clipped: false, at: 0 }));
 	return state;
 }
 
@@ -472,7 +478,12 @@ function feedMeters(frames: ScopeFrame[]): void {
 		const [l, r] = frame.peak.map((v) => (v === null ? -Infinity : v));
 		state.left = Math.max(l, state.left - fall);
 		state.right = Math.max(r, state.right - fall);
-		state.hold = Math.max(state.hold, l, r);
+		const peak = Math.max(l, r);
+		if (peak >= state.hold || now - state.holdAt > PEAK_HOLD_MS) {
+			state.hold = peak;
+			state.holdAt = now;
+		}
+		if (peak > 0) state.clipped = true;
 		state.at = now;
 	}
 	drawMeters();
@@ -496,9 +507,11 @@ function addMeter(box: HTMLElement, key: string): void {
 function peakHold(key: string): HTMLElement {
 	const hold = el('button', 'peakhold', '-Inf');
 	hold.dataset.meter = key;
-	hold.title = 'Peak: the highest level so far, in dB below full scale. Above 0 it clips. Click to start again';
+	hold.title = 'Peak: the highest level of the last 3 seconds, in dB below full scale. Orange: it went above 0 and clipped. Click to clear';
 	hold.addEventListener('click', () => {
-		meterState(key).hold = -Infinity;
+		const state = meterState(key);
+		state.hold = -Infinity;
+		state.clipped = false;
 		drawMeters();
 	});
 	return hold;
@@ -519,9 +532,9 @@ function masterStrip(): HTMLElement {
 function drawMeters(): void {
 	for (const canvas of strips.querySelectorAll<HTMLCanvasElement>('canvas.meter')) drawMeter(canvas, meterState(canvas.dataset.meter!));
 	for (const hold of strips.querySelectorAll<HTMLElement>('.peakhold')) {
-		const value = meterState(hold.dataset.meter!).hold;
-		hold.textContent = Number.isFinite(value) ? value.toFixed(2) : '-Inf';
-		hold.classList.toggle('over', value > 0);
+		const state = meterState(hold.dataset.meter!);
+		hold.textContent = Number.isFinite(state.hold) ? state.hold.toFixed(2) : '-Inf';
+		hold.classList.toggle('over', state.clipped);
 	}
 }
 

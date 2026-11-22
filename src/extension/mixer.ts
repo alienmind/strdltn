@@ -94,8 +94,11 @@ export class MixerView implements Surface {
 	}
 
 	/** The model of the song in front, as the parser read it last. For the integration test. */
-	current(): { song?: string; model?: MixerModel; error?: string; state?: Extract<FromMixer, { type: 'state' }>; pages: number; scopeFrames: number; lastScopes: number } {
-		return { song: this.document && vscode.workspace.asRelativePath(this.document.uri), model: this.model, error: this.error, state: this.lastState, pages: this.pages, scopeFrames: this.scopeFrames, lastScopes: this.lastScopes };
+	/** For the test: the last meter reading of each chain, left and right in dBFS. */
+	private readonly meterPeaks: Record<string, [number | null, number | null]> = {};
+
+	current(): { song?: string; model?: MixerModel; error?: string; state?: Extract<FromMixer, { type: 'state' }>; pages: number; scopeFrames: number; lastScopes: number; meterPeaks: Record<string, [number | null, number | null]> } {
+		return { song: this.document && vscode.workspace.asRelativePath(this.document.uri), model: this.model, error: this.error, state: this.lastState, pages: this.pages, scopeFrames: this.scopeFrames, lastScopes: this.lastScopes, meterPeaks: { ...this.meterPeaks } };
 	}
 
 	/** Unfolds the named strips and folds the others, and returns what the page reports after it has drawn. */
@@ -231,6 +234,7 @@ export class MixerView implements Surface {
 		if (document !== this.document) return;
 		this.scopeFrames++;
 		this.lastScopes = scopes.length;
+		for (const scope of scopes) if (scope.peak) this.meterPeaks[scope.chain] = scope.peak;
 		this.scopePeak = Math.max(this.scopePeak, ...scopes.map((scope) => scope.level));
 		this.post({ type: 'scopes', scopes });
 		// Once every 2 seconds in Output > strdltn: how many frames came and their peak, so a

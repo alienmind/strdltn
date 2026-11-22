@@ -98,7 +98,7 @@ Render, Record, the level meters and the electro example, on `feat/midi`. Test o
 | R3 | Click Record, wait 10 s, click it again | A pair `demo.rec-<time>.wav` and `.mp3` appears under Render |
 | R4 | Render `examples/07-vibefm1-obervave.strudel` | The firmware's bass, pad and arp are in the file |
 | R5 | Play the demo, open the Mixer, in a short and in a maximized panel | Each strip's meter moves behind its fader, aligned across strips and with Master; peaks show in dB |
-| R6 | Push a fader until its peak turns orange, click the peak | It shows above 0; the click sets it back to -Inf |
+| R6 | Push a fader until its peak turns orange, then pull it down, then click the peak | Orange above 0; pulled down, the number follows the level within 3 s and stays orange; the click clears the orange |
 | R6b | Click the triangle of a gain fader without dragging it, then click the dim triangle | The gain fader leaves the code and its value leaves the scope; the strip keeps its height. The second click puts it back |
 | R6c | Hover a strip's jack | The tooltip says its orbit; M and S sit above the scope, everything centered |
 | R7 | Play `examples/10-electro.strudel`, set `drop` to 1, then 2 | The supersaws pump to the gain pattern; at 2 the rhythm changes |

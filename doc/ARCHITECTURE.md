@@ -1071,8 +1071,10 @@ frames a second for one panel on this one, with a delay of one frame instead of 
 ## Level meters
 
 Each strip of the Mixer has a level meter behind its gain fader, as in Live's mixer: two bars, left and right, on a
-scale from 0 down to 60 dB, and above them the highest peak so far in dB ("-Inf" before any sound, orange above 0 dB,
-where it clips at the speakers; a click starts it again). A Master strip at the end meters the whole mix. Built on
+scale from 0 down to 60 dB, and above them the highest peak of the last 3 seconds in dB ("-Inf" in silence). It turns
+orange once the level went above 0 dB, where it clips at the speakers, and stays orange until a click. Live's number
+holds until a click; ours follows the level down after 3 s, because the maintainer pulled a gain fader down, read the
+held number, and took the meter for one measured before the gain. A Master strip at the end meters the whole mix. Built on
 2026-11-22 on `feat/midi`, asked by the maintainer after Record measured the demo peaking at +8.3 dB.
 
 The meters show the real audio, not the notes (the pump meter under the faders still shows the notes). superdough plays
@@ -1092,7 +1094,11 @@ second, keeps the peak, and draws both on a canvas under the fader, whose track 
 triangle.
 
 Seen on 2026-11-22 in a development host with the demo playing: peaks of -8.92 dB (vocals) to -20.64 dB (bass), -Inf
-for chains not yet heard, and -5.38 dB on the master. Not measured: how close the meter's peak is to the true peak
+for chains not yet heard, and -5.38 dB on the master. The meters are after the gain, measured the same day in a muted
+window: in `examples/10-electro.strudel`, G on `bassline` and its fader from 1 to 0.1 took its meter from about -7 to
+about -24 dB and back to -3 at 1; a sawtooth with `.gain(slider(1, 0, 1))` went from -15.1 to -35.1 dB at 0.1. A
+note without pan is mono, and the meter's input mixes it up to two channels (`channelCountMode: 'explicit'`), or the
+right bar read silence. Not measured: how close the meter's peak is to the true peak
 between two reads (a read sees 43 ms of every 50 ms).
 
 ## Render and record

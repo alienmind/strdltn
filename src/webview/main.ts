@@ -1121,6 +1121,11 @@ const METER_BUFFER = new Float32Array(2048);
 
 function makeMeter(context: BaseAudioContext): Meter {
 	const input = context.createGain();
+	// A note without pan is mono; mixed up to two channels, it shows on both bars, not on the left alone (measured:
+	// the right bar of a plain sawtooth read silence).
+	input.channelCount = 2;
+	input.channelCountMode = 'explicit';
+	input.channelInterpretation = 'speakers';
 	const split = context.createChannelSplitter(2);
 	const left = context.createAnalyser();
 	const right = context.createAnalyser();

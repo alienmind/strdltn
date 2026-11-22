@@ -27,6 +27,15 @@ test('a function that does not exist', () => {
 	assert.equal(marked('$: s("bd").lpf(200)\n  .lfp(300)', { message: 's(...).lpf(...).lfp is not a function' }), 'lfp (call)');
 });
 
+test('a name in a comment is not the place', () => {
+	const code = '// @details Uses `.midi()` to play a device\n$: note("c").midi()';
+	const place = locateError(code, { message: 'note(...).midi is not a function' });
+	assert.equal(place && code.slice(0, place.from).split('\n').length, 2);
+	assert.equal(marked('/* vol */ s("bd").gain(vol)', { message: 'vol is not defined' }), 'vol (name)');
+	// The // of an address inside a string is not a comment.
+	assert.equal(marked('samples("https://x.org/a")\n$: s("bd").lfp(1)', { message: 's(...).lfp is not a function' }), 'lfp (call)');
+});
+
 test('an error we cannot place', () => {
 	assert.equal(locateError('s("bd")', { message: 'something else' }), undefined);
 });

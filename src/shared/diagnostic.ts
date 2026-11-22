@@ -8,8 +8,8 @@
 // 3. "x is not defined": the first use of the name `x`.
 // 4. "....x is not a function": the first call of `.x(`.
 //
-// Rules 3 and 4 take the first place the name is written. When the name is written
-// more than once, that may be the wrong one.
+// Rules 3 and 4 take the first place the name is written outside a comment. When the
+// name is written more than once, that may be the wrong one.
 
 export interface ErrorPlace {
 	from: number;
@@ -35,18 +35,54 @@ export function locateError(code: string, error: { message?: string; pos?: unkno
 			return { from: from + indent, to: from + lines[index].length, rule: 'mini line' };
 		}
 	}
+	// A comment may name the function too: a header that explains `.midi()` came first and
+	// took the mark (seen in examples/09-midi-out.strudel).
+	const bare = withoutComments(code);
 	const name = /^([A-Za-z_$][\w$]*) is not defined$/.exec(message);
 	if (name) {
-		const found = new RegExp(`(?<![\\w$.])${escape(name[1])}(?![\\w$])`).exec(code);
+		const found = new RegExp(`(?<![\\w$.])${escape(name[1])}(?![\\w$])`).exec(bare);
 		if (found) return { from: found.index, to: found.index + name[1].length, rule: 'name' };
 	}
 	const call = /\.([A-Za-z_$][\w$]*) is not a function$/.exec(message);
 	if (call) {
-		const found = new RegExp(`\\.\\s*${escape(call[1])}\\s*\\(`).exec(code);
+		const found = new RegExp(`\\.\\s*${escape(call[1])}\\s*\\(`).exec(bare);
 		if (found) {
-			const from = code.indexOf(call[1], found.index);
+			const from = bare.indexOf(call[1], found.index);
 			return { from, to: from + call[1].length, rule: 'call' };
 		}
 	}
 	return undefined;
+}
+
+/**
+ * The code with every comment turned into spaces, so the offsets stay. Strings are
+ * skipped over, so the `//` of an address inside one is not taken for a comment.
+ */
+export function withoutComments(code: string): string {
+	let out = '';
+	let i = 0;
+	while (i < code.length) {
+		const c = code[i];
+		if (c === '"' || c === "'" || c === '`') {
+			let j = i + 1;
+			// A quote ends at its pair; a plain string also at the end of the line.
+			while (j < code.length && code[j] !== c && (c === '`' || code[j] !== '\n')) j += code[j] === '\\' ? 2 : 1;
+			out += code.slice(i, j + 1);
+			i = j + 1;
+		} else if (c === '/' && code[i + 1] === '/') {
+			const end = code.indexOf('\n', i);
+			const j = end < 0 ? code.length : end;
+			out += ' '.repeat(j - i);
+			i = j;
+		} else if (c === '/' && code[i + 1] === '*') {
+			const end = code.indexOf('*/', i + 2);
+			const j = end < 0 ? code.length : end + 2;
+			out += code.slice(i, j).replace(/[^\n]/g, ' ');
+			i = j;
+		} else {
+			out += c;
+			i++;
+		}
+	}
+	return out;
 }

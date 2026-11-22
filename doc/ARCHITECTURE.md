@@ -1793,6 +1793,12 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   blinking while it waits for a CC, green once mapped. `KnobLearn.onLearning` says which
   slider waits; the extension passes it to the pages of the song (`knobLearning`) and the
   Mixer, and the native editor gets a red icon on that line.
+- Knobs work before the song was ever played (the maintainer, 2026-11-22). Until the first
+  evaluation no slider has an id or a value, so the page reads the bindings from the code as
+  it is (`knobsOfTheCode`, read again when the text changes) and listens to MIDI as soon as
+  the code has a `.knob(`. A knob then moves the number in the code (150 ms after it stops)
+  and the Mixer's fader; the sound follows once the song plays. In the native editor this
+  needs the stage open: without a page, nothing hears MIDI.
 - A new evaluation starts every knob's pickup over. The page keeps each CC's last position
   across evaluations (`lastPosition`), so a knob that sits on its slider's value is caught
   on its first move. Without it, mapping a second knob (which evaluates the song) left the

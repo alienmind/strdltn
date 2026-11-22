@@ -85,6 +85,7 @@ table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K)
 | 18 | Look at the Mixer | The Master strip first, always there; its fold arrow shows the global sliders (the old "global" strip is gone). Then the chains in code order. Every fader track has one height, and the names, values and knob buttons sit on one line across strips |
 | 20 | Click an empty knob button, wait, turn a knob | The button turns red and blinks while it waits (in the gutter of both editors and on the fader), then green once mapped. Also red on a timeout, then back to grey |
 | 21 | Map CC 1, then CC 2 on another slider, then turn CC 1 again | Both knobs move their sliders. CC 1 is not left dead by the second mapping |
+| 22 | Reload the window, open a song with mapped knobs, do not play, turn a knob past its slider's value | The number in the code changes when the knob stops, the Mixer's fader follows while it turns. Press play: the knob changes the sound too |
 | 19 | Open `demo.strudel`, play it | The vocals sing as before (from the local `samples/` folder). Until the branch is merged, the Output has one warning: `samples from github:alienmind/strdltn/main/template/samples not loaded` |
 
 Expected still broken: on strudel.cc the knob does nothing (by design, ARCHITECTURE

@@ -278,6 +278,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			EditorView.updateListener.of((update) => {
 				if (!update.docChanged) return;
 				mapSliders(update.changes);
+				listenIfTheCodeHasKnobs();
 				for (const transaction of update.transactions) {
 					if (transaction.docChanged && !transaction.annotation(fromHost)) sync.local(transaction.changes);
 				}
@@ -325,6 +326,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 	mirror.evaluate = () => play();
 
 	if (mode === 'editor') mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(lineActions()) });
+	listenIfTheCodeHasKnobs();
 
 	// A double click on a slider's widget starts MIDI learn for it. Upstream's widget input
 	// carries `from`, where its number starts.
@@ -811,6 +813,7 @@ let listening = false;
 const lastPosition = new Map<number, number>();
 
 function rememberKnobs(code: string): void {
+	evaluated = true;
 	knobs = findKnobs(code).map((binding) => {
 		const at = lastPosition.get(binding.cc);
 		return { binding, state: { engaged: false, knob: at === undefined ? undefined : binding.min + at * (binding.max - binding.min) } };
@@ -849,8 +852,63 @@ function sliderNow(id: string): { from: number; value: number } | undefined {
 	return slider && typeof value === 'number' ? { from: slider.from, value } : undefined;
 }
 
+/** True once the song was evaluated: its sliders have ids and values, and `knobs` is read from that code. */
+let evaluated = false;
+
+/**
+ * Knobs before the song was ever played (the maintainer, 2026-11-22: "wire knobs even
+ * without playing"). Nothing was evaluated, so no slider has an id or a value; the bindings
+ * are read from the code as it is now, and a knob moves the number in the code and the
+ * Mixer's fader. The sound follows once the song plays. Read again when the text changes,
+ * which during a turn it does not (the code is written 150 ms after the knob stops); the
+ * pickup states carry over by CC and order.
+ */
+let codeKnobs: { doc: unknown; knobs: { binding: KnobBinding; state: Pickup }[] } | undefined;
+function knobsOfTheCode(): { binding: KnobBinding; state: Pickup }[] {
+	const doc = mirror?.editor.state.doc;
+	if (!doc) return [];
+	if (codeKnobs && codeKnobs.doc === doc) return codeKnobs.knobs;
+	const before = codeKnobs?.knobs ?? [];
+	const seen = new Map<number, number>();
+	const knobs = findKnobs(doc.toString()).map((binding) => {
+		const nth = seen.get(binding.cc) ?? 0;
+		seen.set(binding.cc, nth + 1);
+		const old = before.filter((k) => k.binding.cc === binding.cc)[nth];
+		const at = lastPosition.get(binding.cc);
+		return { binding, state: old?.state ?? { engaged: false, knob: at === undefined ? undefined : binding.min + at * (binding.max - binding.min) } };
+	});
+	codeKnobs = { doc, knobs };
+	return knobs;
+}
+
+/** The value in the code of the slider whose number starts at `from`, or the one about to be written there. */
+function valueInCode(from: number): number | undefined {
+	const pending = pendingWrites.find((p) => p.from === from)?.pending;
+	if (pending !== undefined) return Number(pending);
+	const number = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(mirror.editor.state.doc.sliceString(from, from + 32))?.[0];
+	return number === undefined ? undefined : Number(number);
+}
+
+/** Before the first evaluation: listen to MIDI as soon as the code has a knob. */
+function listenIfTheCodeHasKnobs(): void {
+	if (!listening && !evaluated && mirror && /\.knob\s*\(/.test(mirror.editor.state.doc.toString())) void listen();
+}
+
 onControlChange((cc, value) => {
 	lastPosition.set(cc, value);
+	if (!evaluated) {
+		for (const knob of knobsOfTheCode()) {
+			if (knob.binding.cc !== cc) continue;
+			const now = valueInCode(knob.binding.from);
+			if (now === undefined) continue;
+			const step = pickup(knob.state, knob.binding, now, value);
+			knob.state = step.state;
+			if (step.write === undefined) continue;
+			moveSlider(-1, knob.binding.from, String(step.write));
+			post({ type: 'sliderLive', from: knob.binding.from, value: step.write });
+		}
+		return;
+	}
 	for (const knob of knobs) {
 		if (knob.binding.cc !== cc) continue;
 		const slider = sliderNow(`slider_${knob.binding.from}`);

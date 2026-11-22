@@ -40,7 +40,7 @@ Next in line:
 | 18 | Record MIDI into a pattern, as Ableton does: arm, play a keyboard while the song plays, the notes written into the song | Planned, not built. Same section |
 | 1 | MIDI: devices in the Browser, playing through them, mappings | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Not possible in the webview (S6: the microphone is refused, so no names or ids). Windows' per-app output does it by hand. See "Sound card" |
-| 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
+| 4 | Firmware Marketplace: the hub's firmwares in the Library, Installed and Available, download, a snippet into the code, a preview of the screen in a popup. The next branch after `feat/knobs` (the maintainer, 2026-11-22) | Planned, not built. Step 1, the catalog, first. See "Firmware Marketplace" under "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
 | 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
 | 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
@@ -289,12 +289,44 @@ Read from the hub's pages on 2026-11-20. Not tested.
 | 2 | The hub's catalog in the host: fetched and kept for a day, works offline from the last copy. A firmware picked from it goes through `firmware(url)` and the cache that exists, with a SHA-256 check when the catalog has one | `pnpm test:unit` covers the unpack and the cache paths |
 | 3 | Check the transport with a firmware that has its own sequencer (SLOOP) | It follows play, stop and `setcps` |
 | 4 | `.vp()` for parameters by their id, through `VIBE_EV_PARAM`. `VibeCore` already reads the list and has the event | A slider moves a firmware parameter |
-| 5 | The Firmware view: groups "In this project" and the hub's list by device; name, version, author, license; a click types `s("vibefm1:<id>")` and starts the download; buttons for the hub page, the cheat sheet, the parameters and a test note; a filter box; "Add firmware..." for a `.zip` or `.wasm` from disk | The hand test of the view passes |
+| 5 | Replaced by "Firmware Marketplace" below. Was: the Firmware view: groups "In this project" and the hub's list by device; name, version, author, license; a click types `s("vibefm1:<id>")` and starts the download; buttons for the hub page, the cheat sheet, the parameters and a test note; a filter box; "Add firmware..." for a `.zip` or `.wasm` from disk | The hand test of the view passes |
 | 7 | `.midi("vibefm1:...")`, once the webview's own `.midi()` from "MIDI" exists: names that start with `vibefm1:` go to the firmware, CCs and `midimaps` work too | Code written for an FM-1 over MIDI plays the firmware |
 | 8 | Store: `vibe_host_store` writes go to `.strdltn/firmware-store/<id>/` through the host, and come back on load | Save a sound in a firmware, reload, it is there |
 | 9 | A snippet in `lib/` for a firmware part | |
 | 10 | README and `doc/ABOUT.md`, once the view exists | |
 | 11 | Later: the 480 x 320 display in the stage, from `vibe_wasm_draw` at 30 fps | |
+
+### Firmware Marketplace
+
+The plan for the next branch, asked by the maintainer on 2026-11-22: a place to find the
+hub's firmwares, download them, have them by name and add them to the code. It takes the
+place of step 5 above (the Firmware view) and grows steps 2 and 9.
+
+- **Where:** a Firmware category of the Library, beside Instruments, as Songs and Snippets
+  went back into the Library (not a view of its own). Two groups: **Installed** (the
+  firmwares in the project's `firmware/` folder and in the cache) and **Available** (the
+  hub's catalog, by device). Name, version, author, license, and the search, colors and
+  tags of the Library.
+- **Download:** a button on an Available row, or the first use. It goes through
+  `firmware(url)` and the cache that exists, with a SHA-256 check when the catalog has one.
+  The row moves to Installed.
+- **Into the code:** Insert at the cursor types a snippet that plays the firmware, not only
+  its name: `note("c2 eb2").s("vibefm1:<id>")` with its program (`.progNum()`) and the
+  parameters it is known for. Inside a string or `s()` it types the name alone, as sounds
+  do (`chooseInsert`).
+- **Preview of the screen:** a popup, as the other popup webviews: the firmware's display,
+  480 x 320. For an Installed firmware, run it for a moment and draw a frame, with the
+  drawing the Devices panels already have. For an Available one, a still image if the hub
+  publishes one; else the popup says "download to see it". Not decided: whether a preview
+  may download by itself.
+- **Done when:** the hand test finds a firmware under Available, downloads it, sees its
+  screen, inserts it, and it plays.
+
+Order of work: step 1 (the catalog) first, from Node, read only: fetch
+`play.thefirmwarehub.com/firmware/index.json`, write down its fields and its CORS headers
+in ARCHITECTURE "Firmware". If it cannot be used, the Available group waits for decision 13
+(asking the hub's author for a feed), and the branch builds Installed, the snippet and the
+preview first.
 
 ### Effects on a firmware
 

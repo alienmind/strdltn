@@ -79,8 +79,8 @@ const BASS_IN   = [0, "<0 1!15>", 1, 1, 1, 0, 1, "<1!4 0!6>"]
 const ACID_IN   = [0, 0, 1, 0, 1, 1, 1, "<1!2 0!8>"]
 const VOCALS_IN = [1, 1, 1, 1, 1, 1, 1, 1]
 const CLAP_IN   = [0, 0, 0, 0, 1, 0, 1, 0]
-// The pad: from bar 9 of the INTRO to the start of the OUTRO
-const PAD_IN    = [0, "<0!8 1!8>", 1, 1, 1, 1, 1, "<1!4 0!6>"]
+// The pad: from bar 10 of the INTRO to the start of the OUTRO
+const PAD_IN    = [0, "<0!9 1!7>", 1, 1, 1, 1, 1, "<1!4 0!6>"]
 // The pad goes through the trance gate in the BUILD, the BREAKDOWN and the second half of the FINAL DROP
 const PAD_GATE  = [0, 0, 0, 1, 0, 1, "<0!8 1!8>", 0]
 const RISER_IN  = ["<1!9 0>", 1, 1, 1, 1, 1, 1, 1]

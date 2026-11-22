@@ -1,22 +1,39 @@
 // @title MIDI out
-// @details Chords on a MIDI device, drums in the editor. Without a name, the first MIDI
-//   output plays: on Windows, its built-in GS Wavetable Synth. Desktop VS Code only.
+// @details Chords on a MIDI synth, a band in the editor, and the eight knobs of a MIDI
+//   controller on both. Set your two devices at the top. Desktop VS Code only.
 // @by alienmind
 
-// Your device's name goes in the quotes, as the Output channel lists the ports:
-// .midi("UMC404HD"). The sliders send CC 74 (often the filter) and the pitch bend.
 setcpm(124/4)
 
-const CUTOFF = slider(0.6, 0, 1)
-const BEND = slider(0, -1, 1)
+// Your devices, as the Library's MIDI category lists them: a click there types the name.
+// Single quotes: in double quotes Strudel reads mini-notation.
+const SYNTH = 'M-VAVE FM-1'
+const knobs = await midin('MPK mini 3')
 
-$drums: s("bd*4, [~ hh]*4").bank("tr909").gain(.7)
+// The knobs' CC numbers. The MPK mini 3 sends 70 to 77 in its first program; if a knob does
+// nothing, yours differ. A knob reads 0 until it moves, so the band starts silent: bring each
+// part in with its knob, as on a mixer.
+const KICK = knobs(70)
+const HATS = knobs(71)
+const BASS = knobs(72)
+const PAD = knobs(73)
+const BASS_OPEN = knobs(74)
+const SYNTH_HARD = knobs(75)
+const SYNTH_OPEN = knobs(76)
 
+// The band, in the editor. Knobs 1 to 4: the level of each part.
+$kick: s("bd*4").bank("RolandTR909").duck(2).duckattack(.2).duckdepth(.8).gain(KICK)
+$hats: s("[~ hh]*4, ~ cp ~ cp").bank("RolandTR909").gain(HATS)
+// Knob 5: the bass filter's envelope, from tame to squelch.
+$bass: note("c2 c2 c3 c2 eb2 c2 g2 bb1").s("sawtooth").lpf(300).lpenv(BASS_OPEN.range(1, 6)).lpq(10)
+  .orbit(2).gain(BASS)
+$pad: chord("<Cm7 Abmaj7>").voicing().s("supersaw").attack(.3).release(1).lpf(900).orbit(2).gain(PAD)
+
+// Chords on the synth. Knob 6: how hard they play.
 $synth: note("<[c3 eb3 g3 bb3] [ab2 c3 eb3 g3]>*2").midichan(1)
-  .velocity(".9 .6 .75 .6")
-  .midi()
+  .velocity(SYNTH_HARD.range(.3, 1))
+  .midi(SYNTH)
 
-// Controls without notes: a controller sends only these.
-$knobs: ccn(74).ccv(CUTOFF).seg(8)
-  .midi({ isController: true })
-$bend: midibend(BEND).seg(4).midi({ isController: true })
+// Knob 7 goes on to the synth as CC 74, the filter on most synths. Controls only, no notes.
+$cutoff: ccn(74).ccv(SYNTH_OPEN).seg(16)
+  .midi(SYNTH, { isController: true })

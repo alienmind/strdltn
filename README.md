@@ -189,14 +189,15 @@ browser.
   tutorial to look things up.
 - MIDI on desktop: Strudel's `.midi()` plays a synth or a drum machine on a MIDI device,
   in time with the sound, and `midin()` and `midikeys()` read a controller or a keyboard.
-  `midimaps()` and `defaultmidimap()` name the CCs. See `examples/09-midi-out.strudel`.
+  `midimaps()` and `defaultmidimap()` name the CCs. The Library's MIDI category lists your
+  devices; a click types `.midi("name")` or `midin("name")`. See `examples/09-midi-out.strudel`.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 
 Experimental, off by default: the setting `strdltn.experimental.shrubEditor` adds a tab
 with Xfer's SHRUB web editor, to see how it would look. It is not connected to your songs.
 
-Not there yet: MIDI in Codespaces, MIDI devices in the Browser and the Mixer, sound across a switch of editor, completion and hover in the code,
+Not there yet: MIDI in Codespaces, MIDI devices in the Mixer, sound across a switch of editor, completion and hover in the code,
 the Marketplace. See `doc/TODO.md`.
 
 ## A closer look

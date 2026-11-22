@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
+import type { MidiPorts } from '../shared/midi';
 import type { BrowserFilterState, BrowserPage, FromBrowser, ToBrowser } from '../shared/browser';
 import {
 	type CatalogItem,
 	type FunctionDoc,
 	functionItem,
+	midiItem,
 	readUserIndex,
 	renderItem,
 	soundCode,
@@ -152,10 +154,19 @@ export class BrowserView {
 	private rebuild(): void {
 		const snippetItems = this.snippets.all().map((snippet) => snippetItem(snippet, vscode.workspace.asRelativePath(snippet.uri)));
 		const renders = this.songs.renders().map((audio) => renderItem(audio.path, audio.song));
-		this.items = [...soundItems(this.sounds), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...this.functions.map(functionItem)];
+		const midi = [...this.midiPorts.outputs.map((name) => midiItem(name, 'out')), ...this.midiPorts.inputs.map((name) => midiItem(name, 'in'))];
+		this.items = [...soundItems(this.sounds), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
 		// A pack loads hundreds of sounds one by one, and each change would send 2000 items.
 		clearTimeout(this.pushTimer);
 		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
+	}
+
+	/** The MIDI ports of the machine, from the MIDI bridge. Empty in a Codespace, where the host cannot see them. */
+	private midiPorts: MidiPorts = { outputs: [], inputs: [] };
+
+	setMidiPorts(ports: MidiPorts): void {
+		this.midiPorts = ports;
+		this.rebuild();
 	}
 
 	/** What Music Controls show, kept for a Library page that starts later. */
@@ -224,6 +235,8 @@ export class BrowserView {
 					if (sound) return this.actions.insert(sound.code, sound.name);
 					return;
 				}
+				// A device's name alone when the cursor is in a string: `.midi("|")`.
+				if (item.kind === 'midi' && item.insert) return this.actions.insert(item.insert, item.label);
 				if (item.insert) return this.actions.insert(item.insert);
 				return;
 			}
@@ -231,7 +244,7 @@ export class BrowserView {
 				return this.actions.insert(message.text);
 			case 'copy': {
 				const item = this.item(message.id);
-				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'song' || item.kind === 'render' ? item.path : item.insert);
+				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'song' || item.kind === 'render' ? item.path : item.kind === 'midi' ? item.label : item.insert);
 				if (text) await vscode.env.clipboard.writeText(text);
 				return;
 			}

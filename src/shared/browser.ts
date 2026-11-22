@@ -35,7 +35,7 @@ export const viewOf = (page: BrowserPage): string => BROWSER_PAGES.find((p) => p
 
 /** Which view picks an item: sounds in the Library, what is written in Songs and Snippets, what is read in the Reference. */
 // Renders show in the Library, beside the sounds: they are audio, and the Library is where audio is.
-export const pageOf = (item: CatalogItem): BrowserPage => (item.kind === 'sound' || item.kind === 'render' ? 'library' : item.kind === 'function' ? 'reference' : 'songs');
+export const pageOf = (item: CatalogItem): BrowserPage => (item.kind === 'sound' || item.kind === 'render' || item.kind === 'midi' ? 'library' : item.kind === 'function' ? 'reference' : 'songs');
 
 /** The items a filter starts from: all of them, or those of one view when its "All" row is picked. */
 export const scoped = (items: CatalogItem[], filter: BrowserFilterState): CatalogItem[] =>

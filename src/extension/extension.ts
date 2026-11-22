@@ -96,6 +96,10 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		control: (message) => mixer.control(message),
 		insert: (text, bare) => insertText(text, bare),
 	});
+	// The MIDI category of the Browser: the ports of this machine, kept current by the worker (it reads them every 2 s).
+	// Only where the extension host runs on the user's machine: in a Codespace it would list the cloud machine's.
+	context.subscriptions.push(midi.onPorts((ports) => browser.setMidiPorts(ports)));
+	if (!vscode.env.remoteName) void midi.listPorts();
 	const mixer = new MixerView(context, output, {
 		reveal: (document, offset) => void revealOffset(document, offset),
 		moveSlider: (document, index, from, value) => {

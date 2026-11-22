@@ -50,6 +50,7 @@ Next in line:
 | 12 | First after this round of hand tests (the maintainer, 2026-11-22). A double click on a search result that is a snippet or a song opens its file. Songs open already (`opens()` in `src/shared/catalog.ts`); a snippet is inserted at the cursor today (`activate()` in `src/browser/main.ts`). Open: whether Enter keeps inserting a snippet, so the keyboard still has a way to insert | Asked for, not built |
 | 13 | The native editor is never the default (the maintainer, 2026-11-22). The manifest already makes the Strudel editor the default; what still opens the native one is the Browser's "Open the file" of a snippet, `vscode.openWith(uri, 'default')` in `src/extension/browser.ts`, where `'default'` is the text editor. Goes with item 12 | Asked for, not built |
 | 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Asked for, not designed |
+| 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with a click on its number. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Asked for, not designed |
 | 1 | MIDI: devices in the Browser, playing through them, mappings | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
@@ -77,6 +78,9 @@ synth and a controller plugged in.
 | M3 | Stop while a chord sounds | No note hangs |
 | M4 | Add `const cc = await midin("<your controller>")` and `.lpf(cc(1).range(200, 4000))` on the drums, play, turn knob 1 | The drums' filter follows the knob |
 | M5 | Unplug the synth while it plays, plug it back | A warning in the Output channel, then the notes come back within a few seconds |
+| X1 | Library, MIDI | Your synth and controller listed under "Outputs: instruments" and "Inputs: controllers" |
+| X2 | In 09, put the cursor inside `.midi("")`, click your synth in the MIDI category | Only the name is typed |
+| X3 | Mixer: enlarge the panel with the song stopped | The scale numbers stay crisp text, 11 px; strip names and gain values are centered |
 
 Expected still broken: no MIDI in the Browser or the Mixer; nothing in a Codespace.
 
@@ -203,9 +207,8 @@ Built on `feat/midi` (2026-11-21): the bridge, `.midi()`, `midin()`, `midikeys()
 (ARCHITECTURE "MIDI"). Measured end to end through loopMIDI; not tested by hand with a
 device yet ("Next: test by hand"). Left, in this order:
 
-1. A MIDI category in the Browser with two headings, outputs (instruments)
-   and inputs (controllers). A click types the device name. `MidiBridge.listPorts()` and
-   `onPorts` are there for it.
+1. Built 2026-11-22: the MIDI category of the Library, outputs and inputs, kept current.
+   Left: in a Codespace it is empty, and should say that devices need desktop.
 2. The MIDI strips, the "midi" jack and the MIDI cables of the Mixer; MIDI learn on
    faders, mute and solo ("MIDI in the Browser and the Mixer" in `doc/DAW-PLAN.md`).
 3. In Codespaces the MIDI category says that devices need desktop. Today `midin()` there
@@ -446,6 +449,47 @@ To try, in this order:
    `getAudioDevices()` and an audio device setting for this.
 2. If VS Code refuses, there is no way from the webview. The extension host cannot
    route the webview's sound.
+
+## Sliders on knobs
+
+The maintainer asked (2026-11-22) that every slider work with MIDI too: a slider on screen
+that a knob of a controller also moves, by a CC the user maps by clicking the slider's
+number. The point is to play with physical knobs. In their words, an overlay of
+`slider()` that we put in the code as a snippet and that takes both the CC and the
+slider, if possible. Not designed, not tried. What upstream allows (read in
+`@strudel/transpiler` and `@strudel/codemirror` 1.3.0):
+
+- Only a call named exactly `slider` becomes the widget. The transpiler rewrites it to
+  `sliderWithID(id, value, min, max)`, the id being the offset of its first argument;
+  the widget reads value, min, max and step (the 4th argument). More arguments are
+  ignored.
+- The live value is `sliderValues[id]`, which a `cm-slider` message to the window
+  sets, as a drag does. So a CC can move a slider without any change upstream.
+
+The way the maintainer chose (2026-11-22): the song defines the function itself, from a
+snippet we insert at the top the first time a knob is used, so the song stays standard
+Strudel and runs on strudel.cc too:
+
+```
+const knobs = await midin("MPK mini 3")
+register('knob', (ccn, pat) => ...)   // the slider or CC ccn, whichever moved last
+$bass: note("c2*8").lpf(slider(800, 200, 4000).knob(74))
+```
+
+- The `slider(...)` call stays where it is used: only a call written `slider` gets the
+  widget, and its id is the offset of its first argument, so a `knob()` that called
+  `slider()` inside would give every knob the same one. Hence a method on the slider,
+  made with `register` (as the demo's `acid`).
+- On strudel.cc the knob changes the sound; the widget and the number do not follow.
+- In [str]dltn more follows: our `sliderWithID` marks the pattern with its id, a CC
+  posts `cm-slider` for that id (the widget moves) and writes the number in the code as
+  the Mixer's fader does. A click on the number starts MIDI learn: the next CC that moves
+  is written into `.knob(...)`.
+
+Open: last-moved-wins or pickup (the knob takes over only once it passes the slider's
+value); the device name in the snippet (the song fails where that device is missing);
+how often a knob may write the code (the fader waits 150 ms); the snippet goes in once,
+at the top, the first time.
 
 ## Keybindings in the Strudel editor
 

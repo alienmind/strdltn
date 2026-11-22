@@ -1091,7 +1091,9 @@ master meter taps `destinationGain`, the node in front of the speakers.
 Every 50 ms, with the pump meter's levels, the engine reads the last 2048 samples (about 43 ms) of each meter and sends
 the peak in dBFS (`ScopeFrame.peak`, null for silence, `@master` for the mix). The Mixer page lets a bar fall 24 dB a
 second, keeps the peak, and draws both on a canvas under the fader, whose track is clear and whose thumb is a small
-triangle.
+triangle. The scale's numbers are text in the page, at the heights of the canvas's ticks: drawn on the canvas, they
+were stretched as a picture when the panel grew, until the next draw, which never came with the song stopped. A
+`ResizeObserver` on each well draws the canvas again when it changes size.
 
 Seen on 2026-11-22 in a development host with the demo playing: peaks of -8.92 dB (vocals) to -20.64 dB (bass), -Inf
 for chains not yet heard, and -5.38 dB on the master. The meters are after the gain, measured the same day in a muted
@@ -1625,6 +1627,12 @@ midin()/midikeys() <- midiIn       <- for engines that listen    <- input messag
 stop -> midiPanic                  -> panic(engine)              -> notes off of that engine
 ```
 
+- The Library's MIDI category lists the outputs ("Outputs: instruments") and the inputs
+  ("Inputs: controllers") as `midiItem`s. The extension starts the worker at activation
+  where the host is local (`vscode.env.remoteName` unset) and passes each new port list
+  to the Browser (`MidiBridge.onPorts`), so a device plugged in shows within 2 s. A click
+  types `.midi("name")` or `const cc = await midin("name")`, the name alone inside a
+  string; Copy copies the name.
 - Our `.midi()`, `midin()`, `midikeys()`, `midimaps()` and `defaultmidimap()` take the
   upstream names and options, so a song from strudel.cc runs. `@strudel/midi` is not
   bundled (it needs WebMIDI). The rules that turn a hap into bytes, pick a port and keep

@@ -449,6 +449,8 @@ function jackSymbols(): string {
 // (`ScopeFrame.peak`, see "Level meters" in doc/ARCHITECTURE.md); `@master` is the whole mix.
 
 const METER_FLOOR = -60;
+/** Space above 0 dB and below -60 dB in the well, in CSS pixels: where the fader's thumb can still reach. */
+const METER_PAD = 7;
 /** The width of the fader's lane at the left of the meter, in CSS pixels. Matches `.meter-well input` in mixer.css. */
 const METER_LANE = 13;
 /** How fast a bar falls when the sound stops, in dB a second, about as Live's. */
@@ -496,6 +498,8 @@ function addMeter(box: HTMLElement, key: string): void {
 	const well = el('div', 'meter-well');
 	const canvas = well.appendChild(el('canvas', 'meter'));
 	canvas.dataset.meter = key;
+	well.appendChild(meterScale());
+	meterResize.observe(well);
 	if (input) {
 		input.replaceWith(well);
 		well.appendChild(input);
@@ -548,7 +552,7 @@ function drawMeter(canvas: HTMLCanvasElement, state: { left: number; right: numb
 	const style = getComputedStyle(canvas);
 	// The top and the bottom of the scale sit where the fader's thumb can reach (its half height, 6 pixels), with
 	// room for the half height of the "0" and "60" labels.
-	const pad = 7 * dpr;
+	const pad = METER_PAD * dpr;
 	const top = pad;
 	const bottom = height - pad;
 	const y = (db: number) => top + (Math.min(0, Math.max(METER_FLOOR, db)) / METER_FLOOR) * (bottom - top);
@@ -568,15 +572,25 @@ function drawMeter(canvas: HTMLCanvasElement, state: { left: number; right: numb
 		g.fillStyle = db > 0 ? '#f14c4c' : gradient;
 		g.fillRect(x, y(db), bar, bottom - y(db));
 	});
+	// The ticks only. Their numbers are text in the page (`meterScale`): numbers drawn here were stretched as a
+	// picture when the panel grew, until the next draw (seen by the maintainer on 2026-11-22).
 	g.fillStyle = style.color;
-	g.font = `${9.5 * dpr}px ${style.fontFamily}`;
-	g.textBaseline = 'middle';
 	const xs = x0 + 2 * bar + dpr + 2 * dpr;
-	for (let db = 0; db >= METER_FLOOR; db -= 12) {
-		g.fillRect(xs, Math.round(y(db)), 3 * dpr, dpr);
-		g.fillText(String(-db), xs + 5 * dpr, y(db) + 0.5 * dpr);
-	}
+	for (let db = 0; db >= METER_FLOOR; db -= 12) g.fillRect(xs, Math.round(y(db)), 3 * dpr, dpr);
 }
+
+/** The numbers of the meter's scale as text, at the heights of the ticks drawMeter draws. */
+function meterScale(): HTMLElement {
+	const scale = el('div', 'meter-scale');
+	for (let db = 0; db >= METER_FLOOR; db -= 12) {
+		const label = scale.appendChild(el('span', '', String(-db)));
+		label.style.top = `calc(${METER_PAD}px + (100% - ${2 * METER_PAD}px) * ${db / METER_FLOOR})`;
+	}
+	return scale;
+}
+
+/** A meter whose well changes size (the panel grows, a strip unfolds) is drawn again at once. */
+const meterResize = new ResizeObserver(() => drawMeters());
 
 /**
  * A click on the fader's triangle, without moving it, calls `toggle`; a drag still moves the fader. A click elsewhere in

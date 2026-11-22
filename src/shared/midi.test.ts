@@ -80,3 +80,15 @@ test('the queue keeps time order and turns held notes off on a panic', () => {
 	assert.deepEqual(q.panic(), [{ port: 'p', bytes: [0x81, 62, 0], at: 0 }]);
 	assert.deepEqual(q.panic(), []);
 });
+
+test('a MIDI port is a Browser item that types its call, or its name inside a string', async () => {
+	const { midiItem } = await import('./catalog.ts');
+	const out = midiItem('UMC404HD 192k MIDI Out', 'out');
+	assert.equal(out.insert, '.midi("UMC404HD 192k MIDI Out")');
+	assert.equal(out.category, 'midi');
+	assert.equal(out.group, 'Outputs: instruments');
+	const input = midiItem('MPK mini 3', 'in');
+	assert.equal(input.insert, 'const cc = await midin("MPK mini 3")');
+	assert.ok(input.text.includes('controller'));
+	assert.notEqual(out.id, midiItem('UMC404HD 192k MIDI Out', 'in').id);
+});

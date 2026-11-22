@@ -5,7 +5,7 @@ import type { SoundInfo } from './protocol.ts';
 import type { SnippetInfo } from './snippet.ts';
 import { functionGroup, isPackTag, snippetTags, soundTags, splitBank, splitWords } from './tags.ts';
 
-export type ItemKind = 'sound' | 'snippet' | 'song' | 'function' | 'render';
+export type ItemKind = 'sound' | 'snippet' | 'song' | 'function' | 'render' | 'midi';
 
 /** The rows of "Library" in the Browser. */
 export const CATEGORIES = [
@@ -19,6 +19,8 @@ export const CATEGORIES = [
 	{ id: 'functions', label: 'Functions', icon: 'function' },
 	// The audio of songs: renders and recordings, next to their song. See src/shared/render.ts.
 	{ id: 'renders', label: 'Render', icon: 'render' },
+	// The MIDI ports of the machine, from the extension host (src/extension/midi.ts). Desktop only.
+	{ id: 'midi', label: 'MIDI', icon: 'midi' },
 ] as const;
 export type CategoryId = (typeof CATEGORIES)[number]['id'];
 
@@ -251,6 +253,26 @@ export function renderItem(path: string, song: string): CatalogItem {
 		tags: [],
 		text: path.toLowerCase(),
 		path,
+	};
+}
+
+/**
+ * A MIDI port of the machine. An output (an instrument) types `.midi("name")`, an input (a controller or a keyboard)
+ * `const cc = await midin("name")`; inside a string, the name alone. The id carries the name, so colors and tags stay
+ * with a device across starts.
+ */
+export function midiItem(name: string, direction: 'out' | 'in'): CatalogItem {
+	return {
+		id: `midi:${direction}:${name}`,
+		kind: 'midi',
+		label: name,
+		detail: direction === 'out' ? 'output' : 'input',
+		category: 'midi',
+		place: 'builtin',
+		group: direction === 'out' ? 'Outputs: instruments' : 'Inputs: controllers',
+		tags: [],
+		text: `${name} midi ${direction === 'out' ? 'output instrument synth' : 'input controller keyboard'}`.toLowerCase(),
+		insert: direction === 'out' ? `.midi("${name}")` : `const cc = await midin("${name}")`,
 	};
 }
 

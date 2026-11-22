@@ -63,9 +63,11 @@ button:disabled { cursor: default; opacity: .35; }
 
 .strip header { display: flex; align-items: center; gap: 2px; padding: 4px 4px 2px; min-width: 0; }
 .strip header .fold { width: 14px; flex: none; opacity: .8; }
-.strip header .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-weight: 600; }
+.strip header .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-weight: 600; }
+/* The fold arrow sits at the left; a space as wide at the right keeps the name in the middle of the strip. */
+.strip header:has(.fold)::after { content: ""; width: 14px; flex: none; }
 .strip header .name:hover { text-decoration: underline; }
-.strip.global header .name { padding-left: 16px; cursor: default; text-decoration: none; color: var(--vscode-descriptionForeground); }
+.strip.global header .name { cursor: default; text-decoration: none; color: var(--vscode-descriptionForeground); }
 
 .body { flex: 1; display: flex; gap: 4px; padding: 0 4px 0 6px; }
 .badges { flex: none; display: flex; flex-direction: column; gap: 3px; padding-top: 4px; }
@@ -143,6 +145,16 @@ button:disabled { cursor: default; opacity: .35; }
 /* As wide as its content (lane, two bars, scale), so it sits centered in the strip. */
 .fader.metered { width: 50px; }
 .meter-well { position: relative; width: 100%; height: clamp(60px, calc(100vh - 262px), 400px); margin: 3px 0 5px; }
+/* The numbers of the scale, right of the ticks: 13 (the fader's lane) + 2 bars of 5 + 1 + 2 + the tick of 3 + 2. */
+.meter-scale { position: absolute; inset: 0; pointer-events: none; }
+.meter-scale span {
+	position: absolute;
+	left: 31px;
+	transform: translateY(-50%);
+	font-size: 11px;
+	line-height: 1;
+	color: var(--vscode-descriptionForeground);
+}
 .meter-well canvas.meter { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--vscode-descriptionForeground); font-family: var(--vscode-font-family); }
 .fader.metered .meter-well input {
 	position: absolute;
@@ -191,12 +203,14 @@ button:disabled { cursor: default; opacity: .35; }
 
 /* M and S side by side above the scope. */
 .ms { display: flex; justify-content: center; gap: 4px; margin: 4px 6px 0; }
-/* The scope with the gain's value in its corner. */
+/* The scope with the gain's value in its middle. The value covers the scope's own box (its margins as in .strip .scope). */
 .scope-box { position: relative; }
 .scope-box .scope-value {
 	position: absolute;
-	top: 3px;
-	right: 10px;
+	inset: 2px 6px 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	font-family: var(--vscode-editor-font-family, monospace);
 	font-size: 11px;
 	color: var(--vscode-foreground);

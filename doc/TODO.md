@@ -76,11 +76,6 @@ synth and a controller plugged in.
 
 | # | Do this | Should happen |
 |---|---|---|
-| M3 | Stop while a chord sounds | No note hangs |
-| M4 | Turn knobs 1 to 6, and 8 | Kick, hats, bass and pad come in one by one; the bass squelches; the chords play harder; knob 8 moves SHRUB's macro 1. (Knob 7, the FM-1's cutoff on CC 74, passed on 2026-11-22) |
-| M4b | In the Mixer, click the dim triangle of the kick's strip, then drag its fader | The code becomes `.gain(KICK.mul(slider(1, 0, 1)))`; knob 1 still brings the kick in, the fader trims it. The triangle again gives `.gain(KICK)` back |
-| M5 | Unplug the synth while it plays, plug it back | A warning in the Output channel, then the notes come back within a few seconds |
-| X3 | Mixer: enlarge the panel with the song stopped | The scale numbers stay crisp text, 11 px; strip names and gain values are centered |
 
 Expected still broken: no MIDI in the Browser or the Mixer; nothing in a Codespace.
 
@@ -88,16 +83,16 @@ Error places and long header lines, on `feat/midi`. Same window.
 
 | # | Do this | Should happen |
 |---|---|---|
-| H1 | In `examples/09-midi-out.strudel` change `.midi(SYNTH)` to `.midx(SYNTH)`, Ctrl+Enter | The error marks `.midx` on line 42, not a comment |
-| H2 | Browser, Examples, select "MIDI out" | The whole details text shows as one paragraph, though it is two lines in the file |
-| H3 | Add a tag to a snippet whose `@details` is two lines (`lib/effect/sidechain-duck.strudel`) | `// @tags` goes after the second details line; the details still show whole |
 
 Render, Record, the level meters and the electro example, on `feat/midi`. Test on
 **desktop, launched with F5** on `template/`.
 
 | # | Do this | Should happen |
 |---|---|---|
-| R1 | Open `demo.strudel`, click Render audio (the arrow down in Music Controls) | After a few seconds `demo.wav` and `demo.mp3` appear next to it; a notification offers Play and Reveal |
+| S1 | Play `demo.strudel` from the start | The countdown says 8 to 0 after a silent bar; the intro has the bass and the first word on bar 2, the pad on bar 10 |
+| S2 | Listen to the build and the drop | The band thins out over the last 4 bars of the build and comes back full on the drop; the pad is gated in the build, the breakdown and the second half of the final drop |
+| S3 | Listen to the outro and the end | The riser closes down to nothing; 4 bars of silence, then the song starts again |
+| R1 | Open `demo.strudel`, click Render audio | About a minute; `demo.wav` and `demo.mp3` appear next to it; no gaps where notes should be |
 | R2 | Library, Render, click `demo.mp3` | It plays in VS Code's media preview, the whole three minutes |
 | R3 | Click Record, wait 10 s, click it again | A pair `demo.rec-<time>.wav` and `.mp3` appears under Render |
 | R4 | Render `examples/07-vibefm1-obervave.strudel` | The firmware's bass, pad and arp are in the file |
@@ -641,9 +636,6 @@ planned yet.
 | Milestone | Content |
 |---|---|
 | M2 | Native mode feedback: note highlighting through decorations, sliders in the stage with write-back, one undo history |
-| M3 | MIDI through the bridge, sound card choice, the Strudel reference in the side bar |
-| M4 | Language support in the native editor: completion, hover, signature help, mini-notation grammar and diagnostics |
-| M5 | Ship: Marketplace, template as its own repo, Renovate for `@strudel/*` |
 
 ## Spikes to run
 

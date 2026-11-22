@@ -80,6 +80,7 @@ synth and a controller plugged in.
 | M5 | Unplug the synth while it plays, plug it back | A warning in the Output channel, then the notes come back within a few seconds |
 | X1 | Library, MIDI | Your synth and controller listed under "Outputs: instruments" and "Inputs: controllers" |
 | X2 | Type `.midi('')`, put the cursor between the quotes, click your synth in the MIDI category | Only the name is typed |
+| X2c | Put the cursor between the parentheses of an empty `.midi()`, click your synth | `.midi('M-VAVE FM-1')`: the name in quotes, not a second `.midi(...)` |
 | X3 | Mixer: enlarge the panel with the song stopped | The scale numbers stay crisp text, 11 px; strip names and gain values are centered |
 
 Expected still broken: no MIDI in the Browser or the Mixer; nothing in a Codespace.

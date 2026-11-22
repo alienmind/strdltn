@@ -77,7 +77,6 @@ synth and a controller plugged in.
 | M1 | Take the `.gain(slider(1, 0, 1))` the Mixer added off every part of `examples/09-midi-out.strudel`, play | The chords play on the M-VAVE FM-1, in time with the editor's drums |
 | M3 | Stop while a chord sounds | No note hangs |
 | M4 | Turn knobs 1 to 7 of the MPK | Kick, hats, bass and pad come in one by one; the bass squelches; the chords play harder; the FM-1's filter moves, if it takes CC 74 |
-| M6 | Run "strdltn: Show MIDI messages in the Output", turn each knob of the MPK | `in <- MPK mini 3: CC nn = vv` lines; the CC numbers are the ones `09-midi-out` needs |
 | M5 | Unplug the synth while it plays, plug it back | A warning in the Output channel, then the notes come back within a few seconds |
 | X3 | Mixer: enlarge the panel with the song stopped | The scale numbers stay crisp text, 11 px; strip names and gain values are centered |
 

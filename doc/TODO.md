@@ -5,32 +5,27 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.4.0, not tagged.** `v0.3.0` is the last tag (made by
-hand: the release workflow has never run on this fork, see "Release" in ARCHITECTURE).
-Enable Actions in the repository's Actions tab before the next tag. The version started
-again for this project; the tag 1.0.0 is the vstrudel release. The extension is
-[str]dltn Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
-`.strdltn/`, so it installs beside vstrudel without a clash. Settings of vstrudel
-(`vstrudel.*`) do not carry over.
+**`main` holds everything, version 0.4.1, tagged `v0.4.1` but with no GitHub release.**
+The tag started no workflow: Actions has never run on this repository (see "Release" in
+ARCHITECTURE). `v0.3.0` was released by hand. Whether `v0.4.1` is released by hand or
+after Actions is turned on waits for the maintainer. The version started again for this
+project; the tag 1.0.0 is the vstrudel release. The extension is [str]dltn Live[code]: id
+`strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it installs
+beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry over.
 
 The plan to make this a DAW is in `doc/DAW-PLAN.md`, with the order of work the
 maintainer set ("Order of work"). Merged so far: phase 1, the Browser (PR #4); phases 2
-and 3, the Music panel, the Mixer and the four side bar views (PR #5, 0.2.0, never
-tagged); phase 4, Devices, with Firmware Hub, the SHRUB editor panel and the demo as an
+and 3, the Music panel, the Mixer and the side bar views (PR #5, 0.2.0, never tagged);
+phase 4, Devices, with Firmware Hub, the SHRUB editor panel and the demo as an
 arrangement (PR #6, 0.3.0); phase 5, MIDI on desktop through the extension host, Render
 and Record of a song to `.wav` and `.mp3`, level meters with a Master strip on the Mixer,
-and the demo's new mix (PR #9, 0.4.0). A promote waits for the maintainer.
+and the demo's new mix (PR #9, 0.4.0, never tagged); a double click that opens snippets,
+the Browser opening files only in the Strudel editor, Songs and Snippets back in the
+Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 
-Work in flight is on the branch `feat/open-snippets`: a double click on a snippet opens
-it (Enter still inserts it), the Browser opens songs and snippets in the Strudel editor
-and never in the native one, the setting `strdltn.midi.highPriority` of decision 17, and
-Songs and Snippets merged back into the Library view (the maintainer, 2026-11-22;
-Reference and Results stay views of their own). Every hand test passed on 2026-11-22.
-`pnpm test:vscode` passed the same day: 38 files with no problem, the Library with 41
-songs and 29 snippets, every case as expected but one typing case, `undo` on the `\r\n`
-song, the open lead under "Integration test".
-This branch is version 0.4.1 (the maintainer, 2026-11-22): 0.4.0 stays untagged, and the
-next tag is `v0.4.1` on `main` after the merge.
+Work in flight is on the branch `feat/knobs` (the maintainer, 2026-11-22): first the
+spike of item 14 (keybindings in the Strudel editor), then item 15 (sliders on knobs),
+with the four open questions of "Sliders on knobs" answered.
 
 Next in line:
 
@@ -436,10 +431,17 @@ $bass: note("c2*8").lpf(slider(800, 200, 4000).knob(74))
   the Mixer's fader does. A click on the number starts MIDI learn: the next CC that moves
   is written into `.knob(...)`.
 
-Open: last-moved-wins or pickup (the knob takes over only once it passes the slider's
-value); the device name in the snippet (the song fails where that device is missing);
-how often a knob may write the code (the fader waits 150 ms); the snippet goes in once,
-at the top, the first time.
+Answered by the maintainer on 2026-11-22:
+
+- Pickup, not last-moved-wins: a knob takes over only once it passes the slider's value,
+  so touching a knob that sits elsewhere does not make the sound jump.
+- No device name in the snippet: it listens to every MIDI input, so the song runs on a
+  machine with another controller, and plays without knobs on one with none. Our
+  `midin()` takes the first input when no name is given and throws when there is no
+  input at all (`openInput()` in `src/webview/midi.ts`), so the snippet cannot be a plain
+  `midin()`. Upstream's `midin()` without a name: not read yet.
+- A knob writes the number in the code as the Mixer's fader does, at most every 150 ms.
+- The snippet goes in once, at the top, the first time a knob is used.
 
 ## Keybindings in the Strudel editor
 

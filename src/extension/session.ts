@@ -7,6 +7,7 @@ import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
 import { type FirmwareCache, scanFirmware } from './firmware';
 import { scanSamples } from './samples';
 import { isMidiMessage, type MidiBridge } from './midi';
+import type { InsertArgument } from '../shared/context';
 import type { DeviceInfo, DeviceRequest } from '../shared/devices';
 
 /** What a session needs from the extension, and what it tells it. */
@@ -150,8 +151,8 @@ export class Session {
 	}
 
 	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */
-	insert(text: string, bare?: string): void {
-		this.post({ type: 'insert', text, bare });
+	insert(text: string, bare?: string, argument?: InsertArgument): void {
+		this.post({ type: 'insert', text, bare, argument });
 	}
 
 	private packsTimer: ReturnType<typeof setTimeout> | undefined;

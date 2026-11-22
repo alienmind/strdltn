@@ -12,7 +12,7 @@ import * as strudelSoundfonts from '@strudel/soundfonts';
 import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
-import { insideString, visualLabel } from '../shared/context';
+import { chooseInsert, type InsertArgument, visualLabel } from '../shared/context';
 import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
@@ -109,7 +109,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			void preview(message.name, message.index);
 			break;
 		case 'insert':
-			insert(message.text, message.bare);
+			insert(message.text, message.bare, message.argument);
 			break;
 		case 'select':
 			if (mirror && mode === 'editor') {
@@ -509,11 +509,10 @@ function applyFromHost(changes: unknown): void {
 	mirror.editor.dispatch({ changes, annotations: [fromHost.of(true), Transaction.addToHistory.of(false)] });
 }
 
-function insert(text: string, bare?: string): void {
+function insert(text: string, bare?: string, argument?: InsertArgument): void {
 	if (!mirror) return;
 	const state = mirror.editor.state;
-	const inside = bare !== undefined && insideString(state.doc.toString(), state.selection.main.from);
-	mirror.editor.dispatch(state.replaceSelection(inside ? bare : text));
+	mirror.editor.dispatch(state.replaceSelection(chooseInsert(state.doc.toString(), state.selection.main.from, text, bare, argument)));
 	mirror.editor.focus();
 }
 

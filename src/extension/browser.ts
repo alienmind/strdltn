@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { MidiPorts } from '../shared/midi';
+import type { InsertArgument } from '../shared/context';
 import type { BrowserFilterState, BrowserPage, FromBrowser, ToBrowser } from '../shared/browser';
 import {
 	type CatalogItem,
@@ -36,7 +37,7 @@ export interface BrowserActions {
 	/** Play, Stop or BPM of Music Controls, for the song the Mixer shows. */
 	control(message: FromControls): void;
 	/** `bare` goes in instead when the cursor is inside a string. */
-	insert(text: string, bare?: string): Promise<void>;
+	insert(text: string, bare?: string, argument?: InsertArgument): Promise<void>;
 }
 
 const FILTER_KEY = 'strdltn.browserFilter';
@@ -236,7 +237,7 @@ export class BrowserView {
 					return;
 				}
 				// A device's name alone when the cursor is in a string: `.midi('|')`.
-				if (item.kind === 'midi' && item.insert) return this.actions.insert(item.insert, item.label);
+				if (item.kind === 'midi' && item.insert) return this.actions.insert(item.insert, item.label, item.argument);
 				if (item.insert) return this.actions.insert(item.insert);
 				return;
 			}

@@ -2,7 +2,7 @@
 // When a label in the stage is wrong, add the code that produced it here first.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { insideString, sliderLabel, visualLabel } from './context.ts';
+import { chooseInsert, insideString, sliderLabel, visualLabel } from './context.ts';
 
 // `<>` marks the position in the examples. It is not valid in the places we put it, so it cannot be confused with code.
 /** The label of the visual whose call ends at the mark. */
@@ -92,4 +92,17 @@ test('insert: inside a string or not', () => {
 	assert.equal(at('s("a").bank("<>")'), true);
 	assert.equal(at('// s("bd <>'), false);
 	assert.equal(at('s("a")\n.lpf(<>)'), false);
+});
+
+test('a MIDI device typed into the empty parentheses of its call is the name in quotes', () => {
+	const arg = { calls: ['midi'], text: "'M-VAVE FM-1'" };
+	const at = (code: string) => chooseInsert(code.replace('|', ''), code.indexOf('|'), ".midi('M-VAVE FM-1')", 'M-VAVE FM-1', arg);
+	assert.equal(at('$: note("c").midi(|).gain(1)'), "'M-VAVE FM-1'");
+	assert.equal(at('$: note("c").midi( | )'), "'M-VAVE FM-1'");
+	// Inside a string: the name alone. Elsewhere: the whole call.
+	assert.equal(at("$: note(\"c\").midi('|')"), 'M-VAVE FM-1');
+	assert.equal(at('$: note("c")|'), ".midi('M-VAVE FM-1')");
+	// Not inside another call, and not inside parentheses that hold something.
+	assert.equal(at('$: note("c").gain(|)'), ".midi('M-VAVE FM-1')");
+	assert.equal(at('$: note("c").midi(|1)'), ".midi('M-VAVE FM-1')");
 });

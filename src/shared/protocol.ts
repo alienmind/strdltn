@@ -1,5 +1,6 @@
 // Messages between the extension host and a webview. Both sides import this file.
 import type { DeviceInfo, DeviceRequest } from './devices';
+import type { InsertArgument } from './context';
 import type { FirmwareCacheMap } from './firmware';
 import type { MidiOut, MidiPorts } from './midi';
 import type { PackInfo } from './packs';
@@ -79,7 +80,7 @@ export type ToWebview =
 	| { type: 'stop' }
 	| { type: 'preview'; name: string; index: number }
 	/** `bare` replaces `text` when the cursor is inside a string: the name alone, not a call. */
-	| { type: 'insert'; text: string; bare?: string }
+	| { type: 'insert'; text: string; bare?: string; argument?: InsertArgument }
 	/** Puts the cursor at an offset of the code, from a click on a strip of the Mixer. */
 	| { type: 'select'; offset: number }
 	/**

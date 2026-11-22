@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { type BrowserFilterState, type FromBrowser, viewOf } from '../shared/browser';
 import { CATEGORIES } from '../shared/catalog';
-import { insideString } from '../shared/context';
+import { chooseInsert, type InsertArgument } from '../shared/context';
 import type { SoundInfo } from '../shared/protocol';
 import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
@@ -94,7 +94,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		preview: (name, index) => previewSound(name, index),
 		playing: () => [...sessions].some((s) => s.started),
 		control: (message) => mixer.control(message),
-		insert: (text, bare) => insertText(text, bare),
+		insert: (text, bare, argument) => insertText(text, bare, argument),
 	});
 	// The MIDI category of the Browser: the ports of this machine, kept current by the worker (it reads them every 2 s).
 	// Only where the extension host runs on the user's machine: in a Codespace it would list the cloud machine's.
@@ -418,24 +418,23 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	 * Inserts at the cursor of whichever editor the user is working in. The Strudel
 	 * editor is a webview, so `activeTextEditor` is undefined while it is the active tab.
 	 */
-	async function insertText(text: string, bare?: string): Promise<void> {
+	async function insertText(text: string, bare?: string, argument?: InsertArgument): Promise<void> {
 		const strudel = activeEditorSession();
 		const native = vscode.window.activeTextEditor;
-		if (strudel) return strudel.insert(text, bare);
+		if (strudel) return strudel.insert(text, bare, argument);
 		// Only into a Strudel file. A click in the Sounds view (before the Browser) while a
 		// markdown file had the focus typed sound names into it, and nobody saw it happen.
 		if (isStrudel(native)) {
 			const code = native.document.getText();
 			await native.edit((builder) =>
 				native.selections.forEach((selection) => {
-					const inside = bare !== undefined && insideString(code, native.document.offsetAt(selection.start));
-					builder.replace(selection, inside ? bare : text);
+					builder.replace(selection, chooseInsert(code, native.document.offsetAt(selection.start), text, bare, argument));
 				}),
 			);
 			return;
 		}
 		const last = lastSession('editor');
-		if (last) return last.insert(text, bare);
+		if (last) return last.insert(text, bare, argument);
 		void vscode.window.showInformationMessage('Open a .strudel file to insert into.');
 	}
 

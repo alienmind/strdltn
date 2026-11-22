@@ -2,6 +2,7 @@
 // gave them. Both sides import this file: the host builds the items, the webview shows
 // them, and `search.ts` filters them on either side.
 import type { SoundInfo } from './protocol.ts';
+import type { InsertArgument } from './context.ts';
 import type { SnippetInfo } from './snippet.ts';
 import { functionGroup, isPackTag, snippetTags, soundTags, splitBank, splitWords } from './tags.ts';
 
@@ -55,6 +56,8 @@ export interface CatalogItem {
 	text: string;
 	/** What Enter or the insert button types. Songs have none: they open. */
 	insert?: string;
+	/** What it types inside the empty parentheses of a call instead, `.midi(|)`: see chooseInsert. */
+	argument?: InsertArgument;
 	/** A sound with numbered variations. */
 	count?: number;
 	variations?: string[];
@@ -274,6 +277,7 @@ export function midiItem(name: string, direction: 'out' | 'in'): CatalogItem {
 		tags: [],
 		text: `${name} midi ${direction === 'out' ? 'output instrument synth' : 'input controller keyboard'}`.toLowerCase(),
 		insert: direction === 'out' ? `.midi('${quoted(name)}')` : `const cc = await midin('${quoted(name)}')`,
+		argument: { calls: direction === 'out' ? ['midi'] : ['midin', 'midikeys'], text: `'${quoted(name)}'` },
 	};
 }
 

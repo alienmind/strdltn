@@ -1635,8 +1635,9 @@ stop -> midiPanic                  -> panic(engine)              -> notes off of
   types `.midi('name')` or `const cc = await midin('name')` (single quotes: a double-quoted
   string is mini-notation, a pattern of its words, which upstream's `midin` refuses; ours joins
   the words of its first cycle back into the name, so `midin("MPK mini 3")` works too, measured
-  with loopMIDI on 2026-11-22), the name alone inside a
-  string; Copy copies the name.
+  with loopMIDI on 2026-11-22). Inside a string it types the name alone, inside the empty
+  parentheses of `.midi()`, `midin()` or `midikeys()` the name in quotes (`chooseInsert` in
+  `src/shared/context.ts`, the item's `argument`). Copy copies the name.
 - Our `.midi()`, `midin()`, `midikeys()`, `midimaps()` and `defaultmidimap()` take the
   upstream names and options, so a song from strudel.cc runs. `@strudel/midi` is not
   bundled (it needs WebMIDI). The rules that turn a hap into bytes, pick a port and keep

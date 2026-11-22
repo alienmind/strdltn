@@ -5,13 +5,17 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.4.1, released as `v0.4.1`.** The release was made by
-hand on 2026-11-22, as `v0.3.0` was: the tag started no workflow, because Actions was off
-for this repository until that day (see "Release" in ARCHITECTURE). It is on now, so the
-next tag should build its own release. The version started again for this
-project; the tag 1.0.0 is the vstrudel release. The extension is [str]dltn Live[code]: id
-`strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it installs
-beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry over.
+**`main` holds everything, version 0.5.0, released as `v0.5.0` on 2026-11-22**, the first
+release the workflow built by itself (with the user manual as a PDF). The version started again
+for this project; the tag 1.0.0 is the vstrudel release. The extension is [str]dltn
+Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it
+installs beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry over.
+
+After 0.5.0, the branch `feat/showcase-video` (merged on 2026-11-22, no version change): a
+showcase video of the demo, captured as one take (`video/scripts/showcase.mjs`, the method in
+`doc/VIDEO.md`, "Showcase"); the demo with OBERVAVE doubling the pad in the FINAL DROP;
+`template/sea_of_souls.strudel`, the demo without its explanatory comments and with Hydra only
+in the drops, which the video plays; the user manual opening with the logo.
 
 The plan to make this a DAW is in `doc/DAW-PLAN.md`, with the order of work the
 maintainer set ("Order of work"). Merged so far: phase 1, the Browser (PR #4); phases 2
@@ -23,13 +27,7 @@ and the demo's new mix (PR #9, 0.4.0, never tagged); a double click that opens s
 the Browser opening files only in the Strudel editor, Songs and Snippets back in the
 Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 
-Version 0.5.0 on the branch `feat/knobs`, tested and released on 2026-11-22. Its work: first the
-spike of item 14 (keybindings in the Strudel editor), then item 15 (sliders on knobs),
-with the four open questions of "Sliders on knobs" answered. The spike of item 14 passed:
-Ctrl+F and Ctrl+G work in the Strudel editor. Ctrl+H, Ctrl+D, Ctrl+Shift+L, item 15 and
-item 19 (knob buttons in both editors and on the Mixer's faders, MIDI learn in the host)
-are built and wait for the hand test. The branch closes after that: every MIDI feature
-asked for is in it (the maintainer, 2026-11-22).
+Merged as PR #11, version 0.5.0: MIDI knobs on every slider, the Mixer's Master and MIDI mappings, a user manual.
 
 Next in line:
 

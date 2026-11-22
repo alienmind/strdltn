@@ -1,40 +1,12 @@
 // @title Sea of Souls (club mix)
-// @by AlienMind
+// @by AlienMind & ElaDark (voices)
 // @license CC BY-NC-SA 4.0
 // @credits Switch Angel for acid and the trance gate
 // @length 104
-// @details A track that plays itself: an arrangement in eight sections, about three minutes,
-//   from a countdown to a countdown. Every part follows the section: layers come in and leave,
-//   the filters open to raise the energy. The vocals are the files in samples/sos-vocals. The
-//   faders of the Mixer still set each part's level.
+// @details Demo song, strudel cover of Sea of Souls - The Malfunctioning Collective (my side projec!)
+// Spotify: https://open.spotify.com/intl-es/album/7tTw8oiSCbyZWc0EPxJyui?si=YJn3dLUiTIaxqu_W8ObAcg
+// This track serves to showcase several techniques
 //
-// Title: Sea of Souls - The Malfunctioning Collective - Strudel Club Cover
-//
-// Spotify URL:
-// https://open.spotify.com/intl-es/album/7tTw8oiSCbyZWc0EPxJyui?si=YJn3dLUiTIaxqu_W8ObAcg
-// Author: AlienMind
-// https://open.spotify.com/intl-es/artist/4Dy8FcAbbTvdMIpOA4jNbh?si=uj-FkR79Tr2_IZ3oW9CMuw
-//
-// Year: 2026
-//
-// This work is licensed under a Creative Commons
-// Attribution-NonCommercial-ShareAlike 4.0 International License.
-//
-// To view a copy of this license, visit:
-// http://creativecommons.org/licenses/by-nc-sa/4.0/
-//
-// How it works: BARS gives each section its length, and part([...]) turns a list with
-// one entry per section into a pattern that follows the arrangement. An entry can be a
-// number, a mini-notation string, or a pattern such as a filter sweep (saw.range(...)).
-// Each section starts its patterns from its own first bar, so a sweep over 8 bars
-// rises exactly over that section. After the outro the arrangement starts again.
-
-
-//   ___     _
-//  |_ _|_ _| |_ _ _ ___
-//   | || ' \  _| '_/ _ \
-//  |___|_||_\__|_| \___/
-
 // Tempo 133 bpm at 4/4: one cycle is one bar
 setCps(133/60/4)
 
@@ -64,14 +36,7 @@ register('trancegate', (density, seed, length, x) => {
   return x.struct(rand.mul(density).round().seg(16).rib(seed, length)).clip(.7)
 })
 
-// Orbits. Room and delay belong to an orbit in superdough, so parts with their own
-// effects get their own orbit. The kick ducks 2 to 5, which makes them pump.
-//   1 drums  2 bass  3 acid  4 riser  5 pad  6 vocals
-
-// Which layers play, per section. "1" plays, "0" is silent, and a pattern like
-// "<0!4 1!12>" plays only some bars of the section: here from bar 5 of 16.
-// The INTRO is classic electro: the kick, and the snare comes in on bar 6.
-// The COUNTDOWN's last bar is "zero" alone: everything else stops for it ("<1!9 0>").
+// Sections & variations
 const KICK_IN   = [0, 1, 1, "<0!7 1>", 1, 0, 1, "<1!6 0!4>"]
 const SNARE_IN  = [0, "<0!5 1!11>", 1, 1, 1, 0, 1, 0]
 const HH_IN     = [0, "<0!5 1!11>", 1, 1, 1, 1, 1, "<1!8 0!2>"]
@@ -102,17 +67,15 @@ const HH_VOL=slider(0.161,0,1)
 const HHR_VOL=slider(0.099,0,1)
 const VOCALS_VOL=slider(0.557,0,1)
 const BASS_VOL=slider(0.178,0,1)
-const ACID_VOL=slider(0.298,0,1)
+const ACID_VOL=slider(0.293,0,1)
 const CLAP_VOL=slider(0.174,0,1)
 const PAD_VOL=slider(0.241,0,1)
 const RISER_VOL=slider(0.62,0,1)
 
-// How far the arrangement goes. Each one scales a curve of the arrangement, so the song
-// keeps its shape: 1 is as written, lower is tamer, higher is wilder. The Mixer shows them
-// on the strip of their part.
+
 const BASS_SQUELCH=slider(1,0,2)      // bass: the filter envelope, the squelch
-const BASS_CUTOFF_MUL=slider(1,.5,2)  // bass: the cutoff sweep
-const ACID_DRIVE=slider(2,0,6)        // acid: distortion
+const BASS_CUTOFF_MUL=slider(1.208,.5,2)  // bass: the cutoff sweep
+const ACID_DRIVE=slider(1.128,0,6)        // acid: distortion
 const HATS_OPEN=slider(1,.2,1.5)      // hhr: the rolling hats' filter
 const VOCALS_ECHO=slider(1,0,1.5)     // vocals: the dub delay
 const RISER_OPEN=slider(1,.5,2)       // riser: its high-pass
@@ -198,7 +161,7 @@ $kick: s("[bd]*4").bank("tr909")
   .gain(KICK_VOL)
 .duck("2:3:4:5").duckattack(.2).duckdepth(.8)._scope()
 
-// Snare: the backbeat from bar 6 of the INTRO, and in the BUILD a roll that doubles every 2 bars
+// Snare: backbeat only from bar 6 of the INTRO, and in the BUILD a roll that doubles every 2 bars
 const SNARE_PATTERN = ["~", "~ sd ~ sd", "~ sd ~ sd", "<[~ sd]*2!2 sd*4!2 sd*8!2 sd*16!2>", "~ sd ~ sd", "~", "~ sd ~ sd", "~"]
 $snare: s(part(SNARE_PATTERN)).bank("tr909").mask(part(SNARE_IN)).room(.2).hpf(part(BUILD_HPF)).gain(SNARE_VOL)
 
@@ -293,3 +256,10 @@ src(s0)
   .out()
 
 all(x=>x.fft(4).scope({pos:0,smear:.95}))
+
+
+// This work is licensed under a Creative Commons
+// Attribution-NonCommercial-ShareAlike 4.0 International License.
+//
+// To view a copy of this license, visit:
+// http://creativecommons.org/licenses/by-nc-sa/4.0/

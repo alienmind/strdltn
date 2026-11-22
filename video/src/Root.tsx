@@ -2,6 +2,7 @@ import { Composition, staticFile } from 'remotion';
 import config from '../video.config.json';
 import script from '../script.json';
 import { Promo, type PromoProps, type SceneData } from './Promo';
+import { Showcase, type ShowcaseProps } from './Showcase';
 
 const CLOSE_AIR = 2.4; // seconds the end card stays after its line
 
@@ -12,6 +13,21 @@ async function json<T>(path: string): Promise<T> {
 }
 
 export const Root = () => (
+  <>
+  {/* The showcase: one take of the demo, from video/scripts/showcase.mjs, rendered with --public-dir=../tmp/showcase. */}
+  <Composition
+    id="Showcase"
+    component={Showcase}
+    fps={30}
+    width={1920}
+    height={1080}
+    durationInFrames={30 * 60}
+    defaultProps={{ frames: [], fps: 30, audioOffset: 0, window: { w: 1920, h: 1080 }, cursor: [], zoom: [] } satisfies ShowcaseProps}
+    calculateMetadata={async () => {
+      const take = await json<ShowcaseProps>('manifest.json');
+      return { durationInFrames: take.frames.length, props: take };
+    }}
+  />
   <Composition
     id="Promo"
     component={Promo}
@@ -35,4 +51,5 @@ export const Root = () => (
       return { durationInFrames: from, props: { scenes } };
     }}
   />
+  </>
 );

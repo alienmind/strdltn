@@ -72,6 +72,10 @@ export interface StrdltnApi {
 	mixerCable(from: number, drop: { to: number; move?: number } | { orbit: number }): Promise<void>;
 	/** Puts the editor's cursor on a chain of the Mixer's song. */
 	mixerReveal(chain: number): void;
+	/** Puts the cursor of the song in front on the first place `text` is written. For the video's capture. */
+	revealText(text: string): Promise<boolean>;
+	/** Sends MIDI bytes to an output now: the video's capture plays a controller through a loopback port. */
+	midiSend(port: string, bytes: number[]): Promise<boolean>;
 	/** The remote sample packs seen so far and whether they are in the cache. */
 	packs(): { source: string; files: number; complete: boolean; note?: string }[];
 	previewSounds(): boolean;
@@ -706,6 +710,15 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		mixerTempo: (bpm) => mixer.setTempo(bpm),
 		mixerCable: (from, drop) => mixer.cable(from, drop),
 		mixerReveal: (chain) => mixer.revealChain(chain),
+		revealText: async (text) => {
+			const session = frontEditor() ?? [...sessions].find((s) => s.panel.visible);
+			if (!session) return false;
+			const offset = lf(session.document.getText()).indexOf(text);
+			if (offset < 0) return false;
+			await revealOffset(session.document, offset);
+			return true;
+		},
+		midiSend: (port, bytes) => midi.sendNow(port, bytes),
 		mixerPlace: async (where) => {
 			if (where === 'dock') await mixerPlace.dock();
 			else await mixerPlace.float(where === 'float');

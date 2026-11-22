@@ -90,7 +90,6 @@ const VOCALS_ECHO=slider(1,0,1.5)     // vocals: the dub delay
 const RISER_OPEN=slider(1,.5,2)       // riser: its high-pass
 const PAD_OPEN=slider(1,.5,2)         // pad: its filter
 const PAD_SPACE=slider(.8,0,1)        // pad: its room
-const DJ=slider(.5,0,1)               // the whole mix: a DJ filter. Below .5 it cuts the highs, above it the lows
 
 
 //  __   __            _
@@ -277,7 +276,7 @@ src(s0)
   )
   .out()
 
-all(x=>x.djf(DJ).fft(4).scope({pos:0,smear:.95}))
+all(x=>x.fft(4).scope({pos:0,smear:.95}))
 
 
 // This work is licensed under a Creative Commons

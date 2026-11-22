@@ -311,6 +311,36 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		/** Asks CodeMirror to measure, and resolves two frames later when it has. */
 		measure: () => new Promise((done) => { mirror.editor.requestMeasure(); requestAnimationFrame(() => requestAnimationFrame(done)); }),
 		text: () => mirror.editor.state.doc.toString(),
+		/**
+		 * Scrolls so the line that holds `text` sits a third of the way down, gliding over `ms` with an ease in and out,
+		 * as a hand on the wheel does. For the showcase video: a reveal jumps (the maintainer, 2026-11-22).
+		 */
+		scrollTo: (text: string, ms = 1800) =>
+			new Promise<boolean>((done) => {
+				const at = mirror.editor.state.doc.toString().indexOf(text);
+				if (at < 0) return done(false);
+				// The element that scrolls: in this page the editor grows with its text and the page scrolls, not
+				// CodeMirror's own scroller (a first take glided that one and nothing moved).
+				const view = mirror.editor;
+				const scroller = ([view.scrollDOM, document.scrollingElement, document.body] as (HTMLElement | null)[]).find(
+					(e) => e && e.scrollHeight > e.clientHeight + 10,
+				) ?? (document.scrollingElement as HTMLElement);
+				const isPage = scroller === document.scrollingElement || scroller === document.body;
+				const top = isPage ? 0 : scroller.getBoundingClientRect().top;
+				const height = isPage ? window.innerHeight : scroller.clientHeight;
+				const lineY = view.documentTop + view.lineBlockAt(at).top;
+				const from = scroller.scrollTop;
+				const to = Math.max(0, from + lineY - (top + height / 3));
+				const start = performance.now();
+				const step = (now: number) => {
+					const t = Math.min(1, (now - start) / ms);
+					const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+					scroller.scrollTop = from + (to - from) * eased;
+					if (t < 1) requestAnimationFrame(step);
+					else done(true);
+				};
+				requestAnimationFrame(step);
+			}),
 		head: () => mirror.editor.state.selection.main.head,
 		focused: () => mirror.editor.hasFocus,
 		record: takes,

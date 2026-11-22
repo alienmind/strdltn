@@ -1,6 +1,7 @@
 // @title Random bass line that repeats
 // @category bass
-// @details Random notes from a scale, cut to sixteen steps and frozen with rib, so the same line comes back every bar. Change the first number of rib for another line.
+// @details Random notes from a scale, cut to sixteen steps and frozen with rib, so the same line
+//   comes back every bar. Change the first number of rib for another line.
 // @tags generative, acid
 // @by alienmind
 // @credits Switch Angel

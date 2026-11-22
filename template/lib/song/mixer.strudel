@@ -1,6 +1,7 @@
 // @title Mixer with sliders
 // @category song
-// @details One slider for the volume of each part, at the top of the file. Drag them while the song plays to bring parts in and out.
+// @details One slider for the volume of each part, at the top of the file. Drag them while the song
+//   plays to bring parts in and out.
 // @tags mixer, sliders, live
 // @by alienmind
 const KICK = slider(.8, 0, 1)

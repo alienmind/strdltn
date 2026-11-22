@@ -1,6 +1,7 @@
 // @title gate(): chop a sound into a rhythm
 // @category function
-// @details A helper that cuts a held sound into a rhythm, like a trance gate. Change the x and ~ steps for another rhythm.
+// @details A helper that cuts a held sound into a rhythm, like a trance gate. Change the x and ~
+//   steps for another rhythm.
 // @tags gate, trance, helper
 // @by alienmind
 // @credits Switch Angel

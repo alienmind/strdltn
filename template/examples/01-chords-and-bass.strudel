@@ -1,5 +1,6 @@
 // @title Chords and bass
-// @details One chord progression drives three parts: a pad plays the chords, a bass plays their root notes, an arpeggio walks through them. Change the chord names and all three follow.
+// @details One chord progression drives three parts: a pad plays the chords, a bass plays their
+//   root notes, an arpeggio walks through them. Change the chord names and all three follow.
 // @by alienmind
 setcpm(100/4)
 

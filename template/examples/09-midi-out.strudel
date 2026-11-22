@@ -1,6 +1,10 @@
 // @title MIDI out
-// @details Plays a synth on a MIDI device instead of in the editor, with the drums in the editor beside it. `.midi()` without a name takes the first MIDI output; on Windows that is the Microsoft GS Wavetable Synth, so this sounds without any device. Put your device's name in the quotes, as the Output channel lists them: `.midi("UMC404HD")`. The sliders send CC 74 (often the filter) and the pitch bend. Desktop VS Code only.
+// @details Chords on a MIDI device, drums in the editor. Without a name, the first MIDI
+//   output plays: on Windows, its built-in GS Wavetable Synth. Desktop VS Code only.
 // @by alienmind
+
+// Your device's name goes in the quotes, as the Output channel lists the ports:
+// .midi("UMC404HD"). The sliders send CC 74 (often the filter) and the pitch bend.
 setcpm(124/4)
 
 const CUTOFF = slider(0.6, 0, 1)

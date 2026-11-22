@@ -1,6 +1,7 @@
 // @title acid(): a 303 sound as one word
 // @category function
-// @details Defines .acid(amount), which turns any note pattern into an acid line. Higher amounts open the filter further. Paste the register line once, then use .acid() anywhere below it.
+// @details Defines .acid(amount), which turns any note pattern into an acid line. Higher amounts
+//   open the filter further. Paste the register line once, then use .acid() anywhere below it.
 // @tags acid, 303, register
 // @by alienmind
 // @credits Switch Angel

@@ -1,6 +1,7 @@
 // @title Acid bass line
 // @category bass
-// @details A saw wave through a resonant filter that opens on every note. Raise lpenv for more squelch.
+// @details A saw wave through a resonant filter that opens on every note. Raise lpenv for more
+//   squelch.
 // @tags acid, 303, techno
 // @by alienmind
 // @credits Switch Angel

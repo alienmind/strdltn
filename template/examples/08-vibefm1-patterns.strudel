@@ -1,5 +1,8 @@
 // @title vibefm1: firmware and sound as patterns
-// @details In vibefm1:<name> the firmware is a value like any other, so it can change per step or per cycle. The same goes for .progNum(), the firmware's program: here one line walks through four of OBERVAVE's factory sounds, one per cycle. Add your own firmware to firmware({...}) or to the firmware/ folder and put its name in the second pattern. Needs the network for OBERVAVE.
+// @details In vibefm1:<name> the firmware is a value like any other, so it can change per step or
+//   per cycle. The same goes for .progNum(), the firmware's program: here one line walks through
+//   four of OBERVAVE's factory sounds, one per cycle. Add your own firmware to firmware({...}) or
+//   to the firmware/ folder and put its name in the second pattern. Needs the network for OBERVAVE.
 // @tags firmware, vibefm1
 // @by alienmind
 setcpm(110/4)

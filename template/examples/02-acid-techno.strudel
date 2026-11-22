@@ -8,6 +8,7 @@ setcpm(132/4)
 const KICK = slider(1, 0, 1)
 const SNARE = slider(1, 0, 1)
 const HATS = slider(0, 0, 1)
+const CLAP = slider(0, 0, 1)
 const ACID = slider(0, 0, 1)
 const SQUELCH = slider(2.688, 0, 8)
 const PAD = slider(1, 0, 1)
@@ -25,7 +26,7 @@ $snare: s("~ sd ~ sd").bank("RolandTR909")
 $oh: s("[~ oh]*4, hh*16").bank("RolandTR909")
   .gain("[.3 .5 .35 .7]*4").gain(HATS).lpf(slider(10405, 1000, 20000)).room(.2)._scope()
 
-$clap: s("~ cp ~ cp").bank("RolandTR909").room(.2).gain(HATS)
+$clap: s("~ cp ~ cp").bank("RolandTR909").room(.2).gain(CLAP)
 
 // random notes, frozen so the same line repeats every bar
 $acid: n(irand(8).seg(16).rib(3, 1))

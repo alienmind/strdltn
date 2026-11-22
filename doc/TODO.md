@@ -77,6 +77,22 @@ synth and a controller plugged in.
 
 Expected still broken: no MIDI in the Browser or the Mixer; nothing in a Codespace.
 
+Render, Record, the level meters and the electro example, on `feat/midi`. Test on
+**desktop, launched with F5** on `template/`.
+
+| # | Do this | Should happen |
+|---|---|---|
+| R1 | Open `demo.strudel`, click Render audio (the arrow down in Music Controls) | After a few seconds `demo.wav` and `demo.mp3` appear next to it; a notification offers Play and Reveal |
+| R2 | Library, Render, click `demo.mp3` | It plays in VS Code's media preview, the whole three minutes |
+| R3 | Click Record, wait 10 s, click it again | A pair `demo.rec-<time>.wav` and `.mp3` appears under Render |
+| R4 | Render `examples/07-vibefm1-obervave.strudel` | The firmware's bass, pad and arp are in the file |
+| R5 | Play the demo, open the Mixer, in a short and in a maximized panel | Each strip's meter moves behind its fader, aligned across strips and with Master; peaks show in dB |
+| R6 | Push a fader until its peak turns orange, click the peak | It shows above 0; the click sets it back to -Inf |
+| R7 | Play `examples/10-electro.strudel`, set `drop` to 1, then 2 | The supersaws pump to the gain pattern; at 2 the rhythm changes |
+
+Expected still broken: after a render the next Play may ask for a click in the editor (the render
+closes the audio context).
+
 The rest of the Devices view, on `feat/devices`. Test on **desktop, launched with F5** on
 `template/`.
 

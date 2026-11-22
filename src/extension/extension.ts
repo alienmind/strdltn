@@ -99,6 +99,16 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	// The MIDI category of the Browser: the ports of this machine, kept current by the worker (it reads them every 2 s).
 	// Only where the extension host runs on the user's machine: in a Codespace it would list the cloud machine's.
 	context.subscriptions.push(midi.onPorts((ports) => browser.setMidiPorts(ports)));
+	// MIDI debugging: every message in and out as text in Output > strdltn (see MidiBridge).
+	context.subscriptions.push(
+		vscode.commands.registerCommand('strdltn.midi.toggleDebug', async () => {
+			const config = vscode.workspace.getConfiguration('strdltn.midi');
+			const on = !config.get<boolean>('debug', false);
+			await config.update('debug', on, vscode.ConfigurationTarget.Global);
+			if (on) output.show(true);
+			void vscode.window.showInformationMessage(on ? 'MIDI messages now show in Output > strdltn.' : 'MIDI messages no longer show in the Output.');
+		}),
+	);
 	if (!vscode.env.remoteName) void midi.listPorts();
 	const mixer = new MixerView(context, output, {
 		reveal: (document, offset) => void revealOffset(document, offset),

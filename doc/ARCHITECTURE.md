@@ -1639,6 +1639,13 @@ stop -> midiPanic                  -> panic(engine)              -> notes off of
   with loopMIDI on 2026-11-22). Inside a string it types the name alone, inside the empty
   parentheses of `.midi()`, `midin()` or `midikeys()` the name in quotes (`chooseInsert` in
   `src/shared/context.ts`, the item's `argument`). Copy copies the name.
+- Debugging: the setting `strdltn.midi.debug` (the command "strdltn: Show MIDI messages in
+  the Output" turns it on and off) writes every message in and out to Output > strdltn as
+  text (`describeMidi`): `in <- MPK mini 3: CC 70 = 64 (ch 1)`, `out -> M-VAVE FM-1: note on
+  c3 (48) vel 94 (ch 1)`, and "no song listens to this device" when nothing called `midin`
+  for it. While it is on, the bridge opens every input, so a controller shows before any
+  song uses it. Seen on 2026-11-22 in a muted window: CC 70 = 94 sent into loopMIDI, and the
+  next note of `velocity(knobs(70))` went out with velocity 94.
 - Our `.midi()`, `midin()`, `midikeys()`, `midimaps()` and `defaultmidimap()` take the
   upstream names and options, so a song from strudel.cc runs. `@strudel/midi` is not
   bundled (it needs WebMIDI). The rules that turn a hap into bytes, pick a port and keep

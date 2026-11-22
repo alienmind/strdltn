@@ -191,6 +191,8 @@ browser.
   in time with the sound, and `midin()` and `midikeys()` read a controller or a keyboard.
   `midimaps()` and `defaultmidimap()` name the CCs. The Library's MIDI category lists your
   devices; a click types `.midi('name')` or `midin('name')`. See `examples/09-midi-out.strudel`.
+  To see what a controller sends, run "strdltn: Show MIDI messages in the Output": every
+  message in and out shows in Output > strdltn.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 

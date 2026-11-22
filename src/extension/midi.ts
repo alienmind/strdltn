@@ -5,7 +5,7 @@
 import * as path from 'node:path';
 import { Worker } from 'node:worker_threads';
 import * as vscode from 'vscode';
-import { epochNow, type MidiPorts } from '../shared/midi';
+import { describeMidi, epochNow, type MidiPorts } from '../shared/midi';
 import type { FromWebview, ToWebview } from '../shared/protocol';
 import type { FromMidiWorker, ToMidiWorker } from './midi-worker';
 
@@ -29,10 +29,30 @@ export class MidiBridge implements vscode.Disposable {
 	readonly onPorts = this.portsChanged.event;
 	private statsWaiting: ((stats: Extract<FromMidiWorker, { type: 'stats' }>) => void)[] = [];
 
+	/** The setting strdltn.midi.debug: every message in and out goes to the Output as text. */
+	private debug = false;
+	private readonly disposables: vscode.Disposable[] = [];
+
 	constructor(
 		private readonly dist: string,
 		private readonly output: vscode.OutputChannel,
-	) {}
+	) {
+		this.readDebug();
+		this.disposables.push(vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration('strdltn.midi.debug') && this.readDebug()));
+	}
+
+	private readDebug(): void {
+		this.debug = vscode.workspace.getConfiguration('strdltn.midi').get<boolean>('debug', false);
+		if (!this.debug) return;
+		this.output.appendLine('[midi] debug on: every MIDI message in and out is written here. Every input is opened, so a controller shows even when no song listens to it.');
+		this.listenAll();
+	}
+
+	/** While debugging, every input is opened: a controller then shows here before a song calls midin(). */
+	private listenAll(): void {
+		if (!this.debug || !this.ports || !this.start()) return;
+		for (const port of this.ports.inputs) this.send({ type: 'listen', port });
+	}
 
 	/** A message from an engine. `id` names the engine; `post` answers it. */
 	receive(id: string, post: (message: ToWebview) => void, message: MidiMessage): void {
@@ -48,6 +68,7 @@ export class MidiBridge implements vscode.Disposable {
 				if (this.start() && this.ports) post({ type: 'midiPorts', ports: this.ports });
 				break;
 			case 'midiOut':
+				if (this.debug) for (const e of message.events) this.output.appendLine(`[midi] out -> ${e.port ?? '(first output)'}: ${describeMidi(e.bytes)}`);
 				this.send({ type: 'send', source: id, events: message.events });
 				break;
 			case 'midiListen':
@@ -95,6 +116,7 @@ export class MidiBridge implements vscode.Disposable {
 		// The panic needs a moment to go out before the thread ends.
 		setTimeout(() => void worker?.terminate(), 50);
 		this.portsChanged.dispose();
+		this.disposables.forEach((d) => d.dispose());
 	}
 
 	private start(): boolean {
@@ -127,8 +149,13 @@ export class MidiBridge implements vscode.Disposable {
 				this.output.appendLine(`[midi] outputs: ${message.ports.outputs.join(', ') || 'none'}; inputs: ${message.ports.inputs.join(', ') || 'none'}`);
 				for (const client of this.clients.values()) client.post({ type: 'midiPorts', ports: message.ports });
 				this.portsChanged.fire(message.ports);
+				this.listenAll();
 				break;
 			case 'input':
+				if (this.debug) {
+					const heard = [...this.clients.values()].some((client) => client.listens.has(message.port));
+					this.output.appendLine(`[midi] in <- ${message.port}: ${describeMidi(message.bytes)}${heard ? '' : '   (no song listens to this device)'}`);
+				}
 				for (const client of this.clients.values()) if (client.listens.has(message.port)) client.post({ type: 'midiIn', port: message.port, bytes: message.bytes });
 				break;
 			case 'stats':

@@ -136,6 +136,10 @@
 				"icon": "$(search)"
 			},
 			{
+				"command": "strdltn.midi.toggleDebug",
+				"title": "strdltn: Show MIDI messages in the Output (on or off)"
+			},
+			{
 				"command": "strdltn.refreshBrowser",
 				"title": "strdltn: Refresh the Browser",
 				"icon": "$(refresh)"
@@ -243,6 +247,11 @@
 					"enum": [128, 160, 192, 256, 320],
 					"default": 320,
 					"description": "Bitrate of the .mp3 that Render and Record write next to the song, in kbit/s. The .wav is always written too."
+				},
+				"strdltn.midi.debug": {
+					"type": "boolean",
+					"default": false,
+					"description": "Write every MIDI message, in and out, to the Output channel strdltn, as text: which device, the channel, the note or the CC and its value. To find out what a controller sends and whether a song hears it."
 				},
 				"strdltn.render.cycles": {
 					"type": "number",

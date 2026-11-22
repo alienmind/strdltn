@@ -94,3 +94,13 @@ test('a MIDI port is a Browser item that types its call, or its name inside a st
 	assert.ok(input.text.includes('controller'));
 	assert.notEqual(out.id, midiItem('UMC404HD 192k MIDI Out', 'in').id);
 });
+
+test('a MIDI message reads as text for the debug lines', async () => {
+	const { describeMidi } = await import('./midi.ts');
+	assert.equal(describeMidi([0xb0, 70, 64]), 'CC 70 = 64 (ch 1)');
+	assert.equal(describeMidi([0x91, 48, 100]), 'note on c3 (48) vel 100 (ch 2)');
+	assert.equal(describeMidi([0x90, 60, 0]), 'note off c4 (60) (ch 1)');
+	assert.equal(describeMidi([0xe0, 0, 64]), 'pitch bend 0.00 (ch 1)');
+	assert.equal(describeMidi([0xf8]), 'clock');
+	assert.equal(describeMidi([0xf0, 0x43, 1, 0xf7]), 'sysex 4 bytes');
+});

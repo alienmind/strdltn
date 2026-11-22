@@ -77,6 +77,7 @@ synth and a controller plugged in.
 | M2 | Write your synth's name in `.midi('...')`, Ctrl+Enter | The chords move to the synth; the CUTOFF slider moves its filter, if the synth takes CC 74 |
 | M3 | Stop while a chord sounds | No note hangs |
 | M4 | Add `const cc = await midin('<your controller>')` and `.lpf(cc(1).range(200, 4000))` on the drums, play, turn knob 1 | The drums' filter follows the knob |
+| M6 | Run "strdltn: Show MIDI messages in the Output", turn each knob of the MPK | `in <- MPK mini 3: CC nn = vv` lines; the CC numbers are the ones `09-midi-out` needs |
 | M5 | Unplug the synth while it plays, plug it back | A warning in the Output channel, then the notes come back within a few seconds |
 | X3 | Mixer: enlarge the panel with the song stopped | The scale numbers stay crisp text, 11 px; strip names and gain values are centered |
 

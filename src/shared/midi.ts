@@ -269,3 +269,31 @@ export class MidiQueue {
 		if (kind === 0x90 && velocity > 0) this.held.push({ port: e.port, channel, note, source: e.source });
 	}
 }
+
+const NOTE_NAMES = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
+
+/** One MIDI message as text, for the debug lines in the Output: `CC 70 = 64 (ch 1)`, `note on c3 (48) vel 100 (ch 1)`. */
+export function describeMidi(bytes: number[]): string {
+	const [s, a = 0, b = 0] = bytes;
+	const ch = ` (ch ${(s & 15) + 1})`;
+	const note = (n: number) => `${NOTE_NAMES[n % 12]}${Math.floor(n / 12) - 1} (${n})`;
+	switch (s & 0xf0) {
+		case 0x80:
+			return `note off ${note(a)}${ch}`;
+		case 0x90:
+			return b === 0 ? `note off ${note(a)}${ch}` : `note on ${note(a)} vel ${b}${ch}`;
+		case 0xa0:
+			return `aftertouch ${note(a)} = ${b}${ch}`;
+		case 0xb0:
+			return `CC ${a} = ${b}${ch}`;
+		case 0xc0:
+			return `program ${a}${ch}`;
+		case 0xd0:
+			return `aftertouch = ${a}${ch}`;
+		case 0xe0:
+			return `pitch bend ${(((b << 7) | a) / 8191.5 - 1).toFixed(2)}${ch}`;
+	}
+	const system: Record<number, string> = { 0xf8: 'clock', 0xfa: 'start', 0xfb: 'continue', 0xfc: 'stop', 0xfe: 'active sensing' };
+	if (s === 0xf0) return `sysex ${bytes.length} bytes`;
+	return system[s] ?? bytes.map((x) => x.toString(16).padStart(2, '0')).join(' ');
+}

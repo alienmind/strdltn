@@ -71,54 +71,11 @@ Next in line:
 
 ## Next: test by hand
 
-MIDI, on `feat/midi`. Test on **desktop, launched with F5** on `template/`, with a MIDI
-synth and a controller plugged in.
-
-| # | Do this | Should happen |
-|---|---|---|
-
-Expected still broken: no MIDI in the Browser or the Mixer; nothing in a Codespace.
-
-Error places and long header lines, on `feat/midi`. Same window.
-
-| # | Do this | Should happen |
-|---|---|---|
-
-Render, Record, the level meters and the electro example, on `feat/midi`. Test on
-**desktop, launched with F5** on `template/`.
-
-| # | Do this | Should happen |
-|---|---|---|
-| S1 | Play `demo.strudel` from the start | The countdown says 8 to 0 after a silent bar; the intro has the bass and the first word on bar 2, the pad on bar 10 |
-| S2 | Listen to the build and the drop | The band thins out over the last 4 bars of the build and comes back full on the drop; the pad is gated in the build, the breakdown and the second half of the final drop |
-| S3 | Listen to the outro and the end | The riser closes down to nothing; 4 bars of silence, then the song starts again |
-| R1 | Open `demo.strudel`, click Render audio | A notification "rendering demo.strudel"; about 3 minutes, no sound; then `demo.wav` and `demo.mp3`, the whole song as it plays, ending on the 4 silent bars |
-| R2 | Library, Render, click `demo.mp3` | It plays in VS Code's media preview, the whole three minutes |
-| R3 | Click Record, wait 10 s, click it again | A pair `demo.rec-<time>.wav` and `.mp3` appears under Render |
-| R4 | Render `examples/07-vibefm1-obervave.strudel` | The firmware's bass, pad and arp are in the file |
-| R5 | Play the demo, open the Mixer, in a short and in a maximized panel | Each strip's meter moves behind its fader, aligned across strips and with Master; peaks show in dB |
-| R6 | Push a fader until its peak turns orange, then pull it down, then click the peak | Orange above 0; pulled down, the number follows the level within 3 s and stays orange; the click clears the orange |
-| R6b | Click the triangle of a gain fader without dragging it, then click the dim triangle | The gain fader leaves the code and its value leaves the scope; the strip keeps its height. The second click puts it back |
-| R6c | Hover a strip's jack | The tooltip says its orbit; M and S sit above the scope, everything centered |
-| R7 | Play `examples/10-electro.strudel`, set `drop` to 1, then 2 | The supersaws pump to the gain pattern; at 2 the rhythm changes |
-
-Expected still broken: after a render the next Play may ask for a click in the editor (the render
-closes the audio context).
-
-The rest of the Devices view, on `feat/devices`. Test on **desktop, launched with F5** on
-`template/`.
-
-| # | Do this | Should happen |
-|---|---|---|
-| 1 | Play `examples/07-vibefm1-obervave.strudel`, open Devices, click the diagonal arrow of one panel | That panel fills the view with a bigger screen; the others hide. Again: back |
-| 2 | Click the arrow up right of one panel | A tab "OBERVAVE @2" opens beside, with the screen moving; the view's panel says "in a tab" |
-| 3 | In the tab, click F3 and F4, drag a slider | As in the view: the program and the sound change |
-| 4 | Close the tab | The view's panel draws again by itself |
-| 5 | Fold a panel, close the song's tab, play the song again | The panel comes back folded |
-| 6 | Turn on the setting `strdltn.experimental.shrubEditor`, open Devices | A SHRUB panel at the end with Xfer's editor; it plays after a click on a key. Folding and unfolding keeps its patch |
-
-Expected still broken: the F1 to F6 row is wider than the screen when maximized; SHRUB's
-sound is not in the mix (by design, see the drawer).
+Every hand test on `feat/midi` passed on 2026-11-22 (MIDI out and in, the MIDI category and debug
+lines, error places, header lines, the Mixer's meters and gain fader, Render and Record, the
+electro example, the demo's arrangement, the Devices view and the SHRUB panel). Next: `pnpm
+test:vscode` once (it plays sound for about ten minutes, and 09 plays the M-VAVE FM-1), then the
+pull request.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -160,7 +117,7 @@ it.
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
 | 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
 | 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
-| 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. The SHRUB editor panel stays as an experiment behind its setting; the fm1-emu way stays open |
+| 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. The SHRUB editor panel stays as an experiment behind its setting; the fm1-emu way stays open. Its editor cannot reach a real FM-1 from VS Code: a webview has no MIDI, and a frame of another site cannot be given ours. In a browser ("Open in browser") it can, if VS Code does not hold the FM-1's port: a Windows MIDI port opens in one program at a time |
 | 16 | The wave editor (item 11) builds on AudioMass. How does it come in? AudioMass is not on npm and has no releases or tags, so "an upstream release, pinned" does not exist for it. The choices: a git submodule pinned to a commit, or a copy of one commit in the repo with its MIT license. A submodule keeps the history and the pin visible; it also makes every clone and the `.vsix` build need `git submodule update`. The rule "no submodule" in CLAUDE.md is about Strudel, which comes from npm | Nothing done |
 | 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Not built |
 

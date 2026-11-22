@@ -116,8 +116,6 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 			break;
 	}
 });
-post({ type: 'ready' });
-draw();
 
 /**
  * "Show MIDI Mappings": a modal list, as Live's MIDI Mappings: per knob its CC and the line
@@ -705,3 +703,9 @@ function clickToToggle(input: HTMLInputElement, toggle: () => void, title: strin
 		start = undefined;
 	});
 }
+
+// Last, after every constant of this file exists: the first draw reaches them (MASTER,
+// meterResize). Called from the top, it threw and the page drew no strip at all (seen by
+// the maintainer on 2026-11-22, once the Master strip was drawn before any song).
+post({ type: 'ready' });
+draw();

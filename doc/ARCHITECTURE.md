@@ -331,8 +331,9 @@ the search changes. Filters, open sections and headings are kept in the webview 
 they survive a reload of the window. `retainContextWhenHidden` keeps the page while
 another side bar is shown.
 
-**Keys and mouse.** In the results: arrows move, Right and Left open and close, Enter or a
-double click inserts (a song opens), Space plays, 1 to 7 toggle a color on the selected
+**Keys and mouse.** In the results: arrows move, Right and Left open and close, Enter
+inserts (a song opens), a double click does the same except that a snippet opens its file
+in the Strudel editor too, Space plays, 1 to 7 toggle a color on the selected
 rows and 0 clears them, Ctrl+click and Shift+click select several. Ctrl+F in the page and
 `strdltn.focusSearch` (Ctrl+Alt+F) put the cursor in the search field. A right click
 gives colors, play, insert, copy, open and "Edit tags...". The same colors and "Edit

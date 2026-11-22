@@ -402,7 +402,7 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		);
 	}
 	node.addEventListener('click', (event) => onRowClick(index, event));
-	node.addEventListener('dblclick', () => activate(rows[index]));
+	node.addEventListener('dblclick', () => openRow(rows[index]));
 	node.addEventListener('contextmenu', (event) => {
 		event.preventDefault();
 		if (!selection.has(key)) select(index, false, false);
@@ -523,7 +523,7 @@ function onRowClick(index: number, event: MouseEvent): void {
 	}
 	select(index, event.ctrlKey || event.metaKey, event.shiftKey);
 	// A click plays a sound when preview is on. It never types: that is Enter, a double
-	// click or the insert button.
+	// click (not on a snippet, which opens) or the insert button.
 	if (preview && !event.ctrlKey && !event.shiftKey && row.type !== 'heading' && row.item.sound) playRow(row);
 }
 
@@ -532,7 +532,17 @@ function playRow(row: Row): void {
 	post({ type: 'play', id: row.item.id, index: row.type === 'variation' ? row.index : undefined });
 }
 
-/** Enter or a double click: a song opens, anything else is typed at the cursor of the editor. */
+/**
+ * A double click: a song or a snippet opens its file, anything else is what Enter does.
+ * Enter still types a snippet, so the keyboard keeps a way to insert one (the maintainer,
+ * 2026-11-22, item 12 of doc/TODO.md).
+ */
+function openRow(row: Row | undefined): void {
+	if (row?.type !== 'heading' && row?.item.kind === 'snippet') return post({ type: 'open', id: row.item.id });
+	activate(row);
+}
+
+/** Enter: a song opens, anything else is typed at the cursor of the editor. */
 function activate(row: Row | undefined): void {
 	if (!row) return;
 	if (row.type === 'heading') return row.insert ? post({ type: 'insertText', text: row.insert }) : toggleHeading(row);

@@ -146,7 +146,7 @@ browser.
   Tags of a snippet go into its own header.
 - Save a search: it becomes a row under Collections.
 - A click on a sound plays it when preview is on. It never types. Enter, a double click
-  or the insert button types the code that plays it at the cursor: `s("bd")`,
+  (not on a snippet, which opens its file) or the insert button types the code that plays it at the cursor: `s("bd")`,
   `s("bd").bank("RolandTR909")`, `note("c3").s("sawtooth")`. Inside a string, only the
   name. Copy gives the name. A bank heading has a button that types
   `.bank("...")`.

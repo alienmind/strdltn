@@ -298,16 +298,18 @@ export class BrowserView {
 
 	private async open(item: CatalogItem): Promise<void> {
 		// A render opens in VS Code's own media preview, which plays .wav and .mp3.
-		if (item.kind === 'song' || item.kind === 'render') {
+		// A song or a snippet opens in the Strudel editor by name, not by `vscode.open`: the
+		// native editor is never the default (the maintainer, 2026-11-22), and `vscode.open`
+		// follows the user's `workbench.editorAssociations`. The header of a snippet shows in
+		// the Strudel editor too, so its tags can still be edited by hand there.
+		if (item.kind === 'render') {
 			const uri = item.path && this.songs.uri(item.path);
 			if (uri) await vscode.commands.executeCommand('vscode.open', uri);
 			return;
 		}
-		if (item.kind === 'snippet') {
-			const snippet = this.snippets.find(item.id.slice('snippet:'.length));
-			// The native editor: a snippet is edited as text, header included.
-			if (snippet) await vscode.commands.executeCommand('vscode.openWith', snippet.uri, 'default');
-		}
+		const uri =
+			item.kind === 'song' ? item.path && this.songs.uri(item.path) : item.kind === 'snippet' ? this.snippets.find(item.id.slice('snippet:'.length))?.uri : undefined;
+		if (uri) await vscode.commands.executeCommand('vscode.openWith', uri, 'strdltn.editor');
 	}
 
 	/**

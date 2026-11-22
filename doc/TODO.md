@@ -5,50 +5,31 @@ from here.
 
 ## State
 
-**`main` holds everything, version 0.3.0, released as `v0.3.0` (made by hand: the workflow has never run on this fork, see "Release" in ARCHITECTURE). Enable Actions in the repository's Actions tab before the next tag.** The version started again for
-this project. The tag 1.0.0 is the vstrudel release. The extension is [str]dltn
-Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
+**`main` holds everything, version 0.4.0, not tagged.** `v0.3.0` is the last tag (made by
+hand: the release workflow has never run on this fork, see "Release" in ARCHITECTURE).
+Enable Actions in the repository's Actions tab before the next tag. The version started
+again for this project; the tag 1.0.0 is the vstrudel release. The extension is
+[str]dltn Live[code]: id `strdltn.strdltn`, commands and settings `strdltn.*`, cache
 `.strdltn/`, so it installs beside vstrudel without a clash. Settings of vstrudel
-(`vstrudel.*`) do not carry over. Firmware Hub (VIBE FM firmwares from a `firmware/`
-folder or an address, played as `vibefm1:<id>`, with `.progNum()` and a cache) and the
-experimental SHRUB editor panel are on `main`.
+(`vstrudel.*`) do not carry over.
 
 The plan to make this a DAW is in `doc/DAW-PLAN.md`, with the order of work the
-maintainer set ("Order of work"). Phase 1, the Browser, is merged (PR #4). Phases 2 and
-3 are merged (PR #5, version 0.2.0): the Music panel with Play, Stop and BPM, the Mixer
-with a strip per chain, faders that write the code, M, S and G, duck cables with cable
-drags, pump meters, float and dock, Music Controls in the Library, and the side bar in
-four views with one filter. The tag `v0.2.0` was never made.
+maintainer set ("Order of work"). Merged so far: phase 1, the Browser (PR #4); phases 2
+and 3, the Music panel, the Mixer and the four side bar views (PR #5, 0.2.0, never
+tagged); phase 4, Devices, with Firmware Hub, the SHRUB editor panel and the demo as an
+arrangement (PR #6, 0.3.0); phase 5, MIDI on desktop through the extension host, Render
+and Record of a song to `.wav` and `.mp3`, level meters with a Master strip on the Mixer,
+and the demo's new mix (PR #9, 0.4.0). A promote waits for the maintainer.
 
-Phase 4, Devices, is merged (PR #6) and is version 0.3.0, with the demo song as an
-arrangement that plays itself and a disclaimer on top of the README that this is not an
-official Strudel project. A promote waits for the maintainer. Its spikes ran on desktop on
-2026-11-21 (ARCHITECTURE "Firmware" and "SHRUB editor panel"): F2 gave the control events,
-F1 showed that whole display frames go through the host as `Uint8Array` at 30 to 120 a
-second on desktop, about 4 ms late, but at only about 4 MB a second in a Codespace, so the
-relay sends one frame in flight per panel. F3 showed that the SHRUB editor loads and plays
-in a webview view. The SDK headers are cloned in `tmp/sdk/` (gitignored).
-
-Phase 4 is built: the Devices view in the bottom panel, a panel per firmware copy with its
-own display, F1 to F6, the DATA wheel and its parameters; fold, maximize and take out into a
-tab; the SHRUB panel behind its setting; and the integration test records the devices
-(ARCHITECTURE "Devices"). Steps 1 to 4 passed the hand test, and `pnpm test:vscode` passed
-on 2026-11-21. Next: the hand test below for maximize, take out and SHRUB. The `fm1emu:` way and the
-coverage of the hub wait (see "Firmware Hub").
-
-Version 0.4.0 is collected on the branch `feat/midi`, not merged: phase 5, MIDI on desktop
-through the extension host (ARCHITECTURE "MIDI"), the demo's levels brought down, and
-Record and Render, which write a song's audio next to it as `.wav` and `.mp3` and list it
-under Render in the Library (ARCHITECTURE "Render and record"; built on `feat/render`,
-merged into `feat/midi` on 2026-11-22), and level meters on the Mixer's strips with a Master
-strip (ARCHITECTURE "Level meters").
+Work in flight is on the branch `feat/open-snippets`: items 12 and 13 below, built and
+waiting for the hand test.
 
 Next in line:
 
 | # | What | State |
 |---|---|---|
-| 12 | First after this round of hand tests (the maintainer, 2026-11-22). A double click on a search result that is a snippet or a song opens its file. Songs open already (`opens()` in `src/shared/catalog.ts`); a snippet is inserted at the cursor today (`activate()` in `src/browser/main.ts`). Open: whether Enter keeps inserting a snippet, so the keyboard still has a way to insert | Asked for, not built |
-| 13 | The native editor is never the default (the maintainer, 2026-11-22). The manifest already makes the Strudel editor the default; what still opens the native one is the Browser's "Open the file" of a snippet, `vscode.openWith(uri, 'default')` in `src/extension/browser.ts`, where `'default'` is the text editor. Goes with item 12 | Asked for, not built |
+| 12 | A double click on a snippet or a song in the Browser opens its file (`openRow()` in `src/browser/main.ts`). Enter still inserts a snippet, so the keyboard keeps a way to insert; the maintainer may want it the other way | Built on `feat/open-snippets`, waiting for the hand test |
+| 13 | The native editor is never the default. The Browser opens a song or a snippet with `vscode.openWith(uri, 'strdltn.editor')` (`open()` in `src/extension/browser.ts`), not `'default'`, which was the text editor, and not `vscode.open`, which follows the user's `workbench.editorAssociations` | Built on `feat/open-snippets`, waiting for the hand test |
 | 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Asked for, not designed |
 | 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with a click on its number. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Asked for, not designed |
 | 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
@@ -71,11 +52,16 @@ Next in line:
 
 ## Next: test by hand
 
-Every hand test on `feat/midi` passed on 2026-11-22 (MIDI out and in, the MIDI category and debug
-lines, error places, header lines, the Mixer's meters and gain fader, Render and Record, the
-electro example, the demo's arrangement, the Devices view and the SHRUB panel). `pnpm test:vscode` passed on
-2026-11-22: 38 files played with no problem, typing and error places as expected (the FM-1 was not
-plugged in, so 09 sent nothing). Next: the maintainer merges the pull request.
+Test on **desktop, F5 from this repo** (branch `feat/open-snippets`), with the template
+folder open.
+
+| # | Do this | Should happen |
+|---|---|---|
+| 1 | In the Browser, Snippets, double click a snippet | Its file opens in the Strudel editor, header included. Nothing is typed into the song |
+| 2 | Select a snippet with the arrows, press Enter | The snippet is typed at the cursor of the song, as before |
+| 3 | Right click a snippet, "Open the file" | The Strudel editor, not the native one |
+| 4 | Double click a song in Songs | The Strudel editor |
+| 5 | Double click a render (`.wav`) | VS Code's media preview plays it, as before |
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -562,7 +548,8 @@ planned yet.
 - The tags of samples come from their names. 20 of the 1649 sounds on the maintainer's
   list get no Drums or Sounds tag (the tabla syllables `ka`, `dhin`, and `jazz`, `metal`).
 - In the Browser a row cannot be dragged into the editor yet (spike D4 of
-  `doc/DAW-PLAN.md`). Enter, a double click or the insert button types it.
+  `doc/DAW-PLAN.md`). Enter, a double click (not on a snippet or a song, which open) or
+  the insert button types it.
 - The samples of a map written in the song (`samples({...}, 'github:...')`) are not
   listed and not cached before the song has played once.
 - Not cached: a map where a sound has its own `_base`, an address with a query (what

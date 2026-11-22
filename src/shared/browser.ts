@@ -80,4 +80,6 @@ export type FromBrowser =
 	| { type: 'focusSearch' }
 	/** What Results shows now. The integration test reads it. */
 	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number }
-	| { type: 'log'; message: string };
+	| { type: 'log'; message: string }
+	/** "User manual (PDF)": the PDF of the latest release, in the user's browser. */
+	| { type: 'openManual' };

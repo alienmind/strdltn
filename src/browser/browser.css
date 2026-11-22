@@ -250,3 +250,7 @@ body:not([data-page="results"]) .nav { flex: 1; max-height: none; }
 	text-align: right;
 }
 .bpm input.default { color: var(--vscode-descriptionForeground); font-style: italic; }
+
+/* The link to the user manual, at the foot of the Library. */
+.manual-link { flex: none; align-self: flex-start; margin: 4px 10px 6px; padding: 0; border: 0; background: none; color: var(--vscode-textLink-foreground, #3794ff); font: inherit; font-size: 11px; cursor: pointer; }
+.manual-link:hover { text-decoration: underline; color: var(--vscode-textLink-activeForeground, #3794ff); }

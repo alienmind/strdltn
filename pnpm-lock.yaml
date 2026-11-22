@@ -74,6 +74,9 @@ importers:
       fflate:
         specifier: 0.8.2
         version: 0.8.2
+      marked:
+        specifier: 18.2.1
+        version: 18.2.1
       typescript:
         specifier: ^7.0.2
         version: 7.0.2

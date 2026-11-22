@@ -95,6 +95,10 @@ const previewButton = searchbar.appendChild(button('speaker', '', () => post({ t
 // The colors and the Built-in button, right under the search: they filter like it does.
 const colorbar = app.appendChild(el('div', 'colorbar'));
 const nav = app.appendChild(el('div', 'nav'));
+// The user manual of the latest release, at the foot of the Library (the maintainer, 2026-11-22).
+const manual = app.appendChild(el('button', 'manual-link', 'User manual (PDF)'));
+manual.title = 'Opens the user manual of the latest release in your browser';
+manual.addEventListener('click', () => post({ type: 'openManual' }));
 const chips = app.appendChild(el('div', 'chips'));
 const resultbar = app.appendChild(el('div', 'resultbar'));
 const resultsBox = app.appendChild(el('div', 'results'));
@@ -903,6 +907,7 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			// chips, results, details.
 			searchbar.hidden = colorbar.hidden = controlsBox.hidden = page !== 'library';
 			nav.hidden = page === 'results';
+			manual.hidden = page !== 'library';
 			chips.hidden = resultbar.hidden = resultsBox.hidden = details.hidden = page !== 'results';
 			document.body.dataset.page = page;
 			app.hidden = false;

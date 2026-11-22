@@ -542,6 +542,7 @@
 		"smoke": "node scripts/build.mjs && node scripts/smoke/serve.mjs",
 		"package": "node scripts/build.mjs --production && vsce package --no-dependencies",
 		"promote": "node scripts/promote.mjs",
+		"manual": "node scripts/manual-pdf.mjs",
 		"reference": "node scripts/build-reference.mjs",
 		"tutorial": "node scripts/build-tutorial.mjs",
 		"test:unit": "node --test \"src/**/*.test.ts\""
@@ -569,6 +570,7 @@
 		"acorn": "8.19.0",
 		"esbuild": "^0.28.2",
 		"fflate": "0.8.2",
+		"marked": "18.2.1",
 		"typescript": "^7.0.2"
 	}
 }

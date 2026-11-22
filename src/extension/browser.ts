@@ -41,6 +41,8 @@ export interface BrowserActions {
 }
 
 const FILTER_KEY = 'strdltn.browserFilter';
+/** The manual of the latest release, attached to every release by ci.yml (scripts/manual-pdf.mjs). */
+const MANUAL_URL = 'https://github.com/alienmind/strdltn/releases/latest/download/strdltn-manual.pdf';
 const NO_FILTER: BrowserFilterState = { category: 'all', query: '', chips: [] };
 
 /**
@@ -287,6 +289,8 @@ export class BrowserView {
 			case 'transport':
 			case 'tempo':
 				return this.actions.control(message);
+			case 'openManual':
+				return void vscode.env.openExternal(vscode.Uri.parse(MANUAL_URL));
 			case 'log':
 				this.output.appendLine(`browser: ${message.message}`);
 				if (message.message.startsWith('preview:')) this.previews.push(message.message);

@@ -2,7 +2,7 @@
 // @by AlienMind
 // @license CC BY-NC-SA 4.0
 // @credits Switch Angel for acid and the trance gate
-// @length 100
+// @length 104
 // @details A track that plays itself: an arrangement in eight sections, about three minutes,
 //   from a countdown to a countdown. Every part follows the section: layers come in and leave,
 //   the filters open to raise the energy. The vocals are the files in samples/sos-vocals. The
@@ -44,11 +44,12 @@ setCps(133/60/4)
 //  |___/\__|_|  \_,_\__|\__|\_,_|_| \___|
 
 // The sections and their length in bars:
-//   0 COUNTDOWN  1 INTRO  2 VERSE  3 BUILD  4 DROP  5 BREAKDOWN  6 FINAL DROP  7 OUTRO
-const BARS = [10, 16, 16, 8, 16, 8, 16, 10]
+//   0 COUNTDOWN  1 INTRO  2 VERSE  3 BUILD  4 DROP  5 BREAKDOWN  6 FINAL DROP  7 OUTRO  8 END
+// The END is 4 bars of silence before the song starts again
+const BARS = [10, 16, 16, 8, 16, 8, 16, 10, 4]
 
-// One entry per section, in the order above
-const part = (list) => arrange(...BARS.map((bars, i) => [bars, reify(list[i])]))
+// One entry per section, in the order above. A section past the end of a list is silent
+const part = (list) => arrange(...BARS.map((bars, i) => [bars, i < list.length ? reify(list[i]) : silence]))
 
 // One beat in seconds, for delays in time with the song: BEAT * .75 is a dotted eighth
 const BEAT = 60 / 133
@@ -246,9 +247,11 @@ $acid: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygian")._
 // circles the stereo field twice a bar, and it echoes into a room.
 const RISER_GAIN = [saw.slow(10).range(0, .35), 0, 0, saw.slow(8).range(0, .5), 0, .1, 0, isaw.slow(10).range(0, .3)]
 const RISER_HPF  = [saw.slow(10).range(200, 2000), 200, 200, saw.slow(8).range(200, 4000), 200, 500, 200, isaw.slow(10).range(200, 2000)]
+// In the OUTRO a low-pass closes it down to nothing
+const RISER_LPF  = [20000, 20000, 20000, 20000, 20000, 20000, 20000, isaw.slow(10).range(50, 6000)]
 $riser: s("pulse").seg(16).dec(.1).fm(time).fmh(time)
   .mask(part(RISER_IN))
-  .hpf(part(RISER_HPF).mul(RISER_OPEN)).pan(sine.fast(2))
+  .hpf(part(RISER_HPF).mul(RISER_OPEN)).lpf(part(RISER_LPF)).pan(sine.fast(2))
   .delay(.4).delaytime(BEAT * .5).delayfeedback(.5).room(.5)
   .orbit(4)
   // The arrangement's level rides on velocity, so the fader stays the gain

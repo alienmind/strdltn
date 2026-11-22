@@ -70,10 +70,10 @@ register('trancegate', (density, seed, length, x) => {
 
 // Which layers play, per section. "1" plays, "0" is silent, and a pattern like
 // "<0!4 1!12>" plays only some bars of the section: here from bar 5 of 16.
-// The INTRO is classic electro: 4 bars of kick alone, and the snare comes in on bar 5.
+// The INTRO is classic electro: the kick, and the snare comes in on bar 6.
 // The COUNTDOWN's last bar is "zero" alone: everything else stops for it ("<1!9 0>").
 const KICK_IN   = [0, 1, 1, "<0!7 1>", 1, 0, 1, "<1!6 0!4>"]
-const SNARE_IN  = [0, "<0!4 1!12>", 1, 1, 1, 0, 1, 0]
+const SNARE_IN  = [0, "<0!5 1!11>", 1, 1, 1, 0, 1, 0]
 const HH_IN     = [0, "<0!4 1!12>", 1, 1, 1, 1, 1, "<1!8 0!2>"]
 const HHR_IN    = ["<1!9 0>", 0, 1, 1, 1, 1, 1, 0]
 const BASS_IN   = [0, "<0 1!15>", 1, 1, 1, 0, 1, "<1!4 0!6>"]
@@ -198,7 +198,7 @@ $kick: s("[bd]*4").bank("tr909")
   .gain(KICK_VOL)
 .duck("2:3:4:5").duckattack(.2).duckdepth(.8)._scope()
 
-// Snare: the backbeat from bar 5 of the INTRO, and in the BUILD a roll that doubles every 2 bars
+// Snare: the backbeat from bar 6 of the INTRO, and in the BUILD a roll that doubles every 2 bars
 const SNARE_PATTERN = ["~", "~ sd ~ sd", "~ sd ~ sd", "<[~ sd]*2!2 sd*4!2 sd*8!2 sd*16!2>", "~ sd ~ sd", "~", "~ sd ~ sd", "~"]
 $snare: s(part(SNARE_PATTERN)).bank("tr909").mask(part(SNARE_IN)).room(.2).hpf(part(BUILD_HPF)).gain(SNARE_VOL)
 

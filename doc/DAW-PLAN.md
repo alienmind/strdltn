@@ -1267,6 +1267,82 @@ optional count-in of one bar. The status bar item says "recording" in red while 
 - MIDI clock out and transport: `midicmd` through the bridge. Clock in (the song follows
   an outside clock) is not in this plan.
 
+## Welcome screen
+
+Asked by the maintainer on 2026-11-22. A full tab that opens by itself the first time,
+as other extensions' welcome pages do, and that the user closes. It is a visual guide:
+each small feature shown as a short silent clip, zoomed in on the feature at work, the
+way the promo video shows them, but cut into pieces and without a voice. It must look
+good: calm, readable, in the colors of the user's theme. Not built, not tried.
+
+### What it looks like
+
+- One editor tab, "Welcome to [str]dltn Live[code]". At the top: the name, one sentence
+  on what the extension is, and one main button, "Play the demo song".
+- Below, the features in groups, in the order a new user meets them: Play, Find, Mix,
+  Devices, MIDI, Render. Each feature is a card: a clip that loops, a name of two to four
+  words, one line on what it does, and a "Try it" button that does it in the user's
+  window (opens the example, shows the Mixer, opens the MIDI category).
+- The clips play only while their card is on screen. With `prefers-reduced-motion` they
+  show a still frame and play on a click.
+- Colors, fonts and sizes come from the theme's variables (`--vscode-*`), so it looks at
+  home in a dark and in a light theme. No text inside the clips: the words are on the
+  card, so they stay sharp and can be translated later.
+- At the bottom, "Show this page at startup", as VS Code's own welcome page has. It is
+  ticked until the user closes the page the first time.
+
+### The clips
+
+The promo's pipeline makes them (`video/`, see `doc/VIDEO.md`): the capture drives a real
+VS Code window through DevTools, and Remotion zooms with the camera keys of
+`video/src/camera.ts`. New here: a second composition, one clip per feature, with no
+voice and no music track (a clip shows a sound feature with its meters and scopes moving,
+and the user hears it with "Try it").
+
+| Clip | Shows, zoomed in |
+|---|---|
+| play | Ctrl+Enter in the demo: the scopes and the pianoroll start |
+| slider | A slider in the code dragged; the number in the code follows |
+| library | A search in the Library, a sound previewed, inserted at the cursor |
+| snippets | A snippet picked from the Library, inserted, played |
+| mixer | A fader of the Mixer moved; its number in the code moves with it |
+| mute-solo | M and S on a strip; the code's label changes |
+| duck | A duck cable dragged from the kick to the pad; the pad pumps |
+| meters | The meters behind the faders, the Master strip, a peak turning orange |
+| devices | A firmware's screen in the Devices view, F3 and a slider |
+| midi | The MIDI category, a click that types `.midi('...')` |
+| render | Render audio, the `.wav` and `.mp3` under Render in the Library |
+| errors | A typo; the mark on the call and the message in the status bar |
+
+Each about 5 to 8 seconds, 1280 by 720, looped without a jump (the last frame is close to
+the first).
+
+### What to find out first
+
+| # | Question | How |
+|---|---|---|
+| W1 | Which video a webview plays. VS Code's Electron is expected to lack H.264, so `.mp4` may not play; VP9 `.webm` is expected to | A page with one clip of each kind, opened in `pnpm test:vscode` |
+| W2 | How big the twelve clips are as VP9 `.webm` at 720p, and what that does to the `.vsix` (1.6 MB today) | Render them with Remotion (`--codec=vp9`), add them up |
+| W3 | How the page knows it is the first start, and whether a new version with new features opens it again | `context.globalState` with the version that last showed it |
+| W4 | Whether VS Code's own walkthrough (`contributes.walkthroughs`, the Get Started page) is enough instead of our tab | Its steps show images and GIFs, not video, and its look is VS Code's. Expected: a short walkthrough that opens our tab |
+
+### Order
+
+1. W1 and W2, with two clips made by hand from the promo's captures.
+2. The page with those two clips and the cards' layout, opened by a command
+   ("strdltn: Welcome"), for the maintainer to look at before the rest.
+3. The other clips, the first-start rule (W3), the startup checkbox.
+4. The README and `doc/ABOUT.md` say it exists; the integration test opens it and takes a
+   screenshot.
+
+### Decisions for the maintainer
+
+- Do the clips live in git (`media/welcome/`, small binaries), or are they made at release
+  time? Made at release needs a VS Code window and Remotion in the release workflow.
+- Does a version with new features open the page again, on the new cards only?
+- In a Codespace too, or only on desktop? The page works in both; the "Try it" of MIDI
+  does not.
+
 ## Phases
 
 ## Order of work

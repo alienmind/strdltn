@@ -21,8 +21,10 @@ function strips(m: MixerModel) {
 	}));
 }
 
-test('demo.strudel gives the table of the plan', () => {
-	const m = model(readFileSync(new URL('../../template/demo.strudel', import.meta.url), 'utf8'));
+// sea_of_souls.strudel is the demo without its explanatory comments: the same Mixer.
+for (const song of ['demo.strudel', 'sea_of_souls.strudel'])
+test(`${song} gives the table of the plan`, () => {
+	const m = model(readFileSync(new URL(`../../template/${song}`, import.meta.url), 'utf8'));
 	assert.deepEqual(strips(m), [
 		{ name: 'vocals', gain: 'gain (VOCALS_VOL)', controls: ['delay (VOCALS_ECHO)'], orbit: 6 },
 		{ name: 'kick', gain: 'gain (KICK_VOL)', controls: [], orbit: 1 },
@@ -34,6 +36,7 @@ test('demo.strudel gives the table of the plan', () => {
 		{ name: 'acid', gain: 'gain (ACID_VOL)', controls: ['dist (ACID_DRIVE)'], orbit: 3 },
 		{ name: 'riser', gain: 'gain (RISER_VOL)', controls: ['hpf (RISER_OPEN)'], orbit: 4 },
 		{ name: 'pad', gain: 'gain (PAD_VOL)', controls: ['lpf (PAD_OPEN)', 'room (PAD_SPACE)'], orbit: 5 },
+		{ name: 'fm', gain: 'gain (FM_VOL)', controls: [], orbit: 7 },
 	]);
 	const name = (i?: number) => (i === undefined ? undefined : m.chains[i].name);
 	assert.deepEqual(
@@ -43,9 +46,10 @@ test('demo.strudel gives the table of the plan', () => {
 			['kick', 'acid', 3],
 			['kick', 'riser', 4],
 			['kick', 'pad', 5],
+			['kick', 'fm', 7],
 		],
 	);
-	assert.equal(m.sliders.length, 18);
+	assert.equal(m.sliders.length, 19);
 	assert.deepEqual(m.global, []);
 	assert.equal(m.sliders[0].detail, 'kick vol');
 });

@@ -1648,6 +1648,9 @@ stop -> midiPanic                  -> panic(engine)              -> notes off of
   for it. While it is on, the bridge opens every input, so a controller shows before any
   song uses it. Seen on 2026-11-22 in a muted window: CC 70 = 94 sent into loopMIDI, and the
   next note of `velocity(knobs(70))` went out with velocity 94.
+- Devices tried by hand on 2026-11-22: the maintainer's MPK mini 3 sends CC 1 to 8 from its
+  eight knobs; Xfer's SHRUB on the M-VAVE FM-1 takes CC 74 as its filter cutoff (the stock
+  firmware has cutoff on CC 2). SHRUB's macros are said to be on CC 16 to 19, not tried.
 - Our `.midi()`, `midin()`, `midikeys()`, `midimaps()` and `defaultmidimap()` take the
   upstream names and options, so a song from strudel.cc runs. `@strudel/midi` is not
   bundled (it needs WebMIDI). The rules that turn a hap into bytes, pick a port and keep

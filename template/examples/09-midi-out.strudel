@@ -22,9 +22,9 @@ const SYNTH_HARD = knobs(6)
 const SYNTH_OPEN = knobs(7)
 const SYNTH_MACRO = knobs(8)
 
-// The synth's own CC numbers. 74 is the filter on most synths. Xfer's SHRUB on the FM-1 takes
-// its four macros on CC 16 to 19 (as reviews say, not from Xfer); a macro moves what the patch
-// gives it, often the filter. The FM-1's stock firmware has its cutoff on CC 2 instead.
+// The synth's own CC numbers. 74 is the filter on most synths, and on Xfer's SHRUB on the FM-1
+// it moves the cutoff (tried on 2026-11-22). SHRUB takes its four macros on CC 16 to 19 (as
+// reviews say, not from Xfer). The FM-1's stock firmware has its cutoff on CC 2 instead.
 const FILTER_CC = 74
 const MACRO_CC = 16
 

@@ -26,7 +26,9 @@ it (Enter still inserts it), the Browser opens songs and snippets in the Strudel
 and never in the native one, the setting `strdltn.midi.highPriority` of decision 17, and
 Songs and Snippets merged back into the Library view (the maintainer, 2026-11-22;
 Reference and Results stay views of their own). Every hand test passed on 2026-11-22.
-Next: `pnpm test:vscode`, then the pull request.
+This branch is version 0.4.1 (the maintainer, 2026-11-22): 0.4.0 stays untagged, and the
+next tag is `v0.4.1` on `main` after the merge. Next: `pnpm test:vscode`, then the pull
+request.
 
 Next in line:
 

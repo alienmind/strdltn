@@ -1762,6 +1762,11 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   10 s writes `.knob(cc)` after the slider call, or changes the number of the one there
   (`knobEdits`). The page tells the host how it went (`knobLearn`), and the host shows it
   in the status bar and the Output. The knob works at once, without evaluating again.
+- The Mixer's faders follow live. The Mixer reads the code again only 300 ms after the
+  last change, and a turning knob writes every 150 ms, so its fader waited until the knob
+  stopped. Now the page passes every `cm-slider` message (a drag, a knob, a fader) to the
+  host as `sliderLive` with where the number is now, and the Mixer moves the fader of the
+  slider that starts there. Not while one of its own faders is held.
 - Learn works in the Strudel editor only. A knob already in the code should work on the
   stage too, as the fader does: expected, not tested.
 

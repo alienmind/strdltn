@@ -1,0 +1,13 @@
+// @title Drop switch
+// @category function
+// @details One constant switches every part at once: each part keeps a list of variants, one per
+//   section, and picks its row with pick(list, DROP). Set DROP to 0, 1 or 2 and press Ctrl+Enter.
+// @tags drop, sections, helper
+// @by alienmind
+// @credits DJ_Dave
+const DROP = 1
+const KICK = ["~", "x*4", "x(5,8)"]
+const HATS = ["~", "[~ x]*4", "x*16"]
+
+$kick: s("bd").struct(pick(KICK, DROP)).bank("RolandTR909")
+$hats: s("hh").struct(pick(HATS, DROP)).bank("RolandTR909").gain(.4)

@@ -1,0 +1,17 @@
+// @title An arpeggio per chord
+// @category melody
+// @details A list of arpeggios, one per chord, picked by bar: "<0 1 2 3>" walks the list. Each one
+//   is six notes in 16 steps ({...}%16), so it turns against the bar.
+// @tags arpeggio, melody, supersaw
+// @by alienmind
+// @credits DJ_Dave
+const ARPS = [
+  "{a4 e4 c4 a3 e3 c3}%16",
+  "{f4 c4 a3 f3 c3 a2}%16",
+  "{g4 d4 b3 g3 d3 b2}%16",
+  "{e4 b3 g#3 e3 b2 g#2}%16",
+]
+note(pick(ARPS, "<0 1 2 3>"))
+  .s("supersaw").lpf(400).lpenv(4)
+  .sustain(.4).release(.02)
+  .room(.4)

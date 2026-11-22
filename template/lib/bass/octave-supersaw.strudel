@@ -1,0 +1,10 @@
+// @title Octave supersaw bass
+// @category bass
+// @details A bass doubled an octave up, with the length of each chord written as a repeat (!16 is
+//   one bar of sixteenths), slowed so the progression lasts four bars.
+// @tags bass, supersaw, electro
+// @by alienmind
+// @credits DJ_Dave
+note("[d1, d2]!16 [bb1, bb2]!16 [f1, f2]!16 [c2, c1]!16")
+  .s("supersaw").slow(4)
+  .lpf(900).room(.2)

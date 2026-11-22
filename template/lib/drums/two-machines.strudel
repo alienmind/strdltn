@@ -1,0 +1,9 @@
+// @title Two drum machines in one pattern
+// @category drums
+// @details One rhythm played by two drum machines at once: bank("[KorgDDM110, dmx]") stacks both,
+//   so each hit is the two layered. A 16-step polymeter ({...}%8, twice as fast) keeps it moving.
+// @tags percussion, electro, layering
+// @by alienmind
+// @credits DJ_Dave
+s("{~ ~ rim ~ cp ~ rim cp ~!2 rim ~ cp ~}%8").bank("[KorgDDM110, dmx]")
+  .fast(2).speed(1.1).gain(.5)

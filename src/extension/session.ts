@@ -24,6 +24,8 @@ export interface SessionHost {
 	onScopes?(document: vscode.TextDocument, scopes: ScopeFrame[]): void;
 	/** MIDI learn for a slider of the song, by where its number starts. */
 	onKnobLearn?(document: vscode.TextDocument, from: number | undefined, toggle?: boolean): Promise<void>;
+	/** A knob that waits for pickup moved, for the Mixer's dim handle. */
+	onKnobGhost?(document: vscode.TextDocument, from: number, value: number | undefined): void;
 	/** A slider of the song moved live, for the Mixer. */
 	onSliderLive?(document: vscode.TextDocument, from: number, value: number): void;
 	/** The engine state, the error or the active tab changed. The status bar follows. */
@@ -320,6 +322,9 @@ export class Session {
 				break;
 			case 'sliderLive':
 				this.host.onSliderLive?.(this.document, message.from, message.value);
+				break;
+			case 'knobGhost':
+				this.host.onKnobGhost?.(this.document, message.from, message.value);
 				break;
 			case 'devices':
 				this.host.onDevices?.(this, message.devices);

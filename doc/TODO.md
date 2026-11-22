@@ -67,7 +67,7 @@ table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K)
 |---|---|---|
 | 1 | Open `examples/02-acid-techno.strudel` in the Strudel editor | A knob button left of the line number of every line with a `slider(...)`, filled with the color on the line mapped before. Other lines have an empty gap; lines with a scope under them keep their button beside the number |
 | 2 | Click an empty knob button, turn knob 2 | Status bar "Move a knob...", then "Knob on CC 2 mapped". `.knob(2)` on that slider; the button fills |
-| 3 | Play, turn knob 2 far from the slider's value, then toward it | Nothing moves until the knob passes the value. Then the slider, the sound and the number in the code follow |
+| 3 | Play, turn knob 2 far from the slider's value, then toward it | In the Mixer, a dim second handle follows the knob at once and changes nothing. When it meets the real handle it disappears, and from there the slider, the sound and the code follow |
 | 4 | Drag that slider with the mouse elsewhere, turn the knob | The knob lets go, and takes over again once it passes the new value |
 | 5 | In the Mixer, unfold the strip of that slider, turn the knob, then drag the slider in the code | The fader and its number follow while it moves, both times |
 | 6 | In the Mixer, click the knob button under another fader, turn knob 3 | `.knob(3)` on that slider's call in the code, also when the strip uses a constant (`const ... = slider(...)`). The button shows 3 |

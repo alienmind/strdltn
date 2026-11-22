@@ -170,6 +170,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// Every engine loads the same packs, so the list of the engine that spoke last is the list.
 		onScopes: (document, scopes) => mixer.setScopes(document, scopes),
 		onSliderLive: (document, from, value) => mixer.sliderLive(document, from, value),
+		onKnobGhost: (document, from, value) => mixer.knobGhost(document, from, value),
 		onKnobLearn: (document, from, toggle) => knobs.learn(document, from, toggle),
 		onDevices: (session, list) => devices.setDevices(session, list),
 		onFrame: (session, key, px, values) => devices.frame(session, key, px, values),

@@ -67,6 +67,8 @@ const cables = new CableLayer(strips);
 let song: string | undefined;
 /** The slider waiting for a CC (its knob button is red), by where its number starts. */
 let learningFrom: number | undefined;
+/** Knobs that wait for pickup: where they are, in slider units, by where the slider's number starts. */
+const ghosts = new Map<number, number>();
 let model: MixerModel | undefined;
 let error: string | undefined;
 /**
@@ -109,6 +111,11 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 			break;
 		case 'playing':
 			if (!message.on) clearScopes();
+			break;
+		case 'knobGhost':
+			if (message.value === undefined) ghosts.delete(message.from);
+			else ghosts.set(message.from, message.value);
+			drawGhost(message.from);
 			break;
 		case 'knobLearning':
 			learningFrom = message.from;
@@ -207,6 +214,8 @@ function draw(): void {
 		.filter((duck) => duck.to !== undefined && jacks.out[duck.from] && jacks.in[duck.to])
 		.map((duck) => ({ key: cableKey(duck.from, duck.to!, duck.orbit), from: jacks.out[duck.from], to: jacks.in[duck.to!], kind: 'sidechain', label: `orbit ${duck.orbit}` }));
 	drawCables();
+	// A redraw makes new faders: the dim handles of waiting knobs go on them again.
+	for (const from of ghosts.keys()) drawGhost(from);
 	report();
 }
 
@@ -734,6 +743,38 @@ function clickToToggle(input: HTMLInputElement, toggle: () => void, title: strin
 		if (start && Math.abs(event.clientY - start.y) < 3 && input.value === start.value) toggle();
 		start = undefined;
 	});
+}
+
+/**
+ * The dim second handle of a fader whose knob waits for pickup: it follows the knob and
+ * changes nothing; when the knob reaches the slider's value it goes, and the real handle
+ * moves from there (the maintainer, 2026-11-22). On a gain fader it is a dim triangle in
+ * the meter's lane, on another fader a dim dot on its track.
+ */
+function drawGhost(from: number): void {
+	const slider = model?.sliders.find((s) => s.from === from);
+	if (!slider) return;
+	const value = ghosts.get(from);
+	for (const input of strips.querySelectorAll<HTMLInputElement>(`input[data-slider="${slider.index}"]`)) {
+		const host = (input.closest('.meter-well') ?? input.closest('.fader')) as HTMLElement | null;
+		if (!host) continue;
+		let mark = host.querySelector<HTMLElement>(':scope > .ghost-thumb');
+		if (value === undefined) {
+			mark?.remove();
+			continue;
+		}
+		if (!mark) {
+			mark = host.appendChild(el('span', `ghost-thumb${input.closest('.meter-well') ? ' lane' : ''}`));
+			mark.title = 'Your knob is here. It takes over the fader when it reaches the fader\'s value';
+		}
+		const span = slider.max - slider.min || 1;
+		const share = Math.min(1, Math.max(0, (value - slider.min) / span));
+		// The same travel as the range input's thumb: its top and its height, less the thumb.
+		const thumb = 12;
+		const top = input.offsetTop + (1 - share) * (input.offsetHeight - thumb);
+		mark.style.top = `${top}px`;
+		if (!mark.classList.contains('lane')) mark.style.left = `${input.offsetLeft + input.offsetWidth / 2 - thumb / 2}px`;
+	}
 }
 
 // Last, after every constant of this file exists: the first draw reaches them (MASTER,

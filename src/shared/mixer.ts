@@ -16,6 +16,8 @@ export type ToMixer =
 	| { type: 'playing'; on: boolean }
 	/** A slider moved live in the song (a drag, a knob), before the code says so. By where its number starts. */
 	| { type: 'sliderLive'; from: number; value: number }
+	/** Where a knob that waits for pickup is, for a dim second handle on its fader. Undefined: it caught the slider. */
+	| { type: 'knobGhost'; from: number; value?: number }
 	/** The slider whose number starts at `from` waits for a CC: its knob button is red. Undefined: none waits. */
 	| { type: 'knobLearning'; from?: number };
 

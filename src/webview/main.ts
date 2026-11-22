@@ -794,6 +794,23 @@ window.addEventListener('message', (event: MessageEvent) => {
 	});
 });
 /**
+ * A knob that has not caught its slider yet: where it is, in the slider's units, so the
+ * Mixer draws a dim second handle there (the maintainer, 2026-11-22: without it a knob
+ * that waits for pickup looks dead). `undefined` once it caught the slider. Sent at most
+ * once per slider per frame, by where the slider's number is now.
+ */
+const ghostOut = new Map<number, number | undefined>();
+let ghostFrame = 0;
+function ghost(from: number, value: number | undefined): void {
+	ghostOut.set(from, value);
+	ghostFrame ||= requestAnimationFrame(() => {
+		ghostFrame = 0;
+		for (const [at, v] of ghostOut) post({ type: 'knobGhost', from: at, value: v });
+		ghostOut.clear();
+	});
+}
+
+/**
  * Sliders on knobs (src/shared/knob.ts). The bindings are read from the code that was
  * evaluated, so their `from` is the slider's id; the slider's number is found where it is
  * now through `liveSliders`. A CC moves the slider as a Mixer fader does (`moveSlider`), so
@@ -903,6 +920,7 @@ onControlChange((cc, value) => {
 			if (now === undefined) continue;
 			const step = pickup(knob.state, knob.binding, now, value);
 			knob.state = step.state;
+			ghost(knob.binding.from, step.write === undefined ? step.state.knob : undefined);
 			if (step.write === undefined) continue;
 			moveSlider(-1, knob.binding.from, String(step.write));
 			post({ type: 'sliderLive', from: knob.binding.from, value: step.write });
@@ -921,6 +939,7 @@ onControlChange((cc, value) => {
 		}
 		const step = pickup(knob.state, knob.binding, slider.value, value);
 		knob.state = step.state;
+		ghost(slider.from, step.write === undefined ? step.state.knob : undefined);
 		if (step.write !== undefined) moveSlider(-1, slider.from, String(step.write));
 		else if (Date.now() - (pickupSaid.get(cc) ?? 0) > 1000) {
 			pickupSaid.set(cc, Date.now());

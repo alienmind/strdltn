@@ -1793,6 +1793,11 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   blinking while it waits for a CC, green once mapped. `KnobLearn.onLearning` says which
   slider waits; the extension passes it to the pages of the song (`knobLearning`) and the
   Mixer, and the native editor gets a red icon on that line.
+- A knob that waits for pickup shows where it is: the page sends `knobGhost` (the knob's
+  position in slider units, or undefined once it caught the slider), at most once per
+  slider per frame, and the Mixer draws a dim second handle on the fader: a triangle in the
+  meter's lane for a gain, a dot on the track for the others. Asked by the maintainer on
+  2026-11-22: without it a waiting knob looked dead.
 - Knobs work before the song was ever played (the maintainer, 2026-11-22). Until the first
   evaluation no slider has an id or a value, so the page reads the bindings from the code as
   it is (`knobsOfTheCode`, read again when the text changes) and listens to MIDI as soon as

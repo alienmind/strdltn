@@ -296,3 +296,9 @@ table.mappings .remove:hover { background: var(--vscode-button-secondaryHoverBac
 /* Show MIDI Mappings: a CC that moves more than one slider. */
 .modal .note.warn { color: var(--vscode-editorWarning-foreground, #cca700); max-width: none; padding: 6px 10px; }
 table.mappings tr.twice td.cc { color: var(--vscode-editorWarning-foreground, #cca700); font-weight: 700; }
+
+/* The dim second handle of a knob that waits for pickup: where the knob is. It changes
+   nothing; it goes when the knob reaches the fader's value. */
+.fader, .meter-well { position: relative; }
+.ghost-thumb { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--vscode-foreground, #ccc); opacity: .35; pointer-events: none; transition: top 40ms linear; }
+.ghost-thumb.lane { left: 0; width: 11px; border-radius: 0; clip-path: polygon(0 0, 100% 50%, 0 100%); }

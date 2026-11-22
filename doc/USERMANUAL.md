@@ -328,8 +328,11 @@ slider is at 0.8 and your knob sits at 0.2, turning the knob does nothing until 
 that sits somewhere else. If you drag the slider with the mouse, the knob lets go until it
 passes the new value.
 
-When a knob seems dead, turn it all the way down and all the way up once: it will catch
-its slider on the way.
+While a knob waits, its fader in the Mixer shows a **dim second handle** where your knob is:
+a dim triangle beside the meter for a gain, a dim dot on the track for the other faders. It
+moves with your knob and changes nothing. When it reaches the real handle, it disappears and
+the knob takes over. So when a knob seems dead, look at its fader: turn toward the real
+handle until the dim one meets it.
 
 ### What follows a knob
 

@@ -251,6 +251,11 @@ export class MixerView implements Surface {
 		if (document === this.document) this.post({ type: 'sliderLive', from, value });
 	}
 
+	/** Where a knob that waits for pickup is: a dim second handle on its fader. */
+	knobGhost(document: vscode.TextDocument, from: number, value: number | undefined): void {
+		if (document === this.document) this.post({ type: 'knobGhost', from, value });
+	}
+
 	/** Which slider of the song waits for a CC: its knob button is red. */
 	knobLearning(document: vscode.TextDocument, from: number | undefined): void {
 		if (document === this.document) this.post({ type: 'knobLearning', from });

@@ -158,6 +158,8 @@ export type FromWebview =
 	| { type: 'midiListen'; port: string }
 	/** The song stopped: drop this engine's queued events and turn its notes off. */
 	| { type: 'midiPanic' }
+	/** A knob that waits for pickup is at `value` (slider units); undefined once it caught the slider. For the Mixer's dim handle. */
+	| { type: 'knobGhost'; from: number; value?: number }
 	/** A slider's value changed live (a drag, a knob, a fader): `from` is where its number is now. For the Mixer. */
 	| { type: 'sliderLive'; from: number; value: number }
 	/** MIDI learn for the slider whose number starts at `from` (undefined: no slider there). The host does the learn. */

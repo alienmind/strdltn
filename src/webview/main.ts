@@ -764,8 +764,15 @@ let listening = false;
 
 function rememberKnobs(code: string): void {
 	knobs = findKnobs(code).map((binding) => ({ binding, state: { engaged: false } }));
-	if (knobs.length) void listen();
+	if (!knobs.length) return;
+	// Said once per evaluation, so the Output shows whether each knob found its slider.
+	const values = (strudelCodemirror as any).sliderValues ?? {};
+	log('info', `knobs: ${knobs.map(({ binding: b }) => `CC ${b.cc} -> slider_${b.from} (${b.min} to ${b.max})${typeof values[`slider_${b.from}`] === 'number' ? '' : ' NOT FOUND'}`).join(', ')}`);
+	void listen();
 }
+
+/** When each knob last said it waits for pickup, so a turning knob says it once a second. */
+const pickupSaid = new Map<number, number>();
 
 async function listen(): Promise<boolean> {
 	if (listening) return true;
@@ -795,10 +802,21 @@ onControlChange((cc, value) => {
 	for (const knob of knobs) {
 		if (knob.binding.cc !== cc) continue;
 		const slider = sliderNow(`slider_${knob.binding.from}`);
-		if (!slider) continue;
+		if (!slider) {
+			if (Date.now() - (pickupSaid.get(cc) ?? 0) > 1000) {
+				pickupSaid.set(cc, Date.now());
+				log('warn', `knobs: CC ${cc} has no slider slider_${knob.binding.from} in this evaluation; the sliders are ${liveSliders.map((s) => s.id).join(', ') || 'none'}`);
+			}
+			continue;
+		}
 		const step = pickup(knob.state, knob.binding, slider.value, value);
 		knob.state = step.state;
 		if (step.write !== undefined) moveSlider(-1, slider.from, String(step.write));
+		else if (Date.now() - (pickupSaid.get(cc) ?? 0) > 1000) {
+			pickupSaid.set(cc, Date.now());
+			const at = knob.binding.min + value * (knob.binding.max - knob.binding.min);
+			log('info', `knobs: CC ${cc} is at ${Number(at.toPrecision(4))}, the slider at ${slider.value}: turn the knob past ${slider.value} to take it over`);
+		}
 	}
 });
 

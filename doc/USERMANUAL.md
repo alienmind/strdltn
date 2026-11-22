@@ -3,13 +3,20 @@ title: "[str]dltn Live[code] - User manual"
 subtitle: "Version 0.5"
 ---
 
+![[str]dltn Live[code]](logo.jpg)
+
 # [str]dltn Live[code] - User manual
 
-[str]dltn Live[code] turns VS Code into a studio for [Strudel](https://strudel.cc), the language
-for making music with code. It runs the real Strudel, the same editor and sound engine as
-strudel.cc, and adds what a web page cannot give you: a Library of every sound, a Mixer
-with a strip per part of your song, panels for hardware synth firmwares, MIDI knobs that
-move the sliders of your code, and recording to `.wav` and `.mp3`.
+[str]dltn Live[code], pronounced "Stroo-del-ton", brings [Strudel](https://strudel.cc), the
+language for making music with code, into VS Code, with the same editor and sound engine, and
+adds a few things on top:
+
+- a searchable library of sounds, snippets, songs, examples and techniques, with your own
+  colors and tags;
+- a Mixer with a strip per part of your song, level meters and sidechain cables;
+- MIDI knobs on any slider of your code, with mappings you can list and reset;
+- panels for synth firmwares, each with its own screen and keys;
+- recording and rendering to `.wav` and `.mp3`.
 
 This manual walks through everything you can see and do, one part of the screen at a
 time. It does not teach Strudel itself: for that, the Reference in the side bar holds every
@@ -106,7 +113,7 @@ Both edit the same file; pick the one that suits the moment.
 
 ### The native editor and the stage
 
-The native editor is plain VS Code: your keys, your extensions, AI completion, and an
+The native editor is plain VS Code: your keys, your extensions, and an
 underline under the exact place of an error. Press play there and a **stage** opens below the
 code with the song's visuals and sliders, each named from your code.
 
@@ -133,7 +140,7 @@ The stage's place is the setting `strdltn.stage.position`.
 | A click on the status bar item | Plays or stops the song in front |
 | "strdltn: Stop all" | Stops every song |
 
-Edits from outside, by git, another editor or an AI assistant, show up at once, also while
+Edits from outside, by git or another editor, show up at once, also while
 the song plays.
 
 ## 4. The Library
@@ -415,8 +422,6 @@ s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
 
   Only the code is inserted. The categories are `drums`, `bass`, `melody`, `chords`,
   `texture`, `effect`, `function`, `song` and `visual`.
-- **AI assistants.** The template tells assistants such as Copilot that "add a bass line"
-  means a change to the song you have open, and gives them the Strudel reference.
 
 ## 11. Colors and what they mean
 

@@ -7,7 +7,10 @@
     "capture": "node scripts/capture.mjs",
     "studio": "remotion studio src/index.ts --public-dir=../tmp/promo",
     "render": "remotion render src/index.ts Promo ../tmp/promo/out/promo.mp4 --public-dir=../tmp/promo",
-    "render:draft": "remotion render src/index.ts Promo ../tmp/promo/out/promo-draft.mp4 --public-dir=../tmp/promo --scale=0.5"
+    "render:draft": "remotion render src/index.ts Promo ../tmp/promo/out/promo-draft.mp4 --public-dir=../tmp/promo --scale=0.5",
+    "showcase": "node scripts/showcase.mjs",
+    "render:showcase": "remotion render src/index.ts Showcase ../tmp/showcase/out/showcase.mp4 --public-dir=../tmp/showcase --codec=h264 --crf=16 --audio-codec=aac --audio-bitrate=320k",
+    "render:showcase-draft": "remotion render src/index.ts Showcase ../tmp/showcase/out/showcase-draft.mp4 --public-dir=../tmp/showcase --scale=0.5 --audio-codec=aac --audio-bitrate=320k"
   },
   "dependencies": {
     "@remotion/cli": "4.0.544",

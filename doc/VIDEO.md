@@ -117,6 +117,20 @@ sidechain cables write themselves back as code"). Rules for the lines, the promo
 - No word that only the docs use: "chain" is "part", "orbit" is left out, "evaluate" is "play".
 - Read it aloud before generating the voice. If it trips you, rewrite it.
 
+## Showcase
+
+A third video, made on 2026-11-22: `template/sea_of_souls.strudel` played from start to end in one take, picture and
+sound together, no voice. The opening clicks the [str]dltn icon, Songs, the song and Play; then the editor glides to
+the parts of each section, the Mixer unfolds, a knob is mapped to the bass's squelch and turned, a DJ filter is typed
+in and swept with a knob before the BREAKDOWN, and OBERVAVE plays in the FINAL DROP. Knobs come through loopMIDI.
+
+`video/scripts/showcase.mjs` (the runner, outside VS Code) and `video/scripts/showcase-driver.cjs` (inside it) make
+the take into `tmp/showcase/`; `video/src/Showcase.tsx` puts it together (`pnpm render:showcase`). The full method,
+every problem met and its fix are in `tmp/RECORDING.md` (kept out of git, as the maintainer asked). What matters most:
+one take, because the knobs change the sound; the page laid out at 1920x1080 whatever the screen; a screenshot when
+the screencast sends nothing for 0.2 s; Hydra only in the drops and at half resolution, or the busy parts stutter
+(measured: 5 to 13 pictures a second in the BUILD before, 24 to 30 after).
+
 ## Walkthrough
 
 A second video, about 12 minutes, chapter by chapter: hello, a first sound, the Strudel editor, the two editors,
@@ -139,7 +153,7 @@ A first outline, about 60 s. Every scene shows something that works today.
 | 4b | Knobs | A knob button red, then green; a knob turned, the slider and the fader following | The knob column beside the code |
 | 5 | Devices | OBERVAVE playing, its own screen and knobs in the Devices tab, F3 and F4 change its sound | The firmware's screen |
 | 6 | Visuals | The stage with Hydra beside the code | The visuals |
-| 7 | Outside edits | An AI agent or git changes the song while it plays, and the sound follows | The edit landing in the code |
+| 7 | Outside edits | Git or another editor changes the song while it plays, and the sound follows | The edit landing in the code |
 | 8 | Close | Logo, `github.com/alienmind/strdltn`, "Runs in VS Code and Codespaces" | None |
 
 ## Licences

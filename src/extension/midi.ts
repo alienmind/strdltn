@@ -156,6 +156,13 @@ export class MidiBridge implements vscode.Disposable {
 	}
 
 	/** For the integration test: how many events went out and how late. */
+	/** MIDI bytes to an output at once, outside any song. For the video's capture (`midiSend` of the test API). */
+	async sendNow(port: string, bytes: number[]): Promise<boolean> {
+		if (!(await this.listPorts())) return false;
+		this.send({ type: 'send', source: 'capture', events: [{ port, bytes, at: epochNow() }] });
+		return true;
+	}
+
 	stats(): Promise<Extract<FromMidiWorker, { type: 'stats' }> | undefined> {
 		if (!this.worker) return Promise.resolve(undefined);
 		return new Promise((resolve) => {

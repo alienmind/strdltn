@@ -25,10 +25,9 @@ Ctrl+Enter, and the song starts: the code lights up, the Mixer meters move.
 
 **Say:**
 This is VS Code. And this is a song. (pause)
-It's written in Strudel, a little language for making music with code. Normally you'd play
-it on the Strudel website. Here it plays right inside my editor, with the real Strudel
-engine, and with a few things a web page can't give you: a mixer, a sound library, MIDI
-knobs, and hardware synths.
+It's written in Strudel, a little language for making music with code, and it plays right
+inside my editor, with the real Strudel engine. On top of that I've got a few extras: a
+mixer, a sound library, MIDI knobs, and hardware synths.
 Let me show you around.
 
 ## 2. Your first sound (0:50)
@@ -64,8 +63,8 @@ Your tweaks end up in the file, so nothing gets lost.
 opens below with the visuals, each one labelled. Zoom on a label. Ctrl+Alt+M back.
 
 **Say:**
-Sometimes you want a plain code editor: your own shortcuts, your extensions, your AI
-assistant. One button switches the same file over.
+Sometimes you want a plain code editor: your own shortcuts, your extensions. One button
+switches the same file over.
 When you play from here, a stage opens underneath with the visuals. Each one gets a name
 from your code: the name of the part, a variable, or the comment just above it.
 And one more press brings me back to the Strudel editor.
@@ -180,7 +179,7 @@ appears in the Library. The demo's `samples('github:...')` line. Then the end ca
 Last thing, and maybe my favourite. Everything here is a plain file. Your songs, your
 samples, your snippets. Drop a sound in the samples folder and it's in the Library a second
 later.
-That means git works, your AI assistant can help you write a song, and you can even open the
+That means git works, and you can even open the
 whole project in a Codespace and play it from a browser.
 And because it's real Strudel, you can paste a song into strudel.cc and it just plays.
 [str]dltn is free and open source. You'll find it on GitHub. Have fun making music.

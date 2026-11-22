@@ -9,10 +9,9 @@ title: "[str]dltn Live[code]"
 **[str]dltn Live[code] is a VS Code extension. It turns your editor into a Strudel IDE whenever you
 open a `.strudel` file.**
 
-[Strudel](https://strudel.cc) is a language for making music with code. Its home is a
-web page, and a web page is a hard place to keep a growing pile of songs, samples and
-reusable ideas. [str]dltn Live[code] embeds the real Strudel, the same editor and the same sound
-engine, and adds panels around it, in the manner of Ableton Live: a browser of every
+[Strudel](https://strudel.cc) is a language for making music with code. [str]dltn Live[code]
+embeds the real Strudel, the same editor and the same sound engine, and adds tools on top of
+it, in the manner of Ableton Live: a browser of every
 sound, snippet, song and function, a mixer and music controls for the song you play, and
 your music as plain files in a project.
 
@@ -55,7 +54,7 @@ it because the scope grew beyond a VS Code extension.
 - One button switches a file between the Strudel editor and the native VS Code editor.
 - A stage beside the native editor, with the visuals of the song, each with a name taken
   from your code.
-- Edits from outside (git, another editor, an AI agent) show up at once, while it plays.
+- Edits from outside (git, another editor) show up at once, while it plays.
 - An error in the code is underlined and listed in the Problems view, and the song keeps
   playing what worked last.
 - A status bar item says what the song does (playing, stopped, error) and plays or stops
@@ -130,9 +129,6 @@ it because the scope grew beyond a VS Code extension.
 
 - Songs, samples and snippets are plain files: git, search and folders work as usual.
 - The Library lists every `.strudel` file of your project, by folder.
-- Ready for AI assistants such as Copilot: the template tells them that "add a bass line"
-  means a change to the song you have open, and gives them the Strudel reference and
-  tutorial to look things up.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 
@@ -219,20 +215,13 @@ underlined in the native editor and listed in the Problems view, and the status 
 turns red with the message. The status bar also says whether the song plays, and a click
 on it plays or stops.
 
-### With an AI assistant
-
-The template tells assistants such as Copilot how a song is written, and that a request
-like "add a bass line" means a new line in the song you have open. It also holds the
-whole Strudel reference and the strudel.cc tutorial as text, so the assistant can look up
-a function instead of guessing one.
-
 ### Two ways to edit the same file
 
 One button in the title bar switches a file between two editors:
 
 - The **Strudel editor**, for playing: visuals and sliders inside the code.
 - The **native VS Code editor**, for bigger edits: multi-cursor, your keybindings, your
-  other extensions, AI completion. Press play there and a **stage** opens beside the
+  other extensions. Press play there and a **stage** opens beside the
   code.
 
 ![The native editor with the stage below it and the Mixer](screenshot-stage.png)

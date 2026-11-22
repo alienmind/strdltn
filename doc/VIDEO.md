@@ -10,6 +10,13 @@ draft and the final are in `tmp/promo/out/`. The final is an asset of the releas
 `https://github.com/alienmind/strdltn/releases/download/v0.3.0/strdltn-promo.mp4`. GitHub serves it as a download,
 not as a video that plays in place, so for a post the file is uploaded to the site itself.
 
+Status (2026-11-22): not recorded again. The script is draft 2: the maintainer found the narration robotic (the
+sentences, not the voice), so every line was rewritten as speech, and a scene for MIDI knobs was added
+(`03b-knobs`). A second, longer video is planned: the walkthrough, about 12 minutes, in `video/walkthrough.md`,
+written so the maintainer can record the voice himself. See "Walkthrough". The capture driver
+(`video/scripts/driver.cjs`) has no step for `03b-knobs` yet: it needs a MIDI controller, or the knob's states shown
+through the extension's API, as the other scenes are.
+
 ## Tools
 
 | Piece | Tool | Notes |
@@ -48,7 +55,7 @@ the tests), and every generated file under `tmp/promo/`, which git ignores.
 In this order. Each step fixes the input of the next.
 
 1. **Write the script.** One scene per feature: the voice line (under 20 words, 140 to 150 words a minute), what
-   the screen shows, what the camera zooms on.
+   the screen shows, what the camera zooms on. Write the line as someone talking, see "Narration".
 2. **Generate the voice.** One file per scene. Listen, rewrite what sounds awkward, regenerate only that.
 3. **Measure the audio.** The length of each voice file sets the length of its scene, plus about 0.7 s.
 4. **Capture.** One capture per scene, sized to the measured length.
@@ -99,6 +106,26 @@ levels came down on 2026-11-21: `.duck("2,3,4,5")` played the kick four times (n
 Under the voice the song steps down, as MuseColor's music does: its volume is a function of time, 0.8 in the open
 and 0.22 under the voice, with 0.25 s ramps. That is the sidechain, done without audio analysis.
 
+## Narration
+
+The maintainer found draft 1 robotic: every line was a feature list squeezed into one sentence ("Faders and
+sidechain cables write themselves back as code"). Rules for the lines, the promo's and the walkthrough's:
+
+- Write it as you would say it to a friend looking at your screen: "you", "I", "we", contractions.
+- One idea per sentence. Show the thing, then say what it means to the listener.
+- A question or a small surprise opens a scene better than a statement ("Got a MIDI controller?").
+- No word that only the docs use: "chain" is "part", "orbit" is left out, "evaluate" is "play".
+- Read it aloud before generating the voice. If it trips you, rewrite it.
+
+## Walkthrough
+
+A second video, about 12 minutes, chapter by chapter: hello, a first sound, the Strudel editor, the two editors,
+the Library, the Mixer, MIDI knobs, MIDI out, synth firmwares, recording, files. The script is
+`video/walkthrough.md`: per chapter the screen actions and the narration, with pauses for the music. It is made
+the same way as the promo (one voice file per chapter, the capture sized to it), and the maintainer may record the
+voice himself instead of a text-to-speech voice. Planned, not made. The capture driver needs a step per chapter;
+the promo's steps cover chapters 1, 5, 6 and 9 already.
+
 ## Scenes
 
 A first outline, about 60 s. Every scene shows something that works today.
@@ -109,6 +136,7 @@ A first outline, about 60 s. Every scene shows something that works today.
 | 2 | Live edit | A number typed in the code; the sound changes without a stop | The changed number |
 | 3 | Browser | A search in the Library, a sound previewed, inserted as code | The result row, then the inserted line |
 | 4 | Mixer | Faders moved, a part muted and soloed, a duck cable dragged, the pump meters | A fader and the number it writes in the code |
+| 4b | Knobs | A knob button red, then green; a knob turned, the slider and the fader following | The knob column beside the code |
 | 5 | Devices | OBERVAVE playing, its own screen and knobs in the Devices tab, F3 and F4 change its sound | The firmware's screen |
 | 6 | Visuals | The stage with Hydra beside the code | The visuals |
 | 7 | Outside edits | An AI agent or git changes the song while it plays, and the sound follows | The edit landing in the code |
@@ -137,6 +165,8 @@ A first outline, about 60 s. Every scene shows something that works today.
 ## Open points
 
 - Watch the cut and fix timing, camera moves and wording.
+- Record the voice of draft 2 and capture `03b-knobs`.
+- The walkthrough: voice, capture steps per chapter, composition.
 - The demo's levels (it clips by 8.3 dB), then record the song again.
 - Final voice engine, and its terms for commercial use.
 - A vertical cut.

@@ -1,17 +1,21 @@
 // @title Acid techno
 // @details A track to play live. The sliders at the top are the mixer: start with everything down,
-//   bring the kick in, then the hats, then open the acid.
+//   bring the kick in, then the drums, then the rolling hats, then open the acid. The DJ filter
+//   sweeps the whole mix: below the middle it cuts the highs, above it cuts the lows.
 // @by alienmind
 // @credits Switch Angel for acid
 setcpm(132/4)
 
 const KICK = slider(1, 0, 1)
-const SNARE = slider(1, 0, 1)
+// One slider for the snare and the clap: they play as one backbeat
+const DRUMS = slider(1, 0, 1)
 const HATS = slider(0, 0, 1)
-const CLAP = slider(0, 0, 1)
+const ROLL = slider(0, 0, 1)
 const ACID = slider(0, 0, 1)
 const SQUELCH = slider(2.688, 0, 8)
 const PAD = slider(1, 0, 1)
+// The DJ filter of the whole mix: .5 lets everything through
+const DJ = slider(.5, 0, 1)
 
 register('acid', (amount, pat) => pat.s("sawtooth").lpf(180).lpenv(amount).lpd(.14).lpq(11))
 
@@ -19,14 +23,18 @@ register('acid', (amount, pat) => pat.s("sawtooth").lpf(180).lpenv(amount).lpd(.
 $kick: s("bd*4").bank("RolandTR909")
   .duck(2).duckattack(.2).duckdepth(.8)
   .gain(KICK)._scope()
-  
+
 $snare: s("~ sd ~ sd").bank("RolandTR909")
-  .gain(SNARE).room(.2)._scope()
+  .gain(DRUMS).room(.2)._scope()
+
+$clap: s("~ cp ~ cp").bank("RolandTR909").room(.2).gain(DRUMS)
 
 $oh: s("[~ oh]*4, hh*16").bank("RolandTR909")
   .gain("[.3 .5 .35 .7]*4").gain(HATS).lpf(slider(10405, 1000, 20000)).room(.2)._scope()
 
-$clap: s("~ cp ~ cp").bank("RolandTR909").room(.2).gain(CLAP)
+// rolling hats, a velocity per sixteenth so they swing, one copy reversed on the right
+$roll: s("hh!16").bank("yamaharm50").velocity("[1 .6 .8 .6]*4")
+  .lpf(8000).jux(rev).gain(ROLL)._scope()
 
 // random notes, frozen so the same line repeats every bar
 $acid: n(irand(8).seg(16).rib(3, 1))
@@ -38,3 +46,6 @@ $pad: note("<c2 c2 ab1 bb1>").s("supersaw")
   .detune(.6).attack(1).release(2)
   .lpf(600).room(.8)
   .orbit(2).gain(PAD)
+
+// the DJ filter on everything that plays
+all(x => x.djf(DJ))

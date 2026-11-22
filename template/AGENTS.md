@@ -112,6 +112,9 @@ In this order, before writing new code:
 3. `reference/strudel-functions.md`: every function by name. Its first section lists all
    the names in one line.
 
+For MIDI (a controller, knobs, a synth, CC numbers, sliders on knobs), read
+`.claude/skills/strudel-midi/SKILL.md` first.
+
 ## Do not guess
 
 Strudel has many functions, and a name that does not exist stops the whole song. Use a

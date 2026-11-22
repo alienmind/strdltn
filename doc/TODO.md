@@ -41,6 +41,7 @@ Next in line:
 | 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
 | 17 | Render a pattern to MIDI: a `.mid` file of a song or a chain, and later into the piano roll | Planned, not built. See "MIDI clips: render and record" in `doc/DAW-PLAN.md` |
 | 18 | Record MIDI into a pattern, as Ableton does: arm, play a keyboard while the song plays, the notes written into the song | Planned, not built. Same section |
+| 20 | More line actions: a melody button on every line that plays notes, which opens a piano roll fitted to that line and records notes from a MIDI keyboard, quantized to the tempo; and a drum rack button on every drum line, a grid of pads as Live's Drum Rack, each pad mapped to a note, with a record button per rack (the maintainer, 2026-11-22). Goes with items 18 and 7 | To plan, not designed. See "Line actions: melody and drums" |
 | 1 | MIDI: devices in the Browser, playing through them, mappings. Next: MIDI routing in the Mixer, cables from a chain to the MIDI instrument it plays; its button "Show MIDI Routing" is in the Mixer's utility column, disabled until then (the maintainer, 2026-11-22) | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Not possible in the webview (S6: the microphone is refused, so no names or ids). Windows' per-app output does it by hand. See "Sound card" |
 | 4 | Firmware Marketplace: the hub's firmwares in the Library, Installed and Available, download, a snippet into the code, a preview of the screen in a popup. The next branch after `feat/knobs` (the maintainer, 2026-11-22) | Planned, not built. Step 1, the catalog, first. See "Firmware Marketplace" under "Firmware Hub" |
@@ -542,6 +543,32 @@ them, and the button belongs beside its line number, not beside the widget.
   editor.
 - Same rules as now: `sliderAt` for the slider of the line (the first one when a line has
   two; open: a button per slider then?), `knobEdits` for the edit.
+
+## Line actions: melody and drums
+
+Asked by the maintainer on 2026-11-22, to plan, not designed. More icons in the column of
+line actions (see "Line actions"), beside the knob button, on the lines they fit.
+
+- **Melody.** A line that plays notes (`note(...)`, `n(...)` with a `.scale(...)`, and
+  the like) gets a melody button. It opens a piano roll fitted to that line: its range,
+  its scale, its length in cycles. It listens to a MIDI keyboard and writes the notes it
+  hears into the line, quantized to the song's tempo, in the form the line already uses.
+  To discuss, and the maintainer wants options: notes written absolute (`c3 e3 g3`) or
+  relative to the scale of the line (`0 2 4` under `.scale("C:minor")`); what happens to
+  the notes already there (replace, overdub, a new variation); the quantize grid (a
+  sixteenth by default, or the line's own subdivision); a note held across a step.
+- **Drums.** A line that plays a drum kit (`s("bd sd hh")`, a `.bank(...)`) gets a drum
+  rack button. It opens a grid of pads as Live's Drum Rack (the maintainer's picture: four
+  by four, each pad named by its note, C1 to D#2, the sample's name on a pad that has one,
+  M and S and a play button on each). Each pad is mapped to a note of a MIDI controller,
+  and the mapping can be changed. Each rack has a record button: arm it, play the pads while
+  the song plays, and the hits are written into the line, quantized.
+- Goes with item 18 (record MIDI into a pattern) and phase 11 of `doc/DAW-PLAN.md`
+  (devices that write patterns from taps: drum pad, step sequencer, piano roll). Those are
+  the same need, reached from the line of code instead of from a device.
+- Open: how a line is recognized as a melody or a drum line (the parser of
+  `src/shared/chains.ts` reads calls already); a line with both; lines that build their
+  notes from functions (`irand`, `.rib(...)`), which a piano roll cannot write back into.
 
 ## Keybindings in the Strudel editor
 

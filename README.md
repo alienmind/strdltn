@@ -195,6 +195,14 @@ browser.
   devices; a click types `.midi('name')` or `midin('name')`. See `examples/09-midi-out.strudel`.
   To see what a controller sends, run "strdltn: Show MIDI messages in the Output": every
   message in and out shows in Output > strdltn.
+- Knobs on sliders: put the cursor in a `slider(...)` and press Ctrl+Alt+K (or double click
+  the slider), then turn a knob. The code gets `.knob(cc)`, and from then that knob moves
+  the slider, the sound and the number in the code. It takes over once it reaches the
+  slider's value, so the sound does not jump. On strudel.cc the song still plays, without
+  the knob.
+- VS Code's keys in the Strudel editor: Ctrl+F finds, Ctrl+H replaces, Ctrl+G goes to a
+  line, Ctrl+D selects the next match, Ctrl+Shift+L every match. Change them in Keyboard
+  Shortcuts under `strdltn.editor.*`.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 

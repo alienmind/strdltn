@@ -26,14 +26,15 @@ Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 Work in flight is on the branch `feat/knobs` (the maintainer, 2026-11-22): first the
 spike of item 14 (keybindings in the Strudel editor), then item 15 (sliders on knobs),
 with the four open questions of "Sliders on knobs" answered. The spike of item 14 passed:
-Ctrl+F and Ctrl+G work in the Strudel editor.
+Ctrl+F and Ctrl+G work in the Strudel editor. Ctrl+H, Ctrl+D, Ctrl+Shift+L and item 15
+are built and wait for the hand test.
 
 Next in line:
 
 | # | What | State |
 |---|---|---|
-| 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Asked for, not designed |
-| 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with a click on its number. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Asked for, not designed |
+| 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Ctrl+F and Ctrl+G passed the hand test; Ctrl+H, Ctrl+D, Ctrl+Shift+L built, waiting for it. Keys CodeMirror takes first do not follow a rebinding yet |
+| 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with MIDI learn. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Built on `feat/knobs`, waiting for the hand test |
 | 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
 | 17 | Render a pattern to MIDI: a `.mid` file of a song or a chain, and later into the piano roll | Planned, not built. See "MIDI clips: render and record" in `doc/DAW-PLAN.md` |
 | 18 | Record MIDI into a pattern, as Ableton does: arm, play a keyboard while the song plays, the notes written into the song | Planned, not built. Same section |
@@ -54,8 +55,24 @@ Next in line:
 
 ## Next: test by hand
 
-Every hand test on `feat/knobs` passed so far (Ctrl+F and Ctrl+G in the Strudel editor,
-2026-11-22). Nothing waits for a hand test.
+Test on **desktop, F5 from this repo** (branch `feat/knobs`), the MPK mini 3 plugged in,
+with the template folder open and the Output strdltn shown.
+
+| # | Do this | Should happen |
+|---|---|---|
+| 1 | In the Strudel editor, select a word, press Ctrl+H | The search bar opens with the cursor in the replace field |
+| 2 | Put the cursor on `kick`, press Ctrl+D twice | The next two `kick` are selected too, as three cursors |
+| 3 | Cursor on `kick`, press Ctrl+Shift+L | Every `kick` is selected |
+| 4 | Open a song with a `slider(...)` (the demo has them), put the cursor inside a `slider(...)` call, press Ctrl+Alt+K, turn knob 1 | Status bar: "Move a knob...", then "Knob on CC 1 mapped". The code gets `.knob(1)` after the slider, and the snippet `register('knob', ...)` after the header |
+| 5 | Play the song, turn knob 1 far from the slider's value, then slowly toward it | Nothing moves until the knob passes the value. Then the slider, the sound and the number in the code follow the knob |
+| 6 | Drag the slider with the mouse somewhere else, then turn the knob | The knob lets go, and takes over again once it passes the new value |
+| 7 | Double click another slider's widget, turn knob 2 | Same as 4, with `.knob(2)`; the snippet is not added twice |
+| 8 | Press Ctrl+Alt+K with the cursor outside any slider | Status bar: "Put the cursor in a slider(...) call first" |
+| 9 | Press Ctrl+Alt+K in a slider, touch nothing for 10 s | "No knob moved: nothing mapped" |
+| 10 | Stop, save, reopen the file, play, turn knob 1 | The knob works after the new evaluation (pickup first) |
+
+Expected still broken: MIDI learn only in the Strudel editor, not on the stage. On
+strudel.cc the knob does nothing (by design, see ARCHITECTURE "Sliders on knobs").
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -442,6 +459,11 @@ Answered by the maintainer on 2026-11-22:
 - A knob writes the number in the code as the Mixer's fader does, at most every 150 ms.
 - The snippet goes in once, at the top, the first time a knob is used.
 
+Built on `feat/knobs`, waiting for the hand test (ARCHITECTURE "Sliders on knobs"). One
+change from the design above: on strudel.cc the knob does nothing, it does not change
+the sound. The snippet cannot use `midin()` (see above), and a knob there would not know
+the slider's range.
+
 ## Keybindings in the Strudel editor
 
 The maintainer asked (2026-11-22) that the Strudel editor answer VS Code's keys as the
@@ -475,9 +497,10 @@ keys. Not designed, not measured. What we know and what we expect:
 - Left: the list of actions to map. Keys CodeMirror's `defaultKeymap` already takes with
   VS Code's own default (Alt+Up moves a line, Ctrl+/ comments, Ctrl+Shift+K deletes a
   line, Ctrl+[ and Ctrl+] indent, Ctrl+Alt+Up adds a cursor) work today but do not follow
-  a rebinding: CodeMirror takes the key first. Keys nothing takes yet: Ctrl+H (replace),
-  Ctrl+D (select the next match), Ctrl+Shift+L (select every match). Not tried: whether
-  a key CodeMirror handled still reaches VS Code.
+  a rebinding: CodeMirror takes the key first. Not tried: whether a key CodeMirror handled
+  still reaches VS Code. Ctrl+H (replace), Ctrl+D (select the next match) and
+  Ctrl+Shift+L (select every match) are built the same way as Ctrl+F, waiting for the
+  hand test.
 
 ## Open design questions
 

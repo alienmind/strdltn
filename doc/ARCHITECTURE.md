@@ -1733,6 +1733,38 @@ What we learned from it:
 - The first notes after start are late (4 to 74 ms): the first send costs about 40 ms. A
   silent message at open warms it up.
 
+## Sliders on knobs
+
+`slider(800, 200, 4000).knob(74)`: CC 74 of any MIDI input moves that slider, as a drag
+does. The rules are in `src/shared/knob.ts` with tests; the page side is in
+`src/webview/main.ts` ("Sliders on knobs").
+
+- The song defines `knob` itself, with a snippet that MIDI learn puts after the header
+  the first time: `register('knob', (cc, pat) => pat)`. It returns the pattern as it is,
+  so the song is standard Strudel and plays on strudel.cc, where the knob does nothing.
+  This is less than the first design (the knob would change the sound on strudel.cc too):
+  that needed `midin()`, and upstream's `midin()` without a name takes the first input
+  and throws when there is none (read in `@strudel/midi` 1.2.6), while the maintainer
+  wanted any controller and no failure without one. A knob there would also not know the
+  slider's range.
+- In [str]dltn the page reads the bindings from the code it evaluated (`findKnobs`), so
+  each binding's `from` is the slider's id (`slider_<from>`). It listens to every MIDI
+  input (`listenEverywhere`), and a CC goes through `pickup` and then `moveSlider`, the
+  same path as a Mixer fader: the sound at once, the widget and the number in the code at
+  most every 150 ms.
+- Pickup (the maintainer's choice): a knob moves the slider only once it reaches or passes
+  the slider's value. The value it compares with is upstream's `sliderValues[id]`, not the
+  number in the code: the code follows 150 ms late, so a turning knob would read its own
+  move as a drag and let go. A drag, a fader or an edit that sets another value drops the
+  knob until it catches up again. A new evaluation starts every knob over.
+- MIDI learn: `strdltn.knobLearn` (Ctrl+Alt+K) for the slider whose call holds the cursor
+  (`sliderAt`), or a double click on a slider's widget. The next CC of any input within
+  10 s writes `.knob(cc)` after the slider call, or changes the number of the one there
+  (`knobEdits`). The page tells the host how it went (`knobLearn`), and the host shows it
+  in the status bar and the Output. The knob works at once, without evaluating again.
+- Learn works in the Strudel editor only. A knob already in the code should work on the
+  stage too, as the fader does: expected, not tested.
+
 ## Release
 
 The maintainer decides when there is a release. Work between releases is committed

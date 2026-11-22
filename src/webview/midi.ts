@@ -180,10 +180,27 @@ const ccsByChannel: Record<string, Record<number, Record<number, number>>> = {};
 /** What each midikeys() input does with a note. */
 const keyListeners: Record<string, (note: number, velocity: number) => void> = {};
 
+/** Sliders on knobs (main.ts): every CC of every input this page listens to. */
+let controlChange: ((cc: number, value: number) => void) | undefined;
+export function onControlChange(listener: (cc: number, value: number) => void): void {
+	controlChange = listener;
+}
+
+/**
+ * Listens to every MIDI input, for knobs: a song maps a knob by its CC alone, whatever
+ * controller sends it (the maintainer, 2026-11-22). Rejects off desktop or with no host.
+ */
+export async function listenEverywhere(): Promise<number> {
+	const list = await portList();
+	for (const port of list.inputs) post({ type: 'midiListen', port });
+	return list.inputs.length;
+}
+
 function received(port: string, bytes: number[]): void {
 	const [statusByte, a, b] = bytes;
 	const kind = statusByte & 0xf0;
 	const channel = (statusByte & 15) + 1;
+	if (kind === 0xb0) controlChange?.(a, b / 127);
 	if (kind === 0xb0 && ccs[port]) {
 		ccs[port][a] = b / 127;
 		(ccsByChannel[port][a] ??= {})[channel] = b / 127;

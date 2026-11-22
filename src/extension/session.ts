@@ -150,6 +150,13 @@ export class Session {
 		this.post({ type: 'select', offset });
 	}
 
+	private learnMessage?: vscode.Disposable;
+
+	/** MIDI learn for the slider at the cursor of the Strudel editor. */
+	knobLearn(): void {
+		this.post({ type: 'knobLearn' });
+	}
+
 	/** A key of VS Code reached our command: CodeMirror runs the action. Logged for the keybinding spike. */
 	editorAction(action: EditorAction): void {
 		this.host.output.appendLine(`[keys] ${action}: the key reached VS Code, sent to the Strudel editor`);
@@ -289,6 +296,20 @@ export class Session {
 			case 'evaluated':
 				this.showError(message.error);
 				break;
+			case 'knobLearn': {
+				const text = {
+					waiting: 'Move a knob on your MIDI controller (10 s)',
+					done: `Knob on CC ${message.cc} mapped to the slider`,
+					noSlider: 'Put the cursor in a slider(...) call first',
+					timeout: 'No knob moved: nothing mapped',
+					noMidi: 'No MIDI here: knobs work on desktop VS Code only',
+				}[message.state];
+				this.host.output.appendLine(`[knobs] ${text}`);
+				// The waiting message stays until the answer replaces it.
+				this.learnMessage?.dispose();
+				this.learnMessage = vscode.window.setStatusBarMessage(`$(${message.state === 'waiting' ? 'loading~spin' : message.state === 'done' ? 'check' : 'warning'}) strdltn: ${text}`, message.state === 'waiting' ? 11_000 : 5000);
+				break;
+			}
 			case 'cacheFiles': {
 				const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;
 				const cached = folder && (await this.host.packs.files(message.base, message.files, folder));

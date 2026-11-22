@@ -548,7 +548,7 @@ function orbitList(node: Node | undefined): number[] | undefined {
 	return list.length ? list : undefined;
 }
 
-function numberOf(node: Node | undefined): number | undefined {
+export function numberOf(node: Node | undefined): number | undefined {
 	if (node?.type === 'Literal' && typeof node.value === 'number') return node.value;
 	if (node?.type === 'UnaryExpression' && node.operator === '-' && node.argument.type === 'Literal' && typeof node.argument.value === 'number') return -node.argument.value;
 	return undefined;
@@ -603,7 +603,7 @@ function feedingCall(node: Node, parents: Node[]): string | undefined {
 type Node = any;
 
 /** Calls `visit` for every node in the order of the code, with the nodes above it. */
-function walk(node: Node, parents: Node[], visit: (node: Node, parents: Node[]) => void): void {
+export function walk(node: Node, parents: Node[], visit: (node: Node, parents: Node[]) => void): void {
 	visit(node, parents);
 	parents.push(node);
 	for (const key in node) {

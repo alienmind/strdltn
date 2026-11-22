@@ -97,6 +97,10 @@
 				"title": "strdltn: Clear sample pack cache"
 			},
 			{
+				"command": "strdltn.knobLearn",
+				"title": "strdltn: Map a MIDI knob to the slider at the cursor"
+			},
+			{
 				"command": "strdltn.editor.find",
 				"title": "strdltn: Find in the Strudel editor"
 			},
@@ -217,6 +221,10 @@
 			],
 			"commandPalette": [
 				{
+					"command": "strdltn.knobLearn",
+					"when": "activeCustomEditorId == strdltn.editor"
+				},
+				{
 					"command": "strdltn.editor.find",
 					"when": "activeCustomEditorId == strdltn.editor"
 				},
@@ -266,6 +274,12 @@
 				"key": "ctrl+.",
 				"mac": "cmd+.",
 				"when": "activeCustomEditorId == strdltn.editor || editorLangId == strudel"
+			},
+			{
+				"command": "strdltn.knobLearn",
+				"key": "ctrl+alt+k",
+				"mac": "cmd+alt+k",
+				"when": "activeCustomEditorId == strdltn.editor"
 			},
 			{
 				"command": "strdltn.editor.find",

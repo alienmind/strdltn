@@ -21,17 +21,17 @@ arrangement (PR #6, 0.3.0); phase 5, MIDI on desktop through the extension host,
 and Record of a song to `.wav` and `.mp3`, level meters with a Master strip on the Mixer,
 and the demo's new mix (PR #9, 0.4.0). A promote waits for the maintainer.
 
-Work in flight is on the branch `feat/open-snippets`: items 12 and 13 below, the setting
-of decision 17, and Songs and Snippets merged back into the Library view (the maintainer,
-2026-11-22; Reference and Results stay views of their own). All built, waiting for the
-hand test.
+Work in flight is on the branch `feat/open-snippets`: a double click on a snippet opens
+it (Enter still inserts it), the Browser opens songs and snippets in the Strudel editor
+and never in the native one, the setting `strdltn.midi.highPriority` of decision 17, and
+Songs and Snippets merged back into the Library view (the maintainer, 2026-11-22;
+Reference and Results stay views of their own). Every hand test passed on 2026-11-22.
+Next: `pnpm test:vscode`, then the pull request.
 
 Next in line:
 
 | # | What | State |
 |---|---|---|
-| 12 | A double click on a snippet or a song in the Browser opens its file (`openRow()` in `src/browser/main.ts`). Enter still inserts a snippet, so the keyboard keeps a way to insert; the maintainer may want it the other way | Built on `feat/open-snippets`, waiting for the hand test |
-| 13 | The native editor is never the default. The Browser opens a song or a snippet with `vscode.openWith(uri, 'strdltn.editor')` (`open()` in `src/extension/browser.ts`), not `'default'`, which was the text editor, and not `vscode.open`, which follows the user's `workbench.editorAssociations` | Built on `feat/open-snippets`, waiting for the hand test |
 | 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Asked for, not designed |
 | 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with a click on its number. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Asked for, not designed |
 | 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
@@ -54,22 +54,10 @@ Next in line:
 
 ## Next: test by hand
 
-Test on **desktop, F5 from this repo** (branch `feat/open-snippets`), with the template
-folder open.
-
-| # | Do this | Should happen |
-|---|---|---|
-| 1 | In the Browser, Snippets, double click a snippet | Its file opens in the Strudel editor, header included. Nothing is typed into the song |
-| 2 | Select a snippet with the arrows, press Enter | The snippet is typed at the cursor of the song, as before |
-| 3 | Right click a snippet, "Open the file" | The Strudel editor, not the native one |
-| 4 | Double click a song in Songs | The Strudel editor |
-| 5 | Double click a render (`.wav`) | VS Code's media preview plays it, as before |
-| 6 | Turn on `strdltn.midi.highPriority`, play `template/examples/09-midi-out.strudel` with a MIDI port, look at the Output strdltn and the process `Code.exe` of the extension host in Task Manager, Details | `[midi] the extension host runs at high priority`, and Task Manager shows High |
-| 7 | Turn the setting off | `[midi] the extension host is back to its own priority`, Normal in Task Manager |
-| 8 | Look at the side bar | Three views: Library, Reference, Results. No Songs and Snippets view |
-| 9 | Library's categories | All, Sounds, Drums, Samples, Instruments, Render, MIDI, Songs, Snippets, each with a count |
-| 10 | Click Songs, then Snippets, then All of the Library | Results shows the songs by folder, then the snippets, then everything but the functions |
-| 11 | Search `demo` | Results shows the demo song beside any sound that matches |
+Every hand test on `feat/open-snippets` passed on 2026-11-22, on the maintainer's own VS
+Code after `pnpm promote` (0.4.0-dev, commit `41a081d`): double click and Enter on a
+snippet, "Open the file", songs and renders, the priority setting on and off in Task
+Manager, and the Library with Songs and Snippets in it. Nothing waits for a hand test.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -113,7 +101,7 @@ it.
 | 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
 | 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. The SHRUB editor panel stays as an experiment behind its setting; the fm1-emu way stays open. Its editor cannot reach a real FM-1 from VS Code: a webview has no MIDI, and a frame of another site cannot be given ours. In a browser ("Open in browser") it can, if VS Code does not hold the FM-1's port: a Windows MIDI port opens in one program at a time |
 | 16 | The wave editor (item 11) builds on AudioMass, which is not on npm and has no releases or tags. How does it come in? | Answered 2026-11-22: from the maintainer's fork `alienmind/AudioMass`, pinned to a tag we make there. The tag `strdltn-1` is made. See "Wave editor" |
-| 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Answered 2026-11-22: behind a setting, off. Built on `feat/open-snippets` as `strdltn.midi.highPriority`, waiting for the hand test |
+| 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Answered 2026-11-22: behind a setting, off. Built on `feat/open-snippets` as `strdltn.midi.highPriority`, passed the hand test |
 
 
 ## MIDI

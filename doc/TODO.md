@@ -77,6 +77,14 @@ synth and a controller plugged in.
 
 Expected still broken: no MIDI in the Browser or the Mixer; nothing in a Codespace.
 
+Error places and long header lines, on `feat/midi`. Same window.
+
+| # | Do this | Should happen |
+|---|---|---|
+| H1 | In `examples/09-midi-out.strudel` change `.midi()` to `.midx()`, Ctrl+Enter | The error marks `.midx` on line 17, not a comment |
+| H2 | Browser, Examples, select "MIDI out" | The whole details text shows as one paragraph, though it is two lines in the file |
+| H3 | Add a tag to a snippet whose `@details` is two lines (`lib/effect/sidechain-duck.strudel`) | `// @tags` goes after the second details line; the details still show whole |
+
 Render, Record, the level meters and the electro example, on `feat/midi`. Test on
 **desktop, launched with F5** on `template/`.
 

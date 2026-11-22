@@ -139,6 +139,15 @@ time and the extension host sends it with `setTimeout`. In the host's runtime on
 a 20 ms timer fired 10 ms late in the middle and 80 ms late at worst. That is audible. A
 bridge needs a better clock, see "MIDI" in `doc/TODO.md`.
 
+## Waiting for a MIDI note with Atomics.wait to the last millisecond
+
+Tried, in spike S5 (2026-11-21). A worker thread slept with `Atomics.wait` until 1 ms
+before a note and spun from there. With the loopMIDI port it was exact; with a hardware
+port (UMC404HD) and the GS synth the notes came 6 ms late in the middle and 15 ms at the
+99th percentile, because the sleep runs on Windows' 15.6 ms timer tick unless something
+in the process asked for a finer one. The worker now sleeps to 17 ms before and spins.
+The numbers are in "MIDI" in `doc/ARCHITECTURE.md`.
+
 ## Copying other people's examples that have no license
 
 Designed. The maintainer's `algorave` repository has songs and helper code by other
@@ -305,3 +314,26 @@ editor" in `doc/ARCHITECTURE.md`). A `ResizeObserver` on the content that called
 `requestMeasure()`, a measure right before the click, and an `estimatedHeight` for
 upstream's `BlockWidget` set from outside all left the error as it was. The cause was
 inline canvases, fixed with CSS.
+
+## Picking the sound card from the webview
+
+Tried in spike S6 (2026-11-22, VS Code 1.147, muted test window). A browser names its
+audio outputs only to a page that may use the microphone, and `AudioContext.setSinkId`
+needs one of those ids. The webview asked for the microphone with
+`getUserMedia({ audio: true })` and VS Code refused at once (`NotAllowedError: Permission
+denied`); the page still saw one output with an empty label and id. So the editor's page
+cannot send its sound to another card. Windows' per-app output does it by hand; see
+"Sound card" in `doc/TODO.md`.
+
+## Rendering a song offline
+
+Tried on 2026-11-22: Render used upstream's `renderPatternAudio`, which plays the pattern into an
+`OfflineAudioContext` at full speed. The demo (100 cycles) never finished: an offline context builds every note's
+nodes before it starts, and a worklet node (supersaw, `.dist()`, `pulse`) runs from the moment it is made, so the cost
+grew with the square of the length (4 cycles took 2 s, 30 did not finish in 2 minutes). Rendering in chunks of 4
+cycles finished in 69 s, but the maintainer heard a file with nothing of the song in it: the riser, silence, a kick, a
+bass at 0:27, no voices. Every song on an orbit other than 1 logged "cannot connect to an AudioNode belonging to a
+different audio context", so notes went missing, and the offline engine is not the live one: our meters, ducking, the
+firmware relay and the shared effects behave differently there. Render now plays the song once through the live engine
+with the speakers off and records it ("Render and record" in `doc/ARCHITECTURE.md`): as long as the song, and what it
+sounds like.

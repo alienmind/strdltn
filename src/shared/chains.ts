@@ -57,7 +57,7 @@ export interface MixerChain {
 	solo: boolean;
 	/** `.orbit(n)` of the chain. 1, everyone's default, when it sets none. Undefined when it is not a literal. */
 	orbit?: number;
-	/** The orbits of `.duck("2,3,4")`. Undefined when the chain does not duck or the value is not a literal. */
+	/** The orbits of `.duck("2:3:4")`. Undefined when the chain does not duck or the value is not a literal. */
 	ducks?: number[];
 	/** It ducks, but the orbits are not a literal we can read. */
 	duckUnknown?: boolean;
@@ -223,10 +223,31 @@ export function gainEdit(code: string, chain: number): { from: number; to: numbe
 			const level = argument.value as number;
 			return { from: argument.start, to: argument.end, insert: `slider(${code.slice(argument.start, argument.end)}, 0, ${Math.max(1, level)})` };
 		}
+		// A gain that is not a number (a knob, `.gain(KICK)`, or a pattern) is scaled by the fader, not replaced: a
+		// second `.gain(...)` after it would win, and the knob went silent (the maintainer, 2026-11-22).
+		if (argument) {
+			const text = code.slice(argument.start, argument.end);
+			const simple = ['Identifier', 'Literal', 'CallExpression', 'MemberExpression', 'TemplateLiteral'].includes(argument.type);
+			return { from: argument.start, to: argument.end, insert: `${simple ? text : `(${text})`}.mul(slider(1, 0, 1))` };
+		}
 		return { from: expression.end, to: expression.end, insert: '.gain(slider(1, 0, 1))' };
 	}
 	const slider = model.sliders[target.gain];
 	if (!gainCall || !slider) return undefined;
+	// G off on a scaled gain gives the gain back as it was: `.gain(KICK.mul(slider(...)))` becomes `.gain(KICK)`.
+	const scaled = gainCall.arguments?.[0] as Node | undefined;
+	if (
+		scaled?.type === 'CallExpression' &&
+		scaled.callee.type === 'MemberExpression' &&
+		scaled.callee.property?.name === 'mul' &&
+		scaled.arguments?.length === 1 &&
+		slider.from >= scaled.arguments[0].start &&
+		slider.from < scaled.arguments[0].end
+	) {
+		const base = scaled.callee.object as Node;
+		const inner = code.slice(base.start, base.end);
+		return { from: scaled.start, to: scaled.end, insert: /^\(.*\)$/s.test(inner) ? inner.slice(1, -1) : inner };
+	}
 	// Only the spine's own gain, the one that holds the fader: its slider, or the constant it names.
 	const inside = code.slice(gainCall.callee.property.end, gainCall.end);
 	const holds = (slider.from >= gainCall.start && slider.from < gainCall.end) || (slider.constant !== undefined && new RegExp(`\\b${slider.constant}\\b`).test(inside));
@@ -275,10 +296,10 @@ export function duckEdits(code: string, from: number, to: number, move?: number)
 	const call = spineCall(expressionOf(statements[from]), ['duck', 'duckorbit']);
 	if (call) {
 		const argument = call.arguments[0] as Node;
-		edits.push({ from: argument.start, to: argument.end, insert: `"${next.join(',')}"` });
+		edits.push({ from: argument.start, to: argument.end, insert: `"${next.join(':')}"` });
 	} else {
 		const end = expressionOf(statements[from]).end;
-		edits.push({ from: end, to: end, insert: `.duck("${next.join(',')}")` });
+		edits.push({ from: end, to: end, insert: `.duck("${next.join(':')}")` });
 	}
 	return { edits: edits.sort((a, b) => b.from - a.from) };
 }
@@ -313,7 +334,7 @@ export function unduckEdits(code: string, from: number, orbit: number): Edits {
 	const next = ducker.ducks.filter((n) => n !== orbit);
 	if (next.length) {
 		const argument = call.arguments[0] as Node;
-		return { edits: [{ from: argument.start, to: argument.end, insert: `"${next.join(',')}"` }] };
+		return { edits: [{ from: argument.start, to: argument.end, insert: `"${next.join(':')}"` }] };
 	}
 	return { edits: [{ from: call.callee.object.end, to: call.end, insert: '' }] };
 }
@@ -514,7 +535,11 @@ function integerOf(node: Node | undefined): number | undefined {
 	return typeof number === 'number' && Number.isInteger(number) ? number : undefined;
 }
 
-/** `"2,3,4"`, `"2:3"`, `"2 3"` or `2`. A pattern that changes (`"<2 3>"`) is not a list we can draw. */
+/**
+ * `"2:3"`, `"2,3,4"`, `"2 3"` or `2`. A pattern that changes (`"<2 3>"`) is not a list we can draw.
+ * We write `"2:3"`, as upstream documents it. `"2,3,4"` is read too, but it is a stack: the
+ * chain plays once per orbit, so the demo's kick sounded four times over (measured 2026-11-21).
+ */
 function orbitList(node: Node | undefined): number[] | undefined {
 	const value = node?.type === 'Literal' ? node.value : undefined;
 	if (typeof value === 'number') return Number.isInteger(value) ? [value] : undefined;

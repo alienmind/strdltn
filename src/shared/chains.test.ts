@@ -206,6 +206,14 @@ test('G adds a gain fader and takes it out again', () => {
 	// A constant: the call goes, the const stays.
 	const constant = 'const V = slider(0.5)\n$a: s("bd")\n  .gain(V)\n  .room(0.2)\n';
 	assert.equal(apply(constant, gainEdit(constant, 0)), 'const V = slider(0.5)\n$a: s("bd")\n  .room(0.2)\n');
+	// A gain from a knob or a pattern is scaled by the fader, and G off gives it back.
+	const knob = '$kick: s("bd*4").gain(KICK)';
+	const scaledOn = apply(knob, gainEdit(knob, 0));
+	assert.equal(scaledOn, '$kick: s("bd*4").gain(KICK.mul(slider(1, 0, 1)))');
+	assert.notEqual(model(scaledOn).chains[0].gain, undefined);
+	assert.equal(apply(scaledOn, gainEdit(scaledOn, 0)), knob);
+	const pattern = '$a: s("bd").gain("1 .5")';
+	assert.equal(apply(pattern, gainEdit(pattern, 0)), '$a: s("bd").gain("1 .5".mul(slider(1, 0, 1)))');
 	// A gain inside a function is not the chain's own.
 	const inner = '$a: s("bd").sometimes(x => x.gain(slider(0.5)))';
 	assert.equal(model(inner).chains[0].gain === undefined || gainEdit(inner, 0) === undefined, true);
@@ -258,8 +266,9 @@ test('a cable dropped on a strip writes the duck, and a new orbit when the targe
 	const one = apply(song, duckEdits(song, 0, 1));
 	assert.equal(one, '$kick: s("bd*4").duck("2")\n$bass: note("c2").s("saw").orbit(2)\n$pad: note("c4").s("sine")\n');
 	// Onto a chain on orbit 1 by default: it gets orbit 3, the next free one, and the list grows.
+	// The list is "2:3": "2,3" would be a stack and play the kick once per orbit.
 	const two = apply(one, duckEdits(one, 0, 2));
-	assert.equal(two, '$kick: s("bd*4").duck("2,3")\n$bass: note("c2").s("saw").orbit(2)\n$pad: note("c4").s("sine").orbit(3)\n');
+	assert.equal(two, '$kick: s("bd*4").duck("2:3")\n$bass: note("c2").s("saw").orbit(2)\n$pad: note("c4").s("sine").orbit(3)\n');
 	assert.deepEqual(model(two).ducks.map((d) => `${d.from}>${d.to}@${d.orbit}`), ['0>1@2', '0>2@3']);
 	// Again on the same target changes nothing.
 	assert.deepEqual(duckEdits(two, 0, 1), { edits: [] });

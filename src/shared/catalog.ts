@@ -2,10 +2,11 @@
 // gave them. Both sides import this file: the host builds the items, the webview shows
 // them, and `search.ts` filters them on either side.
 import type { SoundInfo } from './protocol.ts';
+import type { InsertArgument } from './context.ts';
 import type { SnippetInfo } from './snippet.ts';
 import { functionGroup, isPackTag, snippetTags, soundTags, splitBank, splitWords } from './tags.ts';
 
-export type ItemKind = 'sound' | 'snippet' | 'song' | 'function';
+export type ItemKind = 'sound' | 'snippet' | 'song' | 'function' | 'render' | 'midi';
 
 /** The rows of "Library" in the Browser. */
 export const CATEGORIES = [
@@ -17,6 +18,10 @@ export const CATEGORIES = [
 	{ id: 'snippets', label: 'Snippets', icon: 'snippet' },
 	{ id: 'songs', label: 'Songs', icon: 'song' },
 	{ id: 'functions', label: 'Functions', icon: 'function' },
+	// The audio of songs: renders and recordings, next to their song. See src/shared/render.ts.
+	{ id: 'renders', label: 'Render', icon: 'render' },
+	// The MIDI ports of the machine, from the extension host (src/extension/midi.ts). Desktop only.
+	{ id: 'midi', label: 'MIDI', icon: 'midi' },
 ] as const;
 export type CategoryId = (typeof CATEGORIES)[number]['id'];
 
@@ -51,6 +56,8 @@ export interface CatalogItem {
 	text: string;
 	/** What Enter or the insert button types. Songs have none: they open. */
 	insert?: string;
+	/** What it types inside the empty parentheses of a call instead, `.midi(|)`: see chooseInsert. */
+	argument?: InsertArgument;
 	/** A sound with numbered variations. */
 	count?: number;
 	variations?: string[];
@@ -229,6 +236,56 @@ export function songItem(path: string): CatalogItem {
 		path,
 	};
 }
+
+/**
+ * A render or a recording of a song, a `.wav` or `.mp3` beside it. `song` is the song's path; the row sits under the
+ * song's name, so the takes of one song are together.
+ */
+export function renderItem(path: string, song: string): CatalogItem {
+	const cut = path.lastIndexOf('/');
+	const file = path.slice(cut + 1);
+	const songName = song.slice(song.lastIndexOf('/') + 1).replace(/\.strudel$/, '');
+	return {
+		id: `render:${path}`,
+		kind: 'render',
+		label: file,
+		detail: cut >= 0 ? path.slice(0, cut) : undefined,
+		category: 'renders',
+		place: 'project',
+		group: songName,
+		tags: [],
+		text: path.toLowerCase(),
+		path,
+	};
+}
+
+/**
+ * A MIDI port of the machine. An output (an instrument) types `.midi('name')`, an input (a controller or a keyboard)
+ * `const cc = await midin('name')`; inside a string, the name alone. Single quotes: Strudel reads a double-quoted
+ * string as mini-notation, so `"MPK mini 3"` is a pattern of three words, and midin refuses a pattern. The id carries the name, so colors and tags stay
+ * with a device across starts.
+ */
+export function midiItem(name: string, direction: 'out' | 'in'): CatalogItem {
+	return {
+		id: `midi:${direction}:${name}`,
+		kind: 'midi',
+		label: name,
+		detail: direction === 'out' ? 'output' : 'input',
+		category: 'midi',
+		place: 'builtin',
+		group: direction === 'out' ? 'Outputs: instruments' : 'Inputs: controllers',
+		tags: [],
+		text: `${name} midi ${direction === 'out' ? 'output instrument synth' : 'input controller keyboard'}`.toLowerCase(),
+		insert: direction === 'out' ? `.midi('${quoted(name)}')` : `const cc = await midin('${quoted(name)}')`,
+		argument: { calls: direction === 'out' ? ['midi'] : ['midin', 'midikeys'], text: `'${quoted(name)}'` },
+	};
+}
+
+/** A device's name inside single quotes: a backslash or a quote in it is escaped. */
+const quoted = (name: string) => name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+/** Songs and audio open when picked; everything else is typed at the cursor. */
+export const opens = (item: CatalogItem): boolean => item.kind === 'song' || item.kind === 'render';
 
 /** What the build keeps of `@strudel/reference` for a function. See scripts/build.mjs. */
 export interface FunctionDoc {

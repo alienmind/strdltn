@@ -118,6 +118,7 @@ function draw(): void {
 		jacks.in[index] = input!;
 		strips.appendChild(strip);
 	});
+	if (model.chains.length) strips.appendChild(masterStrip());
 	outJacks = jacks.out;
 	drawnCables = model.ducks
 		.filter((duck) => duck.to !== undefined && jacks.out[duck.from] && jacks.in[duck.to])
@@ -145,7 +146,9 @@ function chainOf(label: string): number {
 /** Each chain's level joins its history, and the boxes of chains with `._scope()` draw it. */
 function drawScopes(frames: ScopeFrame[]): void {
 	if (!model) return;
+	feedMeters(frames);
 	for (const frame of frames) {
+		if (frame.chain === '@master') continue;
 		const history = histories.get(frame.chain) ?? [];
 		history.push(frame.level);
 		if (history.length > HISTORY) history.shift();
@@ -184,6 +187,8 @@ function drawWave(canvas: HTMLCanvasElement, history: number[]): void {
 
 function clearScopes(): void {
 	histories.clear();
+	for (const state of meterStates.values()) state.left = state.right = -Infinity;
+	drawMeters();
 	strips.querySelectorAll<HTMLCanvasElement>('canvas.scope').forEach((canvas) => drawWave(canvas, []));
 }
 
@@ -294,39 +299,61 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 
 	// M, S and G stacked beside the faders, as the track buttons of Live's mixer.
 	const body = strip.appendChild(el('div', 'body'));
-	const badges = body.appendChild(el('div', 'badges'));
-	const badge = (text: string, on: boolean, title: string, button: 'mute' | 'solo' | 'gain') => {
-		const b = badges.appendChild(el('button', `badge${on ? ' on' : ''}`, text));
+	const faders = body.appendChild(el('div', 'faders'));
+	const shown = open ? sliders : chain.gain !== undefined ? [chain.gain] : [];
+	const toggleGain = () => post({ type: 'toggle', chain: index, button: 'gain' });
+	for (const i of shown) {
+		const box = faders.appendChild(fader(m.sliders[i!]));
+		// The gain fader sits on the chain's level meter, as in Live's mixer, with no text: its value is over the scope.
+		if (i === chain.gain) {
+			box.querySelectorAll('.label, .detail, .value').forEach((node) => node.remove());
+			addMeter(box, String(index));
+			clickToToggle(box.querySelector('input')!, toggleGain, 'Drag to set the gain. Click the triangle to take the gain fader out of the code');
+		}
+	}
+	// No gain fader: the meter still shows the chain, and a dim triangle at the bottom puts one in the code.
+	if (chain.gain === undefined) {
+		const box = faders.insertBefore(el('div', 'fader off'), faders.firstChild);
+		addMeter(box, String(index));
+		const off = box.querySelector('.meter-well')!.appendChild(el('button', 'off-thumb'));
+		off.title = 'No gain fader. Click to put one in the code';
+		off.addEventListener('click', toggleGain);
+	}
+
+	// M and S side by side above the scope, as the track buttons under Live's meters.
+	const ms = strip.appendChild(el('div', 'ms'));
+	const button = (text: string, on: boolean, title: string, which: 'mute' | 'solo') => {
+		const b = ms.appendChild(el('button', `badge${on ? ' on' : ''}`, text));
 		b.title = title;
-		b.addEventListener('click', () => post({ type: 'toggle', chain: index, button }));
+		b.addEventListener('click', () => post({ type: 'toggle', chain: index, button: which }));
 		// Mute and solo write on the label, and a bare chain has none.
-		if (chain.bare && button !== 'gain') {
+		if (chain.bare) {
 			b.disabled = true;
 			b.title = 'No label to mute or solo: put $: in front of the line to make it a chain';
 		}
 	};
-	badge('M', chain.muted, chain.muted ? `Muted: the label ${chain.label} starts or ends with _. Click to unmute` : 'Mute: writes _ in front of the label', 'mute');
-	badge('S', chain.solo, chain.solo ? `Solo: the label ${chain.label} starts with S. Click to end the solo` : 'Solo: writes S in front of the label', 'solo');
-	badge('G', chain.gain !== undefined, chain.gain !== undefined ? 'Gain fader on. Click to take it out of the code' : 'No gain fader. Click to add one to the code', 'gain');
-
-	const faders = body.appendChild(el('div', 'faders'));
-	const shown = open ? sliders : chain.gain !== undefined ? [chain.gain] : [];
-	for (const i of shown) faders.appendChild(fader(m.sliders[i!]));
-	// No gain slider: a fader that cannot move, until G puts one in the code.
-	if (!shown.length) faders.appendChild(disabledFader(sliders.length));
+	button('M', chain.muted, chain.muted ? `Muted: the label ${chain.label} starts or ends with _. Click to unmute` : 'Mute: writes _ in front of the label', 'mute');
+	button('S', chain.solo, chain.solo ? `Solo: the label ${chain.label} starts with S. Click to end the solo` : 'Solo: writes S in front of the label', 'solo');
 
 	// The chain's scope under its faders. With `._scope()` in the chain it is green and moves
 	// while the song plays; without, a gray flat line, and a click adds the `._scope()`, as
 	// G does for the gain. A click on a green one takes it out again.
-	const scope = strip.appendChild(el('canvas', `scope${chain.scope ? '' : ' off'}`));
+	const scopeBox = strip.appendChild(el('div', 'scope-box'));
+	const scope = scopeBox.appendChild(el('canvas', `scope${chain.scope ? '' : ' off'}`));
+	// The gain's value, over the scope. A fader move updates it, as it updates every output of its slider.
+	if (chain.gain !== undefined) {
+		const gain = m.sliders[chain.gain];
+		const value = scopeBox.appendChild(el('output', 'scope-value', String(gain.value)));
+		value.dataset.slider = String(gain.index);
+		value.title = `Gain${gain.constant ? ` (${gain.constant})` : ''}`;
+	}
 	scope.dataset.chain = String(index);
 	scope.title = chain.scope ? 'Scope of the chain (._scope()). Click to take it out of the code' : 'No scope. Click to add ._scope() to the chain';
 	scope.addEventListener('click', () => post({ type: 'toggle', chain: index, button: 'scope' }));
 	requestAnimationFrame(() => drawWave(scope, []));
 	const foot = strip.appendChild(el('footer'));
-	const route = foot.appendChild(el('div', 'route'));
-	route.appendChild(el('span', 'orbit', chain.orbit === undefined ? 'orbit ?' : `orbit ${chain.orbit}`)).title =
-		chain.orbit === undefined ? 'The orbit is not a number we can read here' : `Plays on orbit ${chain.orbit}. room and delay are shared per orbit`;
+	// The orbit is said in the jack's tooltip, with what the jack does.
+	const orbitText = chain.orbit === undefined ? 'Orbit: not a number we can read here' : `Orbit ${chain.orbit}: room and delay are shared per orbit`;
 	// One jack per strip, as the maintainer asked: the cables this chain sends (its duck)
 	// start here, and the cables that duck it end here. A drag from a jack where a cable
 	// ends pulls that cable off; from a jack with none, or with Alt held, it starts a new one.
@@ -334,10 +361,11 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 	const sends = m.ducks.some((d) => d.from === index && d.to !== undefined);
 	const incoming = m.ducks.find((d) => d.to === index);
 	const said = [
+		orbitText,
 		chain.duckUnknown ? 'Ducks: orbits not readable, edit them in the code' : ducks.length ? `Ducks orbits ${ducks.join(', ')}` : '',
 		incoming ? `Ducked by ${m.chains[incoming.from]?.name} on orbit ${incoming.orbit}. Drag to pull that cable off; Alt+drag for a new cable` : 'Drag onto another strip to duck it',
 	].filter(Boolean);
-	const socket = foot.appendChild(jack(sends || isDucked, said.join('. ')));
+	const socket = foot.appendChild(jack(sends || isDucked, said.join('.\n')));
 	socket.addEventListener('pointerdown', (event) => {
 		const pointer = event as PointerEvent;
 		if (incoming && !pointer.altKey) startDrag(pointer, incoming.from, { orbit: incoming.orbit, to: index });
@@ -376,19 +404,6 @@ function fader(slider: MixerSlider): HTMLElement {
 	return box;
 }
 
-function disabledFader(others: number): HTMLElement {
-	const box = el('div', 'fader off');
-	const input = box.appendChild(el('input'));
-	input.type = 'range';
-	input.min = '0';
-	input.max = '1';
-	input.value = '1';
-	input.disabled = true;
-	box.title = `No gain slider in this chain${others ? ` (${others} other slider${others > 1 ? 's' : ''}: unfold to see them)` : ''}. G adds one.`;
-	box.appendChild(el('span', 'label', 'gain'));
-	box.appendChild(el('output', 'value', 'off'));
-	return box;
-}
 
 /** A jack: the socket of doc/jack.svg, with a plug in it when a cable ends there. */
 function jack(plugged: boolean, title: string): Element {
@@ -402,7 +417,8 @@ function report(): void {
 	requestAnimationFrame(() =>
 		post({
 			type: 'state',
-			strips: [...strips.querySelectorAll<HTMLElement>('.strip')].map((strip) => ({
+			// The chains' strips: the master strip is not one of them.
+			strips: [...strips.querySelectorAll<HTMLElement>('.strip:not(.master)')].map((strip) => ({
 				name: strip.querySelector('.name')?.textContent ?? '',
 				unfolded: strip.classList.contains('open'),
 				faders: strip.querySelectorAll('.fader').length,
@@ -423,4 +439,169 @@ function jackSymbols(): string {
 <g id="jack-socket"><circle r="11.5" fill="url(#jack-shadow)" transform="translate(1 1.2)"/><circle r="10" fill="url(#jack-bezel)"/><circle r="7.6" fill="url(#jack-bevel)"/><circle r="5.6" fill="url(#jack-hole)"/><circle r="5.6" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="0.6"/><path d="M -6.6 -3.2 A 7.4 7.4 0 0 1 -1.8 -7.2" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="0.8" stroke-linecap="round"/></g>
 <g id="jack-plug"><circle r="7.2" fill="currentColor"/><circle r="7.2" fill="url(#jack-shine)"/><circle r="4.6" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="0.7"/><circle r="2.4" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="0.7"/></g>
 </defs></svg>`;
+}
+
+// ---- level meters -----------------------------------------------------------------------
+//
+// As Live's: two bars, left and right, on a scale from 0 down to 60 dB, behind the gain fader, and above them the
+// highest peak so far ("-Inf" before any sound, orange above 0 dB, where it clips at the speakers). A click on it
+// starts the peak again. The engine sends each chain's peak of the last 50 ms in dBFS with the levels
+// (`ScopeFrame.peak`, see "Level meters" in doc/ARCHITECTURE.md); `@master` is the whole mix.
+
+const METER_FLOOR = -60;
+/** Space above 0 dB and below -60 dB in the well, in CSS pixels: where the fader's thumb can still reach. */
+const METER_PAD = 7;
+/** The width of the fader's lane at the left of the meter, in CSS pixels. Matches `.meter-well input` in mixer.css. */
+const METER_LANE = 13;
+/** How fast a bar falls when the sound stops, in dB a second, about as Live's. */
+const METER_FALL = 24;
+/**
+ * How long the peak number holds its highest value before it follows the level down. Live's holds until a click; the
+ * maintainer pulled a gain fader down and read the held number as a meter that did not follow (2026-11-22). A clip
+ * (above 0 dB) still stays orange until a click, so it is not missed.
+ */
+const PEAK_HOLD_MS = 3000;
+const meterStates = new Map<string, { left: number; right: number; hold: number; holdAt: number; clipped: boolean; at: number }>();
+
+function meterState(key: string) {
+	let state = meterStates.get(key);
+	if (!state) meterStates.set(key, (state = { left: -Infinity, right: -Infinity, hold: -Infinity, holdAt: 0, clipped: false, at: 0 }));
+	return state;
+}
+
+function feedMeters(frames: ScopeFrame[]): void {
+	const now = performance.now();
+	for (const frame of frames) {
+		if (!frame.peak) continue;
+		const key = frame.chain === '@master' ? 'master' : String(chainOf(frame.chain));
+		if (key === '-1') continue;
+		const state = meterState(key);
+		const fall = state.at ? (METER_FALL * (now - state.at)) / 1000 : Infinity;
+		const [l, r] = frame.peak.map((v) => (v === null ? -Infinity : v));
+		state.left = Math.max(l, state.left - fall);
+		state.right = Math.max(r, state.right - fall);
+		const peak = Math.max(l, r);
+		if (peak >= state.hold || now - state.holdAt > PEAK_HOLD_MS) {
+			state.hold = peak;
+			state.holdAt = now;
+		}
+		if (peak > 0) state.clipped = true;
+		state.at = now;
+	}
+	drawMeters();
+}
+
+/** Turns a fader box into a metered one: the meter in a well behind the fader, the peak above. */
+function addMeter(box: HTMLElement, key: string): void {
+	box.classList.add('metered');
+	const input = box.querySelector('input');
+	const well = el('div', 'meter-well');
+	const canvas = well.appendChild(el('canvas', 'meter'));
+	canvas.dataset.meter = key;
+	well.appendChild(meterScale());
+	meterResize.observe(well);
+	if (input) {
+		input.replaceWith(well);
+		well.appendChild(input);
+	} else box.appendChild(well);
+	box.insertBefore(peakHold(key), well);
+	requestAnimationFrame(drawMeters);
+}
+
+function peakHold(key: string): HTMLElement {
+	const hold = el('button', 'peakhold', '-Inf');
+	hold.dataset.meter = key;
+	hold.title = 'Peak: the highest level of the last 3 seconds, in dB below full scale. Orange: it went above 0 and clipped. Click to clear';
+	hold.addEventListener('click', () => {
+		const state = meterState(key);
+		state.hold = -Infinity;
+		state.clipped = false;
+		drawMeters();
+	});
+	return hold;
+}
+
+/** The whole mix, as Live's Master track: its meter and peak, no fader. */
+function masterStrip(): HTMLElement {
+	const strip = el('section', 'strip master');
+	const head = strip.appendChild(el('header'));
+	head.appendChild(el('span', 'name', 'Master')).title = 'The whole mix, as it goes to the speakers';
+	const body = strip.appendChild(el('div', 'body'));
+	const box = body.appendChild(el('div', 'faders')).appendChild(el('div', 'fader'));
+	addMeter(box, 'master');
+	box.appendChild(el('span', 'label', 'out'));
+	return strip;
+}
+
+function drawMeters(): void {
+	for (const canvas of strips.querySelectorAll<HTMLCanvasElement>('canvas.meter')) drawMeter(canvas, meterState(canvas.dataset.meter!));
+	for (const hold of strips.querySelectorAll<HTMLElement>('.peakhold')) {
+		const state = meterState(hold.dataset.meter!);
+		hold.textContent = Number.isFinite(state.hold) ? state.hold.toFixed(2) : '-Inf';
+		hold.classList.toggle('over', state.clipped);
+	}
+}
+
+function drawMeter(canvas: HTMLCanvasElement, state: { left: number; right: number }): void {
+	if (!canvas.isConnected) return;
+	const dpr = devicePixelRatio;
+	const width = (canvas.width = Math.max(1, Math.round(canvas.clientWidth * dpr)));
+	const height = (canvas.height = Math.max(1, Math.round(canvas.clientHeight * dpr)));
+	const g = canvas.getContext('2d')!;
+	g.clearRect(0, 0, width, height);
+	const style = getComputedStyle(canvas);
+	// The top and the bottom of the scale sit where the fader's thumb can reach (its half height, 6 pixels), with
+	// room for the half height of the "0" and "60" labels.
+	const pad = METER_PAD * dpr;
+	const top = pad;
+	const bottom = height - pad;
+	const y = (db: number) => top + (Math.min(0, Math.max(METER_FLOOR, db)) / METER_FLOOR) * (bottom - top);
+	// As in Live, left to right: the lane of the fader's triangle (METER_LANE), two bars, the scale.
+	const bar = 5 * dpr;
+	const x0 = METER_LANE * dpr;
+	const gradient = g.createLinearGradient(0, bottom, 0, top);
+	gradient.addColorStop(0, '#3fb950');
+	gradient.addColorStop(0.75, '#3fb950');
+	gradient.addColorStop(0.9, '#d4b84a');
+	gradient.addColorStop(1, '#f14c4c');
+	[state.left, state.right].forEach((db, i) => {
+		const x = x0 + i * (bar + dpr);
+		g.fillStyle = 'rgba(0, 0, 0, .45)';
+		g.fillRect(x, top, bar, bottom - top);
+		if (db <= METER_FLOOR) return;
+		g.fillStyle = db > 0 ? '#f14c4c' : gradient;
+		g.fillRect(x, y(db), bar, bottom - y(db));
+	});
+	// The ticks only. Their numbers are text in the page (`meterScale`): numbers drawn here were stretched as a
+	// picture when the panel grew, until the next draw (seen by the maintainer on 2026-11-22).
+	g.fillStyle = style.color;
+	const xs = x0 + 2 * bar + dpr + 2 * dpr;
+	for (let db = 0; db >= METER_FLOOR; db -= 12) g.fillRect(xs, Math.round(y(db)), 3 * dpr, dpr);
+}
+
+/** The numbers of the meter's scale as text, at the heights of the ticks drawMeter draws. */
+function meterScale(): HTMLElement {
+	const scale = el('div', 'meter-scale');
+	for (let db = 0; db >= METER_FLOOR; db -= 12) {
+		const label = scale.appendChild(el('span', '', String(-db)));
+		label.style.top = `calc(${METER_PAD}px + (100% - ${2 * METER_PAD}px) * ${db / METER_FLOOR})`;
+	}
+	return scale;
+}
+
+/** A meter whose well changes size (the panel grows, a strip unfolds) is drawn again at once. */
+const meterResize = new ResizeObserver(() => drawMeters());
+
+/**
+ * A click on the fader's triangle, without moving it, calls `toggle`; a drag still moves the fader. A click elsewhere in
+ * the lane moves the value there, as a range input does, so it is not a toggle either.
+ */
+function clickToToggle(input: HTMLInputElement, toggle: () => void, title: string): void {
+	input.title = title;
+	let start: { y: number; value: string } | undefined;
+	input.addEventListener('pointerdown', (event) => (start = { y: event.clientY, value: input.value }));
+	input.addEventListener('pointerup', (event) => {
+		if (start && Math.abs(event.clientY - start.y) < 3 && input.value === start.value) toggle();
+		start = undefined;
+	});
 }

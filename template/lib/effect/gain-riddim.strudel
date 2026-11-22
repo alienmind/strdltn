@@ -1,0 +1,10 @@
+// @title Gain riddim
+// @category effect
+// @details A held supersaw that pumps from a gain pattern alone, with no sidechain: short dips and
+//   loud hits in a polymeter of 16 steps, so the accents fall against the bar.
+// @tags pump, electro, supersaw
+// @by alienmind
+// @credits DJ_Dave
+note("[a1, a2]").s("supersaw").lpf(1200)
+  .postgain("{0.6 2!4 0.6 2!2 0.6 2!3}%16")
+  .room(.3)

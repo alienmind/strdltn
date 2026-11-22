@@ -1,6 +1,6 @@
-// Builds the bundles: the extension host (Node, CommonJS), the webview of the editor and the stage, the Browser view, the Mixer view, the Devices view, and the firmware worklet (browser).
+// Builds the bundles: the extension host (Node, CommonJS), its MIDI worker thread, the webview of the editor and the stage, the Browser view, the Mixer view, the Devices view, and the firmware worklet (browser).
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { context } from 'esbuild';
 
 // A production build writes no source maps. Without this, maps from an earlier
@@ -36,6 +36,16 @@ const builds = [
 		target: 'node20',
 		external: ['vscode'],
 		define: { __BUILD__: JSON.stringify(stamp) },
+	},
+	{
+		...shared,
+		// The thread that owns the MIDI ports (src/extension/midi.ts). @julusian/midi is bundled; its
+		// loader looks for the native binaries in <this file's folder>/prebuilds, copied below.
+		entryPoints: ['src/extension/midi-worker.ts'],
+		outfile: 'dist/midi-worker.cjs',
+		platform: 'node',
+		format: 'cjs',
+		target: 'node20',
 	},
 	{
 		...shared,
@@ -97,6 +107,8 @@ if (process.argv.includes('--test')) {
 }
 
 await writeFunctions();
+// The prebuilt binaries of @julusian/midi for every platform, 2.2 MB, as the .vsix ships only dist/.
+cpSync('node_modules/@julusian/midi/prebuilds', 'dist/prebuilds', { recursive: true });
 
 /**
  * dist/functions.json: the functions of `@strudel/reference`, for the Functions category of

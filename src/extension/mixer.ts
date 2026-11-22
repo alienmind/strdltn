@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, scopeEdit, tempoEdit, unduckEdits } from '../shared/chains';
-import type { ControlsState, FromControls } from '../shared/controls';
+import type { ControlsState, FromControls, TransportAction } from '../shared/controls';
 import type { FromMixer, ToMixer } from '../shared/mixer';
 import type { ScopeFrame } from '../shared/protocol';
 import { lf, lineColumn } from '../shared/sync';
@@ -16,9 +16,11 @@ export interface MixerActions {
 	moveSlider(document: vscode.TextDocument, index: number, from: number | undefined, value: string): boolean;
 	/** Evaluates the song again when it is playing, so a mute or solo is heard at once. */
 	evaluate(document: vscode.TextDocument): void;
-	/** Plays or stops the song, as the buttons of the editor's title do. */
-	transport(document: vscode.TextDocument, action: 'play' | 'stop'): void;
+	/** Plays, stops, records or renders the song, as the buttons of Music Controls ask. */
+	transport(document: vscode.TextDocument, action: TransportAction): void;
 	isPlaying(document: vscode.TextDocument): boolean;
+	/** Record is on, or a render is being made, for the song. */
+	busy(document: vscode.TextDocument): { recording: boolean; rendering: boolean };
 	/** What Music Controls show changed. */
 	controls(state: ControlsState): void;
 }
@@ -92,8 +94,11 @@ export class MixerView implements Surface {
 	}
 
 	/** The model of the song in front, as the parser read it last. For the integration test. */
-	current(): { song?: string; model?: MixerModel; error?: string; state?: Extract<FromMixer, { type: 'state' }>; pages: number; scopeFrames: number; lastScopes: number } {
-		return { song: this.document && vscode.workspace.asRelativePath(this.document.uri), model: this.model, error: this.error, state: this.lastState, pages: this.pages, scopeFrames: this.scopeFrames, lastScopes: this.lastScopes };
+	/** For the test: the last meter reading of each chain, left and right in dBFS. */
+	private readonly meterPeaks: Record<string, [number | null, number | null]> = {};
+
+	current(): { song?: string; model?: MixerModel; error?: string; state?: Extract<FromMixer, { type: 'state' }>; pages: number; scopeFrames: number; lastScopes: number; meterPeaks: Record<string, [number | null, number | null]> } {
+		return { song: this.document && vscode.workspace.asRelativePath(this.document.uri), model: this.model, error: this.error, state: this.lastState, pages: this.pages, scopeFrames: this.scopeFrames, lastScopes: this.lastScopes, meterPeaks: { ...this.meterPeaks } };
 	}
 
 	/** Unfolds the named strips and folds the others, and returns what the page reports after it has drawn. */
@@ -126,7 +131,8 @@ export class MixerView implements Surface {
 	/** What Music Controls show. Sent on every change of the song, its model or its playing. */
 	private sendControls(): void {
 		const song = this.document?.uri.path.split('/').pop();
-		this.actions.controls({ song, known: !!this.model, tempo: this.model?.tempo && { bpm: this.model.tempo.bpm }, playing: this.playing });
+		const busy = this.document ? this.actions.busy(this.document) : { recording: false, rendering: false };
+		this.actions.controls({ song, known: !!this.model, tempo: this.model?.tempo && { bpm: this.model.tempo.bpm }, playing: this.playing, ...busy });
 	}
 
 	private handle(message: FromMixer): void {
@@ -228,6 +234,7 @@ export class MixerView implements Surface {
 		if (document !== this.document) return;
 		this.scopeFrames++;
 		this.lastScopes = scopes.length;
+		for (const scope of scopes) if (scope.peak) this.meterPeaks[scope.chain] = scope.peak;
 		this.scopePeak = Math.max(this.scopePeak, ...scopes.map((scope) => scope.level));
 		this.post({ type: 'scopes', scopes });
 		// Once every 2 seconds in Output > strdltn: how many frames came and their peak, so a

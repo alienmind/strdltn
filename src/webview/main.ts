@@ -12,12 +12,13 @@ import * as strudelSoundfonts from '@strudel/soundfonts';
 import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
-import { insideString, visualLabel } from '../shared/context';
+import { chooseInsert, type InsertArgument, visualLabel } from '../shared/context';
 import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
 import { SyncClient, type SyncUpdate } from '../shared/sync';
 import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
+import { initMidi, midiMessage, midiScope, midiStopped, setMidiMuted } from './midi';
 import { addFirmware, deviceRequest, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -53,8 +54,11 @@ document.addEventListener('strudel.log', (event) => {
 	log(type === 'error' ? 'error' : type === 'warning' ? 'warn' : 'info', String(message));
 });
 
+initMidi(post, log);
+
 window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 	const message = event.data;
+	if (midiMessage(message)) return;
 	switch (message.type) {
 		case 'init':
 			sync = new SyncClient(message.version, syncId);
@@ -95,11 +99,17 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 		case 'device':
 			deviceRequest(message.request);
 			break;
+		case 'record':
+			void recordTake(message.on);
+			break;
+		case 'render':
+			void renderSong(message.cycles);
+			break;
 		case 'preview':
 			void preview(message.name, message.index);
 			break;
 		case 'insert':
-			insert(message.text, message.bare);
+			insert(message.text, message.bare, message.argument);
 			break;
 		case 'select':
 			if (mirror && mode === 'editor') {
@@ -146,9 +156,11 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		log,
 		clock: () => {
 			const scheduler = mirror?.repl?.scheduler;
-			return { cycle: scheduler?.started ? scheduler.now() : 0, cps: scheduler?.cps ?? 0.5, playing: !!scheduler?.started };
+			// During a render the song plays, offline, from cycle 0: a firmware is told so, as it is when it plays live.
+			return { cycle: scheduler?.started ? scheduler.now() : 0, cps: scheduler?.cps ?? 0.5, playing: !!scheduler?.started || renderingNow };
 		},
 		devices: (devices) => post({ type: 'devices', devices }),
+		meter: meterInput,
 		frame: (key, px, values) => post({ type: 'frame', key, px, values }),
 	});
 
@@ -159,7 +171,15 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		// Every note passes here on its way to superdough: the Mixer's pump meter counts it.
 		defaultOutput: (hap: any, deadline: number, duration: number, cps: number, t: number) => {
 			noteHit(hap, t);
-			return strudelWebaudio.webaudioOutput(hap, deadline, duration, cps, t);
+			// superdough reaches getOrbit before its first await, so while this call runs the note's chain is known
+			// there: see meterOrbits.
+			meterOrbits();
+			meterChain = String(hap?.value?.[CHAIN_KEY] ?? '');
+			try {
+				return strudelWebaudio.webaudioOutput(hap, deadline, duration, cps, t);
+			} finally {
+				meterChain = undefined;
+			}
 		},
 		getTime: () => strudelWebaudio.getAudioContext().currentTime,
 		transpiler,
@@ -181,7 +201,8 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 					strudelSoundfonts,
 					// Last, so that it replaces the `samples` of @strudel/webaudio in the song's scope.
 					// `firmware` is ours: VIBE FM firmwares from an address, for `vibefm1`.
-					{ samples: taggedSamples, firmware: addFirmware },
+					// MIDI goes through the extension host (src/webview/midi.ts).
+					{ samples: taggedSamples, firmware: addFirmware, ...midiScope },
 				),
 				strudelWebaudio.registerSynthSounds(),
 				strudelWebaudio.registerZZFXSounds(),
@@ -210,6 +231,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		onToggle: (started: boolean) => {
 			// The firmwares follow the transport of the song.
 			transport(started);
+			if (!started) midiStopped();
 			sendLevels();
 			postState();
 		},
@@ -261,7 +283,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		text: () => mirror.editor.state.doc.toString(),
 		head: () => mirror.editor.state.selection.main.head,
 		focused: () => mirror.editor.hasFocus,
-		record: recorder(),
+		record: takes,
 	};
 
 	// Ctrl+Enter and Alt+Enter in the editor are upstream's keymap, which calls
@@ -487,11 +509,10 @@ function applyFromHost(changes: unknown): void {
 	mirror.editor.dispatch({ changes, annotations: [fromHost.of(true), Transaction.addToHistory.of(false)] });
 }
 
-function insert(text: string, bare?: string): void {
+function insert(text: string, bare?: string, argument?: InsertArgument): void {
 	if (!mirror) return;
 	const state = mirror.editor.state;
-	const inside = bare !== undefined && insideString(state.doc.toString(), state.selection.main.from);
-	mirror.editor.dispatch(state.replaceSelection(inside ? bare : text));
+	mirror.editor.dispatch(state.replaceSelection(chooseInsert(state.doc.toString(), state.selection.main.from, text, bare, argument)));
 	mirror.editor.focus();
 }
 
@@ -763,7 +784,12 @@ function sendLevels(): void {
 			levels.set(hit.chain, Math.max(levels.get(hit.chain) ?? 0, hit.level));
 			return false;
 		});
-		post({ type: 'scopes', scopes: [...levels].map(([chain, level]) => ({ chain, level: Math.round(level * 1000) / 1000 })) });
+		const peaks = readMeters();
+		const chains = new Set([...levels.keys(), ...peaks.keys()]);
+		post({
+			type: 'scopes',
+			scopes: [...chains].map((chain) => ({ chain, level: Math.round((levels.get(chain) ?? 0) * 1000) / 1000, ...(peaks.has(chain) ? { peak: peaks.get(chain) } : {}) })),
+		});
 	}, 50);
 }
 
@@ -936,45 +962,42 @@ function recorder() {
 			return `recording at ${ac.sampleRate} Hz`;
 		},
 		/**
-		 * Stops and builds the WAV, scaled so its loudest sample sits at -0.4 dB: the mix can go past full scale (it
-		 * clips at the speakers then), and a 16-bit file would clip too. Returns the chunks of 1 MB and the peak before
-		 * the scaling, 1 being full scale.
+		 * Stops and builds the WAV. `normalize` (the promo video) scales it so its loudest sample sits at -0.4 dB: the
+		 * mix can go past full scale, and a 16-bit file would clip. Without it (Record, Render) the take is what was
+		 * heard: above full scale it clips, as the speakers did. `from` and `count` keep part of the take, in frames.
+		 * Returns the chunks of 1 MB, the peak before any scaling (1 is full scale), and the length in seconds.
 		 */
-		stop(): { chunks: number; peak: number } {
+		stop(normalize = true, from = 0, count = Infinity): { chunks: number; peak: number; seconds: number } {
 			node?.disconnect();
 			node = undefined;
 			const rate = strudelWebaudio.getAudioContext().sampleRate;
-			const frames = left.reduce((n, b) => n + b.length, 0);
-			const out = new DataView(new ArrayBuffer(44 + frames * 4));
-			const text = (at: number, s: string) => [...s].forEach((c, i) => out.setUint8(at + i, c.charCodeAt(0)));
-			text(0, 'RIFF');
-			out.setUint32(4, 36 + frames * 4, true);
-			text(8, 'WAVEfmt ');
-			out.setUint32(16, 16, true);
-			out.setUint16(20, 1, true);
-			out.setUint16(22, 2, true);
-			out.setUint32(24, rate, true);
-			out.setUint32(28, rate * 4, true);
-			out.setUint16(32, 4, true);
-			out.setUint16(34, 16, true);
-			text(36, 'data');
-			out.setUint32(40, frames * 4, true);
-			let peak = 0;
-			for (const buffers of [left, right]) for (const b of buffers) for (let i = 0; i < b.length; i++) peak = Math.max(peak, Math.abs(b[i]));
-			const scale = peak > 0 ? 0.95 / peak : 1;
-			let at = 44;
-			left.forEach((l, b) => {
-				const r = right[b];
-				for (let i = 0; i < l.length; i++, at += 4) {
-					out.setInt16(at, l[i] * scale * 32767, true);
-					out.setInt16(at + 2, r[i] * scale * 32767, true);
+			const flat = (buffers: Float32Array[]) => {
+				const all = new Float32Array(buffers.reduce((n, b) => n + b.length, 0));
+				let at = 0;
+				for (const b of buffers) {
+					all.set(b, at);
+					at += b.length;
 				}
-			});
-			wav = new Uint8Array(out.buffer);
+				return all.subarray(Math.min(from, all.length), Math.min(all.length, from + count));
+			};
+			const l = flat(left);
+			const r = flat(right);
 			left = [];
 			right = [];
-			return { chunks: Math.ceil(wav.length / CHUNK), peak };
+			let peak = 0;
+			for (const c of [l, r]) for (let i = 0; i < c.length; i++) peak = Math.max(peak, Math.abs(c[i]));
+			const scale = normalize && peak > 0 ? 0.95 / peak : 1;
+			if (scale !== 1) for (const c of [l, r]) for (let i = 0; i < c.length; i++) c[i] *= scale;
+			wav = wavOf(l, r, rate);
+			return { chunks: Math.ceil(wav.length / CHUNK), peak, seconds: l.length / rate };
 		},
+		/** Frames recorded so far. */
+		frames: () => left.reduce((n, b) => n + b.length, 0),
+		/** The WAV the last stop built. */
+		bytes(): Uint8Array | undefined {
+			return wav;
+		},
+		recording: () => !!node,
 		chunk(i: number): string {
 			if (!wav) return '';
 			let s = '';
@@ -983,4 +1006,230 @@ function recorder() {
 			return btoa(s);
 		},
 	};
+}
+
+/** True while renderSong makes a render: firmwares hear that the song plays. */
+let renderingNow = false;
+
+/** One recorder for Record and for the test hook: both tap the same output. */
+const takes = recorder();
+
+/**
+ * Record on: play the song if it does not, then record what superdough sends to the speakers. Off: stop recording and
+ * send the take to the host, as heard (no scaling). The take starts when the tap is in place, so the first notes of a
+ * song that was not playing may be a beat late.
+ */
+async function recordTake(on: boolean): Promise<void> {
+	if (!on) {
+		if (!takes.recording()) return;
+		const { peak, seconds } = takes.stop(false);
+		const wav = takes.bytes();
+		if (wav) post({ type: 'audio', kind: 'record', wav, seconds, peak });
+		return;
+	}
+	if (!mirror?.repl?.scheduler?.started) await play();
+	// Give the output a moment to exist: superdough builds it with the first note.
+	for (let i = 0; i < 20 && !(strudelWebaudio.getSuperdoughAudioController() as any)?.output?.destinationGain; i++) await new Promise((r) => setTimeout(r, 100));
+	const started = takes.start();
+	if (!started.startsWith('recording')) post({ type: 'audioError', kind: 'record', message: `${started}. Click in the editor to enable audio, then press Record again` });
+	else log('info', `record: ${started}`);
+}
+
+/** A 16-bit stereo WAV of two channels, as the levels are: above full scale it clips, as the speakers would. */
+function wavOf(left: Float32Array, right: Float32Array, rate: number): Uint8Array {
+	const frames = left.length;
+	const out = new DataView(new ArrayBuffer(44 + frames * 4));
+	const text = (at: number, s: string) => [...s].forEach((c, i) => out.setUint8(at + i, c.charCodeAt(0)));
+	text(0, 'RIFF');
+	out.setUint32(4, 36 + frames * 4, true);
+	text(8, 'WAVEfmt ');
+	out.setUint32(16, 16, true);
+	out.setUint16(20, 1, true);
+	out.setUint16(22, 2, true);
+	out.setUint32(24, rate, true);
+	out.setUint32(28, rate * 4, true);
+	out.setUint16(32, 4, true);
+	out.setUint16(34, 16, true);
+	text(36, 'data');
+	out.setUint32(40, frames * 4, true);
+	const sample = (v: number) => Math.round(Math.max(-1, Math.min(1, v)) * 32767);
+	for (let i = 0; i < frames; i++) {
+		out.setInt16(44 + i * 4, sample(left[i]), true);
+		out.setInt16(46 + i * 4, sample(right[i]), true);
+	}
+	return new Uint8Array(out.buffer);
+}
+
+/** Seconds a render goes on past the song's last cycle, for the releases, rooms and delays. */
+const RENDER_TAIL = 2;
+/** Seconds kept before the first note: the take starts a moment before the song. */
+const RENDER_PREROLL = 0.25;
+
+/**
+ * Render: the song from its first cycle, played by the live engine with the speakers muted, recorded from superdough's
+ * output (the recorder of Record), for its length and a tail. It takes as long as the song, and the file is what the
+ * song sounds like: every effect, ducking, the firmwares, as when it plays. An offline render (upstream's
+ * renderPatternAudio) was tried first and dropped: the demo came out with most notes missing (see the drawer). MIDI
+ * is muted meanwhile, so a synth does not play along unheard. Stop ends the render without a file.
+ */
+async function renderSong(cycles: number): Promise<void> {
+	const context: AudioContext = strudelWebaudio.getAudioContext();
+	let tap: AudioNode | undefined;
+	try {
+		if (takes.recording()) takes.stop(false);
+		mirror.stop();
+		if (context.state !== 'running') await Promise.race([context.resume().catch(() => undefined), new Promise((r) => setTimeout(r, 1500))]);
+		if (context.state !== 'running') throw new Error('audio is not on yet: click once in the editor, then press Render again');
+		tap = (strudelWebaudio.getSuperdoughAudioController() as any).output?.destinationGain as AudioNode | undefined;
+		if (!tap) throw new Error('the audio output is not there');
+		const cps = mirror.repl.scheduler.cps;
+		const rate = context.sampleRate;
+		const seconds = cycles / cps;
+		log('info', `render: ${cycles} cycles at ${(cps * 240).toFixed(1)} BPM, ${seconds.toFixed(1)} s, in real time with the speakers off`);
+		tap.disconnect(context.destination);
+		setMidiMuted(true);
+		renderingNow = true;
+		takes.start();
+		await play();
+		const scheduler = mirror.repl.scheduler;
+		if (!scheduler.started) throw new Error('the song did not start: see the error in the editor');
+		// Nothing past the song's length plays: stopped at the end, the scheduler had already queued the first notes of
+		// the next round, and they were in the tail (measured with an 8-bar song on 2026-11-22).
+		if (scheduler.pattern?.filterHaps) scheduler.setPattern(scheduler.pattern.filterHaps((hap: any) => (hap.whole?.begin.valueOf() ?? 0) < cycles));
+		const from = Math.max(0, takes.frames() - Math.round(RENDER_PREROLL * rate));
+		const count = Math.round((seconds + RENDER_TAIL + RENDER_PREROLL) * rate);
+		// The song stops at its length, so it does not start again; the tail goes on recording what still sounds.
+		const songEnd = from + Math.round((seconds + RENDER_PREROLL) * rate);
+		let lastLog = 0;
+		while (takes.frames() < songEnd) {
+			if (!mirror.repl.scheduler.started) throw new Error('stopped before the end');
+			const done = (takes.frames() - from) / (songEnd - from);
+			if (done - lastLog >= 0.1) {
+				lastLog = done;
+				log('info', `render: ${Math.round(done * 100)}%`);
+			}
+			await new Promise((r) => setTimeout(r, 100));
+		}
+		mirror.stop();
+		while (takes.frames() < from + count) await new Promise((r) => setTimeout(r, 100));
+		const { peak } = takes.stop(false, from, count);
+		const wav = takes.bytes();
+		if (!wav) throw new Error('the render made no audio');
+		post({ type: 'audio', kind: 'render', wav, seconds, peak });
+	} catch (error) {
+		if (takes.recording()) takes.stop(false);
+		post({ type: 'audioError', kind: 'render', message: String((error as Error)?.message ?? error) });
+	} finally {
+		renderingNow = false;
+		setMidiMuted(false);
+		try {
+			tap?.connect(context.destination);
+		} catch {
+			// The context went away meanwhile.
+		}
+	}
+}
+
+// ---- level meters ----------------------------------------------------------------------
+//
+// The Mixer's meters show each chain's real audio, as Live's do. superdough plays a note through its own nodes and
+// ends with `orbit.connectToOutput(post)`, where `post` is that note's last node, after its own effects and before
+// the orbit's shared ones. superdough gets the orbit with `getOrbit` before its first await, so while defaultOutput
+// runs it the note's chain is known (`meterChain`): the controller's getOrbit is wrapped to hand back the orbit with a
+// connectToOutput that also feeds the chain's meter. Nothing in the song changes, unlike a per-chain `analyze`, which
+// a song's own `.scope()` takes over (see the drawer, "Per-chain scopes from the analysers"). Chains on one orbit get
+// meters of their own; the orbit's shared room and delay are not in them. Firmwares are metered where their node
+// joins the orbit (`meter` of the firmware host).
+
+/** The chain of the note superdough is being given right now, or undefined. */
+let meterChain: string | undefined;
+
+interface Meter {
+	context: BaseAudioContext;
+	input: GainNode;
+	left: AnalyserNode;
+	right: AnalyserNode;
+}
+const meters = new Map<string, Meter>();
+let masterMeter: Meter | undefined;
+const METER_BUFFER = new Float32Array(2048);
+
+function makeMeter(context: BaseAudioContext): Meter {
+	const input = context.createGain();
+	// A note without pan is mono; mixed up to two channels, it shows on both bars, not on the left alone (measured:
+	// the right bar of a plain sawtooth read silence).
+	input.channelCount = 2;
+	input.channelCountMode = 'explicit';
+	input.channelInterpretation = 'speakers';
+	const split = context.createChannelSplitter(2);
+	const left = context.createAnalyser();
+	const right = context.createAnalyser();
+	left.fftSize = right.fftSize = 2048;
+	input.connect(split);
+	split.connect(left, 0);
+	split.connect(right, 1);
+	return { context, input, left, right };
+}
+
+/** The meter of a chain in the current AudioContext. A render makes a new context, so meters follow it. */
+function meterFor(chain: string): Meter | undefined {
+	const context = strudelWebaudio.getAudioContext();
+	if (context instanceof OfflineAudioContext) return undefined;
+	let meter = meters.get(chain);
+	if (!meter || meter.context !== context) meters.set(chain, (meter = makeMeter(context)));
+	return meter;
+}
+
+/** Wraps getOrbit of superdough's controller once per controller. */
+function meterOrbits(): void {
+	const controller = strudelWebaudio.getSuperdoughAudioController() as any;
+	if (!controller || controller.strdltnMeters) return;
+	controller.strdltnMeters = true;
+	const getOrbit = controller.getOrbit.bind(controller);
+	controller.getOrbit = (orbitNum: number, channels?: number) => {
+		const orbit = getOrbit(orbitNum, channels);
+		const chain = meterChain;
+		if (chain === undefined) return orbit;
+		return new Proxy(orbit, {
+			get(target, prop) {
+				if (prop === 'connectToOutput')
+					return (node: AudioNode) => {
+						target.connectToOutput(node);
+						const meter = meterFor(chain);
+						if (meter) node.connect(meter.input);
+					};
+				const value = Reflect.get(target, prop, target);
+				return typeof value === 'function' ? value.bind(target) : value;
+			},
+		});
+	};
+}
+
+function readPeak(analyser: AnalyserNode): number | null {
+	analyser.getFloatTimeDomainData(METER_BUFFER);
+	let peak = 0;
+	for (let i = 0; i < METER_BUFFER.length; i++) peak = Math.max(peak, Math.abs(METER_BUFFER[i]));
+	return peak > 1e-6 ? Math.round(2000 * Math.log10(peak)) / 100 : null;
+}
+
+/** Each chain's peak of the last 2048 samples (about 43 ms) in dBFS, and the whole mix's as `@master`. */
+function readMeters(): Map<string, [number | null, number | null]> {
+	const out = new Map<string, [number | null, number | null]>();
+	const context = strudelWebaudio.getAudioContext();
+	for (const [chain, meter] of meters) if (meter.context === context) out.set(chain, [readPeak(meter.left), readPeak(meter.right)]);
+	const tap = (strudelWebaudio.getSuperdoughAudioController() as any)?.output?.destinationGain as AudioNode | undefined;
+	if (tap && !(context instanceof OfflineAudioContext)) {
+		if (!masterMeter || masterMeter.context !== context) {
+			masterMeter = makeMeter(context);
+			tap.connect(masterMeter.input);
+		}
+		out.set('@master', [readPeak(masterMeter.left), readPeak(masterMeter.right)]);
+	}
+	return out;
+}
+
+/** For the firmware host: the input of a chain's meter, where a firmware's node joins in too. */
+function meterInput(value: any): AudioNode | undefined {
+	const chain = value?.[CHAIN_KEY];
+	return chain === undefined ? undefined : meterFor(String(chain))?.input;
 }

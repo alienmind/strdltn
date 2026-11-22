@@ -25,7 +25,9 @@ const QUOTED_TITLE = /^"([^"]+)"\s*(?:@by\s+(.*\S))?\s*$/;
 /**
  * Splits a file into header fields and code. The header is the run of comments at the
  * very top that carry `@name value` lines, as `//` lines or inside one block comment.
- * A top comment without any field is not a header and stays in the code.
+ * A top comment without any field is not a header and stays in the code. A value goes on
+ * over the next `//` lines that are indented two spaces or more under it (`//   more`),
+ * or over the next lines without `@` inside a block comment.
  */
 export function parseSnippet(name: string, text: string): SnippetInfo {
 	const lines = text.replace(/\r\n/g, '\n').split('\n');
@@ -33,6 +35,8 @@ export function parseSnippet(name: string, text: string): SnippetInfo {
 	let title = '';
 	let index = 0;
 	let inBlock = false;
+	/** Adds a continuation line to the field just read; undefined after anything else. */
+	let open: ((more: string) => void) | undefined;
 	for (; index < lines.length; index++) {
 		let line = lines[index].trim();
 		if (!inBlock && line.startsWith('/*')) {
@@ -40,12 +44,16 @@ export function parseSnippet(name: string, text: string): SnippetInfo {
 			line = line.slice(2).trim();
 		}
 		let content: string;
+		/** A line that goes on with the field above: indented under it, or any line of a block. */
+		let continues: boolean;
 		if (inBlock) {
 			const end = line.indexOf('*/');
 			content = (end >= 0 ? line.slice(0, end) : line).replace(/^\*\s?/, '').trim();
 			if (end >= 0) inBlock = false;
+			continues = true;
 		} else if (line.startsWith('//')) {
 			content = line.slice(2).trim();
+			continues = /^\s{2,}\S/.test(line.slice(2));
 		} else if (line === '') {
 			continue;
 		} else {
@@ -53,9 +61,21 @@ export function parseSnippet(name: string, text: string): SnippetInfo {
 		}
 		const field = FIELD.exec(content);
 		const quoted = QUOTED_TITLE.exec(content);
+		if (!field && continues && content !== '' && open) {
+			// A long value written over several lines, so no line is longer than 100 characters.
+			open(content);
+			continue;
+		}
+		open = undefined;
 		if (field) {
-			if (field[1] === 'title') title = field[2];
-			else fields.push({ name: field[1], value: field[2] });
+			if (field[1] === 'title') {
+				title = field[2];
+				open = (more) => (title += ` ${more}`);
+			} else {
+				const entry = { name: field[1], value: field[2] };
+				fields.push(entry);
+				open = (more) => (entry.value += ` ${more}`);
+			}
 		} else if (quoted && !title) {
 			title = quoted[1];
 			if (quoted[2]) fields.push({ name: 'by', value: quoted[2] });
@@ -92,7 +112,11 @@ export function setSnippetTags(text: string, tags: string[]): string {
 	const lines = text.split(/\r?\n/);
 	const value = tags.join(', ');
 	const tagLine = lines.findIndex((line) => /^\s*\/\/\s*@tags\b/.test(line));
+	/** A `//` line indented under a field: the field goes on there (see parseSnippet). */
+	const continuation = (line: string | undefined) => line !== undefined && /^\s*\/\/\s{2,}[^\s@]/.test(line);
 	if (tagLine >= 0) {
+		// Tags written over several lines become one line again.
+		while (continuation(lines[tagLine + 1])) lines.splice(tagLine + 1, 1);
 		if (value) lines[tagLine] = lines[tagLine].replace(/@tags\b.*$/, `@tags ${value}`);
 		else lines.splice(tagLine, 1);
 		return lines.join(eol);
@@ -101,7 +125,7 @@ export function setSnippetTags(text: string, tags: string[]): string {
 	let last = -1;
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i].trim();
-		if (/^\/\/\s*@\w+/.test(line)) last = i;
+		if (/^\/\/\s*@\w+/.test(line) || (last >= 0 && last === i - 1 && continuation(lines[i]))) last = i;
 		else if (line === '' || line.startsWith('//')) continue;
 		else break;
 	}

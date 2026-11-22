@@ -24,7 +24,9 @@ Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Co
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
 from a browser on any machine, with nothing installed.
 
-> **Version 0.3.0.** A Devices view: each firmware a song plays shows its own screen, keys
+> **Version 0.4.0**, in progress: MIDI on desktop. Strudel's `.midi()` plays a device in
+> time with the sound, and `midin()` and `midikeys()` read a controller or a keyboard.
+> Version 0.3.0 brought a Devices view: each firmware a song plays shows its own screen, keys
 > and knobs, and can fill the view or move to a tab of its own. The demo song now plays
 > itself, from a countdown to a countdown, with a fader for every part. Version 0.2.0
 > brought the Mixer, Music Controls and the Browser in four views. See "What is missing" at
@@ -64,8 +66,8 @@ it because the scope grew beyond a VS Code extension.
 - Each slider in the code is a fader. Moving it changes the sound at once and the number
   in the code a moment later. Under the faders, a meter pumps with the part's notes; a click
   on a gray one adds `._scope()` to the part.
-- M mutes, S solos, G adds or removes a gain fader. Each writes Strudel's own code, so the
-  song plays the same on strudel.cc.
+- M mutes, S solos, and a click on the gain fader's triangle adds or removes it. Each writes
+  Strudel's own code, so the song plays the same on strudel.cc.
 - Sidechain as cables: drag from a strip's jack onto another strip to duck it, pull the
   cable off to stop. The code gets the `.duck()` and `.orbit()` for it.
 - Music Controls at the top of the Library: Play, Stop and the BPM of the song. Type a
@@ -125,7 +127,7 @@ version bump.
 ![The Mixer: a strip per part with faders, M, S, G and sidechain cables](screenshot-music.png)
 
 The bottom panel has a tab called Mixer. It shows the song in front: a strip
-for each part, with its faders, M, S and G, and orange cables for the sidechain. Drag
+for each part, with its fader on a level meter, M and S, and orange cables for the sidechain. Drag
 from the jack at the foot of a strip onto another strip and the first ducks the second;
 the code gets `.duck("2")` and, if needed, an `.orbit()` of its own for the target. Every
 change is an edit of the song, so undo takes it back and the song stays plain Strudel.
@@ -257,8 +259,10 @@ On a Mac use Cmd in place of Ctrl.
 
 ## What is missing
 
-- MIDI. VS Code does not let an extension's page use MIDI, so Strudel's `.midi()` and
-  `midin()` do not work yet. A way around it is being built.
+- MIDI in Codespaces. VS Code does not let an extension's page use MIDI, so MIDI goes
+  through the part of the extension that runs on your machine. In a Codespace that part
+  runs in the cloud and cannot see your devices. MIDI devices are not in the Browser or
+  the Mixer yet either.
 - The sound stops when you switch between the two editors.
 - Playing notes are not outlined in the native editor.
 - No completion or documentation on hover in the code yet. The Reference lists the
@@ -274,4 +278,4 @@ Alex McLean and the Strudel contributors. [str]dltn Live[code] is only the VS Co
 
 The template includes `coastline` by eddyflux, from Strudel's own examples, and "Array
 (Lil Data Edit)" by DJ_Dave. Several snippets use techniques learned from Switch Angel
-and from the Art Haus live coding workshop.
+and from the Art Haus live coding workshop, and her trance gate is a snippet of its own.

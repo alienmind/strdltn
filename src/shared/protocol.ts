@@ -1,6 +1,8 @@
 // Messages between the extension host and a webview. Both sides import this file.
 import type { DeviceInfo, DeviceRequest } from './devices';
+import type { InsertArgument } from './context';
 import type { FirmwareCacheMap } from './firmware';
+import type { MidiOut, MidiPorts } from './midi';
 import type { PackInfo } from './packs';
 import type { SyncUpdate } from './sync';
 
@@ -78,7 +80,7 @@ export type ToWebview =
 	| { type: 'stop' }
 	| { type: 'preview'; name: string; index: number }
 	/** `bare` replaces `text` when the cursor is inside a string: the name alone, not a call. */
-	| { type: 'insert'; text: string; bare?: string }
+	| { type: 'insert'; text: string; bare?: string; argument?: InsertArgument }
 	/** Puts the cursor at an offset of the code, from a click on a strip of the Mixer. */
 	| { type: 'select'; offset: number }
 	/**
@@ -89,7 +91,17 @@ export type ToWebview =
 	/** The answer to `cacheFiles`. `base` is the address of the cached folder when every file is in it. */
 	| { type: 'cachedFiles'; id: number; base?: string }
 	/** A request of the Devices view for one of this engine's firmware copies. */
-	| { type: 'device'; request: DeviceRequest };
+	| { type: 'device'; request: DeviceRequest }
+	/** Record on: play if it does not, and record what plays. Off: stop recording and send the audio. */
+	| { type: 'record'; on: boolean }
+	/** Render the song offline, `cycles` long, and send the audio. The song stops first. */
+	| { type: 'render'; cycles: number }
+	/** The MIDI ports of the machine, once the song uses MIDI and when they change. */
+	| { type: 'midiPorts'; ports: MidiPorts }
+	/** The answer to `midiPing`: the host's clock (`epochNow`) when it read the ping. */
+	| { type: 'midiPong'; id: number; sent: number; now: number }
+	/** A message from a MIDI input the song listens to. */
+	| { type: 'midiIn'; port: string; bytes: number[] };
 
 /**
  * The level of one chain at one moment, for the pump meter of the Mixer: it jumps by the
@@ -99,6 +111,12 @@ export type ToWebview =
 export interface ScopeFrame {
 	chain: string;
 	level: number;
+	/**
+	 * The chain's real audio, left and right: the loudest sample of the last 50 ms in dBFS (0 is full scale, above 0
+	 * clips at the speakers), null for silence. Read from a meter the engine puts after each of the chain's notes.
+	 * `chain` is `@master` for the whole mix.
+	 */
+	peak?: [number | null, number | null];
 }
 
 export type FromWebview =
@@ -117,7 +135,20 @@ export type FromWebview =
 	| { type: 'devices'; devices: DeviceInfo[] }
 	/** A display frame (480 x 320 RGB565) and the parameters' values of a copy a panel shows. */
 	| { type: 'frame'; key: string; px: Uint8Array; values: number[] }
-	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string };
+	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string }
+	/**
+	 * A recording or a render, as a 16-bit stereo WAV. `peak` is the loudest sample before it was written, 1 being full
+	 * scale: a recording keeps what was heard, so above 1 it clipped.
+	 */
+	| { type: 'audio'; kind: 'record' | 'render'; wav: Uint8Array; seconds: number; peak?: number }
+	| { type: 'audioError'; kind: 'record' | 'render'; message: string }
+	/** Measures the clock offset to the host, see ClockOffset in src/shared/midi.ts. The first one starts the MIDI bridge. */
+	| { type: 'midiPing'; id: number; sent: number }
+	/** Notes and messages with the host time they are due, sent about 100 ms early. */
+	| { type: 'midiOut'; events: MidiOut[] }
+	| { type: 'midiListen'; port: string }
+	/** The song stopped: drop this engine's queued events and turn its notes off. */
+	| { type: 'midiPanic' };
 
 export interface TextChange {
 	from: number;

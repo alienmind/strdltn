@@ -8,12 +8,18 @@ importers:
 
   .:
     devDependencies:
+      '@breezystack/lamejs':
+        specifier: 1.2.7
+        version: 1.2.7
       '@codemirror/state':
         specifier: ^6.7.6
         version: 6.7.6
       '@codemirror/view':
         specifier: ^6.43.15
         version: 6.43.15
+      '@julusian/midi':
+        specifier: 3.9.0
+        version: 3.9.0
       '@strudel/codemirror':
         specifier: 1.3.0
         version: 1.3.0(@codemirror/lint@6.9.8)
@@ -122,6 +128,9 @@ packages:
   '@babel/runtime@7.29.14':
     resolution: {integrity: sha512-Y5tqevQaUAZhhj82BpYMNC1ssvLQTVAfwKdm8iy8qwmhvC2/CpcAu8OC+QEtjM7pMk7knx83u1Qj8gzkicyelw==}
     engines: {node: '>=6.9.0'}
+
+  '@breezystack/lamejs@1.2.7':
+    resolution: {integrity: sha512-6wc7ck65ctA75Hq7FYHTtTvGnYs6msgdxiSUICQ+A01nVOWg6rqouZB8IdyteRlfpYYiFovkf67dIeOgWIUzTA==}
 
   '@codemirror/autocomplete@6.20.4':
     resolution: {integrity: sha512-yF8RhOf2SXlg00+qtupzLhrglcas61boqaONiNcbPIebHCpJocpqTBA6dyrtUrQO47hqyTdeob/3XnYilT7TaQ==}
@@ -305,6 +314,10 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@julusian/midi@3.9.0':
+    resolution: {integrity: sha512-nn5ry0YLfJ+u/cxuaGIpsM8XqnkLRIQp9ZNGC+NbOxuTYIZuJmkojLkKFZr+g040P9uAZDUwBevAxWswsyheFA==}
+    engines: {node: '>=14.15'}
 
   '@kabelsalat/core@0.4.0':
     resolution: {integrity: sha512-5zV8nh8HffW8aexObXs5pE0xgL0jb1cHc3o8UN6AvK0mBt87fjZvW65E4rMslHyq+OuCscoBJW7B3MbYfWrwMQ==}
@@ -1226,6 +1239,9 @@ packages:
     resolution: {integrity: sha512-k1oiVNN4hDK8NcNERSZLQiMfRzEGtfnvZvdBvey3SQbgn8Dcrk0h1I6vpxApjb10PFUflZrgJ2WEZyJQ+5v7YQ==}
     engines: {node: ^18.0.0 || >=20.0.0}
 
+  node-addon-api@6.1.0:
+    resolution: {integrity: sha512-+eawOlIgy680F0kBzPUNFhMZGtJ1YmqM6l4+Crf4IkImjYrO/mqPwRMh352g23uIaQKFItcQ64I7KMaJxHgAVA==}
+
   node-getopt@0.3.2:
     resolution: {integrity: sha512-yqkmYrMbK1wPrfz7mgeYvA4tBperLg9FQ4S3Sau3nSAkpOA0x0zC8nQ1siBwozy1f4SE8vq2n1WKv99r+PCa1Q==}
     engines: {node: '>= 0.6.0'}
@@ -1264,6 +1280,11 @@ packages:
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  pkg-prebuilds@1.1.0:
+    resolution: {integrity: sha512-jyai+KTQ2OwbN6iRYw88XbYOMgtpoSYJpjYebx7d9ihqz3txNi3ucsBt3va0iVWe6svSlaqpijMHFF/eJCMZzg==}
+    engines: {node: '>= 14.15.0'}
+    hasBin: true
 
   powershell-utils@0.2.1:
     resolution: {integrity: sha512-C+y9x90UElAddDZmV4qOx9W53B61PO7cIqWz2dQsWlwswuq4mr8NEwytdGKboYbQlGZ3awrkTeNvcZiZNHnQ8A==}
@@ -1570,6 +1591,8 @@ snapshots:
 
   '@babel/runtime@7.29.14': {}
 
+  '@breezystack/lamejs@1.2.7': {}
+
   '@codemirror/autocomplete@6.20.4':
     dependencies:
       '@codemirror/language': 6.13.1
@@ -1706,6 +1729,12 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.2':
     optional: true
+
+  '@julusian/midi@3.9.0':
+    dependencies:
+      node-addon-api: 6.1.0
+      pkg-prebuilds: 1.1.0
+      tslib: 2.9.1
 
   '@kabelsalat/core@0.4.0': {}
 
@@ -2672,6 +2701,8 @@ snapshots:
 
   nanostores@0.11.4: {}
 
+  node-addon-api@6.1.0: {}
+
   node-getopt@0.3.2: {}
 
   object-inspect@1.14.0: {}
@@ -2714,6 +2745,8 @@ snapshots:
   performance-now@2.1.0: {}
 
   picomatch@4.0.7: {}
+
+  pkg-prebuilds@1.1.0: {}
 
   powershell-utils@0.2.1: {}
 

@@ -19,6 +19,8 @@ export interface VibeHost {
 	devices(list: DeviceInfo[]): void;
 	/** A display frame of a copy, while a panel of the Devices view shows it. */
 	frame(key: string, px: Uint8Array, values: number[]): void;
+	/** The level meter of the chain a note comes from, for the Mixer. */
+	meter?(value: any): AudioNode | undefined;
 }
 
 interface Instance {
@@ -33,6 +35,8 @@ interface Instance {
 	bpm?: number;
 	/** The program last sent per channel. A program change reloads a sound, so it is not sent with every note. */
 	programs: Map<number, number>;
+	/** The chain meters this copy already feeds. */
+	metered?: Set<AudioNode>;
 }
 
 /** The instrument's name in a song. */
@@ -154,6 +158,20 @@ function forget(id: string): void {
 	announce();
 }
 
+/**
+ * Drops every firmware copy and the loaded worklet module: they belong to the AudioContext they were made in. A render
+ * (renderPatternAudio) closes the live context and makes an offline one, then leaves none; the next note starts fresh
+ * copies in whatever context is current.
+ */
+export function resetFirmware(): void {
+	for (const pending of instances.values()) void pending.then((instance) => instance?.node.disconnect());
+	instances.clear();
+	running.clear();
+	offline.clear();
+	workletLoaded = undefined;
+	announce();
+}
+
 /** Tells the host which copies run. */
 function announce(): void {
 	host.devices([...running.values()].map(({ key, id, orbit, params }) => ({ key, id, orbit, params })));
@@ -196,12 +214,36 @@ async function trigger(t: number, value: any): Promise<undefined> {
 	if (!id) return undefined;
 	precompile();
 	const orbit = Number(value.orbit ?? 1);
+	const ac = context();
+	if (ac instanceof OfflineAudioContext) {
+		// A render: the notes are kept for the copy that prepareOfflineFirmware makes when the render starts.
+		await moduleFor(id);
+		const key = `${id}@${orbit}`;
+		let copy = offline.get(key);
+		if (!copy) offline.set(key, (copy = { id, orbit, events: [], programs: new Map() }));
+		copy.events.push(...noteEvents(t, value, ac.sampleRate, copy.programs));
+		return undefined;
+	}
 	const instance = await instanceFor(id, orbit);
 	if (!instance) return undefined;
-	const ac = context();
 	const rate = ac.sampleRate;
 	// A firmware that just loaded should not play the first notes late: drop what is already more than a block past.
 	if (t < ac.currentTime - 128 / rate) return undefined;
+	const events = noteEvents(t, value, rate, instance.programs);
+	// The firmware's sound joins its orbit here, not through superdough's notes, so its chain's meter is fed here. Two
+	// chains on one copy both see the whole copy.
+	const meter = host.meter?.(value);
+	if (meter && !(instance.metered ??= new Set()).has(meter)) {
+		instance.metered.add(meter);
+		instance.node.connect(meter);
+	}
+	sendClock(instance);
+	instance.post({ t: 'events', events });
+	return undefined;
+}
+
+/** A hap as firmware events: a program change when `.progNum()` changed, then note on and note off, in frames. */
+function noteEvents(t: number, value: any, rate: number, programs: Map<number, number>): VibeEvent[] {
 	const freq = strudelWebaudio.getFrequencyFromValue(value);
 	const note = Math.max(0, Math.min(127, Math.round(12 * Math.log2(freq / 440) + 69)));
 	const channel = Math.max(0, Math.min(15, Math.round(Number(value.midichan ?? 1)) - 1));
@@ -213,8 +255,8 @@ async function trigger(t: number, value: any): Promise<undefined> {
 	// `.progNum(n)` picks a firmware's program (its patch), the way it would from a MIDI keyboard. OBERVAVE has 99.
 	if (value.progNum != null) {
 		const program = Math.max(0, Math.min(127, Math.round(Number(value.progNum))));
-		if (instance.programs.get(channel) !== program) {
-			instance.programs.set(channel, program);
+		if (programs.get(channel) !== program) {
+			programs.set(channel, program);
 			events.push({ frame: on, kind: 'midi', status: 0xc0 | channel, d1: program, d2: 0 });
 		}
 	}
@@ -222,9 +264,35 @@ async function trigger(t: number, value: any): Promise<undefined> {
 		{ frame: on, kind: 'midi', status: 0x90 | channel, d1: note, d2: velocity },
 		{ frame: off, kind: 'midi', status: 0x80 | channel, d1: note, d2: 0 },
 	);
-	sendClock(instance);
-	instance.post({ t: 'events', events });
-	return undefined;
+	return events;
+}
+
+/**
+ * The firmware copies of a render, with every note they will play. An offline render runs seconds of audio in
+ * milliseconds and a worklet reads its port only between render steps, so notes posted to it would arrive after the
+ * render ended (measured: a firmware-only song rendered silent). So the notes wait here, and the copy is made with
+ * all of them in its options when the render starts.
+ */
+const offline = new Map<string, { id: string; orbit: number; events: VibeEvent[]; programs: Map<number, number> }>();
+
+/** Called by the render just before startRendering: makes the copies of the render with their notes. */
+/** `startCycle`: the cycle at frame 0 of this context. A render comes in chunks, and a firmware's clock starts there. */
+export async function prepareOfflineFirmware(ac: OfflineAudioContext, startCycle = 0): Promise<void> {
+	if (!offline.size) return;
+	await ac.audioWorklet.addModule(WORKLET_URL);
+	const { cps } = host.clock();
+	for (const copy of offline.values()) {
+		const events: VibeEvent[] = [{ frame: 0, kind: 'tempo', bpm: cps * 240 }, { frame: 0, kind: 'play', on: true }, ...copy.events];
+		const node = new AudioWorkletNode(ac, 'strdltn-vibe', {
+			numberOfInputs: 0,
+			numberOfOutputs: 1,
+			outputChannelCount: [2],
+			// The chunk plays from startCycle at frame 0, with the song's tempo, as a live play tells a firmware.
+			processorOptions: { module: await moduleFor(copy.id), clock: { frame: 0, cycle: startCycle, cps, playing: true }, events },
+		});
+		node.connect(strudelWebaudio.getSuperdoughAudioController().getOrbit(copy.orbit).summingNode);
+	}
+	offline.clear();
 }
 
 function sendPlay(instance: Instance, on: boolean): void {

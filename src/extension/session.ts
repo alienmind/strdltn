@@ -6,6 +6,8 @@ import type { PackCache } from './packs';
 import { findFirmwareUrls, type FirmwareCacheMap } from '../shared/firmware';
 import { type FirmwareCache, scanFirmware } from './firmware';
 import { scanSamples } from './samples';
+import { isMidiMessage, type MidiBridge } from './midi';
+import type { InsertArgument } from '../shared/context';
 import type { DeviceInfo, DeviceRequest } from '../shared/devices';
 
 /** What a session needs from the extension, and what it tells it. */
@@ -13,6 +15,7 @@ export interface SessionHost {
 	output: vscode.OutputChannel;
 	packs: PackCache;
 	firmwareCache: FirmwareCache;
+	midi: MidiBridge;
 	/** Evaluation errors go here, so they show in the Problems view and as squiggles in the native editor. */
 	diagnostics: vscode.DiagnosticCollection;
 	onDispose(session: Session): void;
@@ -25,6 +28,8 @@ export interface SessionHost {
 	onDevices?(session: Session, devices: DeviceInfo[]): void;
 	/** A display frame of one of them. */
 	onFrame?(session: Session, key: string, px: Uint8Array, values: number[]): void;
+	/** A recording or a render came back: write it next to the song. */
+	onAudio?(session: Session, kind: 'record' | 'render', wav: Uint8Array, info: { seconds: number; peak?: number }): Promise<void>;
 }
 
 /** The settings `strdltn.editor.*`. An empty font and a size of 0 mean: as the VS Code editor. */
@@ -63,6 +68,12 @@ export class Session {
 	}
 	/** Everything the webview logged. Read by the integration test through the extension API. */
 	readonly logs: string[] = [];
+	/** Record is on in this engine. */
+	recording = false;
+	/** A render of this song is being made. */
+	rendering = false;
+	/** Names this engine for the MIDI bridge. */
+	private readonly midiId = Math.random().toString(36).slice(2);
 	/** When this session's tab was last the active one. Picks the target of a preview or insert. */
 	lastActiveAt = Date.now();
 
@@ -115,6 +126,7 @@ export class Session {
 			this.disposables.forEach((d) => d.dispose());
 			clearTimeout(this.packsTimer);
 			host.diagnostics.delete(document.uri);
+			host.midi.forget(this.midiId);
 			host.onDispose(this);
 		});
 	}
@@ -139,8 +151,8 @@ export class Session {
 	}
 
 	/** Inserts at the cursor of the Strudel editor. The change comes back as a normal edit. */
-	insert(text: string, bare?: string): void {
-		this.post({ type: 'insert', text, bare });
+	insert(text: string, bare?: string, argument?: InsertArgument): void {
+		this.post({ type: 'insert', text, bare, argument });
 	}
 
 	private packsTimer: ReturnType<typeof setTimeout> | undefined;
@@ -201,7 +213,41 @@ export class Session {
 	}
 
 	stop(): void {
+		// Stop also ends a recording, as Live's Stop does: the take so far is kept.
+		if (this.recording) this.record(false);
 		this.post({ type: 'stop' });
+	}
+
+	/** Record on or off. On plays the song if it does not; off writes what was heard next to the song. */
+	record(on = !this.recording): void {
+		if (on === this.recording || this.rendering) return;
+		this.recording = on;
+		this.post({ type: 'record', on });
+		this.host.onState(this);
+	}
+
+	/** Ends the notification of a render in progress. */
+	private renderDone?: () => void;
+
+	/**
+	 * Renders the song: the engine plays it from the start with the speakers off and records it, so it takes as long
+	 * as the song. A notification says so, and its Cancel stops the song, which ends the render without a file.
+	 */
+	render(cycles: number): void {
+		if (this.rendering) return;
+		if (this.recording) this.record(false);
+		this.rendering = true;
+		this.post({ type: 'render', cycles });
+		this.host.onState(this);
+		const name = this.document.uri.path.split('/').pop();
+		void vscode.window.withProgress(
+			{ location: vscode.ProgressLocation.Notification, title: `strdltn: rendering ${name}. It plays once from the start, with the sound off, and takes as long as the song`, cancellable: true },
+			(_progress, token) =>
+				new Promise<void>((resolve) => {
+					this.renderDone = resolve;
+					token.onCancellationRequested(() => this.stop());
+				}),
+		);
 	}
 
 	private post(message: ToWebview): void {
@@ -209,6 +255,7 @@ export class Session {
 	}
 
 	private async receive(message: FromWebview): Promise<void> {
+		if (isMidiMessage(message)) return this.host.midi.receive(this.midiId, (m) => this.post(m), message);
 		switch (message.type) {
 			case 'ready': {
 				const samples = await scanSamples(await this.samplesFolder(), this.panel.webview);
@@ -253,6 +300,24 @@ export class Session {
 				break;
 			case 'frame':
 				this.host.onFrame?.(this, message.key, message.px, message.values);
+				break;
+			case 'audio':
+				if (message.kind === 'render') {
+					this.rendering = false;
+					this.renderDone?.();
+				}
+				else this.recording = false;
+				this.host.onState(this);
+				await this.host.onAudio?.(this, message.kind, message.wav, { seconds: message.seconds, peak: message.peak });
+				break;
+			case 'audioError':
+				if (message.kind === 'render') {
+					this.rendering = false;
+					this.renderDone?.();
+				}
+				else this.recording = false;
+				this.host.onState(this);
+				void vscode.window.showErrorMessage(`strdltn: ${message.kind === 'render' ? 'the render' : 'the recording'} failed: ${message.message}`);
 				break;
 			case 'log': {
 				const line = `[${this.mode}] ${message.level}: ${message.message}`;

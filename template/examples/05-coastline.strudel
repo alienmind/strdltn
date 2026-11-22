@@ -1,7 +1,8 @@
 // @title coastline
 // @by eddyflux
 // @license AGPL-3.0-or-later
-// @details One of the examples that ship with Strudel itself. Samples come from github:eddyflux/crate, so it needs the network.
+// @details One of the examples that ship with Strudel itself. Samples come from
+//   github:eddyflux/crate, so it needs the network.
 // @url https://codeberg.org/uzu/strudel
 // https://strudel.cc/workshop/getting-started/
 

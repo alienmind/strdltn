@@ -1,0 +1,8 @@
+// @title Kick with a pitch envelope
+// @category drums
+// @details A kick shaped by its pitch envelope: pdec sets how fast the pitch falls, pcurve how it
+//   bends. Longer pdec gives a deeper, booming kick.
+// @tags kick, electro, techno
+// @by alienmind
+// @credits DJ_Dave
+s("bd*4").bank("RolandTR909").pcurve(2).pdec("<.2 .5 1 .5>").gain(.9)

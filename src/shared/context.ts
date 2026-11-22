@@ -233,3 +233,27 @@ export function insideString(code: string, position: number): boolean {
 	}
 	return quote !== '';
 }
+
+/**
+ * An argument form of an insert: inside the empty parentheses of one of `calls`, `.midi(|)`, the click types `text`
+ * (`'M-VAVE FM-1'`) and not the whole call, which gave `.midi(.midi('M-VAVE FM-1'))` (the maintainer, 2026-11-22).
+ */
+export interface InsertArgument {
+	calls: string[];
+	text: string;
+}
+
+/**
+ * What an insert at `position` types: the argument inside the empty parentheses of one of its calls, the bare name
+ * inside a string, else the whole text.
+ */
+export function chooseInsert(code: string, position: number, text: string, bare?: string, argument?: InsertArgument): string {
+	if (argument) {
+		const before = code.slice(code.lastIndexOf('\n', position - 1) + 1, position);
+		const after = code.slice(position, position + 200);
+		const call = /(?<![\w$])([A-Za-z_$][\w$]*)\s*\(\s*$/.exec(before);
+		if (call && argument.calls.includes(call[1]) && /^\s*\)/.test(after)) return argument.text;
+	}
+	if (bare !== undefined && insideString(code, position)) return bare;
+	return text;
+}

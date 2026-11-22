@@ -1,13 +1,19 @@
 // @title Sea of Souls (club mix)
 // @by AlienMind
 // @license CC BY-NC-SA 4.0
-// @credits Switch Angel for acid
-// @details A track that plays itself: an arrangement in eight sections, about three minutes, from a countdown to a countdown. Every part follows the section: layers come in and leave, the filters open to raise the energy. The vocals are the files in samples/sos-vocals. The faders of the Mixer still set each part's level.
+// @credits Switch Angel for acid and the trance gate
+// @length 104
+// @details A track that plays itself: an arrangement in eight sections, about three minutes,
+//   from a countdown to a countdown. Every part follows the section: layers come in and leave,
+//   the filters open to raise the energy. The vocals are the files in samples/sos-vocals. The
+//   faders of the Mixer still set each part's level.
 //
 // Title: Sea of Souls - The Malfunctioning Collective - Strudel Club Cover
 //
-// Spotify URL: https://open.spotify.com/intl-es/album/7tTw8oiSCbyZWc0EPxJyui?si=YJn3dLUiTIaxqu_W8ObAcg
-// Author: AlienMind (https://open.spotify.com/intl-es/artist/4Dy8FcAbbTvdMIpOA4jNbh?si=uj-FkR79Tr2_IZ3oW9CMuw)
+// Spotify URL:
+// https://open.spotify.com/intl-es/album/7tTw8oiSCbyZWc0EPxJyui?si=YJn3dLUiTIaxqu_W8ObAcg
+// Author: AlienMind
+// https://open.spotify.com/intl-es/artist/4Dy8FcAbbTvdMIpOA4jNbh?si=uj-FkR79Tr2_IZ3oW9CMuw
 //
 // Year: 2026
 //
@@ -38,11 +44,12 @@ setCps(133/60/4)
 //  |___/\__|_|  \_,_\__|\__|\_,_|_| \___|
 
 // The sections and their length in bars:
-//   0 COUNTDOWN  1 INTRO  2 VERSE  3 BUILD  4 DROP  5 BREAKDOWN  6 FINAL DROP  7 OUTRO
-const BARS = [10, 16, 16, 8, 16, 8, 16, 10]
+//   0 COUNTDOWN  1 INTRO  2 VERSE  3 BUILD  4 DROP  5 BREAKDOWN  6 FINAL DROP  7 OUTRO  8 END
+// The END is 4 bars of silence before the song starts again
+const BARS = [10, 16, 16, 8, 16, 8, 16, 10, 4]
 
-// One entry per section, in the order above
-const part = (list) => arrange(...BARS.map((bars, i) => [bars, reify(list[i])]))
+// One entry per section, in the order above. A section past the end of a list is silent
+const part = (list) => arrange(...BARS.map((bars, i) => [bars, i < list.length ? reify(list[i]) : silence]))
 
 // One beat in seconds, for delays in time with the song: BEAT * .75 is a dotted eighth
 const BEAT = 60 / 133
@@ -50,25 +57,36 @@ const BEAT = 60 / 133
 // A 303: the filter envelope (amount) with a short decay and a high resonance squelches
 register('acid', (amount, pat) => pat.s("sawtooth").lpenv(amount).lpd(.14).lpq(11))
 
+// Switch Angel's trance gate: chops a sound into sixteenths that open at random, the same each
+// time round
+register('trancegate', (density, seed, length, x) => {
+  density = reify(density).add(.5)
+  return x.struct(rand.mul(density).round().seg(16).rib(seed, length)).clip(.7)
+})
+
 // Orbits. Room and delay belong to an orbit in superdough, so parts with their own
 // effects get their own orbit. The kick ducks 2 to 5, which makes them pump.
 //   1 drums  2 bass  3 acid  4 riser  5 pad  6 vocals
 
 // Which layers play, per section. "1" plays, "0" is silent, and a pattern like
 // "<0!4 1!12>" plays only some bars of the section: here from bar 5 of 16.
-// The INTRO is classic electro: 4 bars of kick alone, and the snare comes in on bar 5.
+// The INTRO is classic electro: the kick, and the snare comes in on bar 6.
 // The COUNTDOWN's last bar is "zero" alone: everything else stops for it ("<1!9 0>").
 const KICK_IN   = [0, 1, 1, "<0!7 1>", 1, 0, 1, "<1!6 0!4>"]
-const SNARE_IN  = [0, "<0!4 1!12>", 1, 1, 1, 0, 1, 0]
-const HH_IN     = [0, "<0!4 1!12>", 1, 1, 1, 1, 1, "<1!8 0!2>"]
+const SNARE_IN  = [0, "<0!5 1!11>", 1, 1, 1, 0, 1, 0]
+const HH_IN     = [0, "<0!5 1!11>", 1, 1, 1, 1, 1, "<1!8 0!2>"]
 const HHR_IN    = ["<1!9 0>", 0, 1, 1, 1, 1, 1, 0]
-const BASS_IN   = [0, "<0!4 1!12>", 1, 1, 1, 0, 1, "<1!4 0!6>"]
+const BASS_IN   = [0, "<0 1!15>", 1, 1, 1, 0, 1, "<1!4 0!6>"]
 const ACID_IN   = [0, 0, 1, 0, 1, 1, 1, "<1!2 0!8>"]
-const VOCALS_IN = [1, "<0!4 1!12>", 1, 1, 1, 1, 1, 1]
+const VOCALS_IN = [1, 1, 1, 1, 1, 1, 1, 1]
 const CLAP_IN   = [0, 0, 0, 0, 1, 0, 1, 0]
-// The pad: from bar 9 of the INTRO to the start of the OUTRO
-const PAD_IN    = [0, "<0!8 1!8>", 1, 1, 1, 1, 1, "<1!4 0!6>"]
+// The pad: from bar 10 of the INTRO to the start of the OUTRO
+const PAD_IN    = [0, "<0!9 1!7>", 1, 1, 1, 1, 1, "<1!4 0!6>"]
+// The pad goes through the trance gate in the BUILD, the BREAKDOWN and the second half of the FINAL DROP
+const PAD_GATE  = [0, 0, 0, 1, 0, 1, "<0!8 1!8>", 0]
 const RISER_IN  = ["<1!9 0>", 1, 1, 1, 1, 1, 1, 1]
+// The BUILD thins the band out over its last 4 bars; the DROP opens it again
+const BUILD_HPF = [20, 20, 20, "<20!4 150 400 900 1800>", 20, 20, 20, 20]
 
 
 //    ___         _           _
@@ -78,16 +96,16 @@ const RISER_IN  = ["<1!9 0>", 1, 1, 1, 1, 1, 1, 1]
 
 // The level of each part, one fader per part in the Mixer. The arrangement brings parts
 // in and out; these set how loud.
-const KICK_VOL=slider(0.5,0,1)
-const SNARE_VOL=slider(0.4,0,1)
-const HH_VOL=slider(0.26,0,1)
-const HHR_VOL=slider(0.16,0,1)
-const VOCALS_VOL=slider(1,0,1)
-const BASS_VOL=slider(0.287,0,1)
-const ACID_VOL=slider(0.481,0,1)
-const CLAP_VOL=slider(0.28,0,1)
-const PAD_VOL=slider(0.389,0,1)
-const RISER_VOL=slider(1,0,1)
+const KICK_VOL=slider(0.31,0,1)
+const SNARE_VOL=slider(0.248,0,1)
+const HH_VOL=slider(0.161,0,1)
+const HHR_VOL=slider(0.099,0,1)
+const VOCALS_VOL=slider(0.557,0,1)
+const BASS_VOL=slider(0.178,0,1)
+const ACID_VOL=slider(0.298,0,1)
+const CLAP_VOL=slider(0.174,0,1)
+const PAD_VOL=slider(0.241,0,1)
+const RISER_VOL=slider(0.62,0,1)
 
 // How far the arrangement goes. Each one scales a curve of the arrangement, so the song
 // keeps its shape: 1 is as written, lower is tamer, higher is wilder. The Mixer shows them
@@ -111,10 +129,11 @@ const PAD_SPACE=slider(.8,0,1)        // pad: its room
 const VOCALS = ["numbers", "sos-vocals", "sos-vocals", "sos-vocals", "sos-vocals", "sos-vocals", "sos-vocals", "numbers"]
 
 const VOCALS_PATTERN = [
-  // COUNTDOWN: one number a bar, 9 down to 0
-  "<9 8 7 6 5 4 3 2 1 0>",
-  // INTRO (from bar 5) and VERSE: the phrase, every other bar
-  "<<0 1 2 [3 4] 5 6 7 8 9 10> ~>",
+  // COUNTDOWN: a bar of silence, then one number a bar, 8 down to 0
+  "<~ 8 7 6 5 4 3 2 1 0>",
+  // INTRO: a bar of rest, then the phrase every other bar
+  "<~ 0 ~ 1 ~ 2 ~ [3 4] ~ 5 ~ 6 ~ 7 ~ 8>",
+  // VERSE: the phrase, every other bar
   "<<0 1 2 [3 4] 5 6 7 8 9 10> ~>",
   // BUILD: the first word, stuttering faster every 2 bars
   "<0*2 0*2 0*4 0*4 0*8 0*8 0*16 ~>",
@@ -125,7 +144,7 @@ const VOCALS_PATTERN = [
   // FINAL DROP: the phrase, every bar
   "<0 1 2 [3 4] 5 6 7 8 9 10>",
   // OUTRO: the countdown again
-  "<9 8 7 6 5 4 3 2 1 0>",
+  "<~ 8 7 6 5 4 3 2 1 0>",
 ]
 
 // A dub delay on a dotted eighth, more of it where there is space
@@ -136,7 +155,7 @@ $vocals: n(part(VOCALS_PATTERN)).s(part(VOCALS))
   // Width: the right side a 32nd late, half way out
   .juxBy(.5, x => x.late(1/32))
   .delay(part(VOCALS_DELAY).mul(VOCALS_ECHO)).delaytime(BEAT * .75).delayfeedback(.45)
-  .room(.3)
+  .room(.3).hpf(part(BUILD_HPF))
   .orbit(6)
   .gain(VOCALS_VOL)._pianoroll()._scope()
 
@@ -177,11 +196,11 @@ const ACID_ENERGY = [1, 1, 2, 1, 3, 1, 4, 2]
 $kick: s("[bd]*4").bank("tr909")
   .mask(part(KICK_IN))
   .gain(KICK_VOL)
-.duck("2,3,4,5").duckattack(.2).duckdepth(.8)
+.duck("2:3:4:5").duckattack(.2).duckdepth(.8)._scope()
 
-// Snare: the backbeat from bar 5 of the INTRO, and in the BUILD a roll that doubles every 2 bars
+// Snare: the backbeat from bar 6 of the INTRO, and in the BUILD a roll that doubles every 2 bars
 const SNARE_PATTERN = ["~", "~ sd ~ sd", "~ sd ~ sd", "<[~ sd]*2!2 sd*4!2 sd*8!2 sd*16!2>", "~ sd ~ sd", "~", "~ sd ~ sd", "~"]
-$snare: s(part(SNARE_PATTERN)).bank("tr909").mask(part(SNARE_IN)).room(.2).gain(SNARE_VOL)
+$snare: s(part(SNARE_PATTERN)).bank("tr909").mask(part(SNARE_IN)).room(.2).hpf(part(BUILD_HPF)).gain(SNARE_VOL)
 
 // 909 claps on 2 and 4 in the drops, a little to the right
 $clap: s("~ cp ~ cp").bank("tr909").mask(part(CLAP_IN)).pan(.6).gain(CLAP_VOL)
@@ -190,13 +209,13 @@ $clap: s("~ cp ~ cp").bank("tr909").mask(part(CLAP_IN)).pan(.6).gain(CLAP_VOL)
 // hammer (as lib/drums/rolling-hats), drifting slowly between left and right
 $hh: s("hh*16").bank("tr909").mask(part(HH_IN))
   .velocity("[.4 .65 .5 1]*4")
-  .pan(sine.slow(2).range(.3, .7)).gain(HH_VOL)._scope()
+  .pan(sine.slow(2).range(.3, .7)).hpf(part(BUILD_HPF)).gain(HH_VOL)._scope()
 
 // Rolling hihat. In the COUNTDOWN its filter opens bar by bar
 const HHR_CUTOFF = [saw.slow(10).range(800, 8000), 8000, 8000, 8000, 8000, 3000, 8000, 8000]
 // Accents on the beat; jux(rev) plays it backwards on the right, for width
 $hhr: s("hh!16").bank("yamaharm50").mask(part(HHR_IN)).velocity("[1 .6 .8 .6]*4")
-  .lpf(part(HHR_CUTOFF).mul(HATS_OPEN)).jux(rev).gain(HHR_VOL)._scope()
+  .lpf(part(HHR_CUTOFF).mul(HATS_OPEN)).hpf(part(BUILD_HPF)).jux(rev).gain(HHR_VOL)._scope()
 
 //   ___             _ _
 //  | _ ) __ _ _____| (_)_ _  ___
@@ -206,7 +225,7 @@ $hhr: s("hh!16").bank("yamaharm50").mask(part(HHR_IN)).velocity("[1 .6 .8 .6]*4"
 // A tb303 whose filter follows the arrangement
 $bass: n(part(BASSLINE_PATTERN).add(part(CHORD_PROGRESSION))).scale("f2:phrygian")._pianoroll()
   .mask(part(BASS_IN))
-  .acid(part(BASS_ENERGY).mul(BASS_SQUELCH)).lpf(part(BASS_CUTOFF).mul(BASS_CUTOFF_MUL)).gain(BASS_VOL)
+  .acid(part(BASS_ENERGY).mul(BASS_SQUELCH)).lpf(part(BASS_CUTOFF).mul(BASS_CUTOFF_MUL)).hpf(part(BUILD_HPF)).gain(BASS_VOL)
   // Pumps with the kick
   .orbit(2)._scope()
 
@@ -215,7 +234,9 @@ $acid: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygian")._
   .rib(10,4)
   .mask(part(ACID_IN))
   .dist(ACID_DRIVE).distvol(.3)
-  .s("sawtooth").lpf(200).lpenv(part(ACID_ENERGY)).lpq(12).gain(ACID_VOL)
+  // The cutoff and the resonance drift a little, slowly and at random, so the line breathes
+  .s("sawtooth").lpf(perlin.slow(4).range(150, 380)).lpenv(part(ACID_ENERGY))
+  .lpq(perlin.slow(8).early(3).range(10, 15)).hpf(part(BUILD_HPF)).gain(ACID_VOL)
   .orbit(3)._scope()
 
 
@@ -228,9 +249,11 @@ $acid: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygian")._
 // circles the stereo field twice a bar, and it echoes into a room.
 const RISER_GAIN = [saw.slow(10).range(0, .35), 0, 0, saw.slow(8).range(0, .5), 0, .1, 0, isaw.slow(10).range(0, .3)]
 const RISER_HPF  = [saw.slow(10).range(200, 2000), 200, 200, saw.slow(8).range(200, 4000), 200, 500, 200, isaw.slow(10).range(200, 2000)]
+// In the OUTRO a low-pass closes it down to nothing
+const RISER_LPF  = [20000, 20000, 20000, 20000, 20000, 20000, 20000, isaw.slow(10).range(50, 6000)]
 $riser: s("pulse").seg(16).dec(.1).fm(time).fmh(time)
   .mask(part(RISER_IN))
-  .hpf(part(RISER_HPF).mul(RISER_OPEN)).pan(sine.fast(2))
+  .hpf(part(RISER_HPF).mul(RISER_OPEN)).lpf(part(RISER_LPF)).pan(sine.fast(2))
   .delay(.4).delaytime(BEAT * .5).delayfeedback(.5).room(.5)
   .orbit(4)
   // The arrangement's level rides on velocity, so the fader stays the gain
@@ -243,7 +266,8 @@ const PAD_CUTOFF = [600, 450, saw.slow(16).range(450, 800), saw.slow(8).range(60
 $pad: n(part(CHORD_PROGRESSION).add("[0,2,4]")).scale("f3:phrygian")
   .mask(part(PAD_IN))
   .s("supersaw").detune(.6).attack(.5).release(2)
-  .lpf(part(PAD_CUTOFF).mul(PAD_OPEN)).room(PAD_SPACE)
+  .when(part(PAD_GATE), x => x.trancegate(1.5, 45, 1).attack(.01).release(.1))
+  .lpf(part(PAD_CUTOFF).mul(PAD_OPEN)).hpf(part(BUILD_HPF)).room(PAD_SPACE)
   .orbit(5)
   .gain(PAD_VOL)._scope()
 

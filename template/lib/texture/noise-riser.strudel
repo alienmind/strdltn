@@ -1,6 +1,7 @@
 // @title Noise riser
 // @category texture
-// @details White noise that gets brighter and louder over eight bars, then starts again. Put it before a drop.
+// @details White noise that gets brighter and louder over eight bars, then starts again. Put it
+//   before a drop.
 // @tags riser, build, noise
 // @by alienmind
 s("white*16")

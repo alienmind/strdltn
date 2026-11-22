@@ -36,12 +36,26 @@ tab; the SHRUB panel behind its setting; and the integration test records the de
 on 2026-11-21. Next: the hand test below for maximize, take out and SHRUB. The `fm1emu:` way and the
 coverage of the hub wait (see "Firmware Hub").
 
+Version 0.4.0 is collected on the branch `feat/midi`, not merged: phase 5, MIDI on desktop
+through the extension host (ARCHITECTURE "MIDI"), the demo's levels brought down, and
+Record and Render, which write a song's audio next to it as `.wav` and `.mp3` and list it
+under Render in the Library (ARCHITECTURE "Render and record"; built on `feat/render`,
+merged into `feat/midi` on 2026-11-22), and level meters on the Mixer's strips with a Master
+strip (ARCHITECTURE "Level meters").
+
 Next in line:
 
 | # | What | State |
 |---|---|---|
-| 1 | MIDI: devices in the Browser, playing through them, mappings | Spike done, not built. See "MIDI" |
-| 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
+| 12 | First after this round of hand tests (the maintainer, 2026-11-22). A double click on a search result that is a snippet or a song opens its file. Songs open already (`opens()` in `src/shared/catalog.ts`); a snippet is inserted at the cursor today (`activate()` in `src/browser/main.ts`). Open: whether Enter keeps inserting a snippet, so the keyboard still has a way to insert | Asked for, not built |
+| 13 | The native editor is never the default (the maintainer, 2026-11-22). The manifest already makes the Strudel editor the default; what still opens the native one is the Browser's "Open the file" of a snippet, `vscode.openWith(uri, 'default')` in `src/extension/browser.ts`, where `'default'` is the text editor. Goes with item 12 | Asked for, not built |
+| 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Asked for, not designed |
+| 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with a click on its number. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Asked for, not designed |
+| 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
+| 17 | Render a pattern to MIDI: a `.mid` file of a song or a chain, and later into the piano roll | Planned, not built. See "MIDI clips: render and record" in `doc/DAW-PLAN.md` |
+| 18 | Record MIDI into a pattern, as Ableton does: arm, play a keyboard while the song plays, the notes written into the song | Planned, not built. Same section |
+| 1 | MIDI: devices in the Browser, playing through them, mappings | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
+| 2 | A list of sound cards to send the sound to | Not possible in the webview (S6: the microphone is refused, so no names or ids). Windows' per-app output does it by hand. See "Sound card" |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
 | 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
@@ -52,24 +66,16 @@ Next in line:
 | 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 answered: the workshop first, then the learn pages. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
 | 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
 | 8 | A promo video: a walkthrough of the features, captured from a real VS Code window, with voice-over and our own song | First cut rendered (36 s), not watched yet. See `doc/VIDEO.md` |
-| 9 | The demo's levels: its mix peaks at 2.59 times full scale (+8.3 dB), measured by the video's recorder, so it clips at the speakers. Bring the parts down until the peak is under 1 | Measured, not fixed. See "Sound" in `doc/VIDEO.md` |
+| 10 | Sample packs from the file system: drag files or a folder from the OS onto the Browser, or "Add folder", and the pack is imported and sorted by what each sound is (kick, snare, hat, ...) into a folder structure of its own | Asked for on 2026-11-21, not designed. See "Importing sample packs" |
+| 11 | A wave editor panel: open a sample from the Browser or the project and edit it in the IDE (select, cut, copy, paste, trim, fade, normalize), saved back as a file | Asked for on 2026-11-21, not designed. Built on AudioMass, not written by us: decision 16. See "Wave editor" |
 
 ## Next: test by hand
 
-The rest of the Devices view, on `feat/devices`. Test on **desktop, launched with F5** on
-`template/`.
-
-| # | Do this | Should happen |
-|---|---|---|
-| 1 | Play `examples/07-vibefm1-obervave.strudel`, open Devices, click the diagonal arrow of one panel | That panel fills the view with a bigger screen; the others hide. Again: back |
-| 2 | Click the arrow up right of one panel | A tab "OBERVAVE @2" opens beside, with the screen moving; the view's panel says "in a tab" |
-| 3 | In the tab, click F3 and F4, drag a slider | As in the view: the program and the sound change |
-| 4 | Close the tab | The view's panel draws again by itself |
-| 5 | Fold a panel, close the song's tab, play the song again | The panel comes back folded |
-| 6 | Turn on the setting `strdltn.experimental.shrubEditor`, open Devices | A SHRUB panel at the end with Xfer's editor; it plays after a click on a key. Folding and unfolding keeps its patch |
-
-Expected still broken: the F1 to F6 row is wider than the screen when maximized; SHRUB's
-sound is not in the mix (by design, see the drawer).
+Every hand test on `feat/midi` passed on 2026-11-22 (MIDI out and in, the MIDI category and debug
+lines, error places, header lines, the Mixer's meters and gain fader, Render and Record, the
+electro example, the demo's arrangement, the Devices view and the SHRUB panel). `pnpm test:vscode` passed on
+2026-11-22: 38 files played with no problem, typing and error places as expected (the FM-1 was not
+plugged in, so 09 sent nothing). Next: the maintainer merges the pull request.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -105,13 +111,15 @@ it.
 | 6 | A pack is copied whole. `github:eddyflux/crate` is 367 files and 175 MB. Copy everything, or only the files a song has played? | Everything, up to 600 files |
 | 7 | MIDI: build the desktop bridge now, knowing it cannot work in Codespaces? | Not built |
 | 8 | Sound across a mode switch (see "Open design questions") | Sound stops |
-| 9 | Default editor for `.strudel`: the Strudel editor, or the native one with the stage? | The Strudel editor |
+| 9 | Default editor for `.strudel`: the Strudel editor, or the native one with the stage? | Answered 2026-11-22: the Strudel editor, never the native one (item 13) |
 | 10 | Marketplace: publisher id and token (see "Publishing") | Waiting |
 | 11 | Should the test screenshots keep the title "[Extension Development Host]"? The debug text in the corner is gone, the status bar item replaced it | Kept |
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
 | 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
 | 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
-| 15 | SHRUB: write to Xfer (steve@xferrecords.com) and ask for a VIBE FM build? See "SHRUB" | Nothing sent |
+| 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. The SHRUB editor panel stays as an experiment behind its setting; the fm1-emu way stays open. Its editor cannot reach a real FM-1 from VS Code: a webview has no MIDI, and a frame of another site cannot be given ours. In a browser ("Open in browser") it can, if VS Code does not hold the FM-1's port: a Windows MIDI port opens in one program at a time |
+| 16 | The wave editor (item 11) builds on AudioMass. How does it come in? AudioMass is not on npm and has no releases or tags, so "an upstream release, pinned" does not exist for it. The choices: a git submodule pinned to a commit, or a copy of one commit in the repo with its MIT license. A submodule keeps the history and the pin visible; it also makes every clone and the `.vsix` build need `git submodule update`. The rule "no submodule" in CLAUDE.md is about Strudel, which comes from npm | Nothing done |
+| 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Not built |
 
 
 ## MIDI
@@ -135,18 +143,30 @@ it.
 
 - Desktop is possible: devices are listed and played from the extension host. The
   webview gets its own `.midi()` that posts each note with its time to the host.
-- The host must not use a plain timer to send. To try: a worker thread that waits with
-  `Atomics.wait`, or sending a little early and spinning for the last millisecond.
+- The host must not use a plain timer to send. Spike S5 (2026-11-21) passed the 2 ms bar:
+  a worker thread that sleeps with `Atomics.wait` to 17 ms before a note and spins from
+  there sent to the UMC404HD at most 0.45 ms late in 1000 notes, with high process
+  priority. Numbers and traps in "MIDI" in `doc/ARCHITECTURE.md`. Open: whether we may
+  raise the priority of the whole extension host (without it, outliers of 20 to 80 ms),
+  and the CPU the spin costs on a dense song.
 - Codespaces is not possible this way: the extension host is remote and cannot see a
   device on the user's machine. No design yet.
 
 ### What to build
 
-1. A MIDI category in the Browser with two headings, outputs (instruments)
-   and inputs (controllers). A click types the device name.
-2. `.midi()` for outputs through the bridge.
-3. `midin()` and `midikeys()` for inputs through the bridge, in the other direction.
-4. Mappings set up in the side bar, so a song needs no setup code: which CC of which
+Built on `feat/midi` (2026-11-21): the bridge, `.midi()`, `midin()`, `midikeys()`,
+`midimaps()`, `defaultmidimap()`, notes off on stop, and `examples/09-midi-out.strudel`
+(ARCHITECTURE "MIDI"). Measured end to end through loopMIDI; not tested by hand with a
+device yet ("Next: test by hand"). Left, in this order:
+
+1. Built 2026-11-22: the MIDI category of the Library, outputs and inputs, kept current.
+   Left: in a Codespace it is empty, and should say that devices need desktop.
+2. The MIDI strips, the "midi" jack and the MIDI cables of the Mixer; MIDI learn on
+   faders, mute and solo ("MIDI in the Browser and the Mixer" in `doc/DAW-PLAN.md`).
+3. In Codespaces the MIDI category says that devices need desktop. Today `midin()` there
+   fails after 5 s with "MIDI works on desktop VS Code only"; not tried in a Codespace.
+4. The demo with its `midin` lines back in, for the maintainer's MPK mini 3.
+5. Mappings set up in the side bar, so a song needs no setup code: which CC of which
    controller drives what, and which control of a synth is which CC. Strudel already
    has the pieces to target (`midimaps`, `defaultmidimap`, `midin`), see below.
 
@@ -189,6 +209,47 @@ Receiving:
 The maintainer's `demo.strudel` was written for an "MPK mini 3" with eight knobs as a
 mixer. Its `midin` lines are commented out and sliders stand in for the knobs. When the
 bridge exists, that file is the first test.
+
+## Importing sample packs
+
+The maintainer already wrote this sorting once. The latest version is `patchbay`
+(`../patchbay/scripts/fetch_samples.py`, last commit 2026-08-01, MIT, by AlienMind). Its
+rules started from an older one in `../trackster` (`src/utils/autoTag.ts`, which tags
+instead of copying, plus MFCC k-means in `src/utils/clustering.ts`; that repo has no
+license). `../ableton-rackutils` has none. What patchbay does:
+
+- Classifies by names only, in stages, the first answer wins: the enclosing folder says
+  loop, break or sequence; then regexes over the file name (with `_-.()[]` as spaces);
+  then the same regexes over the parent folders, nearest first.
+- Categories in rule order: loop, ohat, hat, clap, rim, snare, kick, tom, misc (perc,
+  cymbals, glitch), fx (vox, synth, risers, bass). `\d{2,3}\s?bpm` in a file name means a
+  loop. The key in a name is not read.
+- Copies to `<target>/<category>/<category>_NNN.<ext>`, numbering on from the highest
+  number there, never renames or deletes, logs each copy to `manifests/reorg_log.csv`.
+  A SHA-1 match skips a duplicate. Unknowns are reported and left. Loops are recognised
+  but not placed. Only `.wav`, `.aif`, `.aiff`, `.flac`. Dry run unless `--apply`.
+
+For us: the rules ported to TypeScript in `src/shared/`, with unit tests from patchbay's
+cases (it is the maintainer's own MIT code, so the rules may come over as they are). The
+target is a folder the Browser already reads as a pack, with a `strudel.json`, so the
+sorted sounds play as `s("mypack_kick:3")` or a bank. Open: whether the numbered names
+(`kick_001`) are right for Strudel, where index order already numbers them; whether
+loops get a folder of their own; whether audio features (trackster's k-means, or
+patchbay's planned "third stage") come in later for files with names that say nothing.
+Dragging from the OS onto a webview view: not measured yet.
+
+## Wave editor
+
+A panel to edit a sample's wave in the IDE: select, cut, copy, paste, trim, fade,
+normalize, and save back. The maintainer does not want to write a wave editor; the base
+is AudioMass (audiomass.co, github.com/pkalogiros/AudioMass, MIT, "bundled third-party
+libraries keep their own licenses", see its `THIRD_PARTY_NOTICES.md`). It is plain
+JavaScript on wavesurfer.js with its regions plugin, and has a multitrack mode, effects,
+LUFS, an EQ, markers, a recorder, a tempo estimator, a denoiser (RNNoise in wasm), and
+WAV, MP3 and FLAC encoders. It is not on npm and has no releases or tags; how it comes in
+is decision 16. Expected, not tested: it runs in a webview panel, with its file loading
+and saving replaced by messages to the host. First spike: load AudioMass in a webview,
+open a WAV from the workspace, save one back.
 
 ## Firmware Hub
 
@@ -329,17 +390,91 @@ reports a delay to the DAW for that reason; expected from the code, not measured
 
 ## Sound card
 
-Measured in the webview: `enumerateDevices()` returns one audio output with no label,
-and `AudioContext.setSinkId` exists. A browser only gives the real list, with names,
-to a page that may use the microphone. We have not asked for that permission yet, so we
-do not know whether VS Code lets a webview have it.
+Spike S6 ran on 2026-11-22 (ARCHITECTURE "Measured"): VS Code refuses the microphone to a
+webview, so the page sees one output without a name or an id, and `setSinkId` has nothing
+to switch to. The editor's page cannot pick its own sound card. What is left:
 
-To try, in this order:
-1. Ask for the microphone once in the webview and list the outputs again. If it works,
-   the list goes in the side bar and a click calls `setSinkId`. superdough already has
-   `getAudioDevices()` and an audio device setting for this.
-2. If VS Code refuses, there is no way from the webview. The extension host cannot
-   route the webview's sound.
+- Windows' per-app output (Settings, System, Sound, Volume mixer): moves VS Code's sound
+  alone, not all of Windows. Works today, by hand.
+- The browser page of phase 7 (`doc/DAW-PLAN.md`): a real browser tab may ask for the
+  microphone and then pick an output. Not tried.
+- A Chrome device id cannot be made in the extension host: Chrome salts it per origin.
+
+The maintainer wants it now (2026-11-22): the M-VAVE FM-1 is a USB sound card too, and
+playing SHRUB on it by MIDI next to Strudel's sound on the computer's card splits the
+mix in two. Until this is built, Windows can send VS Code alone to the FM-1: Settings,
+System, Sound, Volume mixer, the output device of Visual Studio Code.
+
+Seen by the maintainer the same day: with SHRUB on it, the FM-1 is not listed as a sound
+card; with the stock firmware it is, and works. So SHRUB's firmware seems to leave out the
+USB audio. For later: a spike with another firmware on the FM-1 (stock, or one of the
+hub's), and asking Xfer again (decision 15) whether SHRUB can keep the FM-1's USB audio.
+
+## Sliders on knobs
+
+The maintainer asked (2026-11-22) that every slider work with MIDI too: a slider on screen
+that a knob of a controller also moves, by a CC the user maps by clicking the slider's
+number. The point is to play with physical knobs. In their words, an overlay of
+`slider()` that we put in the code as a snippet and that takes both the CC and the
+slider, if possible. Not designed, not tried. What upstream allows (read in
+`@strudel/transpiler` and `@strudel/codemirror` 1.3.0):
+
+- Only a call named exactly `slider` becomes the widget. The transpiler rewrites it to
+  `sliderWithID(id, value, min, max)`, the id being the offset of its first argument;
+  the widget reads value, min, max and step (the 4th argument). More arguments are
+  ignored.
+- The live value is `sliderValues[id]`, which a `cm-slider` message to the window
+  sets, as a drag does. So a CC can move a slider without any change upstream.
+
+The way the maintainer chose (2026-11-22): the song defines the function itself, from a
+snippet we insert at the top the first time a knob is used, so the song stays standard
+Strudel and runs on strudel.cc too:
+
+```
+const knobs = await midin('MPK mini 3')
+register('knob', (ccn, pat) => ...)   // the slider or CC ccn, whichever moved last
+$bass: note("c2*8").lpf(slider(800, 200, 4000).knob(74))
+```
+
+- The `slider(...)` call stays where it is used: only a call written `slider` gets the
+  widget, and its id is the offset of its first argument, so a `knob()` that called
+  `slider()` inside would give every knob the same one. Hence a method on the slider,
+  made with `register` (as the demo's `acid`).
+- On strudel.cc the knob changes the sound; the widget and the number do not follow.
+- In [str]dltn more follows: our `sliderWithID` marks the pattern with its id, a CC
+  posts `cm-slider` for that id (the widget moves) and writes the number in the code as
+  the Mixer's fader does. A click on the number starts MIDI learn: the next CC that moves
+  is written into `.knob(...)`.
+
+Open: last-moved-wins or pickup (the knob takes over only once it passes the slider's
+value); the device name in the snippet (the song fails where that device is missing);
+how often a knob may write the code (the fader waits 150 ms); the snippet goes in once,
+at the top, the first time.
+
+## Keybindings in the Strudel editor
+
+The maintainer asked (2026-11-22) that the Strudel editor answer VS Code's keys as the
+user has bound them: Ctrl+F opens the search, and the same for the other editing
+actions. A user can change the keys, so the mapping must follow the actions, not fixed
+keys. Not designed, not measured. What we know and what we expect:
+
+- VS Code has no API that tells an extension which keys a command has. The user's
+  `keybindings.json` can be read from the profile folder, but it holds only the changes,
+  not the defaults, and profiles, Settings Sync and remote hosts move it. Expected
+  fragile; not tried.
+- Expected, not measured here: a key a webview does not handle goes on to the workbench,
+  which runs its own keybinding for it (that is how Ctrl+P works inside a webview).
+  CodeMirror's keymap takes Ctrl+F first today.
+- The way that follows the actions: our own commands (`strdltn.editor.find`,
+  `.replace`, `.gotoLine`, `.selectNextOccurrence`, `.toggleComment`, ...) with the same
+  default keys as VS Code's, under `when: activeCustomEditorId == strdltn.editor`. The
+  webview lets those keys go through (they leave CodeMirror's keymap), VS Code runs our
+  command, and the command tells the webview which CodeMirror action to run. A user
+  rebinds them in Keyboard Shortcuts like any command. What this does not do: follow a
+  rebinding of VS Code's own `actions.find` by itself.
+- First spike: with CodeMirror's Ctrl+F removed, does the key reach VS Code from the
+  webview, and does a command bound under `activeCustomEditorId` run? Then the list of
+  actions to map.
 
 ## Open design questions
 
@@ -451,9 +586,6 @@ planned yet.
 | Milestone | Content |
 |---|---|
 | M2 | Native mode feedback: note highlighting through decorations, sliders in the stage with write-back, one undo history |
-| M3 | MIDI through the bridge, sound card choice, the Strudel reference in the side bar |
-| M4 | Language support in the native editor: completion, hover, signature help, mini-notation grammar and diagnostics |
-| M5 | Ship: Marketplace, template as its own repo, Renovate for `@strudel/*` |
 
 ## Spikes to run
 
@@ -466,14 +598,13 @@ column says, then delete the spike. None of these is started unless it says so.
 | S2 | Can the weights be served from `tmp/strdltn-models/` through `asWebviewUri`, or does the runtime insist on its own download? | Same spike as S1, with the files fetched by the extension host first | Works or not, and what had to be configured | "Local model" below |
 | S3 | Does a completion extension with a local server complete `.strudel` files? | Install llama.cpp (or Ollama) on the host and `llama.vscode` (or Continue) in the test profile. Type in a `.strudel` file in the native editor | Whether it offers anything, whether it needs `.strudel` mapped to JavaScript, tokens per second on the CPU | "Completion from another extension" below |
 | S4 | Do local reference files change what stock completion offers? | With Copilot on, type the start of a rare function in a `.strudel` file, first without and then with a reference file open in another tab, then with it only on disk | What was offered in each of the three cases | "Strudel's documentation as local examples" below |
-| S5 | Can the extension host send MIDI on time? | A worker thread that waits with `Atomics.wait`, or sends early and spins for the last millisecond. Measure with the silent "all notes off" message, as the first MIDI spike did | How late a send is: middle, 95th percentile, worst. The bar is 2 ms | "MIDI" above |
-| S6 | Can a webview list the sound cards by name? | Ask for the microphone once in the webview, then call `enumerateDevices()` again | Whether VS Code allows the request, and the list that comes back | "Sound card" above |
 | S7 | Does the pack cache work in Codespaces? | Open `examples/05-coastline.strudel` in a Codespace | Whether the files arrive in `.strdltn/cache/` and play from there | "Measured" in `doc/ARCHITECTURE.md` |
 
 Already done, with their answers in `doc/ARCHITECTURE.md` and the drawer: sound in a
 webview, WebMIDI in a webview (refused), WebGPU in a webview (works), a native MIDI
-module in the extension host (works, but a plain timer is too late), audio outputs seen
-by a webview (one, without a name).
+module in the extension host (works, but a plain timer is too late), sending MIDI on
+time from a worker thread (S5, passed), audio outputs seen by a webview (one, without a
+name), the microphone in a webview to name them (S6, refused).
 ## Local model
 
 Planned, not started. No code until the maintainer says so. The goal: completion and
@@ -642,6 +773,19 @@ outside the container, on the real GPU. Docker is installed here. Ollama is not.
 7. The recommended completion extension and the offline container, as its own piece of
    work, since it needs a server.
 ## Noted for later, not planned
+
+**Ideas from openDAW.** openDAW (opendaw.org, github.com/andremichelle/openDAW, AGPL-3.0,
+TypeScript) is a DAW in the browser. AGPL means we take ideas from it, not code. From
+its device list (read 2026-11-21), the ones that fit a Strudel DAW: Playfield (a sample
+drum computer with an effect chain per pad, close to our drum pad of phase 11); Composite
+and FX Composite (several instruments or effect chains under one set of notes, mixed
+dry/wet, like our Stacks in the Mixer); Frequency Split and Stereo Split (an effect chain
+per band or per side); Maximizer (a brickwall limiter on the master, which would have
+caught the demo's clipping); Revamp (an equalizer with a spectrum); Apparat, Werkstatt and
+Spielwerk (an instrument, an effect and a MIDI effect scripted in JavaScript); Tone3000
+(Neural Amp Modeler); a vocoder and autotune. It also hosts WebCLAP plugins (CLAP built
+to wasm) with their own windows and automation, which is an option beside WAM for
+"Plugins on Strudel channels" below. And Live Rooms, a shared session.
 
 **Pictures of the drum machines.** The maintainer asked for a hover on each drum machine
 bank that shows the real instrument: a diagram of the device from above, all devices at

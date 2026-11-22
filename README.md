@@ -36,7 +36,7 @@ music project as a repository and open it in a browser from any machine, with no
 installed. Fork this repository, open your fork in a Codespace, and start from the
 `template/` folder.
 
-Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.3.0.** See
+Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.4.0**, in progress: MIDI on desktop. See
 `doc/TODO.md` for what is missing.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
@@ -85,10 +85,14 @@ browser.
 - A strip shows the slider in the chain's `.gain()` as a fader. Unfold it to see every
   other slider of the chain. A slider assigned to a constant (`const KICK_VOL =
   slider(...)`) shows in the chain that uses the constant.
-- M, S and G on each strip. M mutes and S solos the chain, written as upstream's own
-  labels (`_kick:`, `Skick:`); a song that plays is updated at once. G adds a gain fader
-  to the chain (`.gain(slider(1, 0, 1))`) or takes it out.
-- Sidechain cables: a chain with `.duck("2,3")` is cabled to the chains on those orbits.
+- M and S on each strip, above its scope. M mutes and S solos the chain, written as
+  upstream's own labels (`_kick:`, `Skick:`); a song that plays is updated at once.
+- A click on the gain fader's triangle, without dragging it, takes the gain fader out of the
+  code; on a chain without one, the dim triangle puts one in (`.gain(slider(1, 0, 1))`). A
+  gain that comes from a knob or a pattern keeps working: the fader scales it.
+  The gain's value shows in the corner of the strip's scope.
+- The jack at the foot of a strip tells its orbit when the mouse is over it.
+- Sidechain cables: a chain with `.duck("2:3")` is cabled to the chains on those orbits.
   Drag from the jack at the foot of a strip onto another strip to duck it; pull a cable off
   by its end to stop. The code gets the `.duck()`, and an `.orbit()` of its own for a
   target that had none.
@@ -101,6 +105,20 @@ browser.
 - The Mixer comes to the front when a song starts playing.
 - The window button in the Mixer's title floats it in a window of its own. The dock
   button, or closing that window, puts it back in the panel.
+
+- A level meter behind each strip's gain fader, as in Live: two bars on a 0 to 60 dB scale, and the highest peak
+  above them, orange when it went over 0 dB. A click starts the peak again. A Master strip meters the whole mix.
+
+**Render and record**
+
+- Record, the red circle in Music Controls: plays the song and records what you hear into a `.wav` and an `.mp3` next to
+  it. Click again, or Stop, to end the take. Each take is kept.
+- Render audio, the arrow down: plays the whole song once from the start with the sound off, and writes it into
+  `<song>.wav` and `<song>.mp3`. It takes as long as the song; a notification shows it, and its Cancel stops it. A
+  song says its length with `// @length <cycles>` in its header; without it, 16 cycles (setting
+  `strdltn.render.cycles`). Everything you hear is in it, firmwares included; MIDI devices stay quiet meanwhile.
+- The MP3's bitrate is the setting `strdltn.render.mp3Bitrate` (320 kbit/s by default).
+- Renders and recordings show under Render in the Library. A click plays one.
 
 **Devices**
 
@@ -171,13 +189,19 @@ browser.
 - Ready for AI assistants such as Copilot: the template tells them that "add a bass line"
   means a change to the song you have open, and gives them the Strudel reference and
   tutorial to look things up.
+- MIDI on desktop: Strudel's `.midi()` plays a synth or a drum machine on a MIDI device,
+  in time with the sound, and `midin()` and `midikeys()` read a controller or a keyboard.
+  `midimaps()` and `defaultmidimap()` name the CCs. The Library's MIDI category lists your
+  devices; a click types `.midi('name')` or `midin('name')`. See `examples/09-midi-out.strudel`.
+  To see what a controller sends, run "strdltn: Show MIDI messages in the Output": every
+  message in and out shows in Output > strdltn.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 
 Experimental, off by default: the setting `strdltn.experimental.shrubEditor` adds a tab
 with Xfer's SHRUB web editor, to see how it would look. It is not connected to your songs.
 
-Not there yet: MIDI, sound across a switch of editor, completion and hover in the code,
+Not there yet: MIDI in Codespaces, MIDI devices in the Mixer, sound across a switch of editor, completion and hover in the code,
 the Marketplace. See `doc/TODO.md`.
 
 ## A closer look
@@ -208,8 +232,8 @@ song plays.
 
 ![The Mixer: a strip per part with faders, M, S, G and sidechain cables](doc/screenshot-music.png)
 
-The bottom panel has a tab called Mixer, for the song in front. Each part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, G adds
-or removes a gain fader. Drag from the jack at the foot of a strip onto another strip and
+The bottom panel has a tab called Mixer, for the song in front. Each part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, a click on
+the gain fader's triangle adds or removes it. Drag from the jack at the foot of a strip onto another strip and
 the first ducks the second (`.duck()`); pull the cable off to stop. Type a BPM to set the
 tempo in Music Controls, at the top of the Library, with Play and Stop. Every change is
 an edit of the song, so undo takes it back.
@@ -277,6 +301,13 @@ A snippet describes itself in comments at the top:
 // @tags house, techno, 909
 // @by alienmind
 s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
+```
+
+A long value goes on over the next lines, indented two spaces after the `//`:
+
+```
+// @details Kick on every beat, clap on 2 and 4,
+//   open hat on the off beat.
 ```
 
 Only the code is inserted. The categories are `drums`, `bass`, `melody`, `chords`,
@@ -349,6 +380,13 @@ extension loaded.
 | `pnpm package` | Build a `.vsix` |
 | `pnpm promote` | Build a release copy into `.bin/` and install it in your own VS Code |
 
+MIDI and the tests: no test needs a MIDI device or a virtual MIDI port such as loopMIDI;
+the unit tests only use device names as text. The full integration test plays every
+example, and `examples/09-midi-out.strudel` opens an "MPK mini 3" and plays an "M-VAVE
+FM-1". Without those two devices the test reports that file as a problem ("not found");
+with them, the FM-1 plays along during the test. To measure MIDI timing by hand, we used
+loopMIDI (a free virtual port for Windows) and read the notes back from its input.
+
 | Folder | Holds |
 |---|---|
 | `src/extension/` | The part that runs in VS Code |
@@ -360,3 +398,6 @@ extension loaded.
 All of the music making is [Strudel](https://codeberg.org/uzu/strudel), by Felix Roos,
 Alex McLean and the Strudel contributors. [str]dltn Live[code] hosts the upstream `@strudel/*`
 packages unchanged.
+
+Several snippets use techniques learned from Switch Angel, and her trance gate is in
+`lib/function/trancegate.strudel` and on the demo's pad.

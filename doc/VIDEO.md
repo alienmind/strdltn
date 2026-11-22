@@ -93,7 +93,8 @@ going on, and pulls the WAV through DevTools in 1 MB base64 chunks. The composit
 
 Measured on 2026-11-21: the demo's mix peaks at 2.59 times full scale (+8.3 dB). The speakers clip that; the
 recorder scales the take so its peak sits at 0.95 before it writes 16 bits, and says the peak it found. The song's
-levels need to come down (see `doc/TODO.md`).
+levels came down on 2026-11-21: `.duck("2,3,4,5")` played the kick four times (now `"2:3:4:5"`, see "Mixer" in
+`doc/ARCHITECTURE.md`), and every fader went to 0.62 of its value. Two takes then peaked at 0.78 and 0.81.
 
 Under the voice the song steps down, as MuseColor's music does: its volume is a function of time, 0.8 in the open
 and 0.22 under the voice, with 0.25 s ramps. That is the sidechain, done without audio analysis.

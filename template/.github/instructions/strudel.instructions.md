@@ -23,3 +23,5 @@ $bass: note("c2 c2 eb2 g1").s("sawtooth").lpf(600).gain(.6)
 - `reference/strudel-functions.md` lists every Strudel function, and
   `reference/strudel-tutorial.md` holds the tutorial of strudel.cc.
 - Do not make up function or sound names. A name that does not exist stops the song.
+- For MIDI (a controller, knobs, a synth, CC numbers), read
+  `.claude/skills/strudel-midi/SKILL.md` first.

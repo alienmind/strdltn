@@ -452,9 +452,11 @@ row is built once and updated in place, so a redraw while typing keeps the field
 narrow side bar it wraps onto two lines.
 Record and record automation come here later (see "Recording" in `doc/DAW-PLAN.md`).
 
-**Layout.** Faders are as tall as the panel allows, from 48 up to 400 pixels. In a panel
-at least 420 pixels tall, M, S and G sit in a row above the fader; lower, they stand
-beside it and take no height (a CSS media query on the page's height).
+**Layout.** Top to bottom: the name, the peak of the level meter, the gain fader on its
+meter (as tall as the panel allows), M and S side by side, the scope with the gain's value
+in its corner, and the jack, centered, which tells the orbit in its tooltip. Asked by the
+maintainer on 2026-11-22, who found the stacked M, S, G and the "gain" text under the
+fader too much: the strip no longer grows when a gain fader comes or goes.
 Phase 2 of `doc/DAW-PLAN.md`, and phase 3 in progress.
 
 **Dock and float.** The button with the window icon in the Mixer's title floats it:
@@ -539,7 +541,10 @@ the same before the drop so the cable can turn red. Redraws of the model wait wh
 cable is held, as for a fader. The integration test sends the drop messages on the
 scratch song and reads the text; the drag gesture itself is tested by hand.
 
-**M, S and G.** Three buttons stacked on the left of each strip, blue when on. Each
+**M, S and the gain toggle.** M and S are two buttons above the scope, blue when on. The
+gain toggle has no button since 2026-11-22: a click on the gain fader's triangle without
+moving it (`clickToToggle` in `src/mixer/main.ts`) takes the gain fader out, and a chain
+without one shows a dim triangle at the bottom of the meter that puts one in. Each
 click is an edit of the code made by the host from the text as it is at that moment
 (`toggledLabel`, `labelEdit`, `gainEdit` in `src/shared/chains.ts`), written into the
 document with a `WorkspaceEdit`. The editor takes it as any edit from outside (see "Text
@@ -547,9 +552,10 @@ sync"). M and S flip `_` and `S` on the label. Both on is `Skick_`, because upst
 silences a label that ends with `_` before it looks at the solo. After a mute or solo
 the host evaluates the song again if it plays (`MixerActions.evaluate`), since upstream
 reads the labels only on evaluation. G adds `.gain(slider(1, 0, 1))` at the end of the
-chain's own spine, or makes a fixed `.gain(0.8)` a slider, and G off removes the
-`.gain(...)` call that holds the fader. A chain without a gain fader shows a disabled
-fader. The integration test clicks all three on a scratch song (`zz-mixer-test.strudel`)
+chain's own spine, makes a fixed `.gain(0.8)` a slider, or scales a gain that is not a
+number, `.gain(KICK)` becoming `.gain(KICK.mul(slider(1, 0, 1)))`: a second `.gain()` after
+it would win and silence the knob (seen by the maintainer on 2026-11-22). G off removes the
+`.gain(...)` call that holds the fader, or gives a scaled gain back as it was. A chain without a gain fader shows the dim triangle. The integration test clicks all three on a scratch song (`zz-mixer-test.strudel`)
 and reads the text after each click.
 
 Sliders are counted in the order of the code, the same order as the transpiler's widgets,
@@ -559,10 +565,13 @@ another `const`). The label of a fader is the call whose arguments hold the slid
 constant, walking up through anything that is not a call: `.gain(KICK_VOL.mul(2))` gives
 "gain". Arithmetic (`mul`, `add`, `sub`, `div`, `mod`) is walked through too, so a slider
 that scales a curve, `.lpf(curve.mul(OPEN))`, gives "lpf"; the demo writes its arrangement
-that way. `.orbit(n)` and `.duck("2,3,4")` count only on the chain's own calls; one inside a
+that way. `.orbit(n)` and `.duck("2:3:4")` count only on the chain's own calls; one inside a
 function, or a value that is not a literal, makes the orbit unknown. superdough takes the
 duck orbits as a list (`"2:3"`) or one per event (`"2,3,4"`, a stack), so both read as
-the same set.
+the same set. We write only `"2:3"`: a stack plays the chain once per orbit. The demo's
+`.duck("2,3,4,5")` played its kick four times over, and the whole mix peaked at 2.59 times
+full scale; with `"2:3:4:5"` the same take peaked at 1.41 (measured 2026-11-21 with the
+recorder of `doc/VIDEO.md`).
 
 **The host.** `MixerView` follows the `.strudel` file of the active tab, in either
 editor. Any other tab (the Mixer itself, a terminal, a stage) keeps the last song. The
@@ -633,8 +642,11 @@ s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
 ```
 
 `parseSnippet` reads `// @name value` lines, the same lines inside one block comment,
-and the older upstream form `// "title" @by author`. The header ends at the first line
-that is neither. A file whose top comment has no field has no header, and the comment
+and the older upstream form `// "title" @by author`. A value goes on over the next `//`
+lines indented two spaces or more (`//   more`), and over the next lines without `@` in
+a block comment, so a header line stays under 100 characters; `setSnippetTags` writes
+after such lines, not between them. The header ends at the first line that is none of
+these. A file whose top comment has no field has no header, and the comment
 stays in the code. Every field is shown in the card. `@title` names the row, `@category`
 picks the color, `@tags` become chips. The categories are `drums`, `bass`, `melody`,
 `chords`, `texture`, `effect`, `function`, `song` and `visual`.
@@ -1058,6 +1070,81 @@ frame. On desktop that gives the full rate; in a Codespace it gives whatever the
 frames a second for one panel on this one, with a delay of one frame instead of seconds. `Uint8Array` arrived as
 `Uint8Array` there too. Compressing the frame (OBERVAVE's screen is mostly flat colour) is not measured.
 
+## Level meters
+
+Each strip of the Mixer has a level meter behind its gain fader, as in Live's mixer: two bars, left and right, on a
+scale from 0 down to 60 dB, and above them the highest peak of the last 3 seconds in dB ("-Inf" in silence). It turns
+orange once the level went above 0 dB, where it clips at the speakers, and stays orange until a click. Live's number
+holds until a click; ours follows the level down after 3 s, because the maintainer pulled a gain fader down, read the
+held number, and took the meter for one measured before the gain. A Master strip at the end meters the whole mix. Built on
+2026-11-22 on `feat/midi`, asked by the maintainer after Record measured the demo peaking at +8.3 dB.
+
+The meters show the real audio, not the notes (the pump meter under the faders still shows the notes). superdough plays
+each note through its own nodes and ends with `orbit.connectToOutput(post)`; `post` is that note's last node, after
+its own effects and before the orbit's shared room and delay. superdough calls `getOrbit` before its first `await`
+(read in superdough 1.3.0), so while our `defaultOutput` runs it the note's chain is still known (`meterChain`, from
+the chain tag of the pump meter). `meterOrbits` wraps the controller's `getOrbit` to hand back the orbit through a
+`Proxy` whose `connectToOutput` also feeds the chain's meter: a gain, a channel splitter and two `AnalyserNode`s. A
+song's own `.scope()` and `analyze` are untouched, which a per-chain `analyze` would not be (see the drawer, "Per-chain
+scopes from the analysers"). A firmware's node joins its orbit outside superdough, so `trigger` feeds the meter of the
+chain the note comes from (`meter` of the firmware host); two chains on one firmware copy both see the whole copy. The
+master meter taps `destinationGain`, the node in front of the speakers.
+
+Every 50 ms, with the pump meter's levels, the engine reads the last 2048 samples (about 43 ms) of each meter and sends
+the peak in dBFS (`ScopeFrame.peak`, null for silence, `@master` for the mix). The Mixer page lets a bar fall 24 dB a
+second, keeps the peak, and draws both on a canvas under the fader, whose track is clear and whose thumb is a small
+triangle. The scale's numbers are text in the page, at the heights of the canvas's ticks: drawn on the canvas, they
+were stretched as a picture when the panel grew, until the next draw, which never came with the song stopped. A
+`ResizeObserver` on each well draws the canvas again when it changes size.
+
+Seen on 2026-11-22 in a development host with the demo playing: peaks of -8.92 dB (vocals) to -20.64 dB (bass), -Inf
+for chains not yet heard, and -5.38 dB on the master. The meters are after the gain, measured the same day in a muted
+window: in `examples/10-electro.strudel`, G on `bassline` and its fader from 1 to 0.1 took its meter from about -7 to
+about -24 dB and back to -3 at 1; a sawtooth with `.gain(slider(1, 0, 1))` went from -15.1 to -35.1 dB at 0.1. A
+note without pan is mono, and the meter's input mixes it up to two channels (`channelCountMode: 'explicit'`), or the
+right bar read silence. Not measured: how close the meter's peak is to the true peak
+between two reads (a read sees 43 ms of every 50 ms).
+
+## Render and record
+
+Two buttons of Music Controls, beside Play and Stop, write a song's audio next to it, as a `.wav` and then an `.mp3`.
+The Library lists those files under Render; a click opens them in VS Code's own media preview, which plays them.
+Built on 2026-11-22 on `feat/render`.
+
+| Button | What it makes | Files |
+|---|---|---|
+| Record (the red circle) | What plays, in real time, as heard: it plays the song if it does not, and a second click or Stop ends the take | `<song>.rec-<YYYYMMDD-HHMMSS>.wav` and `.mp3`, a new pair per take |
+| Render audio (the arrow down) | The whole song from its start, played once with the speakers off, as long as it lasts | `<song>.wav` and `.mp3`, replaced at each render |
+
+**Record** uses the recorder of the engine (`recorder()` in `src/webview/main.ts`, first made for the promo video): a
+`ScriptProcessorNode` on superdough's `destinationGain`, the node in front of the speakers. For Record it keeps the
+take as heard: a sample past full scale is clipped, as the speakers clipped it, and the host says the peak it found.
+
+**Render** plays the song once from cycle 0 through the live engine, with the speakers off, and records superdough's
+output with the recorder of Record, for the song's length plus 2 s of tail (`renderSong` in `src/webview/main.ts`). It
+takes as long as the song, and the file is what the song sounds like: every effect, ducking, the firmwares. In order: the
+song stops; `destinationGain` is disconnected from the speakers (the recorder and the master meter still hear it); MIDI
+is muted (`setMidiMuted`), so a synth does not play along; the take starts; the song plays; the scheduler gets the same
+pattern without the notes at or after the length (`filterHaps`), so it does not start a second round into the tail; at
+the length the song stops, and the tail records what still sounds. The take keeps 0.25 s before the song starts. The
+length is the song's header `// @length <cycles>` (the demo says 104), else the setting `strdltn.render.cycles` (16).
+The host shows a notification for the length of the render; its Cancel stops the song, which ends the render without a
+file. Audio must be on: in a window where it never was, the render asks for a click in the editor.
+
+Measured on 2026-11-22 in a muted window: the demo (104 cycles, 187.7 s) rendered in 194 s into 189.9 s of audio, every
+bar of every section with sound where the arrangement has it and the END silent; an 8-bar song with the kick masked on its
+last bar had its first kick 0.12 s in, its last kick at 12.2 s, and nothing after.
+
+The offline render it replaces is in the drawer ("Rendering a song offline").
+
+**The MP3** is encoded in the host with `@breezystack/lamejs` 1.2.7 (LGPL-3.0, a maintained fork of lamejs), in
+slices of about a second so the host stays responsive, at `strdltn.render.mp3Bitrate` (320 kbit/s by default). It is
+the last step: the WAV is on disk even when the encoding fails.
+
+Measured on 2026-11-22 in a development host on Windows: `07-vibefm1-obervave.strudel`, 16 cycles at 118 BPM
+(32.5 s), rendered in 5.4 s, WAV 6.2 MB and MP3 1.3 MB; a 9 s Record of the demo gave 8.4 s of audio. Both showed under
+Render in the Library.
+
 ## Devices
 
 The Devices view is a tab of the bottom panel beside the Mixer (`strdltn.devices`, in its own container
@@ -1170,9 +1257,13 @@ An error is a message. Only a syntax error carries a position. `locateError` in
 | mini line | `[mini] parse error at line N: ...` | Line N |
 | name | `x is not defined` | The first use of the name `x` |
 | call | `....x is not a function` | The first call of `.x(` |
+| shown call | A message that shows a call, as our MIDI messages do: `... for example midin('...')` | The first call of `midin(` |
 
-The last two take the first place the name is written. When the name is written more
-than once, that may be the wrong one. An error that no rule places goes on the first
+The last two take the first place the name is written outside a comment
+(`withoutComments` blanks comments and skips strings, so the `//` of an address in a
+string stays code). Before that, the `.midi()` in the header of
+`examples/09-midi-out.strudel` took the mark. When the name is written more than once in
+the code, that may still be the wrong one. An error that no rule places goes on the first
 line.
 
 The diagnostic is removed by the next evaluation that works, by closing the editor, and
@@ -1261,6 +1352,7 @@ In VS Code 1.130.0 on Windows (Electron 42, Chrome 148), with `pnpm test:vscode`
 | A new folder under `samples/` appears in the list without a reload | Works |
 | Insert a sound name into the Strudel editor, and a snippet into the native editor | Works |
 | Audio outputs seen by the webview (`enumerateDevices`) | 1, without a label. `AudioContext.setSinkId` exists |
+| The microphone in a webview (`getUserMedia({ audio: true })`), to get the outputs' names (spike S6, 2026-11-22, VS Code 1.147) | Refused: `NotAllowedError: Permission denied`, at once. After it, still 1 output with an empty label and id, so `setSinkId` has nothing to pick |
 | A native MIDI module (`@julusian/midi`) in the extension host's runtime | Loads, lists inputs and outputs, sends in 0.05 ms |
 | A 20 ms timer in the extension host's runtime, Windows | Late by 10 ms in the middle, 16 ms at the 95th percentile, 80 ms at worst |
 | Drum machine banks in the Sounds view | 138 |
@@ -1527,6 +1619,104 @@ build, and `production` or `development`.
 
 For fast work on the work in progress: `pnpm watch`, press F5 once, and use "Developer:
 Reload Window" in the development host after a change.
+
+## MIDI
+
+A webview may not use WebMIDI, so MIDI goes through the extension host with
+`@julusian/midi` 3.9.0 (MIT), see "MIDI" in `doc/TODO.md`.
+
+```
+webview (src/webview/midi.ts)          host (src/extension/midi.ts)     worker (midi-worker.ts)
+.midi() onTrigger -> hapMessages   -> midiOut {port?, bytes, at} ->  resolves the port, queue,
+  at = heard time on the host clock                                  sleeps, spins, sends
+midiPing every 5 s                 <- midiPong {now}                 reads the ports every 2 s
+midin()/midikeys() <- midiIn       <- for engines that listen    <- input message
+stop -> midiPanic                  -> panic(engine)              -> notes off of that engine
+```
+
+- The Library's MIDI category lists the outputs ("Outputs: instruments") and the inputs
+  ("Inputs: controllers") as `midiItem`s. The extension starts the worker at activation
+  where the host is local (`vscode.env.remoteName` unset) and passes each new port list
+  to the Browser (`MidiBridge.onPorts`), so a device plugged in shows within 2 s. A click
+  types `.midi('name')` or `const cc = await midin('name')` (single quotes: a double-quoted
+  string is mini-notation, a pattern of its words, which upstream's `midin` refuses; ours joins
+  the words of its first cycle back into the name, so `midin("MPK mini 3")` works too, measured
+  with loopMIDI on 2026-11-22). Inside a string it types the name alone, inside the empty
+  parentheses of `.midi()`, `midin()` or `midikeys()` the name in quotes (`chooseInsert` in
+  `src/shared/context.ts`, the item's `argument`). Copy copies the name.
+- Debugging: the setting `strdltn.midi.debug` (the command "strdltn: Show MIDI messages in
+  the Output" turns it on and off) writes every message in and out to Output > strdltn as
+  text (`describeMidi`): `in <- MPK mini 3: CC 70 = 64 (ch 1)`, `out -> M-VAVE FM-1: note on
+  c3 (48) vel 94 (ch 1)`, and "no song listens to this device" when nothing called `midin`
+  for it. While it is on, the bridge opens every input, so a controller shows before any
+  song uses it. Seen on 2026-11-22 in a muted window: CC 70 = 94 sent into loopMIDI, and the
+  next note of `velocity(knobs(70))` went out with velocity 94.
+- Devices tried by hand on 2026-11-22: the maintainer's MPK mini 3 sends CC 1 to 8 from its
+  eight knobs; Xfer's SHRUB on the M-VAVE FM-1 takes CC 74 as its filter cutoff (the stock
+  firmware has cutoff on CC 2). SHRUB's macros are said to be on CC 16 to 19, not tried.
+- Our `.midi()`, `midin()`, `midikeys()`, `midimaps()` and `defaultmidimap()` take the
+  upstream names and options, so a song from strudel.cc runs. `@strudel/midi` is not
+  bundled (it needs WebMIDI). The rules that turn a hap into bytes, pick a port and keep
+  the queue are in `src/shared/midi.ts`, with unit tests.
+- Time: `onTrigger` gives the AudioContext time a note is due. The webview turns it into
+  the time it is heard with `getOutputTimestamp()`, then into the host's clock
+  (`performance.timeOrigin + performance.now()` on both sides) with the offset that
+  `ClockOffset` keeps from pings: the guess of the shortest round trip of the last 8. A
+  note leaves about 100 ms early; `latencyMs` of `.midi()` adds to its time.
+- The worker starts with the first MIDI message of a song, so a song without MIDI never
+  loads the native module. It owns every port (a WinMM port opens once only). It resolves
+  the port a song names (index, name, part of a name, else the first IAC or first port)
+  itself, because it reads the ports before it takes a message; so the first notes of a
+  song do not wait for the port list. A port opens when its first events arrive, and an
+  active sensing byte warms it up.
+- Panic: a stop drops the engine's queued events and sends a note off for each note it
+  holds; closing the extension sends CC 123 on every channel of every open port too.
+- Packaging: the worker is its own bundle, `dist/midi-worker.cjs`. The loader of
+  `@julusian/midi` looks for the binaries in `<bundle's folder>/prebuilds`, so the build
+  copies them to `dist/prebuilds/` (2.2 MB, every platform). `pnpm-workspace.yaml` says
+  `false` for its install script, which only checks for them or runs node-gyp.
+
+Measured end to end on 2026-11-21, in a muted VS Code 1.147 window with a song that sends
+`note("c3*8")` at 120 BPM to loopMIDI, the notes taken back from loopMIDI's input by
+another process: 55 notes, the spacing within 0.09 ms of 250 ms in the middle, 1.0 ms at
+the 95th percentile, 1.34 ms at worst; the worker sent at most 0.02 ms late. A second run
+with `midin('loopMIDI')` reading CC 7 into the velocity: the velocity followed the CC
+(13, then 127), spacing 3.1 ms at worst. Not measured: how close the MIDI is to the sound
+of the same song at the speakers.
+
+Spike S5 measured
+how exactly the host can send, on 2026-11-21, on the maintainer's Windows 11 machine, in
+VS Code 1.147's Electron 43.8.9 run as Node (`ELECTRON_RUN_AS_NODE=1`), with
+`@julusian/midi` 3.9.0. The setup: a `worker_thread` keeps the notes in a queue ordered
+by due time; the main thread posts each note 100 to 150 ms before it is due, a new one
+every 10 to 30 ms, and is kept busy 0 to 20 ms of every 50; 1000 notes a run.
+
+| How the worker waits | Port | Late: middle | 95th | 99th | worst |
+|---|---|---|---|---|---|
+| Plain `setTimeout` on the main thread | loopMIDI | 0.16 ms | 10.9 ms | 16.2 ms | 20.9 ms |
+| `Atomics.wait` to 1 ms before, then spin | loopMIDI | 0 | 1.0 ms | 10.0 ms | 35.7 ms |
+| The same, process priority high | loopMIDI | 0 | 0.84 ms | 1.15 ms | 1.6 ms |
+| The same, process priority high | UMC404HD (hardware) | 5.7 ms | 13.6 ms | 14.9 ms | 17.1 ms |
+| `Atomics.wait` to 17 ms before, then spin, priority high | UMC404HD | 0 | 0 | 0.10 ms | 0.45 ms |
+| The same | Microsoft GS Wavetable Synth | 0 | 0 | 0.02 ms | 10.6 ms |
+
+What we learned from it:
+
+- `Atomics.wait` sleeps in steps of Windows' timer tick, 15.6 ms, unless something in the
+  process asked for a finer timer. Opening the loopMIDI port seems to do that (its runs
+  overslept by about 1 ms); the hardware port and the GS synth do not (10 to 15 ms). A
+  sender that trusts a short sleep is exact only by luck. So the worker sleeps until 17 ms
+  before a note and spins from there. That costs CPU: the whole process used 0.55 of a
+  core against 0.2 for the short margin, with the main thread's own load in both.
+- High process priority (`os.setPriority`) removed the long outliers of 20 to 80 ms.
+  Whether the extension may raise the priority of the whole extension host is open: it
+  would also raise every other extension.
+- The GS Wavetable Synth's `sendMessage` itself sometimes blocks 8 to 14 ms. It is a
+  software synth; a hardware port returned in under 0.5 ms.
+- A WinMM output can be open in one place only: a second `openPort` fails with
+  `MMRESULT 4` (already allocated). One owner per port, the worker.
+- The first notes after start are late (4 to 74 ms): the first send costs about 40 ms. A
+  silent message at open warms it up.
 
 ## Release
 

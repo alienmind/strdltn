@@ -2,7 +2,7 @@
 	"name": "strdltn",
 	"displayName": "[str]dltn Live[code]",
 	"description": "Your IDE is your DAW. Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"private": true,
 	"publisher": "strdltn",
 	"license": "AGPL-3.0-or-later",
@@ -73,6 +73,14 @@
 				}
 			},
 			{
+				"command": "strdltn.record",
+				"title": "strdltn: Record (on / off)"
+			},
+			{
+				"command": "strdltn.render",
+				"title": "strdltn: Render audio"
+			},
+			{
 				"command": "strdltn.stopAll",
 				"title": "strdltn: Stop all"
 			},
@@ -126,6 +134,10 @@
 				"command": "strdltn.focusSearch",
 				"title": "strdltn: Search the Browser",
 				"icon": "$(search)"
+			},
+			{
+				"command": "strdltn.midi.toggleDebug",
+				"title": "strdltn: Show MIDI messages in the Output (on or off)"
 			},
 			{
 				"command": "strdltn.refreshBrowser",
@@ -230,6 +242,23 @@
 		"configuration": {
 			"title": "strdltn",
 			"properties": {
+				"strdltn.render.mp3Bitrate": {
+					"type": "number",
+					"enum": [128, 160, 192, 256, 320],
+					"default": 320,
+					"description": "Bitrate of the .mp3 that Render and Record write next to the song, in kbit/s. The .wav is always written too."
+				},
+				"strdltn.midi.debug": {
+					"type": "boolean",
+					"default": false,
+					"description": "Write every MIDI message, in and out, to the Output channel strdltn, as text: which device, the channel, the note or the CC and its value. To find out what a controller sends and whether a song hears it."
+				},
+				"strdltn.render.cycles": {
+					"type": "number",
+					"default": 16,
+					"minimum": 1,
+					"description": "How many cycles Render makes of a song that does not say. A song says it in its header: // @length 100"
+				},
 				"strdltn.samplesFolder": {
 					"type": "string",
 					"default": "samples",
@@ -345,8 +374,7 @@
 					"id": "strdltn-mixer",
 					"title": "Mixer",
 					"icon": "media/strdltn.svg"
-				}
-,
+				},
 				{
 					"id": "strdltn-devices",
 					"title": "Devices",
@@ -422,8 +450,10 @@
 		"test:unit": "node --test \"src/**/*.test.ts\""
 	},
 	"devDependencies": {
+		"@breezystack/lamejs": "1.2.7",
 		"@codemirror/state": "^6.7.6",
 		"@codemirror/view": "^6.43.15",
+		"@julusian/midi": "3.9.0",
 		"@strudel/codemirror": "1.3.0",
 		"@strudel/core": "1.2.6",
 		"@strudel/draw": "1.2.6",

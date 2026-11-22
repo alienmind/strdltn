@@ -1,7 +1,7 @@
 /* The Mixer view. Every color is a theme variable of VS Code, so it fits any theme. */
 :root {
 	/* The width of a folded strip. Long names are cut, the whole name is in the tooltip. */
-	--strip: 78px;
+	--strip: 88px;
 	--fader: 40px;
 	--sidechain: var(--vscode-charts-orange, #d18616);
 }
@@ -63,9 +63,11 @@ button:disabled { cursor: default; opacity: .35; }
 
 .strip header { display: flex; align-items: center; gap: 2px; padding: 4px 4px 2px; min-width: 0; }
 .strip header .fold { width: 14px; flex: none; opacity: .8; }
-.strip header .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-weight: 600; }
+.strip header .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-weight: 600; }
+/* The fold arrow sits at the left; a space as wide at the right keeps the name in the middle of the strip. */
+.strip header:has(.fold)::after { content: ""; width: 14px; flex: none; }
 .strip header .name:hover { text-decoration: underline; }
-.strip.global header .name { padding-left: 16px; cursor: default; text-decoration: none; color: var(--vscode-descriptionForeground); }
+.strip.global header .name { cursor: default; text-decoration: none; color: var(--vscode-descriptionForeground); }
 
 .body { flex: 1; display: flex; gap: 4px; padding: 0 4px 0 6px; }
 .badges { flex: none; display: flex; flex-direction: column; gap: 3px; padding-top: 4px; }
@@ -106,9 +108,9 @@ button:disabled { cursor: default; opacity: .35; }
 .strip .scope { display: block; height: 28px; width: calc(100% - 12px); margin: 2px 6px 0; border-radius: 2px; cursor: pointer; color: var(--vscode-charts-green, #89d185); background: var(--vscode-editor-background, rgba(0, 0, 0, .3)); }
 .strip .scope.off { color: var(--vscode-disabledForeground, #888); opacity: .6; }
 .strip .scope:hover { outline: 1px solid var(--vscode-focusBorder, #3794ff); }
-.strip footer { margin-top: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 4px 6px; min-height: 32px; }
+.strip footer { margin-top: auto; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; padding: 4px 6px; min-height: 32px; }
 .route { flex: 1; font-size: 10px; color: var(--vscode-descriptionForeground); }
-.note { width: 100%; font-size: 10px; color: var(--vscode-descriptionForeground); }
+.note { width: 100%; text-align: center; font-size: 10px; color: var(--vscode-descriptionForeground); }
 .jack { display: block; width: 24px; height: 24px; color: var(--sidechain); }
 .jack svg { display: block; }
 
@@ -136,3 +138,97 @@ button:disabled { cursor: default; opacity: .35; }
 	.badges { flex-direction: row; justify-content: center; padding-top: 2px; }
 	.fader input { height: clamp(48px, calc(100vh - 256px), 400px); }
 }
+
+/* Level meters, as Live's. Left to right in the well: the fader's lane (13 pixels, METER_LANE in main.ts) with its
+   triangle pointing at the bars, the two bars, the scale. The fader's track is clear, so the meter is the track. The
+   peak sits above: orange above 0 dB. */
+/* As wide as its content (lane, two bars, scale), so it sits centered in the strip. */
+.fader.metered { width: 50px; }
+.meter-well { position: relative; width: 100%; height: clamp(60px, calc(100vh - 262px), 400px); margin: 3px 0 5px; }
+/* The numbers of the scale, right of the ticks: 13 (the fader's lane) + 2 bars of 5 + 1 + 2 + the tick of 3 + 2. */
+.meter-scale { position: absolute; inset: 0; pointer-events: none; }
+.meter-scale span {
+	position: absolute;
+	left: 31px;
+	transform: translateY(-50%);
+	font-size: 11px;
+	line-height: 1;
+	color: var(--vscode-descriptionForeground);
+}
+.meter-well canvas.meter { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--vscode-descriptionForeground); font-family: var(--vscode-font-family); }
+.fader.metered .meter-well input {
+	position: absolute;
+	left: 0;
+	top: 0;
+	height: 100%;
+	width: 13px;
+	margin: 0;
+	-webkit-appearance: none;
+	appearance: none;
+	background: transparent;
+}
+.fader.metered .meter-well input::-webkit-slider-runnable-track { background: transparent; border: 0; }
+.fader.metered .meter-well input::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 11px;
+	height: 12px;
+	background: var(--vscode-foreground, #ccc);
+	clip-path: polygon(0 0, 100% 50%, 0 100%);
+	cursor: grab;
+}
+.fader.metered .meter-well input:focus-visible { outline: none; }
+.fader.metered .meter-well input:focus-visible::-webkit-slider-thumb { background: var(--vscode-focusBorder, #3794ff); }
+.peakhold {
+	min-width: 44px;
+	padding: 0 4px;
+	border-radius: 9px;
+	font-family: var(--vscode-editor-font-family, monospace);
+	font-size: 11px;
+	line-height: 17px;
+	background: rgba(0, 0, 0, .35);
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+.peakhold.over { background: #f0a23a; color: #1e1e1e; font-weight: 600; }
+.fader.metered .label { font-size: 11px; }
+.fader.metered .value { font-size: 11px; }
+/* A chain without a gain fader still has its meter at full strength; only the dead fader is dim. */
+.fader.off.metered { opacity: 1; }
+.fader.off.metered .label, .fader.off.metered .value, .fader.off.metered input { opacity: .45; }
+.strip.master .name { font-weight: 600; }
+@media (min-height: 420px) {
+	.meter-well { height: clamp(60px, calc(100vh - 290px), 400px); }
+}
+
+/* M and S side by side above the scope. */
+.ms { display: flex; justify-content: center; gap: 4px; margin: 4px 6px 0; }
+/* The scope with the gain's value in its middle. The value covers the scope's own box (its margins as in .strip .scope). */
+.scope-box { position: relative; }
+.scope-box .scope-value {
+	position: absolute;
+	inset: 2px 6px 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-family: var(--vscode-editor-font-family, monospace);
+	font-size: 11px;
+	color: var(--vscode-foreground);
+	opacity: .85;
+	pointer-events: none;
+}
+/* No gain fader: a dim triangle at the bottom of the fader's lane, which puts one in the code. */
+.off-thumb {
+	position: absolute;
+	left: 0;
+	bottom: 1px;
+	width: 11px;
+	height: 12px;
+	padding: 0;
+	border: 0;
+	background: var(--vscode-disabledForeground, #888);
+	opacity: .55;
+	clip-path: polygon(0 0, 100% 50%, 0 100%);
+	cursor: pointer;
+}
+.off-thumb:hover { opacity: 1; background: var(--vscode-focusBorder, #3794ff); }

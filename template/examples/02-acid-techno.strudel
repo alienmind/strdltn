@@ -1,5 +1,6 @@
 // @title Acid techno
-// @details A track to play live. The sliders at the top are the mixer: start with everything down, bring the kick in, then the hats, then open the acid.
+// @details A track to play live. The sliders at the top are the mixer: start with everything down,
+//   bring the kick in, then the hats, then open the acid.
 // @by alienmind
 // @credits Switch Angel for acid
 setcpm(132/4)

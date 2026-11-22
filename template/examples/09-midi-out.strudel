@@ -1,0 +1,45 @@
+// @title MIDI out
+// @details Chords on a MIDI synth, a band in the editor, and the eight knobs of a MIDI
+//   controller on both. Set your two devices at the top. Desktop VS Code only.
+// @by alienmind
+
+setcpm(124/4)
+
+// Your devices. A click on one in the Library's MIDI category types its name.
+const SYNTH = 'M-VAVE FM-1'
+const knobs = await midin('MPK mini 3')
+
+// The MPK mini 3's knobs send CC 1 to 8. The band starts silent: bring each part in with its
+// knob, as on a mixer.
+const KICK = knobs(1)
+const HATS = knobs(2)
+const BASS = knobs(3)
+const PAD = knobs(4)
+const BASS_OPEN = knobs(5)
+const SYNTH_HARD = knobs(6)
+const SYNTH_OPEN = knobs(7)
+const SYNTH_MACRO = knobs(8)
+
+// What the synth listens to: SHRUB on the FM-1 takes its cutoff on CC 74 and its first macro
+// on CC 16.
+const FILTER_CC = 74
+const MACRO_CC = 16
+
+// The band, in the editor. Knobs 1 to 4: the level of each part.
+$kick: s("bd*4").bank("RolandTR909").duck(2).duckattack(.2).duckdepth(.8).gain(KICK)
+$hats: s("[~ hh]*4, ~ cp ~ cp").bank("RolandTR909").gain(HATS)
+// Knob 5: the bass filter's envelope, from tame to squelch.
+$bass: note("c2 c2 c3 c2 eb2 c2 g2 bb1").s("sawtooth").lpf(300).lpenv(BASS_OPEN.range(1, 6)).lpq(10)
+  .orbit(2).gain(BASS)
+$pad: chord("<Cm7 Abmaj7>").voicing().s("supersaw").attack(.3).release(1).lpf(900).orbit(2).gain(PAD)
+
+// Chords on the synth. Knob 6: how hard they play.
+$synth: note("<[c3 eb3 g3 bb3] [ab2 c3 eb3 g3]>*2").midichan(1)
+  .velocity(SYNTH_HARD.range(.3, 1))
+  .midi(SYNTH)
+
+// Knobs 7 and 8 go on to the synth: its filter and its first macro.
+$cutoff: ccn(FILTER_CC).ccv(SYNTH_OPEN).seg(16)
+  .midi(SYNTH, { isController: true })
+$macro: ccn(MACRO_CC).ccv(SYNTH_MACRO).seg(16)
+  .midi(SYNTH, { isController: true })

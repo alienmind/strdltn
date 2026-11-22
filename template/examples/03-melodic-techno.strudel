@@ -1,5 +1,6 @@
 // @title Melodic techno
-// @details A slower, wider track built on four chords. The arpeggio and the stabs share one filter slider, so one hand can open the whole track.
+// @details A slower, wider track built on four chords. The arpeggio and the stabs share one filter
+//   slider, so one hand can open the whole track.
 // @by alienmind
 setcpm(124/4)
 

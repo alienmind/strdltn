@@ -63,7 +63,7 @@ with the template folder open and the Output strdltn shown.
 | 1 | In the Strudel editor, select a word, press Ctrl+H | The search bar opens with the cursor in the replace field |
 | 2 | Put the cursor on `kick`, press Ctrl+D twice | The next two `kick` are selected too, as three cursors |
 | 3 | Cursor on `kick`, press Ctrl+Shift+L | Every `kick` is selected |
-| 4 | Open a song with a `slider(...)` (the demo has them), put the cursor inside a `slider(...)` call, press Ctrl+Alt+K, turn knob 1 | Status bar: "Move a knob...", then "Knob on CC 1 mapped". The code gets `.knob(1)` after the slider, and the snippet `register('knob', ...)` after the header |
+| 4 | Open `examples/02-acid-techno.strudel`, put the cursor inside a `slider(...)` call, press Ctrl+Alt+K, turn knob 1 | Status bar: "Move a knob...", then "Knob on CC 1 mapped". The code gets `.knob(1)` after the slider, and the snippet `register('knob', ...)` after the header |
 | 5 | Play the song, turn knob 1 far from the slider's value, then slowly toward it | Nothing moves until the knob passes the value. Then the slider, the sound and the number in the code follow the knob |
 | 6 | Drag the slider with the mouse somewhere else, then turn the knob | The knob lets go, and takes over again once it passes the new value |
 | 7 | Double click another slider's widget, turn knob 2 | Same as 4, with `.knob(2)`; the snippet is not added twice |

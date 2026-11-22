@@ -64,8 +64,8 @@ Your tweaks end up in the file, so nothing gets lost.
 opens below with the visuals, each one labelled. Zoom on a label. Ctrl+Alt+M back.
 
 **Say:**
-Sometimes you want a plain code editor: your own shortcuts, your extensions, your AI
-assistant. One button switches the same file over.
+Sometimes you want a plain code editor: your own shortcuts, your extensions. One button
+switches the same file over.
 When you play from here, a stage opens underneath with the visuals. Each one gets a name
 from your code: the name of the part, a variable, or the comment just above it.
 And one more press brings me back to the Strudel editor.
@@ -180,7 +180,7 @@ appears in the Library. The demo's `samples('github:...')` line. Then the end ca
 Last thing, and maybe my favourite. Everything here is a plain file. Your songs, your
 samples, your snippets. Drop a sound in the samples folder and it's in the Library a second
 later.
-That means git works, your AI assistant can help you write a song, and you can even open the
+That means git works, and you can even open the
 whole project in a Codespace and play it from a browser.
 And because it's real Strudel, you can paste a song into strudel.cc and it just plays.
 [str]dltn is free and open source. You'll find it on GitHub. Have fun making music.

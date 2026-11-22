@@ -82,7 +82,7 @@ browser.
 - One button switches a file between the Strudel editor and the native VS Code editor.
 - A stage beside the native editor: sliders and visuals, each with a name taken from
   your code.
-- Edits from outside (git, another editor, an AI agent) show up at once, while it plays.
+- Edits from outside (git, another editor) show up at once, while it plays.
 - An error in the code is underlined and listed in the Problems view, and the song keeps
   playing what worked last.
 - A status bar item says what the song does (playing, stopped, error) and plays or stops
@@ -206,9 +206,6 @@ browser.
 - Songs, samples and snippets are plain files: git, search and folders work as usual.
 - The Songs of the Browser are every `.strudel` file of your project, by folder, and
   only those. A click opens one.
-- Ready for AI assistants such as Copilot: the template tells them that "add a bass line"
-  means a change to the song you have open, and gives them the Strudel reference and
-  tutorial to look things up.
 - MIDI on desktop: Strudel's `.midi()` plays a synth or a drum machine on a MIDI device,
   in time with the sound, and `midin()` and `midikeys()` read a controller or a keyboard.
   `midimaps()` and `defaultmidimap()` name the CCs. The Library's MIDI category lists your
@@ -242,7 +239,7 @@ the line that makes them, sliders inside the code, and an outline on the notes t
 playing. Hydra visuals work too.
 
 A button in the title bar switches the same file to the native VS Code editor, for
-bigger edits with your own keys, extensions and AI completion. Press play there and a
+bigger edits with your own keys and extensions. Press play there and a
 stage opens below the code with the visuals of the song. Each is named from your code:
 the name of the pattern (`$kick:`), the name of a variable, the comment above the line,
 or the code itself. The sliders are faders in the Mixer.
@@ -254,7 +251,7 @@ visuals draw behind your code, driven by your pattern.
 
 ![Hydra shapes behind the code](doc/screenshot-hydra.png)
 
-Edits made outside the editor, by git or by an agent, show up at once, even while the
+Edits made outside the editor, by git or another editor, show up at once, even while the
 song plays.
 
 ### The Mixer and Music Controls
@@ -382,8 +379,7 @@ for one click ("Click to enable audio"). Browsers do not start sound without a c
 | `examples/` | Songs to learn from and to play, from a first beat to full tracks |
 | `lib/` | Snippets: drums, bass lines, chords, effects, helper functions |
 | `samples/` | Your own audio files |
-| `AGENTS.md`, `.github/` | Rules for an AI assistant such as Copilot: a request like "add a bass line" changes the song you have open |
-| `reference/` | Every Strudel function and the strudel.cc tutorial as text, for the assistant to look things up |
+| `reference/` | Every Strudel function and the strudel.cc tutorial as text, to look things up |
 
 ## Work on [str]dltn Live[code] itself
 

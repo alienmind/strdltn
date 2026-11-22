@@ -106,7 +106,7 @@ Both edit the same file; pick the one that suits the moment.
 
 ### The native editor and the stage
 
-The native editor is plain VS Code: your keys, your extensions, AI completion, and an
+The native editor is plain VS Code: your keys, your extensions, and an
 underline under the exact place of an error. Press play there and a **stage** opens below the
 code with the song's visuals and sliders, each named from your code.
 
@@ -133,7 +133,7 @@ The stage's place is the setting `strdltn.stage.position`.
 | A click on the status bar item | Plays or stops the song in front |
 | "strdltn: Stop all" | Stops every song |
 
-Edits from outside, by git, another editor or an AI assistant, show up at once, also while
+Edits from outside, by git or another editor, show up at once, also while
 the song plays.
 
 ## 4. The Library
@@ -415,8 +415,6 @@ s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
 
   Only the code is inserted. The categories are `drums`, `bass`, `melody`, `chords`,
   `texture`, `effect`, `function`, `song` and `visual`.
-- **AI assistants.** The template tells assistants such as Copilot that "add a bass line"
-  means a change to the song you have open, and gives them the Strudel reference.
 
 ## 11. Colors and what they mean
 

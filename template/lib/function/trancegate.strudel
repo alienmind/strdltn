@@ -1,0 +1,17 @@
+// @title trancegate(): chop a sound into a random gate that repeats
+// @category function
+// @details Cuts a long sound (a pad, a chord) into sixteenths that open and close at random,
+//   the same each time round. density: how many open (around 1); seed: which random gate;
+//   length: how many cycles before it repeats.
+// @tags gate, trance, rhythm
+// @by alienmind
+// @credits Switch Angel
+register('trancegate', (density, seed, length, x) => {
+  density = reify(density).add(.5)
+  // strudel.cc adds .fill() before .clip(): each open step then lasts until the next one. The
+  // published Strudel (1.2.6) has no fill() yet.
+  return x.struct(rand.mul(density).round().seg(16).rib(seed, length)).clip(.7)
+})
+
+$: note("<[c3,eb3,g3] [ab2,c3,eb3]>").s("supersaw").attack(.01).release(.1)
+  .trancegate(1.5, 45, 1)

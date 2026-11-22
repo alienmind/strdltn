@@ -397,3 +397,6 @@ loopMIDI (a free virtual port for Windows) and read the notes back from its inpu
 All of the music making is [Strudel](https://codeberg.org/uzu/strudel), by Felix Roos,
 Alex McLean and the Strudel contributors. [str]dltn Live[code] hosts the upstream `@strudel/*`
 packages unchanged.
+
+Several snippets use techniques learned from Switch Angel, and her trance gate is in
+`lib/function/trancegate.strudel` and on the demo's pad.

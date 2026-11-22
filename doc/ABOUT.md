@@ -278,4 +278,4 @@ Alex McLean and the Strudel contributors. [str]dltn Live[code] is only the VS Co
 
 The template includes `coastline` by eddyflux, from Strudel's own examples, and "Array
 (Lil Data Edit)" by DJ_Dave. Several snippets use techniques learned from Switch Angel
-and from the Art Haus live coding workshop.
+and from the Art Haus live coding workshop, and her trance gate is a snippet of its own.

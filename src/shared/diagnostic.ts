@@ -5,7 +5,7 @@
 //
 // 1. `pos`: the parser (acorn) gives the offset of a syntax error.
 // 2. "[mini] parse error at line N": mini-notation gives the line of the string.
-// 3. "x is not defined": the first use of the name `x`.
+// 3. "x is not defined", or "Cannot access 'x' before initialization": the first use of `x`.
 // 4. "....x is not a function": the first call of `.x(`.
 // 5. A message that shows a call, `name('...')`: the first call of `name(`.
 //
@@ -39,7 +39,8 @@ export function locateError(code: string, error: { message?: string; pos?: unkno
 	// A comment may name the function too: a header that explains `.midi()` came first and
 	// took the mark (seen in examples/09-midi-out.strudel).
 	const bare = withoutComments(code);
-	const name = /^([A-Za-z_$][\w$]*) is not defined$/.exec(message);
+	// "Cannot access 'X' before initialization": a const used above its line. Its first use is the place.
+	const name = /^([A-Za-z_$][\w$]*) is not defined$/.exec(message) ?? /^Cannot access '([A-Za-z_$][\w$]*)' before initialization$/.exec(message);
 	if (name) {
 		const found = new RegExp(`(?<![\\w$.])${escape(name[1])}(?![\\w$])`).exec(bare);
 		if (found) return { from: found.index, to: found.index + name[1].length, rule: 'name' };

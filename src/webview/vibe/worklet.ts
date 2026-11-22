@@ -35,12 +35,15 @@ class VibeProcessor extends AudioWorkletProcessor {
 	/** Drawing: on while a panel is open; `waiting` while a frame is in flight; blocks since the last draw. */
 	private drawing = { on: false, waiting: false, blocks: 0, last: undefined as Uint16Array | undefined, values: '' };
 
-	constructor(options: { processorOptions: { module: WebAssembly.Module } }) {
+	constructor(options: { processorOptions: { module: WebAssembly.Module; events?: VibeEvent[]; clock?: { frame: number; cycle: number; cps: number; playing: boolean } } }) {
 		super();
 		const send = (m: FromVibeWorklet) => this.port.postMessage(m);
 		try {
 			this.core = new VibeCore(options.processorOptions.module, sampleRate, { log: (text) => send({ t: 'log', text }) });
 			send({ t: 'ready', sdk: this.core.sdk, params: this.core.params });
+			// A render gives its copy every note up front: offline, a message would arrive after the render ended.
+			for (const e of options.processorOptions.events ?? []) this.core.schedule(e);
+			if (options.processorOptions.clock) this.clock = options.processorOptions.clock;
 		} catch (error) {
 			send({ t: 'crash', error: String((error as Error)?.message ?? error) });
 		}

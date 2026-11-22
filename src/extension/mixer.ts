@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, scopeEdit, tempoEdit, unduckEdits } from '../shared/chains';
-import type { ControlsState, FromControls } from '../shared/controls';
+import type { ControlsState, FromControls, TransportAction } from '../shared/controls';
 import type { FromMixer, ToMixer } from '../shared/mixer';
 import type { ScopeFrame } from '../shared/protocol';
 import { lf, lineColumn } from '../shared/sync';
@@ -16,9 +16,11 @@ export interface MixerActions {
 	moveSlider(document: vscode.TextDocument, index: number, from: number | undefined, value: string): boolean;
 	/** Evaluates the song again when it is playing, so a mute or solo is heard at once. */
 	evaluate(document: vscode.TextDocument): void;
-	/** Plays or stops the song, as the buttons of the editor's title do. */
-	transport(document: vscode.TextDocument, action: 'play' | 'stop'): void;
+	/** Plays, stops, records or renders the song, as the buttons of Music Controls ask. */
+	transport(document: vscode.TextDocument, action: TransportAction): void;
 	isPlaying(document: vscode.TextDocument): boolean;
+	/** Record is on, or a render is being made, for the song. */
+	busy(document: vscode.TextDocument): { recording: boolean; rendering: boolean };
 	/** What Music Controls show changed. */
 	controls(state: ControlsState): void;
 }
@@ -126,7 +128,8 @@ export class MixerView implements Surface {
 	/** What Music Controls show. Sent on every change of the song, its model or its playing. */
 	private sendControls(): void {
 		const song = this.document?.uri.path.split('/').pop();
-		this.actions.controls({ song, known: !!this.model, tempo: this.model?.tempo && { bpm: this.model.tempo.bpm }, playing: this.playing });
+		const busy = this.document ? this.actions.busy(this.document) : { recording: false, rendering: false };
+		this.actions.controls({ song, known: !!this.model, tempo: this.model?.tempo && { bpm: this.model.tempo.bpm }, playing: this.playing, ...busy });
 	}
 
 	private handle(message: FromMixer): void {

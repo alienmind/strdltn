@@ -4,7 +4,7 @@
 // keeps it and hands it to each. See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
 import { type BrowserFilterState, type BrowserPage, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
-import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
+import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, opens, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
 import type { PreviewPlan } from '../shared/preview.ts';
 import { chipGroups, filterItems, groupItems } from '../shared/search.ts';
 import { TAG_GROUPS } from '../shared/tags.ts';
@@ -388,10 +388,10 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		const actions = node.appendChild(el('span', 'actions'));
 		const index_ = row.type === 'variation' ? row.index : undefined;
 		if (item.sound) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
-		if (item.kind === 'song') actions.appendChild(button('open', 'Open', () => post({ type: 'open', id: item.id })));
+		if (opens(item)) actions.appendChild(button('open', item.kind === 'render' ? 'Play' : 'Open', () => post({ type: 'open', id: item.id })));
 		else actions.appendChild(button('insert', 'Insert at the cursor (Enter)', () => post({ type: 'insert', id: item.id, index: index_ })));
 		if (item.kind === 'snippet') actions.appendChild(button('open', 'Open the file', () => post({ type: 'open', id: item.id })));
-		else if (item.kind !== 'song') actions.appendChild(button('copy', 'Copy the name', () => post({ type: 'copy', id: item.id, index: index_ })));
+		else if (!opens(item)) actions.appendChild(button('copy', 'Copy the name', () => post({ type: 'copy', id: item.id, index: index_ })));
 		// Colors and tags have their own button: a right click or the keys 1 to 7 were the
 		// only ways in, and the maintainer found no way to put a sound in a collection.
 		actions.appendChild(
@@ -420,6 +420,7 @@ function variationLabel(item: CatalogItem, index: number): string {
 }
 
 function iconOf(item: CatalogItem): string {
+	if (item.kind === 'render') return 'render';
 	if (item.kind !== 'sound') return item.kind;
 	return CATEGORIES.find((c) => c.id === item.category)?.icon ?? 'sample';
 }
@@ -535,7 +536,7 @@ function playRow(row: Row): void {
 function activate(row: Row | undefined): void {
 	if (!row) return;
 	if (row.type === 'heading') return row.insert ? post({ type: 'insertText', text: row.insert }) : toggleHeading(row);
-	if (row.item.kind === 'song') return post({ type: 'open', id: row.item.id });
+	if (opens(row.item)) return post({ type: 'open', id: row.item.id });
 	post({ type: 'insert', id: row.item.id, index: row.type === 'variation' ? row.index : undefined });
 }
 
@@ -631,10 +632,10 @@ function menuFor(row: Row): MenuEntry[] {
 	const index = row.type === 'variation' ? row.index : undefined;
 	const entries: MenuEntry[] = ['colors', 'separator'];
 	if (item.sound) entries.push({ label: 'Play once', run: () => playRow(row) });
-	if (item.kind === 'song') entries.push({ label: 'Open', run: () => post({ type: 'open', id: item.id }) });
+	if (opens(item)) entries.push({ label: item.kind === 'render' ? 'Play' : 'Open', run: () => post({ type: 'open', id: item.id }) });
 	else entries.push({ label: 'Insert at the cursor', run: () => post({ type: 'insert', id: item.id, index }) });
 	if (item.kind === 'snippet') entries.push({ label: 'Open the file', run: () => post({ type: 'open', id: item.id }) });
-	entries.push({ label: item.kind === 'song' ? 'Copy the path' : item.kind === 'snippet' ? 'Copy the code' : 'Copy the name', run: () => post({ type: 'copy', id: item.id, index }) });
+	entries.push({ label: opens(item) ? 'Copy the path' : item.kind === 'snippet' ? 'Copy the code' : 'Copy the name', run: () => post({ type: 'copy', id: item.id, index }) });
 	entries.push('separator', { label: 'Edit tags...', run: () => editTags() });
 	return entries;
 }

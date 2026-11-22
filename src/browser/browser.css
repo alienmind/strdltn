@@ -229,6 +229,13 @@ body:not([data-page="results"]) .nav { flex: 1; max-height: none; }
 .controls .stop { color: #f14c4c; }
 .controls .record { color: #f14c4c; margin-left: 4px; }
 .controls .record + .record { margin-left: 0; }
+/* Record while it records: lit, as the play button is while it plays. */
+.controls .record.on { background: rgba(241, 76, 76, .25); border-color: #f14c4c; animation: recording 1s steps(2) infinite; }
+@keyframes recording { 50% { background: transparent; } }
+/* Render: the arrow down. It pulses while the render is made. */
+.controls .render { margin-left: 4px; }
+.controls .render.busy { animation: rendering 1.2s ease-in-out infinite; }
+@keyframes rendering { 50% { opacity: .35; } }
 .bpm { display: flex; gap: 4px; align-items: center; font-size: 11px; font-weight: 600; color: var(--vscode-descriptionForeground); }
 .bpm input {
 	width: 52px;

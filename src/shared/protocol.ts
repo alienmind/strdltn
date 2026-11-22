@@ -91,6 +91,10 @@ export type ToWebview =
 	| { type: 'cachedFiles'; id: number; base?: string }
 	/** A request of the Devices view for one of this engine's firmware copies. */
 	| { type: 'device'; request: DeviceRequest }
+	/** Record on: play if it does not, and record what plays. Off: stop recording and send the audio. */
+	| { type: 'record'; on: boolean }
+	/** Render the song offline, `cycles` long, and send the audio. The song stops first. */
+	| { type: 'render'; cycles: number }
 	/** The MIDI ports of the machine, once the song uses MIDI and when they change. */
 	| { type: 'midiPorts'; ports: MidiPorts }
 	/** The answer to `midiPing`: the host's clock (`epochNow`) when it read the ping. */
@@ -125,6 +129,12 @@ export type FromWebview =
 	/** A display frame (480 x 320 RGB565) and the parameters' values of a copy a panel shows. */
 	| { type: 'frame'; key: string; px: Uint8Array; values: number[] }
 	| { type: 'log'; level: 'info' | 'warn' | 'error'; message: string }
+	/**
+	 * A recording or a render, as a 16-bit stereo WAV. `peak` is the loudest sample before it was written, 1 being full
+	 * scale: a recording keeps what was heard, so above 1 it clipped.
+	 */
+	| { type: 'audio'; kind: 'record' | 'render'; wav: Uint8Array; seconds: number; peak?: number }
+	| { type: 'audioError'; kind: 'record' | 'render'; message: string }
 	/** Measures the clock offset to the host, see ClockOffset in src/shared/midi.ts. The first one starts the MIDI bridge. */
 	| { type: 'midiPing'; id: number; sent: number }
 	/** Notes and messages with the host time they are due, sent about 100 ms early. */

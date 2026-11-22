@@ -102,6 +102,16 @@ browser.
 - The window button in the Mixer's title floats it in a window of its own. The dock
   button, or closing that window, puts it back in the panel.
 
+**Render and record**
+
+- Record, the red circle in Music Controls: plays the song and records what you hear into a `.wav` and an `.mp3` next to
+  it. Click again, or Stop, to end the take. Each take is kept.
+- Render audio, the arrow down: makes the whole song at full speed, without sound, into `<song>.wav` and `<song>.mp3`.
+  A song says its length with `// @length <cycles>` in its header; without it, 16 cycles (setting
+  `strdltn.render.cycles`). Firmwares are in the render too.
+- The MP3's bitrate is the setting `strdltn.render.mp3Bitrate` (320 kbit/s by default).
+- Renders and recordings show under Render in the Library. A click plays one.
+
 **Devices**
 
 - A Devices tab in the bottom panel, next to the Mixer: one panel per firmware that plays

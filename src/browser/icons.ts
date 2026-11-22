@@ -24,6 +24,8 @@ export const ICONS: Record<string, string> = {
 	search: svg('<circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3l3.7 3.7"/>'),
 	close: svg('<path d="M4 4l8 8M12 4l-8 8"/>'),
 	tag: svg('<path d="M2 2.5h5.5l6.5 6.5-5 5-6.5-6.5z"/><circle cx="5" cy="5.5" r="1"/>'),
+	// A waveform: the audio a song was rendered or recorded into.
+	render: svg('<path d="M1.5 8h2l1.5-4 2 8 2-10 2 9 1.5-3h2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>'),
 	save: svg('<path d="M3.5 2.5h7l2 2v9h-9z"/><path d="M5.5 2.5v3h4v-3M5.5 13.5v-4h5v4"/>'),
 };
 

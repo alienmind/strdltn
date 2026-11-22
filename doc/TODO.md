@@ -36,6 +36,12 @@ tab; the SHRUB panel behind its setting; and the integration test records the de
 on 2026-11-21. Next: the hand test below for maximize, take out and SHRUB. The `fm1emu:` way and the
 coverage of the hub wait (see "Firmware Hub").
 
+Version 0.4.0 is collected on the branch `feat/midi`, not merged: phase 5, MIDI on desktop
+through the extension host (ARCHITECTURE "MIDI"), the demo's levels brought down, and
+Record and Render, which write a song's audio next to it as `.wav` and `.mp3` and list it
+under Render in the Library (ARCHITECTURE "Render and record"; built on `feat/render`,
+merged into `feat/midi` on 2026-11-22). Next on it: level meters on the Mixer's strips.
+
 Next in line:
 
 | # | What | State |
@@ -125,7 +131,7 @@ it.
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
 | 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
 | 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
-| 15 | SHRUB: write to Xfer (steve@xferrecords.com) and ask for a VIBE FM build? See "SHRUB" | Nothing sent |
+| 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. The SHRUB editor panel stays as an experiment behind its setting; the fm1-emu way stays open |
 | 16 | The wave editor (item 11) builds on AudioMass. How does it come in? AudioMass is not on npm and has no releases or tags, so "an upstream release, pinned" does not exist for it. The choices: a git submodule pinned to a commit, or a copy of one commit in the repo with its MIT license. A submodule keeps the history and the pin visible; it also makes every clone and the `.vsix` build need `git submodule update`. The rule "no submodule" in CLAUDE.md is about Strudel, which comes from npm | Nothing done |
 | 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Not built |
 

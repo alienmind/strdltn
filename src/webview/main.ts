@@ -19,7 +19,7 @@ import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../
 import { SyncClient, type SyncUpdate } from '../shared/sync';
 import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { initMidi, midiMessage, midiScope, midiStopped } from './midi';
-import { addFirmware, deviceRequest, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
+import { addFirmware, deviceRequest, initFirmware, prepareOfflineFirmware, registerFirmware, resetFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
@@ -99,6 +99,12 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 		case 'device':
 			deviceRequest(message.request);
 			break;
+		case 'record':
+			void recordTake(message.on);
+			break;
+		case 'render':
+			void renderSong(message.cycles);
+			break;
 		case 'preview':
 			void preview(message.name, message.index);
 			break;
@@ -150,7 +156,8 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		log,
 		clock: () => {
 			const scheduler = mirror?.repl?.scheduler;
-			return { cycle: scheduler?.started ? scheduler.now() : 0, cps: scheduler?.cps ?? 0.5, playing: !!scheduler?.started };
+			// During a render the song plays, offline, from cycle 0: a firmware is told so, as it is when it plays live.
+			return { cycle: scheduler?.started ? scheduler.now() : 0, cps: scheduler?.cps ?? 0.5, playing: !!scheduler?.started || renderingNow };
 		},
 		devices: (devices) => post({ type: 'devices', devices }),
 		frame: (key, px, values) => post({ type: 'frame', key, px, values }),
@@ -267,7 +274,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		text: () => mirror.editor.state.doc.toString(),
 		head: () => mirror.editor.state.selection.main.head,
 		focused: () => mirror.editor.hasFocus,
-		record: recorder(),
+		record: takes,
 	};
 
 	// Ctrl+Enter and Alt+Enter in the editor are upstream's keymap, which calls
@@ -942,11 +949,12 @@ function recorder() {
 			return `recording at ${ac.sampleRate} Hz`;
 		},
 		/**
-		 * Stops and builds the WAV, scaled so its loudest sample sits at -0.4 dB: the mix can go past full scale (it
-		 * clips at the speakers then), and a 16-bit file would clip too. Returns the chunks of 1 MB and the peak before
-		 * the scaling, 1 being full scale.
+		 * Stops and builds the WAV. `normalize` (the promo video) scales it so its loudest sample sits at -0.4 dB: the
+		 * mix can go past full scale, and a 16-bit file would clip. Without it (Record) the take is what was heard:
+		 * above full scale it clips, as the speakers did. Returns the chunks of 1 MB, the peak before any scaling (1 is
+		 * full scale), and the length in seconds.
 		 */
-		stop(): { chunks: number; peak: number } {
+		stop(normalize = true): { chunks: number; peak: number; seconds: number } {
 			node?.disconnect();
 			node = undefined;
 			const rate = strudelWebaudio.getAudioContext().sampleRate;
@@ -967,20 +975,25 @@ function recorder() {
 			out.setUint32(40, frames * 4, true);
 			let peak = 0;
 			for (const buffers of [left, right]) for (const b of buffers) for (let i = 0; i < b.length; i++) peak = Math.max(peak, Math.abs(b[i]));
-			const scale = peak > 0 ? 0.95 / peak : 1;
+			const scale = normalize && peak > 0 ? 0.95 / peak : 1;
 			let at = 44;
 			left.forEach((l, b) => {
 				const r = right[b];
 				for (let i = 0; i < l.length; i++, at += 4) {
-					out.setInt16(at, l[i] * scale * 32767, true);
-					out.setInt16(at + 2, r[i] * scale * 32767, true);
+					out.setInt16(at, Math.max(-1, Math.min(1, l[i] * scale)) * 32767, true);
+					out.setInt16(at + 2, Math.max(-1, Math.min(1, r[i] * scale)) * 32767, true);
 				}
 			});
 			wav = new Uint8Array(out.buffer);
 			left = [];
 			right = [];
-			return { chunks: Math.ceil(wav.length / CHUNK), peak };
+			return { chunks: Math.ceil(wav.length / CHUNK), peak, seconds: frames / rate };
 		},
+		/** The WAV the last stop built. */
+		bytes(): Uint8Array | undefined {
+			return wav;
+		},
+		recording: () => !!node,
 		chunk(i: number): string {
 			if (!wav) return '';
 			let s = '';
@@ -989,4 +1002,81 @@ function recorder() {
 			return btoa(s);
 		},
 	};
+}
+
+/** True while renderSong makes a render: firmwares hear that the song plays. */
+let renderingNow = false;
+
+/** One recorder for Record and for the test hook: both tap the same output. */
+const takes = recorder();
+
+/**
+ * Record on: play the song if it does not, then record what superdough sends to the speakers. Off: stop recording and
+ * send the take to the host, as heard (no scaling). The take starts when the tap is in place, so the first notes of a
+ * song that was not playing may be a beat late.
+ */
+async function recordTake(on: boolean): Promise<void> {
+	if (!on) {
+		if (!takes.recording()) return;
+		const { peak, seconds } = takes.stop(false);
+		const wav = takes.bytes();
+		if (wav) post({ type: 'audio', kind: 'record', wav, seconds, peak });
+		return;
+	}
+	if (!mirror?.repl?.scheduler?.started) await play();
+	// Give the output a moment to exist: superdough builds it with the first note.
+	for (let i = 0; i < 20 && !(strudelWebaudio.getSuperdoughAudioController() as any)?.output?.destinationGain; i++) await new Promise((r) => setTimeout(r, 100));
+	const started = takes.start();
+	if (!started.startsWith('recording')) post({ type: 'audioError', kind: 'record', message: `${started}. Click in the editor to enable audio, then press Record again` });
+	else log('info', `record: ${started}`);
+}
+
+/**
+ * Render: the whole song, offline, at full speed and silent, with upstream's renderPatternAudio. It is wrapped from
+ * outside: upstream ends by "downloading" the WAV through a link click, which does nothing in a webview, so the blob it
+ * makes is caught at URL.createObjectURL and the click is skipped. It also closes the live AudioContext and leaves none,
+ * so the song stops first, the firmwares are dropped before and after, and the next play makes a new context (which
+ * may ask for a click, as after a reload).
+ */
+async function renderSong(cycles: number): Promise<void> {
+	try {
+		mirror.stop();
+		if (takes.recording()) takes.stop(false);
+		const pattern = await mirror.repl.evaluate(mirror.code, false);
+		if (!pattern) throw new Error('the song does not evaluate: see the error in the editor');
+		const cps = mirror.repl.scheduler.cps;
+		const rate = 48000;
+		log('info', `render: ${cycles} cycles at ${(cps * 240).toFixed(1)} BPM, ${(cycles / cps).toFixed(1)} s`);
+		resetFirmware();
+		renderingNow = true;
+		const createObjectURL = URL.createObjectURL;
+		const click = HTMLAnchorElement.prototype.click;
+		let blob: Blob | undefined;
+		URL.createObjectURL = (object: Blob | MediaSource) => {
+			if (object instanceof Blob) blob = object;
+			return 'about:blank';
+		};
+		HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+			if (!this.download) click.call(this);
+		};
+		// Firmware copies are made when the render starts, with all their notes (see prepareOfflineFirmware).
+		const startRendering = OfflineAudioContext.prototype.startRendering;
+		OfflineAudioContext.prototype.startRendering = async function (this: OfflineAudioContext) {
+			await prepareOfflineFirmware(this);
+			return startRendering.call(this);
+		};
+		try {
+			await strudelWebaudio.renderPatternAudio(pattern, cps, 0, cycles, rate, undefined, false, 'render');
+		} finally {
+			URL.createObjectURL = createObjectURL;
+			HTMLAnchorElement.prototype.click = click;
+			OfflineAudioContext.prototype.startRendering = startRendering;
+			renderingNow = false;
+			resetFirmware();
+		}
+		if (!blob) throw new Error('the render made no audio');
+		post({ type: 'audio', kind: 'render', wav: new Uint8Array(await blob.arrayBuffer()), seconds: cycles / cps });
+	} catch (error) {
+		post({ type: 'audioError', kind: 'render', message: String((error as Error)?.message ?? error) });
+	}
 }

@@ -15,6 +15,8 @@ import { lf, lineColumn } from '../shared/sync';
 import { formatBytes, PackCache, type CacheUsage } from './packs';
 import { ShrubPanel } from './shrub';
 import { Session, type SessionHost } from './session';
+import { saveAudio } from './render';
+import { DEFAULT_RENDER_CYCLES, renderCycles } from '../shared/render';
 import { SnippetLibrary } from './snippets';
 
 /** `git describe` of the checkout this bundle was built from. Set by scripts/build.mjs. */
@@ -106,11 +108,15 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		},
 		transport: (document, action) => {
 			const session = [...sessions].find((s) => s.document === document && s.ready);
-			if (session) return action === 'play' ? session.play() : session.stop();
-			// No engine has the song yet: open it and play, as the play button of its title would.
-			if (action === 'play') void vscode.commands.executeCommand('vscode.open', document.uri).then(() => vscode.commands.executeCommand('strdltn.play'));
+			if (session) return transportOn(session, action);
+			// No engine has the song yet: open it and do it there, as the buttons of its title would.
+			if (action !== 'stop') void vscode.commands.executeCommand('vscode.open', document.uri).then(() => vscode.commands.executeCommand(`strdltn.${action}`));
 		},
 		isPlaying: (document) => [...sessions].some((s) => s.document === document && s.started),
+		busy: (document) => {
+			const of = [...sessions].filter((s) => s.document === document);
+			return { recording: of.some((s) => s.recording), rendering: of.some((s) => s.rendering) };
+		},
 		controls: (state) => browser.setControls(state),
 	});
 	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
@@ -145,6 +151,21 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		onScopes: (document, scopes) => mixer.setScopes(document, scopes),
 		onDevices: (session, list) => devices.setDevices(session, list),
 		onFrame: (session, key, px, values) => devices.frame(session, key, px, values),
+		onAudio: async (session, kind, wav, info) => {
+			try {
+				const files = await saveAudio(session.document.uri, kind, wav);
+				const clipped = info.peak !== undefined && info.peak > 1 ? `, clipped: it peaked at ${info.peak.toFixed(2)} of full scale` : '';
+				output.appendLine(`${kind}: ${files.map((f) => vscode.workspace.asRelativePath(f)).join(', ')} (${info.seconds.toFixed(1)} s${clipped})`);
+				void songs.refresh();
+				const name = files[0].path.split('/').pop();
+				void vscode.window.showInformationMessage(`strdltn: ${kind === 'render' ? 'rendered' : 'recorded'} ${name} and its .mp3 (${info.seconds.toFixed(1)} s${clipped})`, 'Play', 'Reveal').then((choice) => {
+					if (choice === 'Play') void vscode.commands.executeCommand('vscode.open', files[0]);
+					if (choice === 'Reveal') void vscode.commands.executeCommand('revealInExplorer', files[0]);
+				});
+			} catch (error) {
+				void vscode.window.showErrorMessage(`strdltn: could not write the ${kind === 'render' ? 'render' : 'recording'}: ${(error as Error).message}`);
+			}
+		},
 		onSounds: (list) => {
 			browser.setSounds(list);
 			rememberSoundsSoon(list);
@@ -219,6 +240,14 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		),
 		vscode.workspace.onDidChangeWorkspaceFolders(() => browser.refresh()),
 
+		vscode.commands.registerCommand('strdltn.record', async () => {
+			const session = await readySession();
+			if (session) transportOn(session, 'record');
+		}),
+		vscode.commands.registerCommand('strdltn.render', async () => {
+			const session = await readySession();
+			if (session) transportOn(session, 'render');
+		}),
 		vscode.commands.registerCommand('strdltn.play', async () => {
 			const session = activeEditorSession() ?? (await stageForActiveTextEditor()) ?? onlySession();
 			session?.play();
@@ -427,6 +456,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// The Songs of the Browser are every .strudel file of the workspace, so it follows all
 		// of them. Not changes: it shows names, and a save does not change a name.
 		const songFiles = vscode.workspace.createFileSystemWatcher('**/*.strudel', false, true, false);
+		// Renders and recordings show under Render in the Library, so a new .wav or .mp3 is looked at too.
+		const audioFiles = vscode.workspace.createFileSystemWatcher('**/*.{wav,mp3}', false, true, false);
 		let filesTimer: ReturnType<typeof setTimeout> | undefined;
 		const filesChanged = () => {
 			// A checkout or a copied folder fires one event per file.
@@ -444,6 +475,9 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			songFiles,
 			songFiles.onDidCreate(filesChanged),
 			songFiles.onDidDelete(filesChanged),
+			audioFiles,
+			audioFiles.onDidCreate(filesChanged),
+			audioFiles.onDidDelete(filesChanged),
 			indexFile,
 			indexFile.onDidCreate(indexChanged),
 			indexFile.onDidChange(indexChanged),
@@ -491,6 +525,22 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 				void snippets.refresh();
 			}),
 		);
+	}
+
+	/** Play, Stop, Record or Render on one engine. A render takes the song's `// @length`, else the setting. */
+	function transportOn(session: Session, action: 'play' | 'stop' | 'record' | 'render'): void {
+		if (action === 'play') return session.play();
+		if (action === 'stop') return session.stop();
+		if (action === 'record') return session.record();
+		const fallback = vscode.workspace.getConfiguration('strdltn.render').get<number>('cycles', DEFAULT_RENDER_CYCLES);
+		session.render(renderCycles(session.document.getText(), fallback));
+	}
+
+	/** The engine a command acts on, once its page is loaded: a record or render sent before then would be lost. */
+	async function readySession(): Promise<Session | undefined> {
+		const session = activeEditorSession() ?? (await stageForActiveTextEditor()) ?? onlySession();
+		for (let i = 0; session && !session.ready && i < 100; i++) await new Promise((resolve) => setTimeout(resolve, 100));
+		return session?.ready ? session : undefined;
 	}
 
 	function onlySession(): Session | undefined {

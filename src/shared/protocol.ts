@@ -106,7 +106,7 @@ export type ToWebview =
 	| { type: 'editorAction'; action: EditorAction };
 
 /** The editing actions of the Strudel editor that VS Code's keys reach through our commands. */
-export type EditorAction = 'find' | 'gotoLine';
+export type EditorAction = 'find' | 'replace' | 'gotoLine' | 'selectNextMatch' | 'selectAllMatches';
 
 /**
  * The level of one chain at one moment, for the pump meter of the Mixer: it jumps by the

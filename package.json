@@ -105,6 +105,18 @@
 				"title": "strdltn: Go to line in the Strudel editor"
 			},
 			{
+				"command": "strdltn.editor.replace",
+				"title": "strdltn: Replace in the Strudel editor"
+			},
+			{
+				"command": "strdltn.editor.selectNextMatch",
+				"title": "strdltn: Select the next match in the Strudel editor"
+			},
+			{
+				"command": "strdltn.editor.selectAllMatches",
+				"title": "strdltn: Select every match in the Strudel editor"
+			},
+			{
 				"command": "strdltn.toggleMode",
 				"title": "strdltn: Toggle Strudel editor / native editor",
 				"icon": "$(arrow-swap)"
@@ -213,6 +225,18 @@
 					"when": "activeCustomEditorId == strdltn.editor"
 				},
 				{
+					"command": "strdltn.editor.replace",
+					"when": "activeCustomEditorId == strdltn.editor"
+				},
+				{
+					"command": "strdltn.editor.selectNextMatch",
+					"when": "activeCustomEditorId == strdltn.editor"
+				},
+				{
+					"command": "strdltn.editor.selectAllMatches",
+					"when": "activeCustomEditorId == strdltn.editor"
+				},
+				{
 					"command": "strdltn.previewSound",
 					"when": "false"
 				},
@@ -253,6 +277,24 @@
 				"command": "strdltn.editor.gotoLine",
 				"key": "ctrl+g",
 				"mac": "ctrl+g",
+				"when": "activeCustomEditorId == strdltn.editor"
+			},
+			{
+				"command": "strdltn.editor.replace",
+				"key": "ctrl+h",
+				"mac": "cmd+alt+f",
+				"when": "activeCustomEditorId == strdltn.editor"
+			},
+			{
+				"command": "strdltn.editor.selectNextMatch",
+				"key": "ctrl+d",
+				"mac": "cmd+d",
+				"when": "activeCustomEditorId == strdltn.editor"
+			},
+			{
+				"command": "strdltn.editor.selectAllMatches",
+				"key": "ctrl+shift+l",
+				"mac": "cmd+shift+l",
 				"when": "activeCustomEditorId == strdltn.editor"
 			},
 			{

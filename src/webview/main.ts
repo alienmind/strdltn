@@ -2,7 +2,7 @@
 // a VS Code text document. We host upstream and add nothing to it, so that a new visual
 // or widget in a later @strudel release arrives with a version bump.
 import { Annotation, Prec, StateEffect, Transaction, type EditorSelection } from '@codemirror/state';
-import { gotoLine, openSearchPanel } from '@codemirror/search';
+import { gotoLine, openSearchPanel, selectNextOccurrence, selectSelectionMatches } from '@codemirror/search';
 import { EditorView } from '@codemirror/view';
 import * as strudelCodemirror from '@strudel/codemirror';
 import * as strudelCore from '@strudel/core';
@@ -117,7 +117,17 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 				mirror.editor.focus();
 				// openSearchPanel adds the search extension when the editor has none: upstream
 				// leaves search() out of its setup.
-				const ran = message.action === 'find' ? openSearchPanel(mirror.editor) : gotoLine(mirror.editor);
+				const view = mirror.editor;
+				const ran =
+					message.action === 'find' || message.action === 'replace'
+						? openSearchPanel(view)
+						: message.action === 'gotoLine'
+							? gotoLine(view)
+							: message.action === 'selectNextMatch'
+								? selectNextOccurrence(view)
+								: selectSelectionMatches(view);
+				// The search panel holds the replace field too; Ctrl+H puts the cursor there.
+				if (message.action === 'replace') (view.dom.querySelector('.cm-search input[name=replace]') as HTMLInputElement | null)?.focus();
 				log('info', `editor action ${message.action}: ${ran ? 'ran' : 'did nothing'}`);
 			}
 			break;

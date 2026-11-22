@@ -18,8 +18,8 @@ import { locateError } from '../shared/diagnostic';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
 import { SyncClient, type SyncUpdate } from '../shared/sync';
 import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
-import { initMidi, midiMessage, midiScope, midiStopped } from './midi';
-import { addFirmware, deviceRequest, initFirmware, prepareOfflineFirmware, registerFirmware, resetFirmware, setFirmwareCache, transport } from './vibe';
+import { initMidi, midiMessage, midiScope, midiStopped, setMidiMuted } from './midi';
+import { addFirmware, deviceRequest, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
@@ -963,45 +963,36 @@ function recorder() {
 		},
 		/**
 		 * Stops and builds the WAV. `normalize` (the promo video) scales it so its loudest sample sits at -0.4 dB: the
-		 * mix can go past full scale, and a 16-bit file would clip. Without it (Record) the take is what was heard:
-		 * above full scale it clips, as the speakers did. Returns the chunks of 1 MB, the peak before any scaling (1 is
-		 * full scale), and the length in seconds.
+		 * mix can go past full scale, and a 16-bit file would clip. Without it (Record, Render) the take is what was
+		 * heard: above full scale it clips, as the speakers did. `from` and `count` keep part of the take, in frames.
+		 * Returns the chunks of 1 MB, the peak before any scaling (1 is full scale), and the length in seconds.
 		 */
-		stop(normalize = true): { chunks: number; peak: number; seconds: number } {
+		stop(normalize = true, from = 0, count = Infinity): { chunks: number; peak: number; seconds: number } {
 			node?.disconnect();
 			node = undefined;
 			const rate = strudelWebaudio.getAudioContext().sampleRate;
-			const frames = left.reduce((n, b) => n + b.length, 0);
-			const out = new DataView(new ArrayBuffer(44 + frames * 4));
-			const text = (at: number, s: string) => [...s].forEach((c, i) => out.setUint8(at + i, c.charCodeAt(0)));
-			text(0, 'RIFF');
-			out.setUint32(4, 36 + frames * 4, true);
-			text(8, 'WAVEfmt ');
-			out.setUint32(16, 16, true);
-			out.setUint16(20, 1, true);
-			out.setUint16(22, 2, true);
-			out.setUint32(24, rate, true);
-			out.setUint32(28, rate * 4, true);
-			out.setUint16(32, 4, true);
-			out.setUint16(34, 16, true);
-			text(36, 'data');
-			out.setUint32(40, frames * 4, true);
-			let peak = 0;
-			for (const buffers of [left, right]) for (const b of buffers) for (let i = 0; i < b.length; i++) peak = Math.max(peak, Math.abs(b[i]));
-			const scale = normalize && peak > 0 ? 0.95 / peak : 1;
-			let at = 44;
-			left.forEach((l, b) => {
-				const r = right[b];
-				for (let i = 0; i < l.length; i++, at += 4) {
-					out.setInt16(at, Math.max(-1, Math.min(1, l[i] * scale)) * 32767, true);
-					out.setInt16(at + 2, Math.max(-1, Math.min(1, r[i] * scale)) * 32767, true);
+			const flat = (buffers: Float32Array[]) => {
+				const all = new Float32Array(buffers.reduce((n, b) => n + b.length, 0));
+				let at = 0;
+				for (const b of buffers) {
+					all.set(b, at);
+					at += b.length;
 				}
-			});
-			wav = new Uint8Array(out.buffer);
+				return all.subarray(Math.min(from, all.length), Math.min(all.length, from + count));
+			};
+			const l = flat(left);
+			const r = flat(right);
 			left = [];
 			right = [];
-			return { chunks: Math.ceil(wav.length / CHUNK), peak, seconds: frames / rate };
+			let peak = 0;
+			for (const c of [l, r]) for (let i = 0; i < c.length; i++) peak = Math.max(peak, Math.abs(c[i]));
+			const scale = normalize && peak > 0 ? 0.95 / peak : 1;
+			if (scale !== 1) for (const c of [l, r]) for (let i = 0; i < c.length; i++) c[i] *= scale;
+			wav = wavOf(l, r, rate);
+			return { chunks: Math.ceil(wav.length / CHUNK), peak, seconds: l.length / rate };
 		},
+		/** Frames recorded so far. */
+		frames: () => left.reduce((n, b) => n + b.length, 0),
 		/** The WAV the last stop built. */
 		bytes(): Uint8Array | undefined {
 			return wav;
@@ -1044,17 +1035,6 @@ async function recordTake(on: boolean): Promise<void> {
 	else log('info', `record: ${started}`);
 }
 
-/**
- * Render: the whole song, offline, at full speed and silent, with upstream's renderPatternAudio. It is wrapped from
- * outside: upstream ends by "downloading" the WAV through a link click, which does nothing in a webview, so the blob it
- * makes is caught at URL.createObjectURL and the click is skipped. It also closes the live AudioContext and leaves none,
- * so the song stops first, the firmwares are dropped before and after, and the next play makes a new context (which
- * may ask for a click, as after a reload).
- */
-/** Cycles per offline chunk of a render, and the seconds of tail each chunk renders past its last note. */
-const RENDER_CHUNK = 4;
-const RENDER_TAIL = 6;
-
 /** A 16-bit stereo WAV of two channels, as the levels are: above full scale it clips, as the speakers would. */
 function wavOf(left: Float32Array, right: Float32Array, rate: number): Uint8Array {
 	const frames = left.length;
@@ -1080,81 +1060,73 @@ function wavOf(left: Float32Array, right: Float32Array, rate: number): Uint8Arra
 	return new Uint8Array(out.buffer);
 }
 
+/** Seconds a render goes on past the song's last cycle, for the releases, rooms and delays. */
+const RENDER_TAIL = 2;
+/** Seconds kept before the first note: the take starts a moment before the song. */
+const RENDER_PREROLL = 0.25;
+
+/**
+ * Render: the song from its first cycle, played by the live engine with the speakers muted, recorded from superdough's
+ * output (the recorder of Record), for its length and a tail. It takes as long as the song, and the file is what the
+ * song sounds like: every effect, ducking, the firmwares, as when it plays. An offline render (upstream's
+ * renderPatternAudio) was tried first and dropped: the demo came out with most notes missing (see the drawer). MIDI
+ * is muted meanwhile, so a synth does not play along unheard. Stop ends the render without a file.
+ */
 async function renderSong(cycles: number): Promise<void> {
+	const context: AudioContext = strudelWebaudio.getAudioContext();
+	let tap: AudioNode | undefined;
 	try {
-		mirror.stop();
 		if (takes.recording()) takes.stop(false);
-		const pattern = await mirror.repl.evaluate(mirror.code, false);
-		if (!pattern) throw new Error('the song does not evaluate: see the error in the editor');
+		mirror.stop();
+		if (context.state !== 'running') await Promise.race([context.resume().catch(() => undefined), new Promise((r) => setTimeout(r, 1500))]);
+		if (context.state !== 'running') throw new Error('audio is not on yet: click once in the editor, then press Render again');
+		tap = (strudelWebaudio.getSuperdoughAudioController() as any).output?.destinationGain as AudioNode | undefined;
+		if (!tap) throw new Error('the audio output is not there');
 		const cps = mirror.repl.scheduler.cps;
-		const rate = 48000;
-		log('info', `render: ${cycles} cycles at ${(cps * 240).toFixed(1)} BPM, ${(cycles / cps).toFixed(1)} s`);
-		resetFirmware();
+		const rate = context.sampleRate;
+		const seconds = cycles / cps;
+		log('info', `render: ${cycles} cycles at ${(cps * 240).toFixed(1)} BPM, ${seconds.toFixed(1)} s, in real time with the speakers off`);
+		tap.disconnect(context.destination);
+		setMidiMuted(true);
 		renderingNow = true;
-		const createObjectURL = URL.createObjectURL;
-		const click = HTMLAnchorElement.prototype.click;
-		let blob: Blob | undefined;
-		URL.createObjectURL = (object: Blob | MediaSource) => {
-			if (object instanceof Blob) blob = object;
-			return 'about:blank';
-		};
-		HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
-			if (!this.download) click.call(this);
-		};
-		// Firmware copies are made when a chunk starts, with all its notes (see prepareOfflineFirmware). The rendered
-		// buffer is kept here; upstream's WAV of it is not used.
-		const startRendering = OfflineAudioContext.prototype.startRendering;
-		let rendered: AudioBuffer | undefined;
-		let chunkCycle = 0;
-		OfflineAudioContext.prototype.startRendering = async function (this: OfflineAudioContext) {
-			await prepareOfflineFirmware(this, chunkCycle);
-			rendered = await startRendering.call(this);
-			return rendered;
-		};
-		// The song in chunks of RENDER_CHUNK cycles, each with RENDER_TAIL seconds more for its releases, rooms and
-		// delays, added up. In one piece the demo (100 cycles) did not finish in 7 minutes, while 4 cycles took 2 s
-		// (measured 2026-11-22): an offline context builds every note's nodes before it starts, and a worklet node
-		// (supersaw, distortion, pulse) runs from the moment it is made, so the cost grew with the square of the length.
-		const frames = Math.round((cycles / cps) * rate);
-		const left = new Float32Array(frames);
-		const right = new Float32Array(frames);
-		try {
-			for (let begin = 0; begin < cycles; begin += RENDER_CHUNK) {
-				const end = Math.min(cycles, begin + RENDER_CHUNK);
-				const tail = Math.min(RENDER_TAIL * cps, cycles - end);
-				const notes = pattern.filterHaps((hap: any) => {
-					const onset = hap.whole?.begin.valueOf();
-					return onset !== undefined && onset >= begin && onset < end;
-				});
-				chunkCycle = begin;
-				rendered = undefined;
-				// Upstream clears its shared effects (rooms, delays) after a render, not before: the first chunk met
-				// the live context's and logged "cannot connect to an AudioNode belonging to a different audio context".
-				strudelWebaudio.resetGlobalEffects();
-				await strudelWebaudio.renderPatternAudio(notes, cps, begin, end + tail, rate, undefined, false, 'render');
-				const chunk = rendered as AudioBuffer | undefined;
-				if (!chunk) throw new Error(`the render made no audio for cycle ${begin}`);
-				const at = Math.round((begin / cps) * rate);
-				const l = chunk.getChannelData(0);
-				const r = chunk.numberOfChannels > 1 ? chunk.getChannelData(1) : l;
-				const n = Math.min(chunk.length, frames - at);
-				for (let i = 0; i < n; i++) {
-					left[at + i] += l[i];
-					right[at + i] += r[i];
-				}
-				log('info', `render: cycles ${begin} to ${end} of ${cycles}`);
+		takes.start();
+		await play();
+		const scheduler = mirror.repl.scheduler;
+		if (!scheduler.started) throw new Error('the song did not start: see the error in the editor');
+		// Nothing past the song's length plays: stopped at the end, the scheduler had already queued the first notes of
+		// the next round, and they were in the tail (measured with an 8-bar song on 2026-11-22).
+		if (scheduler.pattern?.filterHaps) scheduler.setPattern(scheduler.pattern.filterHaps((hap: any) => (hap.whole?.begin.valueOf() ?? 0) < cycles));
+		const from = Math.max(0, takes.frames() - Math.round(RENDER_PREROLL * rate));
+		const count = Math.round((seconds + RENDER_TAIL + RENDER_PREROLL) * rate);
+		// The song stops at its length, so it does not start again; the tail goes on recording what still sounds.
+		const songEnd = from + Math.round((seconds + RENDER_PREROLL) * rate);
+		let lastLog = 0;
+		while (takes.frames() < songEnd) {
+			if (!mirror.repl.scheduler.started) throw new Error('stopped before the end');
+			const done = (takes.frames() - from) / (songEnd - from);
+			if (done - lastLog >= 0.1) {
+				lastLog = done;
+				log('info', `render: ${Math.round(done * 100)}%`);
 			}
-		} finally {
-			URL.createObjectURL = createObjectURL;
-			HTMLAnchorElement.prototype.click = click;
-			OfflineAudioContext.prototype.startRendering = startRendering;
-			renderingNow = false;
-			resetFirmware();
+			await new Promise((r) => setTimeout(r, 100));
 		}
-		void blob;
-		post({ type: 'audio', kind: 'render', wav: wavOf(left, right, rate), seconds: cycles / cps });
+		mirror.stop();
+		while (takes.frames() < from + count) await new Promise((r) => setTimeout(r, 100));
+		const { peak } = takes.stop(false, from, count);
+		const wav = takes.bytes();
+		if (!wav) throw new Error('the render made no audio');
+		post({ type: 'audio', kind: 'render', wav, seconds, peak });
 	} catch (error) {
+		if (takes.recording()) takes.stop(false);
 		post({ type: 'audioError', kind: 'render', message: String((error as Error)?.message ?? error) });
+	} finally {
+		renderingNow = false;
+		setMidiMuted(false);
+		try {
+			tap?.connect(context.destination);
+		} catch {
+			// The context went away meanwhile.
+		}
 	}
 }
 

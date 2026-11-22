@@ -113,9 +113,10 @@ browser.
 
 - Record, the red circle in Music Controls: plays the song and records what you hear into a `.wav` and an `.mp3` next to
   it. Click again, or Stop, to end the take. Each take is kept.
-- Render audio, the arrow down: makes the whole song at full speed, without sound, into `<song>.wav` and `<song>.mp3`.
-  A song says its length with `// @length <cycles>` in its header; without it, 16 cycles (setting
-  `strdltn.render.cycles`). Firmwares are in the render too.
+- Render audio, the arrow down: plays the whole song once from the start with the sound off, and writes it into
+  `<song>.wav` and `<song>.mp3`. It takes as long as the song; a notification shows it, and its Cancel stops it. A
+  song says its length with `// @length <cycles>` in its header; without it, 16 cycles (setting
+  `strdltn.render.cycles`). Everything you hear is in it, firmwares included; MIDI devices stay quiet meanwhile.
 - The MP3's bitrate is the setting `strdltn.render.mp3Bitrate` (320 kbit/s by default).
 - Renders and recordings show under Render in the Library. A click plays one.
 

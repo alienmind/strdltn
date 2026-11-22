@@ -92,7 +92,7 @@ Render, Record, the level meters and the electro example, on `feat/midi`. Test o
 | S1 | Play `demo.strudel` from the start | The countdown says 8 to 0 after a silent bar; the intro has the bass and the first word on bar 2, the pad on bar 10 |
 | S2 | Listen to the build and the drop | The band thins out over the last 4 bars of the build and comes back full on the drop; the pad is gated in the build, the breakdown and the second half of the final drop |
 | S3 | Listen to the outro and the end | The riser closes down to nothing; 4 bars of silence, then the song starts again |
-| R1 | Open `demo.strudel`, click Render audio | About a minute; `demo.wav` and `demo.mp3` appear next to it; no gaps where notes should be |
+| R1 | Open `demo.strudel`, click Render audio | A notification "rendering demo.strudel"; about 3 minutes, no sound; then `demo.wav` and `demo.mp3`, the whole song as it plays, ending on the 4 silent bars |
 | R2 | Library, Render, click `demo.mp3` | It plays in VS Code's media preview, the whole three minutes |
 | R3 | Click Record, wait 10 s, click it again | A pair `demo.rec-<time>.wav` and `.mp3` appears under Render |
 | R4 | Render `examples/07-vibefm1-obervave.strudel` | The firmware's bass, pad and arp are in the file |
@@ -124,13 +124,6 @@ The intermittent typing failures of the integration test are still an open lead:
 "Integration test" under "Open leads" below.
 
 ## Open leads
-
-### Render: a node of another context
-
-A render logs "cannot connect to an AudioNode belonging to a different audio context" once per chunk for songs on
-orbits other than 1 (ARCHITECTURE "Render and record"). Each may be a missing note. To try: wrap
-`AudioNode.prototype.connect` in the engine during a render and keep the stack of the first failure (a first try
-read nothing back: the hook did not find the engine page in time).
 
 ### Integration test
 

@@ -226,13 +226,28 @@ export class Session {
 		this.host.onState(this);
 	}
 
-	/** Renders the whole song offline, at full speed and without sound. The song stops first. */
+	/** Ends the notification of a render in progress. */
+	private renderDone?: () => void;
+
+	/**
+	 * Renders the song: the engine plays it from the start with the speakers off and records it, so it takes as long
+	 * as the song. A notification says so, and its Cancel stops the song, which ends the render without a file.
+	 */
 	render(cycles: number): void {
 		if (this.rendering) return;
 		if (this.recording) this.record(false);
 		this.rendering = true;
 		this.post({ type: 'render', cycles });
 		this.host.onState(this);
+		const name = this.document.uri.path.split('/').pop();
+		void vscode.window.withProgress(
+			{ location: vscode.ProgressLocation.Notification, title: `strdltn: rendering ${name}. It plays once from the start, with the sound off, and takes as long as the song`, cancellable: true },
+			(_progress, token) =>
+				new Promise<void>((resolve) => {
+					this.renderDone = resolve;
+					token.onCancellationRequested(() => this.stop());
+				}),
+		);
 	}
 
 	private post(message: ToWebview): void {
@@ -287,13 +302,19 @@ export class Session {
 				this.host.onFrame?.(this, message.key, message.px, message.values);
 				break;
 			case 'audio':
-				if (message.kind === 'render') this.rendering = false;
+				if (message.kind === 'render') {
+					this.rendering = false;
+					this.renderDone?.();
+				}
 				else this.recording = false;
 				this.host.onState(this);
 				await this.host.onAudio?.(this, message.kind, message.wav, { seconds: message.seconds, peak: message.peak });
 				break;
 			case 'audioError':
-				if (message.kind === 'render') this.rendering = false;
+				if (message.kind === 'render') {
+					this.rendering = false;
+					this.renderDone?.();
+				}
 				else this.recording = false;
 				this.host.onState(this);
 				void vscode.window.showErrorMessage(`strdltn: ${message.kind === 'render' ? 'the render' : 'the recording'} failed: ${message.message}`);

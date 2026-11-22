@@ -324,3 +324,16 @@ needs one of those ids. The webview asked for the microphone with
 denied`); the page still saw one output with an empty label and id. So the editor's page
 cannot send its sound to another card. Windows' per-app output does it by hand; see
 "Sound card" in `doc/TODO.md`.
+
+## Rendering a song offline
+
+Tried on 2026-11-22: Render used upstream's `renderPatternAudio`, which plays the pattern into an
+`OfflineAudioContext` at full speed. The demo (100 cycles) never finished: an offline context builds every note's
+nodes before it starts, and a worklet node (supersaw, `.dist()`, `pulse`) runs from the moment it is made, so the cost
+grew with the square of the length (4 cycles took 2 s, 30 did not finish in 2 minutes). Rendering in chunks of 4
+cycles finished in 69 s, but the maintainer heard a file with nothing of the song in it: the riser, silence, a kick, a
+bass at 0:27, no voices. Every song on an orbit other than 1 logged "cannot connect to an AudioNode belonging to a
+different audio context", so notes went missing, and the offline engine is not the live one: our meters, ducking, the
+firmware relay and the shared effects behave differently there. Render now plays the song once through the live engine
+with the speakers off and records it ("Render and record" in `doc/ARCHITECTURE.md`): as long as the song, and what it
+sounds like.

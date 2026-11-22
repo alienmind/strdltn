@@ -1114,39 +1114,28 @@ Built on 2026-11-22 on `feat/render`.
 | Button | What it makes | Files |
 |---|---|---|
 | Record (the red circle) | What plays, in real time, as heard: it plays the song if it does not, and a second click or Stop ends the take | `<song>.rec-<YYYYMMDD-HHMMSS>.wav` and `.mp3`, a new pair per take |
-| Render audio (the arrow down) | The whole song, offline, at full speed and silent | `<song>.wav` and `.mp3`, replaced at each render |
+| Render audio (the arrow down) | The whole song from its start, played once with the speakers off, as long as it lasts | `<song>.wav` and `.mp3`, replaced at each render |
 
 **Record** uses the recorder of the engine (`recorder()` in `src/webview/main.ts`, first made for the promo video): a
 `ScriptProcessorNode` on superdough's `destinationGain`, the node in front of the speakers. For Record it keeps the
 take as heard: a sample past full scale is clipped, as the speakers clipped it, and the host says the peak it found.
 
-**Render** is upstream's `renderPatternAudio` (`@strudel/webaudio` 1.3.0), wrapped from outside. It queries the
-pattern for `cycles` cycles and plays it into an `OfflineAudioContext`. Its last step "downloads" the WAV through a
-link click, which does nothing in a webview, so `renderSong` catches the blob at `URL.createObjectURL` and skips the
-click. It also closes the live `AudioContext` and leaves none, so the song stops first, and the next play makes a new
-context, which may ask for a click as after a reload. The length is the song's header `// @length <cycles>` (the demo
-says 100), else the setting `strdltn.render.cycles` (16).
+**Render** plays the song once from cycle 0 through the live engine, with the speakers off, and records superdough's
+output with the recorder of Record, for the song's length plus 2 s of tail (`renderSong` in `src/webview/main.ts`). It
+takes as long as the song, and the file is what the song sounds like: every effect, ducking, the firmwares. In order: the
+song stops; `destinationGain` is disconnected from the speakers (the recorder and the master meter still hear it); MIDI
+is muted (`setMidiMuted`), so a synth does not play along; the take starts; the song plays; the scheduler gets the same
+pattern without the notes at or after the length (`filterHaps`), so it does not start a second round into the tail; at
+the length the song stops, and the tail records what still sounds. The take keeps 0.25 s before the song starts. The
+length is the song's header `// @length <cycles>` (the demo says 104), else the setting `strdltn.render.cycles` (16).
+The host shows a notification for the length of the render; its Cancel stops the song, which ends the render without a
+file. Audio must be on: in a window where it never was, the render asks for a click in the editor.
 
-**In chunks.** Measured on 2026-11-22 in a muted window: the demo in one piece (100 cycles) did not finish in 7
-minutes; 4 cycles took 2 s, 30 cycles did not finish in 2 minutes. An offline context builds every note's nodes before
-it starts, and a worklet node (supersaw, `.dist()`, `pulse`) runs from the moment it is made, so the cost grows with
-the square of the length. `renderSong` now renders 4 cycles at a time (`RENDER_CHUNK`), each with the notes that
-start in it (`filterHaps`) and 6 s more for their releases, rooms and delays (`RENDER_TAIL`), and adds the chunks up
-into one WAV (`wavOf`, 16 bits, clipped as the speakers would). A firmware copy is made per chunk and starts its
-clock at the chunk's cycle. The whole demo then rendered in 68.8 s. Not exact: an effect that a note changes for the
-notes after it (a room whose size moves, ducking) restarts at each chunk, and a tail longer than 6 s is cut.
+Measured on 2026-11-22 in a muted window: the demo (104 cycles, 187.7 s) rendered in 194 s into 189.9 s of audio, every
+bar of every section with sound where the arrangement has it and the END silent; an 8-bar song with the kick masked on its
+last bar had its first kick 0.12 s in, its last kick at 12.2 s, and nothing after.
 
-Open: a render of a song that plays on an orbit other than 1 logs "Failed to execute 'connect' on 'AudioNode': cannot
-connect to an AudioNode belonging to a different audio context" once per chunk (the demo: 42 times), with
-`resetGlobalEffects()` called before each chunk. Where the live node comes from is not found yet; that note may be
-missing from the file.
-
-**Firmwares in a render.** Measured on 2026-11-22: a song with only OBERVAVE rendered silent at first. An offline
-render runs seconds of audio in milliseconds, and a worklet reads its port only between render steps, so the notes
-posted to it arrived after the render ended. Now `trigger` (`src/webview/vibe/index.ts`) keeps a render's notes per
-copy, and `prepareOfflineFirmware` makes each copy with all its notes in its `processorOptions` when the render
-starts: `renderSong` wraps `OfflineAudioContext.prototype.startRendering` for the length of the render. The copy is
-told the song plays, from cycle 0 at its tempo. After that fix the same song rendered with sound (peak 0.32).
+The offline render it replaces is in the drawer ("Rendering a song offline").
 
 **The MP3** is encoded in the host with `@breezystack/lamejs` 1.2.7 (LGPL-3.0, a maintained fork of lamejs), in
 slices of about a second so the host stays responsive, at `strdltn.render.mp3Bitrate` (320 kbit/s by default). It is

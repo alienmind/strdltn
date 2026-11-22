@@ -19,6 +19,12 @@ let portsWaiting: ((ports: MidiPorts) => void)[] = [];
 let started = false;
 let pingId = 0;
 let outbox: MidiOut[] = [];
+/** While a render plays the song with the speakers off, nothing goes out to the devices either. */
+let muted = false;
+
+export function setMidiMuted(on: boolean): void {
+	muted = on;
+}
 
 export function initMidi(postMessage: (message: FromWebview) => void, logLine: typeof log): void {
 	post = postMessage;
@@ -86,6 +92,7 @@ function hostTime(audioTime: number): number {
 }
 
 function queue(events: MidiOut[]): void {
+	if (muted) return;
 	if (!outbox.length) {
 		// The haps of one scheduler tick go in one message.
 		queueMicrotask(() => {

@@ -302,4 +302,8 @@ test('the scope box adds ._scope() to a chain and takes it out again', () => {
 test('a slider with a knob says its CC', () => {
 	const song = 'const CUT = slider(800, 200, 4000).knob(74)\n$bass: note("c2").lpf(CUT).gain(slider(.5))';
 	assert.deepEqual(model(song).sliders.map((s) => s.knob), [74, undefined]);
+	assert.deepEqual(
+		model(song).sliders.map(({ line, code }) => ({ line, code })),
+		[{ line: 1, code: 'const CUT = slider(800, 200, 4000).knob(74)' }, { line: undefined, code: undefined }],
+	);
 });

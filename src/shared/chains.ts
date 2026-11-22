@@ -36,6 +36,9 @@ export interface MixerSlider {
 	chains: number[];
 	/** The CC of `.knob(cc)` on the slider call, when a knob is mapped to it. */
 	knob?: number;
+	/** With a knob: the line of the slider, 1-based, and its code, for "Show MIDI Mappings". */
+	line?: number;
+	code?: string;
 }
 
 export interface MixerChain {
@@ -430,7 +433,7 @@ export function readChains(code: string): MixerModel | { error: string } {
 			label: '',
 			detail: sliderLabel(code, value.start).text,
 			chains: [],
-			...(knob === undefined ? {} : { knob }),
+			...(knob === undefined ? {} : { knob, ...lineOf(code, value.start) }),
 		});
 	});
 
@@ -625,4 +628,11 @@ export function walk(node: Node, parents: Node[], visit: (node: Node, parents: N
 		}
 	}
 	parents.pop();
+}
+
+/** The line that holds `offset`, 1-based, and its code without the indent. */
+function lineOf(code: string, offset: number): { line: number; code: string } {
+	const start = code.lastIndexOf('\n', offset - 1) + 1;
+	const end = code.indexOf('\n', offset);
+	return { line: code.slice(0, start).split('\n').length, code: code.slice(start, end < 0 ? undefined : end).trim() };
 }

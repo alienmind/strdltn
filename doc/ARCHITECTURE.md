@@ -1091,7 +1091,7 @@ orange once the level went above 0 dB, where it clips at the speakers, and stays
 holds until a click; ours follows the level down after 3 s, because the maintainer pulled a gain fader down, read the
 held number, and took the meter for one measured before the gain. A Master strip meters the whole mix. Since 2026-11-22 it comes first and is always
 there, dim when no song is shown, and the global sliders (in `setcps()` or used by no chain) are its inner sliders,
-folded and unfolded as a chain's own, so there is no strip "global" any more. "Remove all knobs" sits under it. Every
+folded and unfolded as a chain's own, so there is no strip "global" any more. Every
 fader has the same rows (top, track, label, detail, value, knob button; blank rows where a fader has nothing to show)
 and one track height, `--track` in `mixer.css`, so faders, names and knob buttons line up across strips (the
 maintainer found them misaligned). Built on
@@ -1796,9 +1796,14 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   (`KNOB_WRITE_MS`), not 150 ms after the last move as for a Mixer fader: the maintainer
   found 150 ms too slow (2026-11-22). Not measured yet: how a 15 ms write feels with a long
   song, as each write is an edit of the document that goes to the host.
-- "Remove all knobs" under the Master strip, shown when a slider of the song has a knob:
-  `removeKnobEdits` takes out every `.knob(cc)` on a slider and the snippet, as one
-  `WorkspaceEdit`, so one Ctrl+Z brings them back (asked by the maintainer on 2026-11-22).
+- The Mixer has a column of utility buttons left of the strips, written upright to stay
+  narrow (the maintainer, 2026-11-22; more will come). "Reset MIDI Mappings" (enabled when a
+  slider has a knob): `removeKnobEdits` takes out every `.knob(cc)` on a slider and the
+  snippet, as one `WorkspaceEdit`, so one Ctrl+Z brings them back. "Show MIDI Mappings": a
+  modal, as Live's MIDI Mappings, with per knob its CC, its line and that line's code
+  (`MixerSlider.line` and `.code`, read by `readChains`) and Remove, the same as a second
+  click on the knob button. "Show MIDI Routing" is there, disabled, for the cables of MIDI
+  instruments (doc/TODO.md, item 1).
 - A knob already in the code should work on the stage too, as the fader does: expected,
   not tested.
 

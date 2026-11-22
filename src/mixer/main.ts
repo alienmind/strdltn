@@ -36,7 +36,21 @@ app.insertAdjacentHTML('beforeend', jackSymbols());
 const bar = app.appendChild(el('div', 'bar'));
 const songName = bar.appendChild(el('span', 'song'));
 const staleNote = bar.appendChild(el('span', 'stale', 'code does not parse, showing the last good state'));
-const strips = app.appendChild(el('div', 'strips'));
+// Left of the strips, a column of utility buttons, written upright to stay narrow (the
+// maintainer, 2026-11-22). More will come here.
+const main = app.appendChild(el('div', 'main'));
+const tools = main.appendChild(el('div', 'tools'));
+const tool = (text: string, title: string, onClick?: () => void) => {
+	const button = tools.appendChild(el('button', 'tool', text));
+	button.title = title;
+	if (onClick) button.addEventListener('click', onClick);
+	else button.disabled = true;
+	return button;
+};
+const resetMappings = tool('Reset MIDI Mappings', 'Take every .knob(...) and the knob snippet out of the song. Ctrl+Z in the editor brings them back', () => post({ type: 'unmapKnobs' }));
+tool('Show MIDI Mappings', 'Every knob mapped in this song: its CC and the line it moves', () => showMappings(true));
+tool('Show MIDI Routing', 'The cables that route MIDI instruments. Not built yet (doc/TODO.md)');
+const strips = main.appendChild(el('div', 'strips'));
 const cables = new CableLayer(strips);
 
 let song: string | undefined;
@@ -78,6 +92,7 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 			error = message.error;
 			if (dragging) drawLater = true;
 			else draw();
+			if (mappings) showMappings(true);
 			break;
 		case 'playing':
 			if (!message.on) clearScopes();
@@ -104,8 +119,50 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 post({ type: 'ready' });
 draw();
 
+/**
+ * "Show MIDI Mappings": a modal list, as Live's MIDI Mappings: per knob its CC and the line
+ * of code it moves, with Remove (the same as a second click on the knob button). It follows
+ * the song while open.
+ */
+let mappings: HTMLElement | undefined;
+function showMappings(open: boolean): void {
+	mappings?.remove();
+	mappings = undefined;
+	if (!open) return;
+	const back = app.appendChild(el('div', 'modal-back'));
+	mappings = back;
+	back.addEventListener('click', (event) => event.target === back && showMappings(false));
+	const box = back.appendChild(el('div', 'modal'));
+	const head = box.appendChild(el('div', 'modal-head'));
+	head.appendChild(el('span', 'title', 'MIDI Mappings'));
+	const close = head.appendChild(el('button', 'close', '\u00d7'));
+	close.title = 'Close (Esc)';
+	close.addEventListener('click', () => showMappings(false));
+	const mapped = (model?.sliders ?? []).filter((s) => s.knob !== undefined);
+	if (!mapped.length) {
+		box.appendChild(el('div', 'note', 'No knob is mapped in this song. Click the knob button under a fader, or left of a line with a slider, then turn a knob.'));
+		return;
+	}
+	const table = box.appendChild(el('table', 'mappings'));
+	const header = table.appendChild(el('tr'));
+	for (const name of ['CC', 'Line', 'Code', '']) header.appendChild(el('th', '', name));
+	for (const slider of mapped) {
+		const row = table.appendChild(el('tr'));
+		row.appendChild(el('td', 'cc', String(slider.knob)));
+		row.appendChild(el('td', 'line', slider.line === undefined ? '' : String(slider.line)));
+		row.appendChild(el('td', 'code', slider.code ?? '')).title = slider.code ?? '';
+		const remove = row.appendChild(el('td')).appendChild(el('button', 'remove', 'Remove'));
+		remove.title = `Take .knob(${slider.knob}) off this slider`;
+		remove.addEventListener('click', () => post({ type: 'knob', index: slider.index }));
+	}
+}
+document.addEventListener('keydown', (event) => {
+	if (event.key === 'Escape' && mappings) showMappings(false);
+});
+
 function draw(): void {
 	songName.textContent = song ?? 'No song';
+	resetMappings.disabled = !model?.sliders.some((s) => s.knob !== undefined);
 	staleNote.hidden = !error;
 	staleNote.title = error ?? '';
 	strips.classList.toggle('old', !!error);
@@ -270,18 +327,6 @@ function endDrag(): void {
 	drawCables();
 }
 
-/**
- * "Remove all knobs", under the Master strip, shown when
- * a slider of the song has a knob. It takes every `.knob(...)` and the knob snippet out of the
- * song in one edit, so one Ctrl+Z brings them back.
- */
-function unmapButton(): HTMLElement {
-	const button = el('button', 'unmap', 'Remove all knobs');
-	button.hidden = !model?.sliders.some((s) => s.knob !== undefined);
-	button.title = 'Take every .knob(...) and the knob snippet out of the song. Ctrl+Z in the editor brings them back';
-	button.addEventListener('click', () => post({ type: 'unmapKnobs' }));
-	return button;
-}
 
 function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: boolean): { strip: HTMLElement; out?: Element; input?: Element } {
 	const open = unfolded.has(chain.name);
@@ -559,7 +604,7 @@ function peakHold(key: string): HTMLElement {
  * The Master strip, first and always there (the maintainer, 2026-11-22): the whole mix as
  * Live's Master track, its meter and peak. The global sliders (in setcps(), or used by no
  * chain) are its inner sliders, folded and unfolded as a chain's own. Dim when no song is
- * shown. "Remove all knobs" sits under it.
+ * shown.
  */
 const MASTER = '@master';
 function masterStrip(m: MixerModel | undefined): HTMLElement {
@@ -584,7 +629,7 @@ function masterStrip(m: MixerModel | undefined): HTMLElement {
 	for (const name of ['detail', 'value']) box.appendChild(el('span', `${name} blank`));
 	box.appendChild(el('span', 'knob blank'));
 	if (open) for (const index of globals) faders.appendChild(fader(m!.sliders[index]));
-	strip.appendChild(el('footer')).appendChild(unmapButton());
+	strip.appendChild(el('footer'));
 	return strip;
 }
 

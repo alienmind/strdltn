@@ -24,6 +24,8 @@ button:disabled { cursor: default; opacity: .35; }
 .bar { flex: none; display: flex; gap: 12px; align-items: center; padding: 4px 10px; }
 [hidden] { display: none !important; }
 .bar .song { font-weight: 600; }
+.bar .unmap { margin-left: auto; padding: 1px 8px; border: 1px solid var(--vscode-button-secondaryBackground, #555); border-radius: 2px; background: none; color: var(--vscode-foreground); font: inherit; font-size: 11px; cursor: pointer; }
+.bar .unmap:hover { background: var(--vscode-button-secondaryBackground, #3a3d41); }
 .bar .stale { color: var(--vscode-editorWarning-foreground, #cca700); font-size: 11px; }
 
 /* The strips scroll sideways. The cables hang under them, so there is room below. */

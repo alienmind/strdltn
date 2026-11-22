@@ -141,6 +141,24 @@ export function snap(value: number, binding: Pick<KnobBinding, 'min' | 'max' | '
 	return Number(stepped.toFixed(decimals));
 }
 
+/**
+ * The edits that take every knob out of the song: each `.knob(cc)` on a slider, and the
+ * snippet that defines `knob`. Empty when there is none. Positions are of the code as given.
+ */
+export function removeKnobEdits(code: string): { from: number; to: number; insert: string }[] {
+	const root = program(code);
+	if (!root) return [];
+	const edits: { from: number; to: number; insert: string }[] = [];
+	walk(root, [], (node, parents) => {
+		if (!isSlider(node)) return;
+		const call = knobCallOf(node, parents);
+		if (call) edits.push({ from: node.end, to: call.end, insert: '' });
+	});
+	const snippet = code.indexOf(KNOB_SNIPPET);
+	if (snippet >= 0) edits.push({ from: snippet, to: snippet + KNOB_SNIPPET.length, insert: '' });
+	return edits.sort((a, b) => a.from - b.from);
+}
+
 /** The slider whose call holds `position` (the cursor), by where its number starts. */
 export function sliderAt(code: string, position: number): number | undefined {
 	const root = program(code);

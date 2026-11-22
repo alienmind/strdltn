@@ -21,6 +21,8 @@ export type FromMixer =
 	| { type: 'ready' }
 	/** The knob button of a fader: MIDI learn for that slider. */
 	| { type: 'knob'; index: number }
+	/** "Remove all knobs": every `.knob(...)` and the snippet out of the song. */
+	| { type: 'unmapKnobs' }
 	/** Put the cursor of the editor at the start of a chain. */
 	| { type: 'reveal'; chain: number }
 	/** A cable from the duck jack of `from` dropped on the strip of `to`. `move`: the orbit of a cable pulled off another strip. */

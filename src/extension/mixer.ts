@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, scopeEdit, tempoEdit, unduckEdits } from '../shared/chains';
 import type { ControlsState, FromControls, TransportAction } from '../shared/controls';
+import { removeKnobEdits } from '../shared/knob';
 import type { FromMixer, ToMixer } from '../shared/mixer';
 import type { ScopeFrame } from '../shared/protocol';
 import { lf, lineColumn } from '../shared/sync';
@@ -153,6 +154,11 @@ export class MixerView implements Surface {
 			}
 			case 'slider':
 				return this.moveSlider(message.index, message.value);
+			case 'unmapKnobs': {
+				if (!this.document) return;
+				const text = lf(this.document.getText());
+				return void this.writeAll(this.document, text, { edits: removeKnobEdits(text) });
+			}
 			case 'knob': {
 				const slider = this.model?.sliders[message.index];
 				if (this.document && slider) void this.actions.learnKnob(this.document, slider.from);

@@ -1784,6 +1784,9 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   stopped. Now the page passes every `cm-slider` message (a drag, a knob, a fader) to the
   host as `sliderLive` with where the number is now, and the Mixer moves the fader of the
   slider that starts there. Not while one of its own faders is held.
+- "Remove all knobs" in the Mixer's header, shown when a slider of the song has a knob:
+  `removeKnobEdits` takes out every `.knob(cc)` on a slider and the snippet, as one
+  `WorkspaceEdit`, so one Ctrl+Z brings them back (asked by the maintainer on 2026-11-22).
 - A knob already in the code should work on the stage too, as the fader does: expected,
   not tested.
 

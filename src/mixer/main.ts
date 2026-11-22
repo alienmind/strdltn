@@ -36,6 +36,10 @@ app.insertAdjacentHTML('beforeend', jackSymbols());
 const bar = app.appendChild(el('div', 'bar'));
 const songName = bar.appendChild(el('span', 'song'));
 const staleNote = bar.appendChild(el('span', 'stale', 'code does not parse, showing the last good state'));
+// Takes every MIDI knob out of the song in one edit, so one Ctrl+Z brings them all back.
+const unmapKnobs = bar.appendChild(el('button', 'unmap', 'Remove all knobs'));
+unmapKnobs.title = 'Take every .knob(...) and the knob snippet out of the song. Ctrl+Z in the editor brings them back';
+unmapKnobs.addEventListener('click', () => post({ type: 'unmapKnobs' }));
 const strips = app.appendChild(el('div', 'strips'));
 const cables = new CableLayer(strips);
 
@@ -106,6 +110,7 @@ draw();
 
 function draw(): void {
 	songName.textContent = song ?? 'No song';
+	unmapKnobs.hidden = !model?.sliders.some((s) => s.knob !== undefined);
 	staleNote.hidden = !error;
 	staleNote.title = error ?? '';
 	strips.classList.toggle('old', !!error);

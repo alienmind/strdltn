@@ -76,6 +76,8 @@ table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K)
 | 10 | Right click a line number of a slider line, "Map a MIDI knob to this line's slider", turn knob 5 | Mapped as in 2 |
 | 11 | Click a knob button, touch nothing for 10 s | "No knob moved: nothing mapped" |
 | 12 | Stop, close and reopen the file, play, turn knob 2 | The knob works after the new evaluation, pickup first |
+| 13 | A fast turn of a mapped knob, both ways | The knob keeps the slider for the whole turn (it let go after a few steps before `d5e816f`) |
+| 14 | In the Mixer, "Remove all knobs" (top right, only when a knob is mapped) | Every `.knob(...)` and the `register('knob', ...)` snippet leave the code; the button goes away. Ctrl+Z in the editor brings them all back |
 
 Expected still broken: on strudel.cc the knob does nothing (by design, ARCHITECTURE
 "Sliders on knobs"). Revert `examples/02-acid-techno.strudel` afterwards unless the

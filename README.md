@@ -198,7 +198,8 @@ browser.
 - Knobs on sliders: click the knob button left of a line with a `slider(...)`, or on a fader
   of the Mixer (or press Ctrl+Alt+K in a slider), then turn a knob. The code gets `.knob(cc)`, and from then that knob moves
   the slider, the sound and the number in the code. It takes over once it reaches the
-  slider's value, so the sound does not jump. On strudel.cc the song still plays, without
+  slider's value, so the sound does not jump. "Remove all knobs" in the Mixer takes every
+  mapping out again. On strudel.cc the song still plays, without
   the knob.
 - VS Code's keys in the Strudel editor: Ctrl+F finds, Ctrl+H replaces, Ctrl+G goes to a
   line, Ctrl+D selects the next match, Ctrl+Shift+L every match. Change them in Keyboard

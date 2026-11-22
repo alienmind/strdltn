@@ -29,6 +29,12 @@ Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 
 Merged as PR #11, version 0.5.0: MIDI knobs on every slider, the Mixer's Master and MIDI mappings, a user manual.
 
+**In flight: `feat/firmware-marketplace`**, from `main` on 2026-11-22, item 4 below. The catalog check
+(step 1) is done: `play.thefirmwarehub.com/firmware/index.json` can be read, but the hub's rules for
+app makers do not cover it (see "Firmware Marketplace"). The maintainer chose on 2026-11-22 to build
+the Installed group, the snippet and the screen preview first; the Available group waits for
+decision 13. Item 20 (melody and drum-rack line actions) waits for the maintainer's go.
+
 Next in line:
 
 | # | What | State |

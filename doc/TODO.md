@@ -47,6 +47,7 @@ Next in line:
 
 | # | What | State |
 |---|---|---|
+| 12 | First after this round of hand tests (the maintainer, 2026-11-22). A double click on a search result that is a snippet or a song opens its file. Songs open already (`opens()` in `src/shared/catalog.ts`); a snippet is inserted at the cursor today (`activate()` in `src/browser/main.ts`). Open: whether Enter keeps inserting a snippet, so the keyboard still has a way to insert | Asked for, not built |
 | 1 | MIDI: devices in the Browser, playing through them, mappings | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |

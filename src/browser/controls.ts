@@ -24,10 +24,15 @@ export function createControls(into: HTMLElement, post: (message: FromControls) 
 	const play = button('play', 'Play / update (Ctrl+Enter in the editor)', '<path d="M4 2.5v11l9-5.5z" fill="currentColor"/>');
 	play.addEventListener('click', () => post({ type: 'transport', action: 'play' }));
 	button('stop', 'Stop (Ctrl+.)', '<rect x="3" y="3" width="10" height="10" fill="currentColor"/>').addEventListener('click', () => post({ type: 'transport', action: 'stop' }));
-	// Record (a filled red circle) and Record Automation (an empty one), as Live has them.
-	// Not built yet: see "Recording and arrangement" in doc/DAW-PLAN.md.
-	button('record', 'Record: not built yet', '<circle cx="8" cy="8" r="5" fill="currentColor"/>').disabled = true;
+	// Record (a filled red circle) and Record Automation (an empty one), as Live has them. Record plays the song and
+	// writes what you hear next to it; a second click, or Stop, ends the take. Record automation is not built yet: see
+	// "Recording and arrangement" in doc/DAW-PLAN.md.
+	const record = button('record', 'Record: play and record what you hear into a .wav and .mp3 next to the song. Click again or Stop to end', '<circle cx="8" cy="8" r="5" fill="currentColor"/>');
+	record.addEventListener('click', () => post({ type: 'transport', action: 'record' }));
 	button('record', 'Record automation: not built yet', '<circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>').disabled = true;
+	// Render: the whole song made offline, at full speed and silent, into a .wav and an .mp3 next to it.
+	const render = button('render', 'Render audio', '<path d="M8 2v8M4.5 6.5 8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 13h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>');
+	render.addEventListener('click', () => post({ type: 'transport', action: 'render' }));
 	const bpmBox = row.appendChild(document.createElement('label'));
 	bpmBox.className = 'bpm';
 	bpmBox.appendChild(document.createElement('span')).textContent = 'BPM';
@@ -70,6 +75,10 @@ export function createControls(into: HTMLElement, post: (message: FromControls) 
 	return (next) => {
 		state = next;
 		play.classList.toggle('on', next.playing);
+		record.classList.toggle('on', !!next.recording);
+		render.classList.toggle('busy', !!next.rendering);
+		render.disabled = !!next.rendering;
+		render.title = next.rendering ? 'Rendering...' : 'Render audio';
 		song.textContent = next.song ?? 'No song';
 		song.title = next.song ? `Play, Stop and BPM act on ${next.song}, the song the Mixer shows` : 'Open a .strudel file';
 		showTempo();

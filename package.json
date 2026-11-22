@@ -73,6 +73,14 @@
 				}
 			},
 			{
+				"command": "strdltn.record",
+				"title": "strdltn: Record (on / off)"
+			},
+			{
+				"command": "strdltn.render",
+				"title": "strdltn: Render audio"
+			},
+			{
 				"command": "strdltn.stopAll",
 				"title": "strdltn: Stop all"
 			},
@@ -230,6 +238,18 @@
 		"configuration": {
 			"title": "strdltn",
 			"properties": {
+				"strdltn.render.mp3Bitrate": {
+					"type": "number",
+					"enum": [128, 160, 192, 256, 320],
+					"default": 320,
+					"description": "Bitrate of the .mp3 that Render and Record write next to the song, in kbit/s. The .wav is always written too."
+				},
+				"strdltn.render.cycles": {
+					"type": "number",
+					"default": 16,
+					"minimum": 1,
+					"description": "How many cycles Render makes of a song that does not say. A song says it in its header: // @length 100"
+				},
 				"strdltn.samplesFolder": {
 					"type": "string",
 					"default": "samples",
@@ -421,6 +441,7 @@
 		"test:unit": "node --test \"src/**/*.test.ts\""
 	},
 	"devDependencies": {
+		"@breezystack/lamejs": "1.2.7",
 		"@codemirror/state": "^6.7.6",
 		"@codemirror/view": "^6.43.15",
 		"@julusian/midi": "3.9.0",

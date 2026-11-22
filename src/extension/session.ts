@@ -27,6 +27,8 @@ export interface SessionHost {
 	onDevices?(session: Session, devices: DeviceInfo[]): void;
 	/** A display frame of one of them. */
 	onFrame?(session: Session, key: string, px: Uint8Array, values: number[]): void;
+	/** A recording or a render came back: write it next to the song. */
+	onAudio?(session: Session, kind: 'record' | 'render', wav: Uint8Array, info: { seconds: number; peak?: number }): Promise<void>;
 }
 
 /** The settings `strdltn.editor.*`. An empty font and a size of 0 mean: as the VS Code editor. */
@@ -65,6 +67,10 @@ export class Session {
 	}
 	/** Everything the webview logged. Read by the integration test through the extension API. */
 	readonly logs: string[] = [];
+	/** Record is on in this engine. */
+	recording = false;
+	/** A render of this song is being made. */
+	rendering = false;
 	/** Names this engine for the MIDI bridge. */
 	private readonly midiId = Math.random().toString(36).slice(2);
 	/** When this session's tab was last the active one. Picks the target of a preview or insert. */
@@ -206,7 +212,26 @@ export class Session {
 	}
 
 	stop(): void {
+		// Stop also ends a recording, as Live's Stop does: the take so far is kept.
+		if (this.recording) this.record(false);
 		this.post({ type: 'stop' });
+	}
+
+	/** Record on or off. On plays the song if it does not; off writes what was heard next to the song. */
+	record(on = !this.recording): void {
+		if (on === this.recording || this.rendering) return;
+		this.recording = on;
+		this.post({ type: 'record', on });
+		this.host.onState(this);
+	}
+
+	/** Renders the whole song offline, at full speed and without sound. The song stops first. */
+	render(cycles: number): void {
+		if (this.rendering) return;
+		if (this.recording) this.record(false);
+		this.rendering = true;
+		this.post({ type: 'render', cycles });
+		this.host.onState(this);
 	}
 
 	private post(message: ToWebview): void {
@@ -259,6 +284,18 @@ export class Session {
 				break;
 			case 'frame':
 				this.host.onFrame?.(this, message.key, message.px, message.values);
+				break;
+			case 'audio':
+				if (message.kind === 'render') this.rendering = false;
+				else this.recording = false;
+				this.host.onState(this);
+				await this.host.onAudio?.(this, message.kind, message.wav, { seconds: message.seconds, peak: message.peak });
+				break;
+			case 'audioError':
+				if (message.kind === 'render') this.rendering = false;
+				else this.recording = false;
+				this.host.onState(this);
+				void vscode.window.showErrorMessage(`strdltn: ${message.kind === 'render' ? 'the render' : 'the recording'} failed: ${message.message}`);
 				break;
 			case 'log': {
 				const line = `[${this.mode}] ${message.level}: ${message.message}`;

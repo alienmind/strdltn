@@ -5,7 +5,7 @@ import type { SoundInfo } from './protocol.ts';
 import type { SnippetInfo } from './snippet.ts';
 import { functionGroup, isPackTag, snippetTags, soundTags, splitBank, splitWords } from './tags.ts';
 
-export type ItemKind = 'sound' | 'snippet' | 'song' | 'function';
+export type ItemKind = 'sound' | 'snippet' | 'song' | 'function' | 'render';
 
 /** The rows of "Library" in the Browser. */
 export const CATEGORIES = [
@@ -17,6 +17,8 @@ export const CATEGORIES = [
 	{ id: 'snippets', label: 'Snippets', icon: 'snippet' },
 	{ id: 'songs', label: 'Songs', icon: 'song' },
 	{ id: 'functions', label: 'Functions', icon: 'function' },
+	// The audio of songs: renders and recordings, next to their song. See src/shared/render.ts.
+	{ id: 'renders', label: 'Render', icon: 'render' },
 ] as const;
 export type CategoryId = (typeof CATEGORIES)[number]['id'];
 
@@ -229,6 +231,31 @@ export function songItem(path: string): CatalogItem {
 		path,
 	};
 }
+
+/**
+ * A render or a recording of a song, a `.wav` or `.mp3` beside it. `song` is the song's path; the row sits under the
+ * song's name, so the takes of one song are together.
+ */
+export function renderItem(path: string, song: string): CatalogItem {
+	const cut = path.lastIndexOf('/');
+	const file = path.slice(cut + 1);
+	const songName = song.slice(song.lastIndexOf('/') + 1).replace(/\.strudel$/, '');
+	return {
+		id: `render:${path}`,
+		kind: 'render',
+		label: file,
+		detail: cut >= 0 ? path.slice(0, cut) : undefined,
+		category: 'renders',
+		place: 'project',
+		group: songName,
+		tags: [],
+		text: path.toLowerCase(),
+		path,
+	};
+}
+
+/** Songs and audio open when picked; everything else is typed at the cursor. */
+export const opens = (item: CatalogItem): boolean => item.kind === 'song' || item.kind === 'render';
 
 /** What the build keeps of `@strudel/reference` for a function. See scripts/build.mjs. */
 export interface FunctionDoc {

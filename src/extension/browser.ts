@@ -5,6 +5,7 @@ import {
 	type FunctionDoc,
 	functionItem,
 	readUserIndex,
+	renderItem,
 	soundCode,
 	snippetItem,
 	songItem,
@@ -150,7 +151,8 @@ export class BrowserView {
 
 	private rebuild(): void {
 		const snippetItems = this.snippets.all().map((snippet) => snippetItem(snippet, vscode.workspace.asRelativePath(snippet.uri)));
-		this.items = [...soundItems(this.sounds), ...snippetItems, ...this.songs.all().map(songItem), ...this.functions.map(functionItem)];
+		const renders = this.songs.renders().map((audio) => renderItem(audio.path, audio.song));
+		this.items = [...soundItems(this.sounds), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...this.functions.map(functionItem)];
 		// A pack loads hundreds of sounds one by one, and each change would send 2000 items.
 		clearTimeout(this.pushTimer);
 		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
@@ -216,7 +218,7 @@ export class BrowserView {
 			case 'insert': {
 				const item = this.item(message.id);
 				if (!item) return;
-				if (item.kind === 'song') return this.open(item);
+				if (item.kind === 'song' || item.kind === 'render') return this.open(item);
 				if (item.kind === 'sound') {
 					const sound = soundCode(item, message.index);
 					if (sound) return this.actions.insert(sound.code, sound.name);
@@ -229,7 +231,7 @@ export class BrowserView {
 				return this.actions.insert(message.text);
 			case 'copy': {
 				const item = this.item(message.id);
-				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'song' ? item.path : item.insert);
+				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'song' || item.kind === 'render' ? item.path : item.insert);
 				if (text) await vscode.env.clipboard.writeText(text);
 				return;
 			}
@@ -281,7 +283,8 @@ export class BrowserView {
 	}
 
 	private async open(item: CatalogItem): Promise<void> {
-		if (item.kind === 'song') {
+		// A render opens in VS Code's own media preview, which plays .wav and .mp3.
+		if (item.kind === 'song' || item.kind === 'render') {
 			const uri = item.path && this.songs.uri(item.path);
 			if (uri) await vscode.commands.executeCommand('vscode.open', uri);
 			return;

@@ -73,9 +73,9 @@ Next in line:
 
 Every hand test on `feat/midi` passed on 2026-11-22 (MIDI out and in, the MIDI category and debug
 lines, error places, header lines, the Mixer's meters and gain fader, Render and Record, the
-electro example, the demo's arrangement, the Devices view and the SHRUB panel). Next: `pnpm
-test:vscode` once (it plays sound for about ten minutes, and 09 plays the M-VAVE FM-1), then the
-pull request.
+electro example, the demo's arrangement, the Devices view and the SHRUB panel). `pnpm test:vscode` passed on
+2026-11-22: 38 files played with no problem, typing and error places as expected (the FM-1 was not
+plugged in, so 09 sent nothing). Next: the maintainer merges the pull request.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.

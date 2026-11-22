@@ -66,6 +66,20 @@ test('pickup: a slider moved by something else drops the knob until it catches u
 	assert.equal(pickup(step.state, range, 0.9, 0.95).write, 0.95);
 });
 
+test('pickup: a slider value that lags behind the knob does not make it let go', () => {
+	// The page reads the slider a few steps late during a fast turn (2026-11-22).
+	let state: Pickup = { engaged: false };
+	const written: number[] = [];
+	for (let cc = 109; cc <= 127; cc++) {
+		const lagging = written.length > 3 ? written[written.length - 4] : 0.858;
+		const step = pickup(state, range, lagging, cc / 127);
+		state = step.state;
+		assert.notEqual(step.write, undefined, `CC ${cc} wrote nothing`);
+		written.push(step.write!);
+	}
+	assert.equal(written.at(-1), 1);
+});
+
 test('pickup works in the slider units and its step', () => {
 	const cutoff = { from: 0, cc: 74, min: 200, max: 4000, step: 10 };
 	const { state } = pickup({ engaged: false }, cutoff, 2100, 0.5);

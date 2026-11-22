@@ -103,6 +103,13 @@ export interface Pickup {
 	engaged: boolean;
 	/** The value the knob wrote last. A slider that has another value was moved by something else. */
 	written?: number;
+	/**
+	 * The last values the knob wrote. The slider's value reaches the page through the same
+	 * queue as the next CCs, so during a fast turn the page reads a value the knob wrote a
+	 * few steps ago. Measured on 2026-11-22: without this the knob took the slider and let
+	 * go of it four steps later, as if a drag had moved it.
+	 */
+	recent?: number[];
 }
 
 /**
@@ -115,14 +122,15 @@ export interface Pickup {
 export function pickup(state: Pickup, binding: KnobBinding, slider: number, position: number): { state: Pickup; write?: number } {
 	const value = binding.min + position * (binding.max - binding.min);
 	const near = Math.abs(binding.max - binding.min) / 127;
-	let engaged = state.engaged && state.written !== undefined && Math.abs(slider - state.written) <= near / 2;
+	const ours = [state.written, ...(state.recent ?? [])].some((v) => v !== undefined && Math.abs(slider - v) <= near / 2);
+	let engaged = state.engaged && ours;
 	if (!engaged) {
 		const crossed = state.knob !== undefined && (state.knob - slider) * (value - slider) <= 0;
 		engaged = crossed || Math.abs(value - slider) <= near / 2;
 	}
 	if (!engaged) return { state: { knob: value, engaged: false } };
 	const write = snap(value, binding);
-	return { state: { knob: value, engaged: true, written: write }, write };
+	return { state: { knob: value, engaged: true, written: write, recent: [write, ...(state.recent ?? [])].slice(0, 32) }, write };
 }
 
 /** Rounded to the slider's step, or to a thousandth of its range as the Mixer's fader does. */

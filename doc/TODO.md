@@ -74,7 +74,6 @@ synth and a controller plugged in.
 
 | # | Do this | Should happen |
 |---|---|---|
-| M1 | Take the `.gain(slider(1, 0, 1))` the Mixer added off every part of `examples/09-midi-out.strudel`, play | The chords play on the M-VAVE FM-1, in time with the editor's drums |
 | M3 | Stop while a chord sounds | No note hangs |
 | M4 | Turn knobs 1 to 6, and 8 | Kick, hats, bass and pad come in one by one; the bass squelches; the chords play harder; knob 8 moves SHRUB's macro 1. (Knob 7, the FM-1's cutoff on CC 74, passed on 2026-11-22) |
 | M4b | In the Mixer, click the dim triangle of the kick's strip, then drag its fader | The code becomes `.gain(KICK.mul(slider(1, 0, 1)))`; knob 1 still brings the kick in, the fader trims it. The triangle again gives `.gain(KICK)` back |
@@ -87,7 +86,7 @@ Error places and long header lines, on `feat/midi`. Same window.
 
 | # | Do this | Should happen |
 |---|---|---|
-| H1 | In `examples/09-midi-out.strudel` change `.midi(SYNTH)` to `.midx(SYNTH)`, Ctrl+Enter | The error marks `.midx` on line 35, not a comment |
+| H1 | In `examples/09-midi-out.strudel` change `.midi(SYNTH)` to `.midx(SYNTH)`, Ctrl+Enter | The error marks `.midx` on line 42, not a comment |
 | H2 | Browser, Examples, select "MIDI out" | The whole details text shows as one paragraph, though it is two lines in the file |
 | H3 | Add a tag to a snippet whose `@details` is two lines (`lib/effect/sidechain-duck.strudel`) | `// @tags` goes after the second details line; the details still show whole |
 

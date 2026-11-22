@@ -234,7 +234,9 @@ $acid: n(irand(2).almostNever(x=>x.add(7)).sub(7).seg(16)).scale("f:phrygian")._
   .rib(10,4)
   .mask(part(ACID_IN))
   .dist(ACID_DRIVE).distvol(.3)
-  .s("sawtooth").lpf(200).lpenv(part(ACID_ENERGY)).lpq(12).hpf(part(BUILD_HPF)).gain(ACID_VOL)
+  // The cutoff and the resonance drift a little, slowly and at random, so the line breathes
+  .s("sawtooth").lpf(perlin.slow(4).range(150, 380)).lpenv(part(ACID_ENERGY))
+  .lpq(perlin.slow(8).early(3).range(10, 15)).hpf(part(BUILD_HPF)).gain(ACID_VOL)
   .orbit(3)._scope()
 
 

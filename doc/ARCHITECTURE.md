@@ -1792,10 +1792,16 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
 - A click on a filled knob button (in the gutter of either editor or on a fader) takes that
   knob off (`unmapKnobEdit`). Ctrl+Alt+K, a double click on a widget and the line number
   menu always learn.
-- While a knob turns, the number in the code follows at most every 15 ms
-  (`KNOB_WRITE_MS`), not 150 ms after the last move as for a Mixer fader: the maintainer
-  found 150 ms too slow (2026-11-22). Not measured yet: how a 15 ms write feels with a long
-  song, as each write is an edit of the document that goes to the host.
+- While a knob turns, the sound and the handle of the slider's widget in the editor move on
+  every message (`moveSlider` sets the widget's range input), and the number in the code is
+  written once, 150 ms after the knob stops. Tried and dropped on 2026-11-22: writing the
+  code every 15 ms while the knob turns, to make it snappier. Each write is an edit the
+  editor parses, the host receives and the Mixer reads again; at about 60 a second the knob
+  lagged by seconds (seen by the maintainer). The Mixer gets the live value at most once per
+  slider per frame (`sliderLive`).
+- Lost and found on 2026-11-22: the page's `cm-slider` listener that tells the Mixer was
+  cut out by a later edit of the knob code, so the Mixer stopped following knobs and drags
+  without any error. Restored with the per-frame limit.
 - The Mixer has a column of utility buttons left of the strips, written upright to stay
   narrow (the maintainer, 2026-11-22; more will come). "Reset MIDI Mappings" (enabled when a
   slider has a knob): `removeKnobEdits` takes out every `.knob(cc)` on a slider and the

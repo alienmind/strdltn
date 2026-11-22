@@ -79,7 +79,7 @@ table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K)
 | 12 | Stop, close and reopen the file, play, turn knob 2 | The knob works after the new evaluation, pickup first |
 | 13 | A fast turn of a mapped knob, both ways | The knob keeps the slider for the whole turn (it let go after a few steps before `d5e816f`) |
 | 14 | Click a filled knob button, in the gutter and on a fader | That knob leaves the code; the button empties. A click on an empty one learns, as before |
-| 15 | Turn a mapped knob slowly and fast | The number in the code and the inline slider follow while it turns, not only when it stops |
+| 15 | Turn a mapped knob slowly and fast | The sound and the slider's handle in the editor follow at once, smoothly; the Mixer's fader too. The number in the code changes when the knob stops |
 | 16 | In the Mixer's utility column (left of the strips, upright buttons), "Reset MIDI Mappings" | Every `.knob(...)` and the `register('knob', ...)` snippet leave the code; the button greys out. Ctrl+Z in the editor brings them all back |
 | 17 | Map two knobs, then "Show MIDI Mappings" | A modal lists CC, line and code of each knob. Remove on a row takes that knob off, and the row goes. Esc, the cross or a click outside closes it. "Show MIDI Routing" is greyed out |
 | 18 | Look at the Mixer | The Master strip first, always there; its fold arrow shows the global sliders (the old "global" strip is gone). Then the chains in code order. Every fader track has one height, and the names, values and knob buttons sit on one line across strips |

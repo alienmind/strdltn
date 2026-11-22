@@ -317,6 +317,16 @@ the Library as categories, in the order All, Sounds, Drums, Samples, Instruments
 MIDI, Songs, Snippets. Reference and Results stay views of their own, by the maintainer's
 choice.
 
+## Writing a knob's value into the code while it turns
+
+Tried on 2026-11-22. The maintainer found the knob's code write (150 ms after the last
+move) too slow and asked for 10 to 15 ms, so the number in the code followed the knob every
+15 ms. Each write is an edit of the document: the Strudel editor parses it and redraws its
+widgets, the edit goes to the extension host and back, and the Mixer reads the song again.
+At about 60 writes a second the knob lagged by seconds and moved in jumps. Now the sound
+and the slider's handle in the editor follow every message without touching the code, and
+the code is written 150 ms after the knob stops.
+
 ## Fixing click positions with requestMeasure or estimatedHeight
 
 Clicks in the Strudel editor landed lines below the point (see "Clicks in the Strudel

@@ -727,21 +727,27 @@ function rememberSliders(widgets: any[]): void {
  * the new text in the same step. The write waits 150 ms after the last move: a drag
  * fires an event per pixel, and each one would be an edit of the document.
  *
- * A knob passes `everyMs` instead: the code follows while the knob turns, at most once
- * every `everyMs`, not only after it stops. The maintainer found 150 ms after the last
- * move too slow for a knob (2026-11-22) and asked for 10 to 15 ms.
+ * What moves at once, on every move: the sound, and the widget's handle in the editor (its
+ * range input; the text it keeps is set with the write). Not the code. A knob first wrote
+ * the code every 15 ms while it turned, as the maintainer asked for a snappier knob: each
+ * write is an edit that the editor parses, the host receives and the Mixer reads again, and
+ * at 60 a second the knob lagged by seconds (2026-11-22). So the code is written once, 150
+ * ms after the last move, and the handle is what follows the hand.
  */
-function moveSlider(index: number, from: number | undefined, value: string, everyMs?: number): void {
+function moveSlider(index: number, from: number | undefined, value: string): void {
 	// By position when the host could read it, else by index: half typed code does not
 	// parse on the host, and this list follows every edit since the last evaluation.
 	const slider = from !== undefined ? liveSliders.find((s) => s.from === from) : liveSliders[index];
 	if (slider) window.postMessage({ type: 'cm-slider', value: Number(value), id: slider.id }, '*');
 	if (!slider && from === undefined) return;
+	if (mirror) {
+		const at = slider?.from ?? from;
+		for (const input of (mirror.editor.dom as HTMLElement).querySelectorAll<HTMLInputElement & { from?: number }>('.cm-slider input')) if (input.from === at) input.value = value;
+	}
 	let key = slider ?? pendingWrites.find((p) => p.from === from);
 	if (!key) pendingWrites.push((key = { id: '', from: from! }));
 	const target = key;
 	target.pending = value;
-	if (everyMs !== undefined && target.writeTimer !== undefined) return;
 	clearTimeout(target.writeTimer);
 	target.writeTimer = setTimeout(() => {
 		target.writeTimer = undefined;
@@ -761,16 +767,33 @@ function moveSlider(index: number, from: number | undefined, value: string, ever
 				input.value = value;
 			}
 		}
-	}, everyMs ?? 150);
+	}, 150);
 }
+
+// Every live move of a slider, whoever made it (upstream's widget, a Mixer fader, a knob),
+// is a `cm-slider` window message. The Mixer hears of it by where the number is now, at
+// most once per slider per frame: a knob sends a value per MIDI message.
+const liveOut = new Map<string, number>();
+let liveFrame = 0;
+window.addEventListener('message', (event: MessageEvent) => {
+	if (event.data?.type !== 'cm-slider') return;
+	liveOut.set(event.data.id, Number(event.data.value));
+	liveFrame ||= requestAnimationFrame(() => {
+		liveFrame = 0;
+		for (const [id, value] of liveOut) {
+			const slider = liveSliders.find((s) => s.id === id);
+			if (slider) post({ type: 'sliderLive', from: slider.from, value });
+		}
+		liveOut.clear();
+	});
+});
 /**
  * Sliders on knobs (src/shared/knob.ts). The bindings are read from the code that was
  * evaluated, so their `from` is the slider's id; the slider's number is found where it is
  * now through `liveSliders`. A CC moves the slider as a Mixer fader does (`moveSlider`), so
- * the sound, the widget and the number in the code follow, the code at most every
- * KNOB_WRITE_MS while the knob turns.
+ * the sound and the widget's handle follow at once, the number in the code 150 ms after the
+ * knob stops.
  */
-const KNOB_WRITE_MS = 15;
 let knobs: { binding: KnobBinding; state: Pickup }[] = [];
 let listening = false;
 
@@ -823,7 +846,7 @@ onControlChange((cc, value) => {
 		}
 		const step = pickup(knob.state, knob.binding, slider.value, value);
 		knob.state = step.state;
-		if (step.write !== undefined) moveSlider(-1, slider.from, String(step.write), KNOB_WRITE_MS);
+		if (step.write !== undefined) moveSlider(-1, slider.from, String(step.write));
 		else if (Date.now() - (pickupSaid.get(cc) ?? 0) > 1000) {
 			pickupSaid.set(cc, Date.now());
 			const at = knob.binding.min + value * (knob.binding.max - knob.binding.min);

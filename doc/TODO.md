@@ -33,7 +33,7 @@ Next in line:
 
 | # | What | State |
 |---|---|---|
-| 19 | Line actions: a gutter left of the line numbers, in the Strudel editor and the native editor, with a knob button on every line that has a slider. A click captures the next knob (MIDI learn). Lines without an action keep an empty gap, so everything stays aligned; more line actions will come. High priority, the first thing after `feat/knobs` passes its tests (the maintainer, 2026-11-22). Replaces Ctrl+Alt+K as the main way to learn a knob, which the maintainer finds too convoluted. See "Line actions" | Planned, not built |
+| 19 | Line actions: a gutter left of the line numbers, in the Strudel editor and the native editor, with a knob button on every line that has a slider. A click captures the next knob (MIDI learn). Lines without an action keep an empty gap, so everything stays aligned; more line actions will come. The same knob button on every fader of the Mixer. High priority, the first thing after `feat/knobs` passes its tests (the maintainer, 2026-11-22). Replaces Ctrl+Alt+K as the main way to learn a knob, which the maintainer finds too convoluted. See "Line actions" | Planned, not built |
 | 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Ctrl+F and Ctrl+G passed the hand test; Ctrl+H, Ctrl+D, Ctrl+Shift+L built, waiting for it. Keys CodeMirror takes first do not follow a rebinding yet |
 | 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with MIDI learn. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Built on `feat/knobs`, waiting for the hand test |
 | 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
@@ -526,6 +526,14 @@ them, and the button belongs beside its line number, not beside the widget.
   right click), then a CodeLens above the line. Neither is a button in the gutter.
 - The icon: a small knob drawn by us, in the theme's colors. A knob already mapped shows
   its CC.
+- The Mixer too (the maintainer, 2026-11-22): the same knob button on every fader of every
+  strip. A click captures the next knob for the slider behind that fader. The fader knows
+  where its slider's number starts (`MixerSlider.from`), so the host asks the page for
+  MIDI learn at that place, and `knobEdits` puts `.knob(cc)` on the slider call itself,
+  wherever it is written: inline in the chain, or in `const KICK_VOL = slider(...)` when the
+  chain uses a constant. A fader already mapped shows its CC. Must work with the song in
+  the native editor too, so learn has to work on the stage, not only in the Strudel
+  editor.
 - Same rules as now: `sliderAt` for the slider of the line (the first one when a line has
   two; open: a button per slider then?), `knobEdits` for the edit.
 

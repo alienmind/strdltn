@@ -154,6 +154,11 @@ export class Session {
 		this.post({ type: 'select', offset });
 	}
 
+	/** Which slider of this song waits for a CC, for the red knob button. */
+	knobLearning(from: number | undefined): void {
+		this.post({ type: 'knobLearning', from });
+	}
+
 	/** MIDI learn for the slider at the cursor of the Strudel editor. */
 	knobLearn(): void {
 		this.post({ type: 'knobLearn' });
@@ -514,7 +519,9 @@ export class Session {
 	.strdltn-actions .cm-gutterElement { padding: 0 2px 0 4px; display: flex; align-items: center; }
 	.strdltn-knob { display: inline-flex; cursor: pointer; color: var(--vscode-descriptionForeground, #8b949e); opacity: .6; --knob-fill: none; --knob-mark: currentColor; }
 	.strdltn-knob:hover { opacity: 1; }
-	.strdltn-knob.on { color: var(--vscode-charts-orange, #d29922); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
+	.strdltn-knob.on { color: var(--vscode-charts-green, #3fb950); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
+	.strdltn-knob.learning { color: var(--vscode-charts-red, #f85149); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); animation: strdltn-learn 1s ease-in-out infinite; }
+	@keyframes strdltn-learn { 50% { opacity: .45; } }
 	#unlock { position: fixed; z-index: 4; inset: 0; display: none; align-items: center; justify-content: center;
 		background: rgba(0, 0, 0, 0.7); color: #fff; font: 16px sans-serif; cursor: pointer; }
 	#unlock.visible { display: flex; }

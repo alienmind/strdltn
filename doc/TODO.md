@@ -83,6 +83,8 @@ table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K)
 | 16 | In the Mixer's utility column (left of the strips, upright buttons), "Reset MIDI Mappings" | Every `.knob(...)` and the `register('knob', ...)` snippet leave the code; the button greys out. Ctrl+Z in the editor brings them all back |
 | 17 | Map two knobs, then "Show MIDI Mappings" | A modal lists CC, line and code of each knob. Remove on a row takes that knob off, and the row goes. Esc, the cross or a click outside closes it. "Show MIDI Routing" is greyed out |
 | 18 | Look at the Mixer | The Master strip first, always there; its fold arrow shows the global sliders (the old "global" strip is gone). Then the chains in code order. Every fader track has one height, and the names, values and knob buttons sit on one line across strips |
+| 20 | Click an empty knob button, wait, turn a knob | The button turns red and blinks while it waits (in the gutter of both editors and on the fader), then green once mapped. Also red on a timeout, then back to grey |
+| 21 | Map CC 1, then CC 2 on another slider, then turn CC 1 again | Both knobs move their sliders. CC 1 is not left dead by the second mapping |
 | 19 | Open `demo.strudel`, play it | The vocals sing as before (from the local `samples/` folder). Until the branch is merged, the Output has one warning: `samples from github:alienmind/strdltn/main/template/samples not loaded` |
 
 Expected still broken: on strudel.cc the knob does nothing (by design, ARCHITECTURE

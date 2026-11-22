@@ -1789,6 +1789,15 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   stopped. Now the page passes every `cm-slider` message (a drag, a knob, a fader) to the
   host as `sliderLive` with where the number is now, and the Mixer moves the fader of the
   slider that starts there. Not while one of its own faders is held.
+- The knob button's colors (the maintainer, 2026-11-22): empty and grey with no knob, red and
+  blinking while it waits for a CC, green once mapped. `KnobLearn.onLearning` says which
+  slider waits; the extension passes it to the pages of the song (`knobLearning`) and the
+  Mixer, and the native editor gets a red icon on that line.
+- A new evaluation starts every knob's pickup over. The page keeps each CC's last position
+  across evaluations (`lastPosition`), so a knob that sits on its slider's value is caught
+  on its first move. Without it, mapping a second knob (which evaluates the song) left the
+  first one dead: it sat on the value it had written, moved away from it, and never crossed
+  it again (seen by the maintainer).
 - A click on a filled knob button (in the gutter of either editor or on a fader) takes that
   knob off (`unmapKnobEdit`). Ctrl+Alt+K, a double click on a widget and the line number
   menu always learn.

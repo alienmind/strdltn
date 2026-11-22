@@ -132,6 +132,10 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 				log('info', `editor action ${message.action}: ${ran ? 'ran' : 'did nothing'}`);
 			}
 			break;
+		case 'knobLearning':
+			learningFrom = message.from;
+			if (mirror && mode === 'editor') mirror.editor.dispatch({ effects: learningEffect.of(message.from) });
+			break;
 		case 'knobLearn':
 			if (mirror && mode === 'editor') post({ type: 'knobLearnAt', from: sliderAt(mirror.editor.state.doc.toString(), mirror.editor.state.selection.main.head) });
 			break;
@@ -797,8 +801,20 @@ window.addEventListener('message', (event: MessageEvent) => {
 let knobs: { binding: KnobBinding; state: Pickup }[] = [];
 let listening = false;
 
+/**
+ * Where each CC was last, 0 to 1, across evaluations. A new evaluation starts every knob's
+ * pickup over; a knob that sits on its slider's value (it wrote it) and then moves away
+ * never crosses that value again, so it never took over. Seen by the maintainer on
+ * 2026-11-22: mapping CC 2 re-evaluated the song and CC 1 stopped answering. With its last
+ * position known, the first move counts as starting on the value.
+ */
+const lastPosition = new Map<number, number>();
+
 function rememberKnobs(code: string): void {
-	knobs = findKnobs(code).map((binding) => ({ binding, state: { engaged: false } }));
+	knobs = findKnobs(code).map((binding) => {
+		const at = lastPosition.get(binding.cc);
+		return { binding, state: { engaged: false, knob: at === undefined ? undefined : binding.min + at * (binding.max - binding.min) } };
+	});
 	if (!knobs.length) return;
 	// Said once per evaluation, so the Output shows whether each knob found its slider.
 	const values = (strudelCodemirror as any).sliderValues ?? {};
@@ -834,6 +850,7 @@ function sliderNow(id: string): { from: number; value: number } | undefined {
 }
 
 onControlChange((cc, value) => {
+	lastPosition.set(cc, value);
 	for (const knob of knobs) {
 		if (knob.binding.cc !== cc) continue;
 		const slider = sliderNow(`slider_${knob.binding.from}`);
@@ -865,16 +882,23 @@ onControlChange((cc, value) => {
 const KNOB_ICON =
 	'<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8.5" r="5.5" fill="var(--knob-fill)" stroke="currentColor" stroke-width="1.5"/><path d="M8 8.5 5 5" stroke="var(--knob-mark)" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
+/** The slider waiting for a CC (its button is red), by where its number starts. The host says. */
+let learningFrom: number | undefined;
+const learningEffect = StateEffect.define<number | undefined>();
+
 class KnobMarker extends GutterMarker {
-	constructor(readonly cc: number | undefined) {
+	constructor(
+		readonly cc: number | undefined,
+		readonly learning = false,
+	) {
 		super();
 	}
 	eq(other: KnobMarker): boolean {
-		return other.cc === this.cc;
+		return other.cc === this.cc && other.learning === this.learning;
 	}
 	toDOM(): Node {
 		const button = document.createElement('span');
-		button.className = `strdltn-knob${this.cc === undefined ? '' : ' on'}`;
+		button.className = `strdltn-knob${this.learning ? ' learning' : this.cc === undefined ? '' : ' on'}`;
 		button.innerHTML = KNOB_ICON;
 		button.title = this.cc === undefined ? 'Click, then turn a knob: it moves this slider' : `Knob on CC ${this.cc}. Click to take it off`;
 		return button;
@@ -887,12 +911,14 @@ function lineActions() {
 		gutter({
 			class: 'strdltn-actions',
 			lineMarker(view, line) {
-				const text = view.state.doc.lineAt(line.from).text;
+				const docLine = view.state.doc.lineAt(line.from);
+				const text = docLine.text;
 				if (!sliderLine(text)) return null;
 				const cc = /\.knob\(\s*(\d+)\s*\)/.exec(text)?.[1];
-				return new KnobMarker(cc === undefined ? undefined : Number(cc));
+				const learning = learningFrom !== undefined && learningFrom >= docLine.from && learningFrom <= docLine.to;
+				return new KnobMarker(cc === undefined ? undefined : Number(cc), learning);
 			},
-			lineMarkerChange: (update) => update.docChanged,
+			lineMarkerChange: (update) => update.docChanged || update.transactions.some((t) => t.effects.some((e) => e.is(learningEffect))),
 			initialSpacer: () => new KnobMarker(undefined),
 			domEventHandlers: {
 				mousedown(view, line, event) {

@@ -105,7 +105,9 @@ export type ToWebview =
 	/** A VS Code command bound to an editing key (Ctrl+F...) asks CodeMirror to run its action. */
 	| { type: 'editorAction'; action: EditorAction }
 	/** Ctrl+Alt+K: the page answers `knobLearnAt` with the slider under its cursor. */
-	| { type: 'knobLearn' };
+	| { type: 'knobLearn' }
+	/** The slider whose number starts at `from` waits for a CC (its knob button is red); undefined: none waits. */
+	| { type: 'knobLearning'; from?: number };
 
 /** The editing actions of the Strudel editor that VS Code's keys reach through our commands. */
 export type EditorAction = 'find' | 'replace' | 'gotoLine' | 'selectNextMatch' | 'selectAllMatches';

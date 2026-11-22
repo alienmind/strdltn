@@ -25,6 +25,15 @@ export class KnobLearn implements vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
 	private readonly icon: vscode.TextEditorDecorationType;
 	private readonly iconOn: vscode.TextEditorDecorationType;
+	private readonly iconLearn: vscode.TextEditorDecorationType;
+	/** The slider waiting for a CC, as its document and where its number starts. */
+	private learning?: { document: vscode.TextDocument; from: number };
+	private readonly learningChanged = new vscode.EventEmitter<{ document: vscode.TextDocument; from?: number }>();
+	/**
+	 * Which slider waits for a CC, and when it stops waiting (`from` undefined): its knob
+	 * button turns red meanwhile, in both editors and the Mixer (the maintainer, 2026-11-22).
+	 */
+	readonly onLearning = this.learningChanged.event;
 
 	constructor(
 		context: vscode.ExtensionContext,
@@ -34,14 +43,17 @@ export class KnobLearn implements vscode.Disposable {
 		private readonly evaluate: (document: vscode.TextDocument) => void,
 	) {
 		// The native editor: an icon in the glyph margin, left of the line numbers, on every
-		// line with a slider. Filled when a knob is on it.
+		// line with a slider. Green when a knob is on it, red while it waits for one.
 		const icon = (file: string) =>
 			vscode.window.createTextEditorDecorationType({ gutterIconPath: vscode.Uri.joinPath(context.extensionUri, 'media', file), gutterIconSize: 'contain' });
 		this.icon = icon('knob.svg');
 		this.iconOn = icon('knob-on.svg');
+		this.iconLearn = icon('knob-learn.svg');
 		this.disposables.push(
 			this.icon,
 			this.iconOn,
+			this.iconLearn,
+			this.learningChanged,
 			vscode.window.onDidChangeVisibleTextEditors((editors) => editors.forEach((e) => this.decorate(e))),
 			vscode.workspace.onDidChangeTextDocument((event) => {
 				for (const editor of vscode.window.visibleTextEditors) if (editor.document === event.document) this.decorate(editor);
@@ -53,10 +65,13 @@ export class KnobLearn implements vscode.Disposable {
 
 	private decorate(editor: vscode.TextEditor): void {
 		if (!editor.document.uri.path.endsWith('.strudel')) return;
-		const lines = sliderLines(lf(editor.document.getText()));
+		const text = lf(editor.document.getText());
+		const waiting = this.learning?.document === editor.document ? lineColumn(text, this.learning.from).line : undefined;
+		const lines = sliderLines(text).filter((l) => l.line !== waiting);
 		const range = (line: number) => new vscode.Range(line, 0, line, 0);
 		editor.setDecorations(this.icon, lines.filter((l) => l.cc === undefined).map((l) => ({ range: range(l.line), hoverMessage: 'Knob: click left of the line number, then turn a knob' })));
 		editor.setDecorations(this.iconOn, lines.filter((l) => l.cc !== undefined).map((l) => ({ range: range(l.line), hoverMessage: `Knob on CC ${l.cc}. Click to take it off` })));
+		editor.setDecorations(this.iconLearn, waiting === undefined ? [] : [{ range: range(waiting), hoverMessage: 'Waiting for a knob: turn one on your MIDI controller' }]);
 	}
 
 	/**
@@ -107,7 +122,8 @@ export class KnobLearn implements vscode.Disposable {
 			return this.say('check', 'Knob taken off the slider');
 		}
 		this.say('loading~spin', 'Move a knob on your MIDI controller (10 s)', LEARN_MS + 1000);
-		const cc = await this.midi.captureCC(LEARN_MS);
+		this.setLearning({ document, from });
+		const cc = await this.midi.captureCC(LEARN_MS).finally(() => this.setLearning(undefined));
 		if (cc === 'noMidi') return this.say('warning', 'No MIDI here: knobs work on desktop VS Code only');
 		if (cc === undefined) return this.say('warning', 'No knob moved: nothing mapped');
 		const text = lf(document.getText());
@@ -128,6 +144,14 @@ export class KnobLearn implements vscode.Disposable {
 		if (!(await vscode.workspace.applyEdit(edit))) return false;
 		this.evaluate(document);
 		return true;
+	}
+
+	private setLearning(learning: { document: vscode.TextDocument; from: number } | undefined): void {
+		const document = learning?.document ?? this.learning?.document;
+		this.learning = learning;
+		if (!document) return;
+		this.learningChanged.fire({ document, from: learning?.from });
+		for (const editor of vscode.window.visibleTextEditors) if (editor.document === document) this.decorate(editor);
 	}
 
 	private say(icon: string, text: string, ms = 5000): void {

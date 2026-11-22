@@ -15,7 +15,9 @@ export type ToMixer =
 	/** Whether the song shown plays. The scopes go flat when it stops. */
 	| { type: 'playing'; on: boolean }
 	/** A slider moved live in the song (a drag, a knob), before the code says so. By where its number starts. */
-	| { type: 'sliderLive'; from: number; value: number };
+	| { type: 'sliderLive'; from: number; value: number }
+	/** The slider whose number starts at `from` waits for a CC: its knob button is red. Undefined: none waits. */
+	| { type: 'knobLearning'; from?: number };
 
 export type FromMixer =
 	| { type: 'ready' }

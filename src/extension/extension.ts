@@ -295,6 +295,10 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// VS Code's editing keys in the Strudel editor. Upstream's CodeMirror binds none of
 		// these keys (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+D, Ctrl+Shift+L), so the key leaves the webview and VS Code runs these, bound under
 		// `activeCustomEditorId == strdltn.editor`. A user rebinds them like any command.
+		knobs.onLearning(({ document, from }) => {
+			for (const session of sessions) if (session.document === document) session.knobLearning(from);
+			mixer.knobLearning(document, from);
+		}),
 		// Ctrl+Alt+K: the Strudel editor knows its own cursor; the native editor's is here.
 		vscode.commands.registerCommand('strdltn.knobLearn', () => {
 			const editor = frontEditor();

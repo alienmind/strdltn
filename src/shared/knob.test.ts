@@ -65,6 +65,12 @@ test('pickup: a knob away from the slider does not move it until it passes the v
 	assert.equal(step.write, 0.2);
 });
 
+test('pickup: a knob that sat on the slider value before a new evaluation is caught as it moves away', () => {
+	// The page carries the CC's last position over (`lastPosition` in the webview), here 0.5.
+	assert.equal(pickup({ engaged: false, knob: 0.5 }, range, 0.5, 0.55).write, 0.55);
+	assert.equal(pickup({ engaged: false, knob: 0.5 }, range, 0.5, 0.45).write, 0.45);
+});
+
 test('pickup: the first message on the slider value catches it at once', () => {
 	assert.equal(pickup({ engaged: false }, range, 0.5, 64 / 127).write, snap(64 / 127, range));
 });

@@ -251,6 +251,11 @@ export class MixerView implements Surface {
 		if (document === this.document) this.post({ type: 'sliderLive', from, value });
 	}
 
+	/** Which slider of the song waits for a CC: its knob button is red. */
+	knobLearning(document: vscode.TextDocument, from: number | undefined): void {
+		if (document === this.document) this.post({ type: 'knobLearning', from });
+	}
+
 	/** The waves of the scopes of a song, passed on when it is the song the Mixer shows. */
 	setScopes(document: vscode.TextDocument, scopes: ScopeFrame[]): void {
 		if (document !== this.document) return;

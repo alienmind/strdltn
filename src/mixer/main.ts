@@ -54,6 +54,8 @@ const strips = main.appendChild(el('div', 'strips'));
 const cables = new CableLayer(strips);
 
 let song: string | undefined;
+/** The slider waiting for a CC (its knob button is red), by where its number starts. */
+let learningFrom: number | undefined;
 let model: MixerModel | undefined;
 let error: string | undefined;
 /**
@@ -96,6 +98,10 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 			break;
 		case 'playing':
 			if (!message.on) clearScopes();
+			break;
+		case 'knobLearning':
+			learningFrom = message.from;
+			for (const button of strips.querySelectorAll<HTMLElement>('.fader .knob[data-from]')) button.classList.toggle('learning', Number(button.dataset.from) === learningFrom);
 			break;
 		case 'sliderLive': {
 			// Not while a fader is held: that move is the one coming back.
@@ -456,7 +462,8 @@ function fader(slider: MixerSlider): HTMLElement {
 	output.dataset.slider = String(slider.index);
 	// MIDI learn for this slider, as the knob button left of its line in the code. The host
 	// puts `.knob(cc)` on the slider call wherever it is written, a constant included.
-	const knob = box.appendChild(el('button', `knob${slider.knob === undefined ? '' : ' on'}`));
+	const knob = box.appendChild(el('button', `knob${slider.from === learningFrom ? ' learning' : slider.knob === undefined ? '' : ' on'}`));
+	knob.dataset.from = String(slider.from);
 	knob.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8.5" r="5.5" fill="var(--knob-fill)" stroke="currentColor" stroke-width="1.5"/><path d="M8 8.5 5 5" stroke="var(--knob-mark)" stroke-width="1.5" stroke-linecap="round"/></svg>';
 	if (slider.knob !== undefined) knob.appendChild(el('span', 'cc', String(slider.knob)));
 	knob.title = slider.knob === undefined ? 'Click, then turn a knob on your MIDI controller: it moves this fader' : `Knob on CC ${slider.knob}. Click to take it off`;

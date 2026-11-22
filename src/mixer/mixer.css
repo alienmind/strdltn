@@ -110,7 +110,10 @@ button:disabled { cursor: default; opacity: .35; }
 /* MIDI learn for the fader's slider. Filled, with its CC, once a knob is mapped. */
 .fader .knob { display: inline-flex; align-items: center; gap: 2px; margin-top: 2px; padding: 0 2px; border: 0; background: none; cursor: pointer; color: var(--vscode-descriptionForeground); opacity: .6; --knob-fill: none; --knob-mark: currentColor; font-size: 10px; }
 .fader .knob:hover { opacity: 1; }
-.fader .knob.on { color: var(--vscode-charts-orange, #d29922); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
+.fader .knob.on { color: var(--vscode-charts-green, #3fb950); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
+/* Red while it waits for a CC, blinking. */
+.fader .knob.learning { color: var(--vscode-charts-red, #f85149); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); animation: learn 1s ease-in-out infinite; }
+@keyframes learn { 50% { opacity: .45; } }
 .fader.off input { accent-color: var(--vscode-disabledForeground, #888); }
 
 /* The chain's scope under its faders: the theme's green, as upstream's scopes are a plain line. */

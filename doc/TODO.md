@@ -451,8 +451,12 @@ To try, in this order:
 The maintainer wants it now (2026-11-22): the M-VAVE FM-1 is a USB sound card too, and
 playing SHRUB on it by MIDI next to Strudel's sound on the computer's card splits the
 mix in two. Until this is built, Windows can send VS Code alone to the FM-1: Settings,
-System, Sound, Volume mixer, the output device of Visual Studio Code. Not tried: whether
-the FM-1 mixes what comes in over USB with its own synth on its output.
+System, Sound, Volume mixer, the output device of Visual Studio Code.
+
+Seen by the maintainer the same day: with SHRUB on it, the FM-1 is not listed as a sound
+card; with the stock firmware it is, and works. So SHRUB's firmware seems to leave out the
+USB audio. For later: a spike with another firmware on the FM-1 (stock, or one of the
+hub's), and asking Xfer again (decision 15) whether SHRUB can keep the FM-1's USB audio.
 
 ## Sliders on knobs
 

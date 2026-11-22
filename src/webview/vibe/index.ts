@@ -276,7 +276,8 @@ function noteEvents(t: number, value: any, rate: number, programs: Map<number, n
 const offline = new Map<string, { id: string; orbit: number; events: VibeEvent[]; programs: Map<number, number> }>();
 
 /** Called by the render just before startRendering: makes the copies of the render with their notes. */
-export async function prepareOfflineFirmware(ac: OfflineAudioContext): Promise<void> {
+/** `startCycle`: the cycle at frame 0 of this context. A render comes in chunks, and a firmware's clock starts there. */
+export async function prepareOfflineFirmware(ac: OfflineAudioContext, startCycle = 0): Promise<void> {
 	if (!offline.size) return;
 	await ac.audioWorklet.addModule(WORKLET_URL);
 	const { cps } = host.clock();
@@ -286,8 +287,8 @@ export async function prepareOfflineFirmware(ac: OfflineAudioContext): Promise<v
 			numberOfInputs: 0,
 			numberOfOutputs: 1,
 			outputChannelCount: [2],
-			// The song plays from cycle 0 at frame 0, with its tempo, as a live play tells a firmware.
-			processorOptions: { module: await moduleFor(copy.id), clock: { frame: 0, cycle: 0, cps, playing: true }, events },
+			// The chunk plays from startCycle at frame 0, with the song's tempo, as a live play tells a firmware.
+			processorOptions: { module: await moduleFor(copy.id), clock: { frame: 0, cycle: startCycle, cps, playing: true }, events },
 		});
 		node.connect(strudelWebaudio.getSuperdoughAudioController().getOrbit(copy.orbit).summingNode);
 	}

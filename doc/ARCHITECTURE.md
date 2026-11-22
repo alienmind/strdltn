@@ -1127,6 +1127,20 @@ click. It also closes the live `AudioContext` and leaves none, so the song stops
 context, which may ask for a click as after a reload. The length is the song's header `// @length <cycles>` (the demo
 says 100), else the setting `strdltn.render.cycles` (16).
 
+**In chunks.** Measured on 2026-11-22 in a muted window: the demo in one piece (100 cycles) did not finish in 7
+minutes; 4 cycles took 2 s, 30 cycles did not finish in 2 minutes. An offline context builds every note's nodes before
+it starts, and a worklet node (supersaw, `.dist()`, `pulse`) runs from the moment it is made, so the cost grows with
+the square of the length. `renderSong` now renders 4 cycles at a time (`RENDER_CHUNK`), each with the notes that
+start in it (`filterHaps`) and 6 s more for their releases, rooms and delays (`RENDER_TAIL`), and adds the chunks up
+into one WAV (`wavOf`, 16 bits, clipped as the speakers would). A firmware copy is made per chunk and starts its
+clock at the chunk's cycle. The whole demo then rendered in 68.8 s. Not exact: an effect that a note changes for the
+notes after it (a room whose size moves, ducking) restarts at each chunk, and a tail longer than 6 s is cut.
+
+Open: a render of a song that plays on an orbit other than 1 logs "Failed to execute 'connect' on 'AudioNode': cannot
+connect to an AudioNode belonging to a different audio context" once per chunk (the demo: 42 times), with
+`resetGlobalEffects()` called before each chunk. Where the live node comes from is not found yet; that note may be
+missing from the file.
+
 **Firmwares in a render.** Measured on 2026-11-22: a song with only OBERVAVE rendered silent at first. An offline
 render runs seconds of audio in milliseconds, and a worklet reads its port only between render steps, so the notes
 posted to it arrived after the render ended. Now `trigger` (`src/webview/vibe/index.ts`) keeps a render's notes per

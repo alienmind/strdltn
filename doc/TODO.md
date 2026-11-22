@@ -128,6 +128,13 @@ The intermittent typing failures of the integration test are still an open lead:
 
 ## Open leads
 
+### Render: a node of another context
+
+A render logs "cannot connect to an AudioNode belonging to a different audio context" once per chunk for songs on
+orbits other than 1 (ARCHITECTURE "Render and record"). Each may be a missing note. To try: wrap
+`AudioNode.prototype.connect` in the engine during a render and keep the stack of the first failure (a first try
+read nothing back: the hook did not find the engine page in time).
+
 ### Integration test
 
 A lead, not a known bug. On 2026-11-21 the typing cases of the integration test

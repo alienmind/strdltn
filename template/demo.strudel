@@ -50,8 +50,9 @@ const VOCALS_IN = [1, 1, 1, 1, 1, 1, 1, 1]
 const CLAP_IN   = [0, 0, 0, 0, 1, 0, 1, 0]
 // The pad: from bar 10 of the INTRO to the start of the OUTRO
 const PAD_IN    = [0, "<0!9 1!7>", 1, 1, 1, 1, 1, "<1!4 0!6>"]
-// The pad goes through the trance gate in the BUILD, the BREAKDOWN and the second half of the FINAL DROP
-const PAD_GATE  = [0, 0, 0, 1, 0, 1, "<0!8 1!8>", 0]
+// The pad's trance gate: from bar 14 of the INTRO, once its filter is fully open, through the
+// VERSE and the BUILD on one held chord; then the BREAKDOWN and the second half of the FINAL DROP
+const PAD_GATE  = [0, "<0!13 1!3>", 1, 1, 0, 1, "<0!8 1!8>", 0]
 const RISER_IN  = ["<1!9 0>", 1, 1, 1, 1, 1, 1, 1]
 // The BUILD thins the band out over its last 4 bars; the DROP opens it again
 const BUILD_HPF = [20, 20, 20, "<20!4 150 400 900 1800>", 20, 20, 20, 20]
@@ -228,12 +229,15 @@ $riser: s("pulse").seg(16).dec(.1).fm(time).fmh(time)
 
 // Pad: a wide supersaw on the progression of the drops, its filter opening with the
 // energy, through a large room. It pumps with the kick (orbit 5).
-const PAD_CUTOFF = [600, 450, saw.slow(16).range(450, 800), saw.slow(8).range(600, 1500), 1200, 700, 1800, isaw.slow(10).range(300, 1200)]
+// INTRO: the pad comes in at bar 10 on one chord, its filter opens over 4 bars and stays open
+const PAD_CUTOFF = [600, arrange([9, "300"], [4, saw.slow(4).range(300, 2400)], [3, "2400"]), 2400, 2400, 1200, 700, 1800, isaw.slow(10).range(300, 1200)]
+// The end of the DROP: a high-pass rises over its last 4 bars, out into the BREAKDOWN
+const PAD_HPF = [20, 20, 20, "<20!4 150 400 900 1800>", arrange([12, "20"], [4, saw.slow(4).range(20, 2000)]), 20, 20, 20]
 $pad: n(part(CHORD_PROGRESSION).add("[0,2,4]")).scale("f3:phrygian")
   .mask(part(PAD_IN))
   .s("supersaw").detune(.6).attack(.5).release(2)
   .when(part(PAD_GATE), x => x.trancegate(1.5, 45, 1).attack(.01).release(.1))
-  .lpf(part(PAD_CUTOFF).mul(PAD_OPEN)).hpf(part(BUILD_HPF)).room(PAD_SPACE)
+  .lpf(part(PAD_CUTOFF).mul(PAD_OPEN)).hpf(part(PAD_HPF)).room(PAD_SPACE)
   .orbit(5)
   .gain(PAD_VOL)._scope()
 

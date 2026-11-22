@@ -1,7 +1,7 @@
 // Cases for sliders on knobs (knob.ts). Run with `pnpm test:unit`.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findKnobs, hasKnobSnippet, KNOB_SNIPPET, knobEdits, type Pickup, pickup, removeKnobEdits, sliderAt, snap } from './knob.ts';
+import { findKnobs, hasKnobSnippet, KNOB_SNIPPET, knobEdits, type Pickup, pickup, removeKnobEdits, sliderAt, snap, unmapKnobEdit } from './knob.ts';
 
 const apply = (code: string, edits: { from: number; to: number; insert: string }[]) =>
 	[...edits].sort((a, b) => b.from - a.from).reduce((text, e) => text.slice(0, e.from) + e.insert + text.slice(e.to), code);
@@ -38,6 +38,12 @@ test('removing every knob takes out each .knob(cc) and the snippet, and nothing 
 	const code = `// @title Test\n${KNOB_SNIPPET}const A = slider(0.3).knob(1)\n$: s("bd").gain(A).lpf(slider(800, 200, 4000).knob(74)).room(sine.knob(3))`;
 	assert.equal(apply(code, removeKnobEdits(code)), '// @title Test\nconst A = slider(0.3)\n$: s("bd").gain(A).lpf(slider(800, 200, 4000)).room(sine.knob(3))');
 	assert.deepEqual(removeKnobEdits('$: s("bd").gain(slider(.5))'), []);
+});
+
+test('a second click takes the knob off that slider only', () => {
+	const code = `${KNOB_SNIPPET}$: s("bd").gain(slider(0.3).knob(1)).lpf(slider(800, 200, 4000).knob(74))`;
+	assert.equal(apply(code, [unmapKnobEdit(code, code.indexOf('0.3'))!]), `${KNOB_SNIPPET}$: s("bd").gain(slider(0.3)).lpf(slider(800, 200, 4000).knob(74))`);
+	assert.equal(unmapKnobEdit('$: s("bd").gain(slider(0.3))', 22), undefined);
 });
 
 test('learning where no slider starts does nothing', () => {

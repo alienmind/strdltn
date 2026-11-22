@@ -159,7 +159,7 @@ export type FromWebview =
 	/** A slider's value changed live (a drag, a knob, a fader): `from` is where its number is now. For the Mixer. */
 	| { type: 'sliderLive'; from: number; value: number }
 	/** MIDI learn for the slider whose number starts at `from` (undefined: no slider there). The host does the learn. */
-	| { type: 'knobLearnAt'; from?: number };
+	| { type: 'knobLearnAt'; from?: number; toggle?: boolean };
 
 export interface TextChange {
 	from: number;

@@ -23,7 +23,7 @@ export interface SessionHost {
 	/** The waves of the song's inline scopes, for the Mixer. */
 	onScopes?(document: vscode.TextDocument, scopes: ScopeFrame[]): void;
 	/** MIDI learn for a slider of the song, by where its number starts. */
-	onKnobLearn?(document: vscode.TextDocument, from: number | undefined): Promise<void>;
+	onKnobLearn?(document: vscode.TextDocument, from: number | undefined, toggle?: boolean): Promise<void>;
 	/** A slider of the song moved live, for the Mixer. */
 	onSliderLive?(document: vscode.TextDocument, from: number, value: number): void;
 	/** The engine state, the error or the active tab changed. The status bar follows. */
@@ -299,7 +299,7 @@ export class Session {
 				this.showError(message.error);
 				break;
 			case 'knobLearnAt':
-				void this.host.onKnobLearn?.(this.document, message.from);
+				void this.host.onKnobLearn?.(this.document, message.from, message.toggle);
 				break;
 			case 'cacheFiles': {
 				const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;

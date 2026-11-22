@@ -4,6 +4,8 @@
 	--strip: 88px;
 	--fader: 40px;
 	--sidechain: var(--vscode-charts-orange, #d18616);
+	/* One height for every fader's track, plain or metered, so they line up across strips. */
+	--track: clamp(60px, calc(100vh - 262px), 400px);
 }
 * { box-sizing: border-box; }
 html, body {
@@ -24,8 +26,6 @@ button:disabled { cursor: default; opacity: .35; }
 .bar { flex: none; display: flex; gap: 12px; align-items: center; padding: 4px 10px; }
 [hidden] { display: none !important; }
 .bar .song { font-weight: 600; }
-.bar .unmap { margin-left: auto; padding: 1px 8px; border: 1px solid var(--vscode-button-secondaryBackground, #555); border-radius: 2px; background: none; color: var(--vscode-foreground); font: inherit; font-size: 11px; cursor: pointer; }
-.bar .unmap:hover { background: var(--vscode-button-secondaryBackground, #3a3d41); }
 .bar .stale { color: var(--vscode-editorWarning-foreground, #cca700); font-size: 11px; }
 
 /* The strips scroll sideways. The cables hang under them, so there is room below. */
@@ -58,8 +58,8 @@ button:disabled { cursor: default; opacity: .35; }
 	border-radius: 4px;
 	background: var(--vscode-sideBar-background, rgba(128, 128, 128, .06));
 }
-.strip.open, .strip.global { width: auto; min-width: var(--strip); }
-.strip.global { border-style: dashed; }
+.strip.open { width: auto; min-width: var(--strip); }
+.strip.master.disabled { opacity: .45; }
 .strip.muted .faders, .strip.muted header .name { opacity: .45; }
 .strip.solo { border-color: var(--vscode-charts-blue, #3794ff); }
 
@@ -69,7 +69,6 @@ button:disabled { cursor: default; opacity: .35; }
 /* The fold arrow sits at the left; a space as wide at the right keeps the name in the middle of the strip. */
 .strip header:has(.fold)::after { content: ""; width: 14px; flex: none; }
 .strip header .name:hover { text-decoration: underline; }
-.strip.global header .name { cursor: default; text-decoration: none; color: var(--vscode-descriptionForeground); }
 
 .body { flex: 1; display: flex; gap: 4px; padding: 0 4px 0 6px; }
 .badges { flex: none; display: flex; flex-direction: column; gap: 3px; padding-top: 4px; }
@@ -93,13 +92,17 @@ button:disabled { cursor: default; opacity: .35; }
 	writing-mode: vertical-lr;
 	direction: rtl;
 	/* As tall as the panel allows, up to 400 pixels, so the jacks and cables stay in view. */
-	height: clamp(48px, calc(100vh - 230px), 400px);
+	height: var(--track);
 	width: 22px;
-	margin: 4px 0;
+	margin: 3px 0 5px;
 	accent-color: var(--vscode-focusBorder, #3794ff);
 }
 .fader input:disabled { opacity: 1; cursor: default; }
-.fader .label, .fader .detail, .fader .value { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Fixed rows: a fader without a detail, or a gain fader with blank rows, keeps the knob button in line. */
+.fader .top { display: block; height: 17px; }
+.fader .label, .fader .detail, .fader .value { display: block; height: 15px; line-height: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+.fader .blank { visibility: hidden; }
+.fader .knob { height: 18px; }
 .fader .label { font-weight: 600; font-size: 11px; }
 .fader .detail { font-size: 10px; color: var(--vscode-descriptionForeground); }
 .fader .value { font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; opacity: .85; }
@@ -142,7 +145,7 @@ button:disabled { cursor: default; opacity: .35; }
 @media (min-height: 420px) {
 	.body { flex-direction: column; gap: 2px; padding: 0 6px; }
 	.badges { flex-direction: row; justify-content: center; padding-top: 2px; }
-	.fader input { height: clamp(48px, calc(100vh - 256px), 400px); }
+	:root { --track: clamp(60px, calc(100vh - 290px), 400px); }
 }
 
 /* Level meters, as Live's. Left to right in the well: the fader's lane (13 pixels, METER_LANE in main.ts) with its
@@ -150,7 +153,8 @@ button:disabled { cursor: default; opacity: .35; }
    peak sits above: orange above 0 dB. */
 /* As wide as its content (lane, two bars, scale), so it sits centered in the strip. */
 .fader.metered { width: 50px; }
-.meter-well { position: relative; width: 100%; height: clamp(60px, calc(100vh - 262px), 400px); margin: 3px 0 5px; }
+.meter-well { position: relative; width: 100%; height: var(--track); margin: 3px 0 5px; }
+.peakhold { height: 17px; }
 /* The numbers of the scale, right of the ticks: 13 (the fader's lane) + 2 bars of 5 + 1 + 2 + the tick of 3 + 2. */
 .meter-scale { position: absolute; inset: 0; pointer-events: none; }
 .meter-scale span {
@@ -204,7 +208,6 @@ button:disabled { cursor: default; opacity: .35; }
 .fader.off.metered .label, .fader.off.metered .value, .fader.off.metered input { opacity: .45; }
 .strip.master .name { font-weight: 600; }
 @media (min-height: 420px) {
-	.meter-well { height: clamp(60px, calc(100vh - 290px), 400px); }
 }
 
 /* M and S side by side above the scope. */
@@ -238,3 +241,7 @@ button:disabled { cursor: default; opacity: .35; }
 	cursor: pointer;
 }
 .off-thumb:hover { opacity: 1; background: var(--vscode-focusBorder, #3794ff); }
+
+/* "Remove all knobs", the width of its strip, under the Master. */
+.strip footer .unmap { width: 100%; padding: 6px 4px; border: 1px solid var(--vscode-button-border, var(--vscode-panel-border, #555)); border-radius: 3px; background: var(--vscode-button-secondaryBackground, #3a3d41); color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); font-size: 11px; line-height: 1.2; white-space: normal; }
+.strip footer .unmap:hover { background: var(--vscode-button-secondaryHoverBackground, #45494e); }

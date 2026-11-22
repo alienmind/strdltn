@@ -504,8 +504,10 @@ is hidden and the Mixer is the CHAINS view.
 names it: `$kick:` gives "kick", `lowendbass:` gives "lowendbass". An anonymous `$:` is
 named by the rules of `src/shared/context.ts` that name a visual today. A chain with no
 slider still gets a strip, so it can be muted, soloed and ducked, but it has no fader.
-One more strip on the left, "global", holds the sliders that act on no chain (a slider
-used in `setcps()`, or one not used anywhere). It is left out when it is empty.
+The sliders that act on no chain (a slider used in `setcps()`, or one not used anywhere)
+are the inner sliders of the Master strip, which comes first and is always there
+(changed by the maintainer on 2026-11-22: it was a strip "global" on the left, left out
+when empty).
 
 **Which slider belongs to which chain.** A parser of the code (`src/shared/chains.ts`,
 with tests) finds the range of every chain, every `slider(...)` call and every constant

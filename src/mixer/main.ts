@@ -36,10 +36,6 @@ app.insertAdjacentHTML('beforeend', jackSymbols());
 const bar = app.appendChild(el('div', 'bar'));
 const songName = bar.appendChild(el('span', 'song'));
 const staleNote = bar.appendChild(el('span', 'stale', 'code does not parse, showing the last good state'));
-// Takes every MIDI knob out of the song in one edit, so one Ctrl+Z brings them all back.
-const unmapKnobs = bar.appendChild(el('button', 'unmap', 'Remove all knobs'));
-unmapKnobs.title = 'Take every .knob(...) and the knob snippet out of the song. Ctrl+Z in the editor brings them back';
-unmapKnobs.addEventListener('click', () => post({ type: 'unmapKnobs' }));
 const strips = app.appendChild(el('div', 'strips'));
 const cables = new CableLayer(strips);
 
@@ -110,11 +106,11 @@ draw();
 
 function draw(): void {
 	songName.textContent = song ?? 'No song';
-	unmapKnobs.hidden = !model?.sliders.some((s) => s.knob !== undefined);
 	staleNote.hidden = !error;
 	staleNote.title = error ?? '';
 	strips.classList.toggle('old', !!error);
 	strips.querySelectorAll('.strip, .empty').forEach((node) => node.remove());
+	strips.appendChild(masterStrip(model));
 	if (!model) {
 		strips.appendChild(el('div', 'empty', song ? '' : 'Open a .strudel file to see its chains here.'));
 		cables.set([]);
@@ -123,7 +119,6 @@ function draw(): void {
 	if (!model.chains.length && !model.global.length) strips.appendChild(el('div', 'empty', 'This song has no chains. A chain is a line that starts with $: or name:'));
 
 	const ducked = new Set(model.ducks.map((duck) => duck.to).filter((to) => to !== undefined));
-	if (model.global.length) strips.appendChild(globalStrip(model));
 	const jacks: { out: Element[]; in: Element[] } = { out: [], in: [] };
 	model.chains.forEach((chain, index) => {
 		const { strip, out, input } = chainStrip(model!, chain, index, ducked.has(index));
@@ -131,7 +126,6 @@ function draw(): void {
 		jacks.in[index] = input!;
 		strips.appendChild(strip);
 	});
-	if (model.chains.length) strips.appendChild(masterStrip());
 	outJacks = jacks.out;
 	drawnCables = model.ducks
 		.filter((duck) => duck.to !== undefined && jacks.out[duck.from] && jacks.in[duck.to])
@@ -276,15 +270,17 @@ function endDrag(): void {
 	drawCables();
 }
 
-function globalStrip(m: MixerModel): HTMLElement {
-	const strip = el('section', 'strip global');
-	const head = strip.appendChild(el('header'));
-	head.appendChild(el('span', 'name', 'global'));
-	head.title = 'Sliders that act on no chain: in setcps(), or not used';
-	const faders = strip.appendChild(el('div', 'body')).appendChild(el('div', 'faders'));
-	for (const index of m.global) faders.appendChild(fader(m.sliders[index]));
-	strip.appendChild(el('footer'));
-	return strip;
+/**
+ * "Remove all knobs", under the Master strip, shown when
+ * a slider of the song has a knob. It takes every `.knob(...)` and the knob snippet out of the
+ * song in one edit, so one Ctrl+Z brings them back.
+ */
+function unmapButton(): HTMLElement {
+	const button = el('button', 'unmap', 'Remove all knobs');
+	button.hidden = !model?.sliders.some((s) => s.knob !== undefined);
+	button.title = 'Take every .knob(...) and the knob snippet out of the song. Ctrl+Z in the editor brings them back';
+	button.addEventListener('click', () => post({ type: 'unmapKnobs' }));
+	return button;
 }
 
 function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: boolean): { strip: HTMLElement; out?: Element; input?: Element } {
@@ -319,7 +315,7 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 		const box = faders.appendChild(fader(m.sliders[i!]));
 		// The gain fader sits on the chain's level meter, as in Live's mixer, with no text: its value is over the scope.
 		if (i === chain.gain) {
-			box.querySelectorAll('.label, .detail, .value').forEach((node) => node.remove());
+			box.querySelectorAll('.label, .detail, .value').forEach((node) => node.classList.add('blank'));
 			addMeter(box, String(index));
 			clickToToggle(box.querySelector('input')!, toggleGain, 'Drag to set the gain. Click the triangle to take the gain fader out of the code');
 		}
@@ -331,6 +327,7 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 		const off = box.querySelector('.meter-well')!.appendChild(el('button', 'off-thumb'));
 		off.title = 'No gain fader. Click to put one in the code';
 		off.addEventListener('click', toggleGain);
+		blankRows(box);
 	}
 
 	// M and S side by side above the scope, as the track buttons under Live's meters.
@@ -392,8 +389,16 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 	return { strip, out, input };
 }
 
+/**
+ * Every fader has the same rows, so faders, names and knob buttons line up across the
+ * strips (the maintainer, 2026-11-22): a top row (the peak of a metered fader, else empty),
+ * the track (one height for plain and metered faders, --track in mixer.css), the label, the
+ * detail and the value (blank but there on a gain fader, whose value is over the scope), and
+ * the knob button.
+ */
 function fader(slider: MixerSlider): HTMLElement {
 	const box = el('div', 'fader');
+	box.appendChild(el('span', 'top'));
 	const input = box.appendChild(el('input'));
 	input.type = 'range';
 	input.min = String(slider.min);
@@ -403,7 +408,7 @@ function fader(slider: MixerSlider): HTMLElement {
 	input.dataset.slider = String(slider.index);
 	box.title = `${slider.label}${slider.constant ? ` (${slider.constant})` : ''}: from ${slider.min} to ${slider.max}. Changes the sound at once and the number in the code after a moment.`;
 	box.appendChild(el('span', 'label', slider.label));
-	if (slider.constant || slider.detail !== slider.label) box.appendChild(el('span', 'detail', slider.detail));
+	box.appendChild(el('span', 'detail', slider.constant || slider.detail !== slider.label ? slider.detail : ''));
 	const output = box.appendChild(el('output', 'value', String(slider.value)));
 	output.dataset.slider = String(slider.index);
 	// MIDI learn for this slider, as the knob button left of its line in the code. The host
@@ -411,7 +416,7 @@ function fader(slider: MixerSlider): HTMLElement {
 	const knob = box.appendChild(el('button', `knob${slider.knob === undefined ? '' : ' on'}`));
 	knob.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8.5" r="5.5" fill="var(--knob-fill)" stroke="currentColor" stroke-width="1.5"/><path d="M8 8.5 5 5" stroke="var(--knob-mark)" stroke-width="1.5" stroke-linecap="round"/></svg>';
 	if (slider.knob !== undefined) knob.appendChild(el('span', 'cc', String(slider.knob)));
-	knob.title = slider.knob === undefined ? 'Click, then turn a knob on your MIDI controller: it moves this fader' : `Knob on CC ${slider.knob}. Click to map another`;
+	knob.title = slider.knob === undefined ? 'Click, then turn a knob on your MIDI controller: it moves this fader' : `Knob on CC ${slider.knob}. Click to take it off`;
 	knob.addEventListener('click', () => post({ type: 'knob', index: slider.index }));
 	input.addEventListener('pointerdown', () => (dragging = true));
 	input.addEventListener('input', () => {
@@ -524,8 +529,16 @@ function addMeter(box: HTMLElement, key: string): void {
 		input.replaceWith(well);
 		well.appendChild(input);
 	} else box.appendChild(well);
-	box.insertBefore(peakHold(key), well);
+	const top = box.querySelector(':scope > .top');
+	if (top) top.replaceWith(peakHold(key));
+	else box.insertBefore(peakHold(key), well);
 	requestAnimationFrame(drawMeters);
+}
+
+/** The rows under the track of a fader that has no slider (a meter alone), so it lines up with the others. */
+function blankRows(box: HTMLElement): void {
+	for (const name of ['label', 'detail', 'value']) box.appendChild(el('span', `${name} blank`));
+	box.appendChild(el('span', 'knob blank'));
 }
 
 function peakHold(key: string): HTMLElement {
@@ -542,14 +555,36 @@ function peakHold(key: string): HTMLElement {
 }
 
 /** The whole mix, as Live's Master track: its meter and peak, no fader. */
-function masterStrip(): HTMLElement {
-	const strip = el('section', 'strip master');
+/**
+ * The Master strip, first and always there (the maintainer, 2026-11-22): the whole mix as
+ * Live's Master track, its meter and peak. The global sliders (in setcps(), or used by no
+ * chain) are its inner sliders, folded and unfolded as a chain's own. Dim when no song is
+ * shown. "Remove all knobs" sits under it.
+ */
+const MASTER = '@master';
+function masterStrip(m: MixerModel | undefined): HTMLElement {
+	const globals = m?.global ?? [];
+	const open = unfolded.has(MASTER) && globals.length > 0;
+	const strip = el('section', `strip master${open ? ' open' : ''}${m ? '' : ' disabled'}`);
 	const head = strip.appendChild(el('header'));
+	const fold = head.appendChild(el('button', 'fold', open ? '\u25be' : '\u25b8'));
+	fold.disabled = !globals.length;
+	fold.title = !globals.length ? 'No global sliders: none in setcps() and none unused' : open ? 'Fold: only the meter' : `Unfold: the ${globals.length} global sliders (in setcps(), or used by no chain)`;
+	fold.addEventListener('click', () => {
+		if (open) unfolded.delete(MASTER);
+		else unfolded.add(MASTER);
+		keep();
+		draw();
+	});
 	head.appendChild(el('span', 'name', 'Master')).title = 'The whole mix, as it goes to the speakers';
-	const body = strip.appendChild(el('div', 'body'));
-	const box = body.appendChild(el('div', 'faders')).appendChild(el('div', 'fader'));
+	const faders = strip.appendChild(el('div', 'body')).appendChild(el('div', 'faders'));
+	const box = faders.appendChild(el('div', 'fader'));
 	addMeter(box, 'master');
 	box.appendChild(el('span', 'label', 'out'));
+	for (const name of ['detail', 'value']) box.appendChild(el('span', `${name} blank`));
+	box.appendChild(el('span', 'knob blank'));
+	if (open) for (const index of globals) faders.appendChild(fader(m!.sliders[index]));
+	strip.appendChild(el('footer')).appendChild(unmapButton());
 	return strip;
 }
 

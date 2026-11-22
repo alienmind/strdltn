@@ -142,6 +142,23 @@ export function snap(value: number, binding: Pick<KnobBinding, 'min' | 'max' | '
 }
 
 /**
+ * The edit that takes the knob off the slider whose number starts at `from`: a second
+ * click on a filled knob button. Undefined when that slider has no knob. The snippet stays:
+ * other sliders may still use `knob`, and without any it does nothing.
+ */
+export function unmapKnobEdit(code: string, from: number): { from: number; to: number; insert: string } | undefined {
+	const root = program(code);
+	if (!root) return undefined;
+	let edit: { from: number; to: number; insert: string } | undefined;
+	walk(root, [], (node, parents) => {
+		if (edit || !isSlider(node) || node.arguments[0].start !== from) return;
+		const call = knobCallOf(node, parents);
+		if (call) edit = { from: node.end, to: call.end, insert: '' };
+	});
+	return edit;
+}
+
+/**
  * The edits that take every knob out of the song: each `.knob(cc)` on a slider, and the
  * snippet that defines `knob`. Empty when there is none. Positions are of the code as given.
  */

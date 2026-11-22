@@ -107,7 +107,8 @@ browser.
   button, or closing that window, puts it back in the panel.
 
 - A level meter behind each strip's gain fader, as in Live: two bars on a 0 to 60 dB scale, and the highest peak
-  above them, orange when it went over 0 dB. A click starts the peak again. A Master strip meters the whole mix.
+  above them, orange when it went over 0 dB. A click starts the peak again. A Master strip, first, meters the whole mix; unfold it for the global sliders (in
+  `setcps()`, or used by no chain).
 
 **Render and record**
 

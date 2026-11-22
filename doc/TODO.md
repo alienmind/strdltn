@@ -77,7 +77,10 @@ table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K)
 | 11 | Click a knob button, touch nothing for 10 s | "No knob moved: nothing mapped" |
 | 12 | Stop, close and reopen the file, play, turn knob 2 | The knob works after the new evaluation, pickup first |
 | 13 | A fast turn of a mapped knob, both ways | The knob keeps the slider for the whole turn (it let go after a few steps before `d5e816f`) |
-| 14 | In the Mixer, "Remove all knobs" (top right, only when a knob is mapped) | Every `.knob(...)` and the `register('knob', ...)` snippet leave the code; the button goes away. Ctrl+Z in the editor brings them all back |
+| 14 | In the Mixer, "Remove all knobs" (a wide button under the Master strip, only when a knob is mapped) | Every `.knob(...)` and the `register('knob', ...)` snippet leave the code; the button goes away. Ctrl+Z in the editor brings them all back |
+| 15 | Click a filled knob button, in the gutter and on a fader | That knob leaves the code; the button empties. A click on an empty one learns, as before |
+| 16 | Turn a mapped knob slowly and fast | The number in the code and the inline slider follow while it turns, not only when it stops |
+| 17 | Look at the Mixer | The Master strip first, always there; its fold arrow shows the global sliders (the old "global" strip is gone). Then the chains in code order. Every fader track has one height, and the names, values and knob buttons sit on one line across strips |
 
 Expected still broken: on strudel.cc the knob does nothing (by design, ARCHITECTURE
 "Sliders on knobs"). Revert `examples/02-acid-techno.strudel` afterwards unless the

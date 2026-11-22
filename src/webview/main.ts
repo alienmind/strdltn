@@ -703,6 +703,8 @@ interface LiveSlider {
 	/** Where the number is in the document now. Kept up to date as the text changes. */
 	from: number;
 	writeTimer?: ReturnType<typeof setTimeout>;
+	/** The value the next write puts in the code. */
+	pending?: string;
 }
 /** The sliders of the last evaluation, in both modes. */
 let liveSliders: LiveSlider[] = [];
@@ -724,8 +726,12 @@ function rememberSliders(widgets: any[]): void {
  * next drag. A number changed behind its back would be cut wrong. So the widget is told
  * the new text in the same step. The write waits 150 ms after the last move: a drag
  * fires an event per pixel, and each one would be an edit of the document.
+ *
+ * A knob passes `everyMs` instead: the code follows while the knob turns, at most once
+ * every `everyMs`, not only after it stops. The maintainer found 150 ms after the last
+ * move too slow for a knob (2026-11-22) and asked for 10 to 15 ms.
  */
-function moveSlider(index: number, from: number | undefined, value: string): void {
+function moveSlider(index: number, from: number | undefined, value: string, everyMs?: number): void {
 	// By position when the host could read it, else by index: half typed code does not
 	// parse on the host, and this list follows every edit since the last evaluation.
 	const slider = from !== undefined ? liveSliders.find((s) => s.from === from) : liveSliders[index];
@@ -734,10 +740,14 @@ function moveSlider(index: number, from: number | undefined, value: string): voi
 	let key = slider ?? pendingWrites.find((p) => p.from === from);
 	if (!key) pendingWrites.push((key = { id: '', from: from! }));
 	const target = key;
+	target.pending = value;
+	if (everyMs !== undefined && target.writeTimer !== undefined) return;
 	clearTimeout(target.writeTimer);
 	target.writeTimer = setTimeout(() => {
+		target.writeTimer = undefined;
 		pendingWrites = pendingWrites.filter((p) => p !== target);
 		const key = target;
+		const value = target.pending!;
 		const doc = mirror.editor.state.doc.toString();
 		const number = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(doc.slice(key.from))?.[0];
 		if (!number || number === value) return;
@@ -751,14 +761,16 @@ function moveSlider(index: number, from: number | undefined, value: string): voi
 				input.value = value;
 			}
 		}
-	}, 150);
+	}, everyMs ?? 150);
 }
 /**
  * Sliders on knobs (src/shared/knob.ts). The bindings are read from the code that was
  * evaluated, so their `from` is the slider's id; the slider's number is found where it is
  * now through `liveSliders`. A CC moves the slider as a Mixer fader does (`moveSlider`), so
- * the sound, the widget and the number in the code follow, the code at most every 150 ms.
+ * the sound, the widget and the number in the code follow, the code at most every
+ * KNOB_WRITE_MS while the knob turns.
  */
+const KNOB_WRITE_MS = 15;
 let knobs: { binding: KnobBinding; state: Pickup }[] = [];
 let listening = false;
 
@@ -811,7 +823,7 @@ onControlChange((cc, value) => {
 		}
 		const step = pickup(knob.state, knob.binding, slider.value, value);
 		knob.state = step.state;
-		if (step.write !== undefined) moveSlider(-1, slider.from, String(step.write));
+		if (step.write !== undefined) moveSlider(-1, slider.from, String(step.write), KNOB_WRITE_MS);
 		else if (Date.now() - (pickupSaid.get(cc) ?? 0) > 1000) {
 			pickupSaid.set(cc, Date.now());
 			const at = knob.binding.min + value * (knob.binding.max - knob.binding.min);
@@ -841,7 +853,7 @@ class KnobMarker extends GutterMarker {
 		const button = document.createElement('span');
 		button.className = `strdltn-knob${this.cc === undefined ? '' : ' on'}`;
 		button.innerHTML = KNOB_ICON;
-		button.title = this.cc === undefined ? 'Click, then turn a knob: it moves this slider' : `Knob on CC ${this.cc}. Click to map another`;
+		button.title = this.cc === undefined ? 'Click, then turn a knob: it moves this slider' : `Knob on CC ${this.cc}. Click to take it off`;
 		return button;
 	}
 }
@@ -865,7 +877,7 @@ function lineActions() {
 					const docLine = view.state.doc.lineAt(line.from);
 					const at = sliderLine(docLine.text);
 					if (!at) return false;
-					post({ type: 'knobLearnAt', from: sliderAt(view.state.doc.toString(), docLine.from + at.index + at[0].length) });
+					post({ type: 'knobLearnAt', from: sliderAt(view.state.doc.toString(), docLine.from + at.index + at[0].length), toggle: true });
 					return true;
 				},
 			},

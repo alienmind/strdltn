@@ -125,7 +125,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			return !!session;
 		},
 		evaluate: evaluateIfPlaying,
-		learnKnob: (document, from) => knobs.learn(document, from),
+		learnKnob: (document, from) => knobs.learn(document, from, true),
 		transport: (document, action) => {
 			const session = [...sessions].find((s) => s.document === document && s.ready);
 			if (session) return transportOn(session, action);
@@ -170,7 +170,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// Every engine loads the same packs, so the list of the engine that spoke last is the list.
 		onScopes: (document, scopes) => mixer.setScopes(document, scopes),
 		onSliderLive: (document, from, value) => mixer.sliderLive(document, from, value),
-		onKnobLearn: (document, from) => knobs.learn(document, from),
+		onKnobLearn: (document, from, toggle) => knobs.learn(document, from, toggle),
 		onDevices: (session, list) => devices.setDevices(session, list),
 		onFrame: (session, key, px, values) => devices.frame(session, key, px, values),
 		onAudio: async (session, kind, wav, info) => {

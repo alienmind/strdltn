@@ -1089,7 +1089,12 @@ Each strip of the Mixer has a level meter behind its gain fader, as in Live's mi
 scale from 0 down to 60 dB, and above them the highest peak of the last 3 seconds in dB ("-Inf" in silence). It turns
 orange once the level went above 0 dB, where it clips at the speakers, and stays orange until a click. Live's number
 holds until a click; ours follows the level down after 3 s, because the maintainer pulled a gain fader down, read the
-held number, and took the meter for one measured before the gain. A Master strip at the end meters the whole mix. Built on
+held number, and took the meter for one measured before the gain. A Master strip meters the whole mix. Since 2026-11-22 it comes first and is always
+there, dim when no song is shown, and the global sliders (in `setcps()` or used by no chain) are its inner sliders,
+folded and unfolded as a chain's own, so there is no strip "global" any more. "Remove all knobs" sits under it. Every
+fader has the same rows (top, track, label, detail, value, knob button; blank rows where a fader has nothing to show)
+and one track height, `--track` in `mixer.css`, so faders, names and knob buttons line up across strips (the
+maintainer found them misaligned). Built on
 2026-11-22 on `feat/midi`, asked by the maintainer after Record measured the demo peaking at +8.3 dB.
 
 The meters show the real audio, not the notes (the pump meter under the faders still shows the notes). superdough plays
@@ -1784,7 +1789,14 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   stopped. Now the page passes every `cm-slider` message (a drag, a knob, a fader) to the
   host as `sliderLive` with where the number is now, and the Mixer moves the fader of the
   slider that starts there. Not while one of its own faders is held.
-- "Remove all knobs" in the Mixer's header, shown when a slider of the song has a knob:
+- A click on a filled knob button (in the gutter of either editor or on a fader) takes that
+  knob off (`unmapKnobEdit`). Ctrl+Alt+K, a double click on a widget and the line number
+  menu always learn.
+- While a knob turns, the number in the code follows at most every 15 ms
+  (`KNOB_WRITE_MS`), not 150 ms after the last move as for a Mixer fader: the maintainer
+  found 150 ms too slow (2026-11-22). Not measured yet: how a 15 ms write feels with a long
+  song, as each write is an edit of the document that goes to the host.
+- "Remove all knobs" under the Master strip, shown when a slider of the song has a knob:
   `removeKnobEdits` takes out every `.knob(cc)` on a slider and the snippet, as one
   `WorkspaceEdit`, so one Ctrl+Z brings them back (asked by the maintainer on 2026-11-22).
 - A knob already in the code should work on the stage too, as the fader does: expected,

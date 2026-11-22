@@ -394,6 +394,10 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		if (item.sound) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
 		if (opens(item)) actions.appendChild(button('open', item.kind === 'render' ? 'Play' : 'Open', () => post({ type: 'open', id: item.id })));
 		else actions.appendChild(button('insert', 'Insert at the cursor (Enter)', () => post({ type: 'insert', id: item.id, index: index_ })));
+		// A song's code, without its header, at the cursor, as a snippet's (DAW-PLAN "Insert a song").
+		if (item.kind === 'song') actions.appendChild(button('insert', 'Insert at the cursor: the song\'s code, without its header', () => post({ type: 'insertSong', id: item.id })));
+		// A function's example from the reference, as it is (DAW-PLAN "Insert an example").
+		if (item.kind === 'function' && item.code) actions.appendChild(button('snippet', 'Insert an example', () => post({ type: 'insertText', text: item.code! })));
 		if (item.kind === 'snippet') actions.appendChild(button('open', 'Open the file', () => post({ type: 'open', id: item.id })));
 		else if (!opens(item)) actions.appendChild(button('copy', 'Copy the name', () => post({ type: 'copy', id: item.id, index: index_ })));
 		// Colors and tags have their own button: a right click or the keys 1 to 7 were the
@@ -648,6 +652,8 @@ function menuFor(row: Row): MenuEntry[] {
 	if (item.sound) entries.push({ label: 'Play once', run: () => playRow(row) });
 	if (opens(item)) entries.push({ label: item.kind === 'render' ? 'Play' : 'Open', run: () => post({ type: 'open', id: item.id }) });
 	else entries.push({ label: 'Insert at the cursor', run: () => post({ type: 'insert', id: item.id, index }) });
+	if (item.kind === 'song') entries.push({ label: 'Insert at the cursor', run: () => post({ type: 'insertSong', id: item.id }) });
+	if (item.kind === 'function' && item.code) entries.push({ label: 'Insert an example', run: () => post({ type: 'insertText', text: item.code! }) });
 	if (item.kind === 'snippet') entries.push({ label: 'Open the file', run: () => post({ type: 'open', id: item.id }) });
 	entries.push({ label: opens(item) ? 'Copy the path' : item.kind === 'snippet' ? 'Copy the code' : 'Copy the name', run: () => post({ type: 'copy', id: item.id, index }) });
 	entries.push('separator', { label: 'Edit tags...', run: () => editTags() });

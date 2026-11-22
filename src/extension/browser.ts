@@ -18,7 +18,7 @@ import {
 } from '../shared/catalog';
 import type { SoundInfo } from '../shared/protocol';
 import { filterItems } from '../shared/search';
-import { setSnippetTags } from '../shared/snippet';
+import { parseSnippet, setSnippetTags } from '../shared/snippet';
 import type { SongList } from './files';
 import type { SnippetLibrary } from './snippets';
 import type { ControlsState, FromControls } from '../shared/controls';
@@ -243,6 +243,16 @@ export class BrowserView {
 			}
 			case 'insertText':
 				return this.actions.insert(message.text);
+			case 'insertSong': {
+				const item = this.item(message.id);
+				const uri = item?.kind === 'song' && item.path ? this.songs.uri(item.path) : undefined;
+				if (!uri) return;
+				const text = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+				// The header (`// @title`, `// @by`...) describes the song; only its code goes in, as for a snippet.
+				const code = parseSnippet(item!.label, text).code;
+				if (code.trim()) return this.actions.insert(code);
+				return;
+			}
 			case 'copy': {
 				const item = this.item(message.id);
 				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'song' || item.kind === 'render' ? item.path : item.kind === 'midi' ? item.label : item.insert);

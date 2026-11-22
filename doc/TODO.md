@@ -6,9 +6,9 @@ from here.
 ## State
 
 **`main` holds everything, version 0.4.1, tagged `v0.4.1` but with no GitHub release.**
-The tag started no workflow: Actions has never run on this repository (see "Release" in
-ARCHITECTURE). `v0.3.0` was released by hand. Whether `v0.4.1` is released by hand or
-after Actions is turned on waits for the maintainer. The version started again for this
+The tag started no workflow, because Actions was off for this repository until
+2026-11-22 (see "Release" in ARCHITECTURE); it is on now. `v0.3.0` was released by hand.
+`v0.4.1` gets its release when the tag is pushed again, or by hand. The version started again for this
 project; the tag 1.0.0 is the vstrudel release. The extension is [str]dltn Live[code]: id
 `strdltn.strdltn`, commands and settings `strdltn.*`, cache `.strdltn/`, so it installs
 beside vstrudel without a clash. Settings of vstrudel (`vstrudel.*`) do not carry over.

@@ -1744,8 +1744,9 @@ tag `v0.3.0` built nothing. Measured on 2026-11-22: still zero runs after the me
 API says Actions is enabled with all actions allowed and `ci.yml` is `active`. The repository is not a fork in
 GitHub's eyes (`fork: false`), so the fork rule (workflows off until enabled once) is not the reason, or not the
 whole one. vstrudel ran the same workflow 32 times, the last on 2026-11-20 at 14:48, six minutes before this
-repository was made. Expected, not tested: the Actions tab of the repository shows a banner with a button that
-turns the workflows on, which the API does not offer. That release was made by hand, the same steps as `ci.yml`: the tag checked out, `pnpm typecheck`,
+repository was made. The reason, seen on 2026-11-22: the Actions tab showed "Workflows aren't being run on this
+repository" with a button "Enable Actions on this repository", which the API does not offer and does not report
+(it said `enabled: true` all along). One click turned the workflows on. That release was made by hand, the same steps as `ci.yml`: the tag checked out, `pnpm typecheck`,
 `pnpm test:unit`, `pnpm package`, a copy as `strdltn.vsix`, then `gh release create v0.3.0 *.vsix --generate-notes`.
 The promo video went in as a third asset, `strdltn-promo.mp4`. GitHub serves release assets as
 `application/octet-stream` whatever type they were uploaded with, so a link to it downloads the file; it does not play

@@ -376,6 +376,13 @@ extension loaded.
 | `pnpm package` | Build a `.vsix` |
 | `pnpm promote` | Build a release copy into `.bin/` and install it in your own VS Code |
 
+MIDI and the tests: no test needs a MIDI device or a virtual MIDI port such as loopMIDI;
+the unit tests only use device names as text. The full integration test plays every
+example, and `examples/09-midi-out.strudel` opens an "MPK mini 3" and plays an "M-VAVE
+FM-1". Without those two devices the test reports that file as a problem ("not found");
+with them, the FM-1 plays along during the test. To measure MIDI timing by hand, we used
+loopMIDI (a free virtual port for Windows) and read the notes back from its input.
+
 | Folder | Holds |
 |---|---|
 | `src/extension/` | The part that runs in VS Code |

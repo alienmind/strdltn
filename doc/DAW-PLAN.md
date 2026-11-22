@@ -1343,6 +1343,57 @@ the first).
 - In a Codespace too, or only on desktop? The page works in both; the "Try it" of MIDI
   does not.
 
+## MIDI clips: render and record
+
+Asked by the maintainer on 2026-11-22. Two ways between a pattern and fixed MIDI notes, both
+for the piano roll that phase 11 plans. Not built.
+
+### Render a pattern to MIDI
+
+Render the notes of a song or of one chain, for a number of cycles, to a `.mid` file next to
+the song, and later into the piano roll. A generated sequence (random, `rib`, a trance gate)
+becomes notes one can keep, edit, or take to another DAW.
+
+What `../m4l-gugelhupf` does (read on 2026-11-22; AGPL-3.0, so ideas, not code):
+
+- `exportNotes` queries `[0, cycles)` once with `queryArc(0, cycles, { _cps })` and keeps
+  the haps with an onset.
+- Pitch from `note` (a name becomes its number), else a drum map on `s`, else `n`; rounded,
+  0 to 127. `freq` is not read. Velocity `(velocity ?? gain ?? 0.75) * 127`, 1 to 127.
+  Length `hap.duration` in cycles; no quantizing.
+- A cycle is a number of beats the user sets (one 4/4 bar by default), guessed from
+  `setcps`/`setcpm`.
+- The loop length is found by probing 32 cycles and taking the shortest period that
+  repeats (at most 16).
+- It writes a Live clip through the Live Object Model, never a `.mid` file. CCs are dropped.
+
+For us: the same query and mapping (we have `noteToMidi` and the velocity rule of
+`hapMessages` in `src/shared/midi.ts`), `midichan` kept as the track's channel, CCs kept as
+controller events, written as a standard MIDI file (format 1, one track per chain, 480
+ticks a beat, the song's tempo). A small writer of our own; a library only with a license
+that fits. Open: drums (no pitch) by a drum map, as gugelhupf; and where the button goes
+(Music Controls, beside Render audio).
+
+Also seen there: its audio render clears superdough's node pools between renders, with a
+patch in its own Strudel fork; we cannot patch, see "Render: a node of another context" in
+`doc/TODO.md`.
+
+### Record MIDI into a pattern
+
+As in Ableton: arm, play the song, play a keyboard; the notes land in the song, on the
+song's grid, as code. The input comes from the MIDI bridge (`midin`/`midikeys`).
+
+- Record while the song plays, with a count-in, in time with the song's cycle (the
+  scheduler's time for each note in).
+- Write the take as mini-notation, as gugelhupf's "From Clip" does (`eventsToMini` in its
+  `src/lib/mini/unparse.ts`): notes snapped to a grid of steps per bar, chords as
+  `[a,b]`, `~` for empty steps, `note@k` for held notes. Or keep the exact times for the
+  piano roll.
+- Overdub and quantize settings, as Ableton's; undo is the editor's.
+
+Open: the grid (16 steps a bar, or chosen), how a take longer than the loop is written, and
+how velocity is kept (mini-notation has no velocity: a parallel `.velocity("...")`).
+
 ## Phases
 
 ## Order of work

@@ -307,6 +307,16 @@ splits the side bar among the expanded views; `initialSize` only sets proportion
 first time, and a webview view has no API to ask for a height. The controls became one
 row at the top of the Library view, which always fits.
 
+## Songs and Snippets as a view of its own
+
+Tried. From 2026-11-20 to 2026-11-22 the side bar had four views: Library (sounds),
+Songs and Snippets, Reference and Results, with one filter. The maintainer used it for a
+while and did not like it: songs and snippets are what a song is made from, like the
+sounds, and a view of their own split one tree in two. Songs and Snippets went back into
+the Library as categories, in the order All, Sounds, Drums, Samples, Instruments, Render,
+MIDI, Songs, Snippets. Reference and Results stay views of their own, by the maintainer's
+choice.
+
 ## Fixing click positions with requestMeasure or estimatedHeight
 
 Clicks in the Strudel editor landed lines below the point (see "Clicks in the Strudel

@@ -21,8 +21,10 @@ arrangement (PR #6, 0.3.0); phase 5, MIDI on desktop through the extension host,
 and Record of a song to `.wav` and `.mp3`, level meters with a Master strip on the Mixer,
 and the demo's new mix (PR #9, 0.4.0). A promote waits for the maintainer.
 
-Work in flight is on the branch `feat/open-snippets`: items 12 and 13 below and the
-setting of decision 17, built and waiting for the hand test.
+Work in flight is on the branch `feat/open-snippets`: items 12 and 13 below, the setting
+of decision 17, and Songs and Snippets merged back into the Library view (the maintainer,
+2026-11-22; Reference and Results stay views of their own). All built, waiting for the
+hand test.
 
 Next in line:
 
@@ -64,6 +66,10 @@ folder open.
 | 5 | Double click a render (`.wav`) | VS Code's media preview plays it, as before |
 | 6 | Turn on `strdltn.midi.highPriority`, play `template/examples/09-midi-out.strudel` with a MIDI port, look at the Output strdltn and the process `Code.exe` of the extension host in Task Manager, Details | `[midi] the extension host runs at high priority`, and Task Manager shows High |
 | 7 | Turn the setting off | `[midi] the extension host is back to its own priority`, Normal in Task Manager |
+| 8 | Look at the side bar | Three views: Library, Reference, Results. No Songs and Snippets view |
+| 9 | Library's categories | All, Sounds, Drums, Samples, Instruments, Render, MIDI, Songs, Snippets, each with a count |
+| 10 | Click Songs, then Snippets, then All of the Library | Results shows the songs by folder, then the snippets, then everything but the functions |
+| 11 | Search `demo` | Results shows the demo song beside any sound that matches |
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.

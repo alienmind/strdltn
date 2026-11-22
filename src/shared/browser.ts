@@ -20,22 +20,24 @@ export interface BrowserFilterState {
 }
 
 /**
- * The four views of the side bar, all made from the same page. Library, Songs and Snippets,
- * and Reference pick what is shown. Library also holds the one search field and
- * the colors. Results shows what all of that picks, from every view, in one list.
+ * The three views of the side bar, all made from the same page. Library and Reference pick
+ * what is shown. Library also holds the one search field and the colors. Results shows
+ * what both pick, in one list.
+ *
+ * Songs and Snippets was a view of its own from 2026-11-20 to 2026-11-22. The maintainer
+ * used it for a while and asked for its categories back in the Library, as one tree with
+ * All, Sounds, Drums, ..., Songs and Snippets (see the drawer of failed ideas).
  */
-export type BrowserPage = 'library' | 'songs' | 'reference' | 'results';
+export type BrowserPage = 'library' | 'reference' | 'results';
 export const BROWSER_PAGES: { page: BrowserPage; view: string; title: string }[] = [
 	{ page: 'library', view: 'strdltn.browser', title: 'Library' },
-	{ page: 'songs', view: 'strdltn.songs', title: 'Songs and Snippets' },
 	{ page: 'reference', view: 'strdltn.reference', title: 'Reference' },
 	{ page: 'results', view: 'strdltn.results', title: 'Results' },
 ];
 export const viewOf = (page: BrowserPage): string => BROWSER_PAGES.find((p) => p.page === page)!.view;
 
-/** Which view picks an item: sounds in the Library, what is written in Songs and Snippets, what is read in the Reference. */
-// Renders show in the Library, beside the sounds: they are audio, and the Library is where audio is.
-export const pageOf = (item: CatalogItem): BrowserPage => (item.kind === 'sound' || item.kind === 'render' || item.kind === 'midi' ? 'library' : item.kind === 'function' ? 'reference' : 'songs');
+/** Which view picks an item: functions in the Reference, everything else in the Library. */
+export const pageOf = (item: CatalogItem): BrowserPage => (item.kind === 'function' ? 'reference' : 'library');
 
 /** The items a filter starts from: all of them, or those of one view when its "All" row is picked. */
 export const scoped = (items: CatalogItem[], filter: BrowserFilterState): CatalogItem[] =>

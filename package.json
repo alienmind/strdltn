@@ -396,12 +396,6 @@
 					"initialSize": 4
 				},
 				{
-					"id": "strdltn.songs",
-					"name": "Songs and Snippets",
-					"type": "webview",
-					"initialSize": 2
-				},
-				{
 					"id": "strdltn.reference",
 					"name": "Reference",
 					"type": "webview",

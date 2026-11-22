@@ -237,7 +237,6 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// The Browser keeps its page while hidden, so its filters and open headings survive a
 		// switch to another side bar.
 		vscode.window.registerWebviewViewProvider('strdltn.browser', browser.provider('library'), { webviewOptions: { retainContextWhenHidden: true } }),
-		vscode.window.registerWebviewViewProvider('strdltn.songs', browser.provider('songs'), { webviewOptions: { retainContextWhenHidden: true } }),
 		vscode.window.registerWebviewViewProvider('strdltn.reference', browser.provider('reference'), { webviewOptions: { retainContextWhenHidden: true } }),
 		vscode.window.registerWebviewViewProvider('strdltn.results', browser.provider('results'), { webviewOptions: { retainContextWhenHidden: true } }),
 		// The Mixer keeps its page too, so its strips stay unfolded behind the Terminal tab.

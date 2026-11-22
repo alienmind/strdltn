@@ -1,7 +1,7 @@
-// The page of the Browser's four views. Library, Songs and Snippets and Reference show the
-// categories that pick what is shown (Library also the search and the colors);
-// Results shows the chips, the results and the details. One filter for all four: the host
-// keeps it and hands it to each. See "Browser" in doc/ARCHITECTURE.md.
+// The page of the Browser's three views. Library and Reference show the categories that
+// pick what is shown (Library also the search and the colors); Results shows the chips,
+// the results and the details. One filter for all three: the host keeps it and hands it to
+// each. See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
 import { type BrowserFilterState, type BrowserPage, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
 import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, opens, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
@@ -37,7 +37,7 @@ const saved = (vscode.getState() as Saved | undefined) ?? undefined;
 let items: CatalogItem[] = [];
 let user: UserIndex = emptyUserIndex();
 let preview = true;
-/** Which of the four views this page is. Known from `init`. */
+/** Which of the three views this page is. Known from `init`. */
 let page: BrowserPage = 'library';
 let filter: BrowserFilterState = { category: 'all', query: '', chips: [] };
 const sections: Record<string, boolean> = saved?.sections ?? { collections: true, library: true, places: false };
@@ -72,7 +72,7 @@ const button = (name: string, title: string, onClick: (event: MouseEvent) => voi
 const rowKey = (row: Row) => (row.type === 'heading' ? `h:${row.key}` : row.type === 'item' ? row.item.id : `${row.item.id}#${row.index}`);
 const colorVar = (color: number) => `var(--c${color})`;
 const filtered = () => !!(filter.query.trim() || filter.chips.length || filter.color || filter.place || filter.builtin !== undefined);
-/** The items this view picks from: sounds in the Library, songs and snippets, functions in the Reference. */
+/** The items this view picks from: functions in the Reference, everything else in the Library. */
 const ownItems = () => items.filter((item) => pageOf(item) === page);
 
 // ---- the page ---------------------------------------------------------------------------
@@ -298,7 +298,7 @@ function toggleChip(tag: string, add: boolean): void {
 
 function drawResultbar(): void {
 	resultbar.replaceChildren();
-	const scopes: Record<BrowserPage, string> = { library: 'Library', songs: 'Songs and Snippets', reference: 'Reference', results: '' };
+	const scopes: Record<BrowserPage, string> = { library: 'Library', reference: 'Reference', results: '' };
 	const where = filter.category !== 'all' ? CATEGORIES.find((c) => c.id === filter.category)?.label : filter.scope ? scopes[filter.scope] : '';
 	const parts = [`${results.length} ${results.length === 1 ? 'result' : 'results'}`, where ? `in ${where}` : ''];
 	if (filter.color) parts.push(user.colorNames[filter.color - 1]);
@@ -899,8 +899,8 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			items = message.items;
 			user = message.user;
 			preview = message.preview;
-			// Library: search, colors, categories. Songs and Snippets, Reference:
-			// their categories. Results: chips, results, details.
+			// Library: search, colors, categories. Reference: its categories. Results:
+			// chips, results, details.
 			searchbar.hidden = colorbar.hidden = controlsBox.hidden = page !== 'library';
 			nav.hidden = page === 'results';
 			chips.hidden = resultbar.hidden = resultsBox.hidden = details.hidden = page !== 'results';

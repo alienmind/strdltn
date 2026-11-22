@@ -49,7 +49,7 @@ extension host (Node, may be remote)          webview (browser)
 | `src/extension/extension.ts` | Registers the custom editor `strdltn.editor` and the commands. Owns the list of sessions, the status bar item and the kept sound list. |
 | `src/extension/session.ts` | Binds one webview to one document. Text sync, sample scan, problems, HTML and CSP. |
 | `src/extension/samples.ts` | Turns the samples folder into the map upstream `samples()` accepts. |
-| `src/extension/browser.ts` | The Browser: three views in the side bar (Library, Songs and Snippets, Reference), one host for all three, with one search, colors and tags. See "Browser" |
+| `src/extension/browser.ts` | The Browser: three views in the side bar (Library, Reference, Results), one host for all three, with one search, colors and tags. See "Browser" |
 | `src/extension/surface.ts` | `setPage` fills any of our webviews with its page. `Place` shows a page docked in a view or floating in an editor tab. See "Dock and float" |
 | `src/extension/snippets.ts` | Reads the `.strudel` files under `lib/`, the snippets of the Browser. |
 | `src/extension/files.ts` | Lists every `.strudel` file of the workspace, the songs of the Browser. |
@@ -187,20 +187,21 @@ One run without retries lost every pack until the window was closed.
 
 ## Browser
 
-The side bar is the browser of Ableton Live split into its parts, as four views. It
+The side bar is the browser of Ableton Live split into its parts, as three views. It
 replaced four other views: the logo, Files, Sounds and Snippets. A tree cannot draw color
 squares, chips or a search field, and a webview between trees looked out of place (see
 "Snippet cards in a webview" in the drawer), so the side bar is webviews only now. The
 plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
 
-**Four views.** Each folds and moves on its own, as vstrudel had separate views. The
+**Three views.** Each folds and moves on its own, as vstrudel had separate views. The
 maintainer asked for them on 2026-11-21: one search, one set of colors, one list of
-results, and the categories of each kind of thing apart.
+results. Songs and Snippets was a fourth view until 2026-11-22, when the maintainer asked
+for its categories back in the Library (see "Songs and Snippets as a view of its own" in
+the drawer).
 
 | View | id | Shows |
 |---|---|---|
-| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and the categories of sounds: All, Sounds, Drums, Samples, Instruments |
-| Songs and Snippets | `strdltn.songs` | Its categories: All, Snippets, Songs |
+| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and its categories: All, Sounds, Drums, Samples, Instruments, Render, MIDI, Songs, Snippets |
 | Reference | `strdltn.reference` | Its categories: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
 | Results | `strdltn.results` | The chips, the result bar, the results of all views in one list, and the details pane |
 
@@ -209,17 +210,17 @@ category picks it for Results; "All" of a view picks everything of that view (th
 filter's `scope`); a click on the row that is picked goes back to everything of every
 view. The Library keeps the view id `strdltn.browser` it had as the whole Browser.
 
-**One filter.** All four views are the same page (`dist/browser.js`) and the same host
+**One filter.** All three views are the same page (`dist/browser.js`) and the same host
 object: `BrowserView.provider(page)` gives the provider of each, and every page gets
 every item. The host keeps one filter (search text, category, scope, color, built-in,
 chips) for all views and stores it per workspace. A view that changes it sends `filter`
-to the host, which sends it to the other three; the view that made the change already
+to the host, which sends it to the other two; the view that made the change already
 shows it, so typing is never undone by an echo. Ctrl+F in a view without the search
 field puts the cursor in the Library's. Colors, tags and saved searches come from the
 one user file.
 
-**Results opens itself.** Every change of the filter made in Library, Songs and Snippets
-or Reference expands Results when it is folded, so a click or a search shows its results
+**Results opens itself.** Every change of the filter made in Library or Reference
+expands Results when it is folded, so a click or a search shows its results
 at once (asked by the maintainer on 2026-11-21). The host calls `show(true)` on the
 Results view, which keeps the focus where it is, so typing in the search goes on. A
 Results view that was never opened has no `WebviewView` yet: then its focus command
@@ -259,7 +260,8 @@ only shows that the page fetched, decoded and started the sound.
 
 **Heights.** VS Code gives the views of a side bar equal heights unless `initialSize`
 says otherwise, and with four views the Library's categories were cut off under the logo
-(seen in the screenshot of the integration test). `package.json` sets 4, 2, 2 and 6.
+(seen in the screenshot of the integration test). `package.json` sets 4, 2 and 6 for
+Library, Reference and Results.
 VS Code only uses these the first time; a window that has shown the views before keeps
 the sizes it had, until "View: Reset View Locations".
 

@@ -190,7 +190,7 @@ browser.
 - MIDI on desktop: Strudel's `.midi()` plays a synth or a drum machine on a MIDI device,
   in time with the sound, and `midin()` and `midikeys()` read a controller or a keyboard.
   `midimaps()` and `defaultmidimap()` name the CCs. The Library's MIDI category lists your
-  devices; a click types `.midi("name")` or `midin("name")`. See `examples/09-midi-out.strudel`.
+  devices; a click types `.midi('name')` or `midin('name')`. See `examples/09-midi-out.strudel`.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 

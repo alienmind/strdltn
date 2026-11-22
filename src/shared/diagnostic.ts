@@ -7,6 +7,7 @@
 // 2. "[mini] parse error at line N": mini-notation gives the line of the string.
 // 3. "x is not defined": the first use of the name `x`.
 // 4. "....x is not a function": the first call of `.x(`.
+// 5. A message that shows a call, `name('...')`: the first call of `name(`.
 //
 // Rules 3 and 4 take the first place the name is written outside a comment. When the
 // name is written more than once, that may be the wrong one.
@@ -15,7 +16,7 @@ export interface ErrorPlace {
 	from: number;
 	to: number;
 	/** The rule that found the place, as in the list above. */
-	rule: 'position' | 'mini line' | 'name' | 'call';
+	rule: 'position' | 'mini line' | 'name' | 'call' | 'shown call';
 }
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -50,6 +51,11 @@ export function locateError(code: string, error: { message?: string; pos?: unkno
 			const from = bare.indexOf(call[1], found.index);
 			return { from, to: from + call[1].length, rule: 'call' };
 		}
+	}
+	// 5. A message that shows the call it is about, as our MIDI messages do ("for example midin('...')").
+	for (const quoted of message.matchAll(/(?<![\w$])([A-Za-z_$][\w$]*)\(['"]/g)) {
+		const found = new RegExp(`(?<![\\w$])${escape(quoted[1])}\\s*\\(`).exec(bare);
+		if (found) return { from: found.index, to: found.index + quoted[1].length, rule: 'shown call' };
 	}
 	return undefined;
 }

@@ -257,8 +257,9 @@ export function renderItem(path: string, song: string): CatalogItem {
 }
 
 /**
- * A MIDI port of the machine. An output (an instrument) types `.midi("name")`, an input (a controller or a keyboard)
- * `const cc = await midin("name")`; inside a string, the name alone. The id carries the name, so colors and tags stay
+ * A MIDI port of the machine. An output (an instrument) types `.midi('name')`, an input (a controller or a keyboard)
+ * `const cc = await midin('name')`; inside a string, the name alone. Single quotes: Strudel reads a double-quoted
+ * string as mini-notation, so `"MPK mini 3"` is a pattern of three words, and midin refuses a pattern. The id carries the name, so colors and tags stay
  * with a device across starts.
  */
 export function midiItem(name: string, direction: 'out' | 'in'): CatalogItem {
@@ -272,9 +273,12 @@ export function midiItem(name: string, direction: 'out' | 'in'): CatalogItem {
 		group: direction === 'out' ? 'Outputs: instruments' : 'Inputs: controllers',
 		tags: [],
 		text: `${name} midi ${direction === 'out' ? 'output instrument synth' : 'input controller keyboard'}`.toLowerCase(),
-		insert: direction === 'out' ? `.midi("${name}")` : `const cc = await midin("${name}")`,
+		insert: direction === 'out' ? `.midi('${quoted(name)}')` : `const cc = await midin('${quoted(name)}')`,
 	};
 }
+
+/** A device's name inside single quotes: a backslash or a quote in it is escaped. */
+const quoted = (name: string) => name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
 /** Songs and audio open when picked; everything else is typed at the cursor. */
 export const opens = (item: CatalogItem): boolean => item.kind === 'song' || item.kind === 'render';

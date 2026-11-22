@@ -235,7 +235,7 @@ export class BrowserView {
 					if (sound) return this.actions.insert(sound.code, sound.name);
 					return;
 				}
-				// A device's name alone when the cursor is in a string: `.midi("|")`.
+				// A device's name alone when the cursor is in a string: `.midi('|')`.
 				if (item.kind === 'midi' && item.insert) return this.actions.insert(item.insert, item.label);
 				if (item.insert) return this.actions.insert(item.insert);
 				return;

@@ -36,6 +36,12 @@ test('a name in a comment is not the place', () => {
 	assert.equal(marked('samples("https://x.org/a")\n$: s("bd").lfp(1)', { message: 's(...).lfp is not a function' }), 'lfp (call)');
 });
 
+test('a message that shows the call it is about', () => {
+	const code = '// @title MIDI out\nsetcpm(124/4)\nconst cc = await midin(1)';
+	const message = "[midi] an input cannot be a pattern. Pass the device name in single quotes, for example midin('loopMIDI Port')";
+	assert.equal(marked(code, { message }), 'midin (shown call)');
+});
+
 test('an error we cannot place', () => {
 	assert.equal(locateError('s("bd")', { message: 'something else' }), undefined);
 });

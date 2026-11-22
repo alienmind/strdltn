@@ -84,11 +84,13 @@ test('the queue keeps time order and turns held notes off on a panic', () => {
 test('a MIDI port is a Browser item that types its call, or its name inside a string', async () => {
 	const { midiItem } = await import('./catalog.ts');
 	const out = midiItem('UMC404HD 192k MIDI Out', 'out');
-	assert.equal(out.insert, '.midi("UMC404HD 192k MIDI Out")');
+	assert.equal(out.insert, ".midi('UMC404HD 192k MIDI Out')");
 	assert.equal(out.category, 'midi');
 	assert.equal(out.group, 'Outputs: instruments');
 	const input = midiItem('MPK mini 3', 'in');
-	assert.equal(input.insert, 'const cc = await midin("MPK mini 3")');
+	assert.equal(input.insert, "const cc = await midin('MPK mini 3')");
+	// A quote in a device's name does not end the string.
+	assert.equal(midiItem("Bob's synth", 'out').insert, ".midi('Bob\\'s synth')");
 	assert.ok(input.text.includes('controller'));
 	assert.notEqual(out.id, midiItem('UMC404HD 192k MIDI Out', 'in').id);
 });

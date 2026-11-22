@@ -74,12 +74,12 @@ synth and a controller plugged in.
 | # | Do this | Should happen |
 |---|---|---|
 | M1 | Play `examples/09-midi-out.strudel` as it is | The chords play on the Microsoft GS Wavetable Synth, in time with the drums. The Output channel "strdltn" lists the MIDI ports |
-| M2 | Write your synth's name in `.midi("...")`, Ctrl+Enter | The chords move to the synth; the CUTOFF slider moves its filter, if the synth takes CC 74 |
+| M2 | Write your synth's name in `.midi('...')`, Ctrl+Enter | The chords move to the synth; the CUTOFF slider moves its filter, if the synth takes CC 74 |
 | M3 | Stop while a chord sounds | No note hangs |
-| M4 | Add `const cc = await midin("<your controller>")` and `.lpf(cc(1).range(200, 4000))` on the drums, play, turn knob 1 | The drums' filter follows the knob |
+| M4 | Add `const cc = await midin('<your controller>')` and `.lpf(cc(1).range(200, 4000))` on the drums, play, turn knob 1 | The drums' filter follows the knob |
 | M5 | Unplug the synth while it plays, plug it back | A warning in the Output channel, then the notes come back within a few seconds |
 | X1 | Library, MIDI | Your synth and controller listed under "Outputs: instruments" and "Inputs: controllers" |
-| X2 | In 09, put the cursor inside `.midi("")`, click your synth in the MIDI category | Only the name is typed |
+| X2 | Type `.midi('')`, put the cursor between the quotes, click your synth in the MIDI category | Only the name is typed |
 | X3 | Mixer: enlarge the panel with the song stopped | The scale numbers stay crisp text, 11 px; strip names and gain values are centered |
 
 Expected still broken: no MIDI in the Browser or the Mixer; nothing in a Codespace.
@@ -471,7 +471,7 @@ snippet we insert at the top the first time a knob is used, so the song stays st
 Strudel and runs on strudel.cc too:
 
 ```
-const knobs = await midin("MPK mini 3")
+const knobs = await midin('MPK mini 3')
 register('knob', (ccn, pat) => ...)   // the slider or CC ccn, whichever moved last
 $bass: note("c2*8").lpf(slider(800, 200, 4000).knob(74))
 ```

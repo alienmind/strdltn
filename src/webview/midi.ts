@@ -104,8 +104,20 @@ function sayOnce(message: string): void {
 	log('warn', message);
 }
 
+/**
+ * A device name in double quotes, which Strudel reads as mini-notation: "MPK mini 3" is a pattern of three words in one
+ * cycle. Its words joined again are the name. Upstream refuses such a pattern; we take it, as the name is what the
+ * user meant. Undefined for a pattern that is not a plain list of words.
+ */
+function nameOf(value: unknown): unknown {
+	if (!isPattern(value)) return value;
+	const words = (value as any).firstCycle().map((hap: any) => hap.value);
+	return words.length && words.every((w: unknown) => typeof w === 'string' || typeof w === 'number') ? words.join(' ') : undefined;
+}
+
 (Pattern.prototype as any).midi = function (this: any, midiport?: string | number | Record<string, any>, options: Partial<MidiConfig> = {}) {
-	if (isPattern(midiport)) throw new Error(`.midi does not accept a pattern for the port. Pass the device name in quotes, for example .midi('${ports?.outputs[0] ?? 'IAC Driver Bus 1'}')`);
+	midiport = nameOf(midiport) as typeof midiport;
+	if (midiport === undefined && arguments.length && isPattern(arguments[0])) throw new Error(`.midi does not accept a pattern for the port. Pass the device name in single quotes, for example .midi('${ports?.outputs[0] ?? 'IAC Driver Bus 1'}')`);
 	// For backward compatibility, as upstream: .midi({ port, isController, ... })
 	if (midiport && typeof midiport === 'object') {
 		const { port, isController = false, ...rest } = midiport;
@@ -171,8 +183,9 @@ function received(port: string, bytes: number[]): void {
 	} else if (kind === 0x90 && b > 0) keyListeners[port]?.(a, b);
 }
 
-async function openInput(input: string | number | undefined): Promise<string> {
-	if (isPattern(input)) throw new Error(`[midi] an input cannot be a pattern. Pass the device name in quotes, for example midin('${ports?.inputs[0] ?? 'IAC Driver Bus 1'}')`);
+async function openInput(given: string | number | undefined): Promise<string> {
+	const input = nameOf(given) as string | number | undefined;
+	if (input === undefined && isPattern(given)) throw new Error(`[midi] an input cannot be a pattern. Pass the device name in single quotes, for example midin('${ports?.inputs[0] ?? 'IAC Driver Bus 1'}')`);
 	const list = await portList();
 	const name = findPort(list.inputs, input);
 	if (!name) throw new Error(`[midi] MIDI device "${input ?? ''}" not found. Connected: ${list.inputs.map((n) => `'${n}'`).join(' | ') || 'none'}`);

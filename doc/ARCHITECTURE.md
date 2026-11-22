@@ -1252,6 +1252,7 @@ An error is a message. Only a syntax error carries a position. `locateError` in
 | mini line | `[mini] parse error at line N: ...` | Line N |
 | name | `x is not defined` | The first use of the name `x` |
 | call | `....x is not a function` | The first call of `.x(` |
+| shown call | A message that shows a call, as our MIDI messages do: `... for example midin('...')` | The first call of `midin(` |
 
 The last two take the first place the name is written outside a comment
 (`withoutComments` blanks comments and skips strings, so the `//` of an address in a
@@ -1631,7 +1632,10 @@ stop -> midiPanic                  -> panic(engine)              -> notes off of
   ("Inputs: controllers") as `midiItem`s. The extension starts the worker at activation
   where the host is local (`vscode.env.remoteName` unset) and passes each new port list
   to the Browser (`MidiBridge.onPorts`), so a device plugged in shows within 2 s. A click
-  types `.midi("name")` or `const cc = await midin("name")`, the name alone inside a
+  types `.midi('name')` or `const cc = await midin('name')` (single quotes: a double-quoted
+  string is mini-notation, a pattern of its words, which upstream's `midin` refuses; ours joins
+  the words of its first cycle back into the name, so `midin("MPK mini 3")` works too, measured
+  with loopMIDI on 2026-11-22), the name alone inside a
   string; Copy copies the name.
 - Our `.midi()`, `midin()`, `midikeys()`, `midimaps()` and `defaultmidimap()` take the
   upstream names and options, so a song from strudel.cc runs. `@strudel/midi` is not

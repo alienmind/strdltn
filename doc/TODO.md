@@ -74,10 +74,9 @@ synth and a controller plugged in.
 
 | # | Do this | Should happen |
 |---|---|---|
-| M1 | Play `examples/09-midi-out.strudel` as it is | The chords play on the Microsoft GS Wavetable Synth, in time with the drums. The Output channel "strdltn" lists the MIDI ports |
-| M2 | Write your synth's name in `.midi('...')`, Ctrl+Enter | The chords move to the synth; the CUTOFF slider moves its filter, if the synth takes CC 74 |
+| M1 | Take the `.gain(slider(1, 0, 1))` the Mixer added off every part of `examples/09-midi-out.strudel`, play | The chords play on the M-VAVE FM-1, in time with the editor's drums |
 | M3 | Stop while a chord sounds | No note hangs |
-| M4 | Add `const cc = await midin('<your controller>')` and `.lpf(cc(1).range(200, 4000))` on the drums, play, turn knob 1 | The drums' filter follows the knob |
+| M4 | Turn knobs 1 to 7 of the MPK | Kick, hats, bass and pad come in one by one; the bass squelches; the chords play harder; the FM-1's filter moves, if it takes CC 74 |
 | M6 | Run "strdltn: Show MIDI messages in the Output", turn each knob of the MPK | `in <- MPK mini 3: CC nn = vv` lines; the CC numbers are the ones `09-midi-out` needs |
 | M5 | Unplug the synth while it plays, plug it back | A warning in the Output channel, then the notes come back within a few seconds |
 | X3 | Mixer: enlarge the panel with the song stopped | The scale numbers stay crisp text, 11 px; strip names and gain values are centered |
@@ -88,7 +87,7 @@ Error places and long header lines, on `feat/midi`. Same window.
 
 | # | Do this | Should happen |
 |---|---|---|
-| H1 | In `examples/09-midi-out.strudel` change `.midi()` to `.midx()`, Ctrl+Enter | The error marks `.midx` on line 17, not a comment |
+| H1 | In `examples/09-midi-out.strudel` change `.midi(SYNTH)` to `.midx(SYNTH)`, Ctrl+Enter | The error marks `.midx` on line 35, not a comment |
 | H2 | Browser, Examples, select "MIDI out" | The whole details text shows as one paragraph, though it is two lines in the file |
 | H3 | Add a tag to a snippet whose `@details` is two lines (`lib/effect/sidechain-duck.strudel`) | `// @tags` goes after the second details line; the details still show whole |
 

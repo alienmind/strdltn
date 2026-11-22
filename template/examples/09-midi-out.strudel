@@ -10,16 +10,16 @@ setcpm(124/4)
 const SYNTH = 'M-VAVE FM-1'
 const knobs = await midin('MPK mini 3')
 
-// The knobs' CC numbers. The MPK mini 3 sends 70 to 77 in its first program; if a knob does
-// nothing, yours differ. A knob reads 0 until it moves, so the band starts silent: bring each
-// part in with its knob, as on a mixer.
-const KICK = knobs(70)
-const HATS = knobs(71)
-const BASS = knobs(72)
-const PAD = knobs(73)
-const BASS_OPEN = knobs(74)
-const SYNTH_HARD = knobs(75)
-const SYNTH_OPEN = knobs(76)
+// The knobs' CC numbers: the maintainer's MPK mini 3 sends CC 1 to 8 from its eight knobs.
+// "strdltn: Show MIDI messages in the Output" shows what yours send. A knob reads 0 until it
+// moves, so the band starts silent: bring each part in with its knob, as on a mixer.
+const KICK = knobs(1)
+const HATS = knobs(2)
+const BASS = knobs(3)
+const PAD = knobs(4)
+const BASS_OPEN = knobs(5)
+const SYNTH_HARD = knobs(6)
+const SYNTH_OPEN = knobs(7)
 
 // The band, in the editor. Knobs 1 to 4: the level of each part.
 $kick: s("bd*4").bank("RolandTR909").duck(2).duckattack(.2).duckdepth(.8).gain(KICK)

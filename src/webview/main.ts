@@ -761,9 +761,15 @@ function moveSlider(index: number, from: number | undefined, value: string): voi
 		const key = target;
 		const value = target.pending!;
 		const doc = mirror.editor.state.doc.toString();
-		const number = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(doc.slice(key.from))?.[0];
+		// The whole number, also when the position landed inside it. Two knobs on one CC once
+		// wrote at once, the first changed the length of the text before the second, and the
+		// second replaced only the tail of its number: `slider(0.5750.535)` (2026-11-22).
+		let start = key.from;
+		while (start > 0 && /[\d.]/.test(doc[start - 1])) start--;
+		if (start > 0 && doc[start - 1] === '-') start--;
+		const number = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(doc.slice(start))?.[0];
 		if (!number || number === value) return;
-		const start = key.from;
+		if (start !== key.from) log('warn', `knobs: a slider's number was found ${key.from - start} characters before where it was expected; written there`);
 		mirror.editor.dispatch({ changes: { from: start, to: start + number.length, insert: value } });
 		// Upstream's widget of this slider, if the editor shows one: its position is kept
 		// by upstream, the text of its number we set.

@@ -96,6 +96,16 @@ editor closes the stage of that file, so one file never has two engines.
 Each webview has its own engine today. Switching layout destroys one webview and creates
 another, so the sound stops on a switch. See `doc/TODO.md` for the open question.
 
+**VS Code's keys in the Strudel editor.** A key that CodeMirror does not handle leaves the
+webview, and VS Code runs whatever is bound to it. Measured by hand on 2026-11-22 (desktop,
+F5): Ctrl+F and Ctrl+G reach our commands `strdltn.editor.find` and
+`strdltn.editor.gotoLine`, bound under `activeCustomEditorId == strdltn.editor`; the
+native editor keeps VS Code's own find; and a new key set in Keyboard Shortcuts works.
+The command posts `editorAction` to the webview, which runs `openSearchPanel` or
+`gotoLine` of `@codemirror/search`. Upstream's setup binds neither key (its
+`searchKeymap` and `search()` are commented out in `@strudel/codemirror` 1.3.0).
+`openSearchPanel` adds the search extension itself when the editor has none.
+
 ## Messages
 
 | Direction | Message | Meaning |

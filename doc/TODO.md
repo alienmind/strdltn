@@ -25,8 +25,8 @@ Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 
 Work in flight is on the branch `feat/knobs` (the maintainer, 2026-11-22): first the
 spike of item 14 (keybindings in the Strudel editor), then item 15 (sliders on knobs),
-with the four open questions of "Sliders on knobs" answered. The spike of item 14 is built
-and waits for the hand test under "Next: test by hand".
+with the four open questions of "Sliders on knobs" answered. The spike of item 14 passed:
+Ctrl+F and Ctrl+G work in the Strudel editor.
 
 Next in line:
 
@@ -54,16 +54,8 @@ Next in line:
 
 ## Next: test by hand
 
-Test on **desktop, F5 from this repo** (branch `feat/knobs`), with the template folder
-open and the Output strdltn shown.
-
-| # | Do this | Should happen |
-|---|---|---|
-| 1 | Open `demo.strudel` in the Strudel editor, click into the code, press Ctrl+F | CodeMirror's search bar opens at the bottom of the editor. The Output says `[keys] find: the key reached VS Code` |
-| 2 | Type `kick` in that bar, press Enter twice | The cursor jumps to each `kick` in turn |
-| 3 | Press Ctrl+G | CodeMirror's "Go to line" field opens; a number and Enter jump there. The Output says `[keys] gotoLine` |
-| 4 | Switch to the native editor (Ctrl+Alt+M), press Ctrl+F | VS Code's own find, as always. No `[keys]` line |
-| 5 | Keyboard Shortcuts, search `strdltn.editor.find`, bind it to Ctrl+Shift+F3, try it in the Strudel editor | The search bar opens with the new key |
+Every hand test on `feat/knobs` passed so far (Ctrl+F and Ctrl+G in the Strudel editor,
+2026-11-22). Nothing waits for a hand test.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -478,8 +470,14 @@ keys. Not designed, not measured. What we know and what we expect:
   `activeCustomEditorId == strdltn.editor`. The webview runs `openSearchPanel` and
   `gotoLine` of `@codemirror/search` 6.7.2 (the copy upstream already uses, now a pinned
   dependency of ours). The host writes `[keys] find: the key reached VS Code` to the
-  Output strdltn, so the hand test shows which way the key went. Waiting for the hand
-  test. Then the list of actions to map.
+  Output strdltn, so the hand test shows which way the key went. Passed the hand test
+  on 2026-11-22 (ARCHITECTURE "VS Code's keys in the Strudel editor").
+- Left: the list of actions to map. Keys CodeMirror's `defaultKeymap` already takes with
+  VS Code's own default (Alt+Up moves a line, Ctrl+/ comments, Ctrl+Shift+K deletes a
+  line, Ctrl+[ and Ctrl+] indent, Ctrl+Alt+Up adds a cursor) work today but do not follow
+  a rebinding: CodeMirror takes the key first. Keys nothing takes yet: Ctrl+H (replace),
+  Ctrl+D (select the next match), Ctrl+Shift+L (select every match). Not tried: whether
+  a key CodeMirror handled still reaches VS Code.
 
 ## Open design questions
 

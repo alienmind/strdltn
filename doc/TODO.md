@@ -80,6 +80,10 @@ launched with F5**, folder `template/`.
 | 8 | Copy a `.wasm` into a `firmware/` folder of the project | It shows under Installed within a second, by the name of its json when it has one |
 | 9 | Delete `.strdltn/cache/firmware/` and the `firmware/` folder | Firmware says "No firmware installed" and how to get one |
 
+`pnpm test:vscode` passed on 2026-11-23 with this branch: 38 files with no problem, and its
+new step "firmware" all true (OBERVAVE listed, 30 frames painted in the popup, the load line
+once, the song plays). Pictures: `tmp/shots/firmware-*.png`.
+
 Expected still broken: no Available group (decision 13); the README still says Instruments,
 because `README.md` holds the maintainer's own uncommitted changes.
 

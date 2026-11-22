@@ -23,7 +23,7 @@ and the demo's new mix (PR #9, 0.4.0, never tagged); a double click that opens s
 the Browser opening files only in the Strudel editor, Songs and Snippets back in the
 Library, and `strdltn.midi.highPriority` (PR #10, 0.4.1).
 
-Work in flight is on the branch `feat/knobs`, version 0.5.0, to be released today (the maintainer, 2026-11-22): first the
+Version 0.5.0 on the branch `feat/knobs`, tested and released on 2026-11-22. Its work: first the
 spike of item 14 (keybindings in the Strudel editor), then item 15 (sliders on knobs),
 with the four open questions of "Sliders on knobs" answered. The spike of item 14 passed:
 Ctrl+F and Ctrl+G work in the Strudel editor. Ctrl+H, Ctrl+D, Ctrl+Shift+L, item 15 and
@@ -59,46 +59,10 @@ Next in line:
 
 ## Next: test by hand
 
-Test on **desktop, F5 from this repo** (branch `feat/knobs`), the MPK mini 3 plugged in,
-with the template folder open and the Output strdltn shown. Checks 1 to 4 of the first
-table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K).
-
-| # | Do this | Should happen |
-|---|---|---|
-| 1 | Open `examples/02-acid-techno.strudel` in the Strudel editor | A knob button left of the line number of every line with a `slider(...)`, filled with the color on the line mapped before. Other lines have an empty gap; lines with a scope under them keep their button beside the number |
-| 2 | Click an empty knob button, turn knob 2 | Status bar "Move a knob...", then "Knob on CC 2 mapped". `.knob(2)` on that slider; the button fills |
-| 3 | Play, turn knob 2 far from the slider's value, then toward it | In the Mixer, a dim second handle follows the knob at once and changes nothing. When it meets the real handle it disappears, and from there the slider, the sound and the code follow |
-| 4 | Drag that slider with the mouse elsewhere, turn the knob | The knob lets go, and takes over again once it passes the new value |
-| 5 | In the Mixer, unfold the strip of that slider, turn the knob, then drag the slider in the code | The fader and its number follow while it moves, both times |
-| 6 | In the Mixer, click the knob button under another fader, turn knob 3 | `.knob(3)` on that slider's call in the code, also when the strip uses a constant (`const ... = slider(...)`). The button shows 3 |
-| 7 | Switch to the native editor (Ctrl+Alt+M) | Knob icons in the margin left of the line numbers, on the same lines, filled where mapped |
-| 8 | In the native editor, click a knob icon, turn knob 4 | Mapped as in 2. Output: `[knobs] native editor: line N selected whole by the mouse...`. If nothing happens, say so: that is the spike |
-| 9 | In the native editor, click the line number of a slider line | Tell what happens: expected to start learn too (the catch of check 8) |
-| 10 | Right click a line number of a slider line, "Map a MIDI knob to this line's slider", turn knob 5 | Mapped as in 2 |
-| 11 | Click a knob button, touch nothing for 10 s | "No knob moved: nothing mapped" |
-| 12 | Stop, close and reopen the file, play, turn knob 2 | The knob works after the new evaluation, pickup first |
-| 13 | A fast turn of a mapped knob, both ways | The knob keeps the slider for the whole turn (it let go after a few steps before `d5e816f`) |
-| 14 | Click a filled knob button, in the gutter and on a fader | That knob leaves the code; the button empties. A click on an empty one learns, as before |
-| 15 | Turn a mapped knob slowly and fast | The sound and the slider's handle in the editor follow at once, smoothly; the Mixer's fader too. The number in the code changes when the knob stops |
-| 16 | In the Mixer's utility column (left of the strips, upright buttons), "Reset MIDI Mappings" | Every `.knob(...)` and the `register('knob', ...)` snippet leave the code; the button greys out. Ctrl+Z in the editor brings them all back |
-| 17 | Map two knobs, then "Show MIDI Mappings" | A modal lists CC, line and code of each knob. Remove on a row takes that knob off, and the row goes. Esc, the cross or a click outside closes it. "Show MIDI Routing" is greyed out |
-| 18 | Look at the Mixer | The Master strip first, always there; its fold arrow shows the global sliders (the old "global" strip is gone). Then the chains in code order. Every fader track has one height, and the names, values and knob buttons sit on one line across strips |
-| 20 | Click an empty knob button, wait, turn a knob | The button turns red and blinks while it waits (in the gutter of both editors and on the fader), then green once mapped. Also red on a timeout, then back to grey |
-| 21 | Map CC 1, then CC 2 on another slider, then turn CC 1 again | Both knobs move their sliders. CC 1 is not left dead by the second mapping |
-| 22 | Reload the window, open a song with mapped knobs, do not play, turn a knob past its slider's value | The number in the code changes when the knob stops, the Mixer's fader follows while it turns. Press play: the knob changes the sound too |
-| 23 | In the Mixer, the blue ">" then "<" at the top of the left column | ">" unfolds every strip, the Master included; "<" folds them all to their gain |
-| 24 | In the Mixer, a song where a constant is defined but no chain uses it (`const X = slider(.5)`) | Unfold the Master: that fader is dimmed and says "not used" |
-| 25 | A chain with no gain and an unused constant named after it (`const KICK = ...`, `$kick:` without `.gain`): click the dim triangle | The code gets `.gain(KICK)`, not a new slider |
-| 26 | Two chains on one slider (`.gain(HATS)` on both) | Under each fader, "shared:" and the other strip's name |
-| 27 | Map one CC to two sliders, then "Show MIDI Mappings" | A warning names that CC, and its rows are marked |
-| 28 | In the Library, Songs: the second insert button of a song | Its code, without the header, lands at the cursor |
-| 29 | In the Reference, a function's "Insert an example" | The example lands at the cursor |
-| 30 | At the foot of the Library, "User manual (PDF)" | The browser opens `releases/latest/download/strdltn-manual.pdf`. Until v0.5.0 is released it is 404: the link is right, the file comes with the release |
-| 19 | Open `demo.strudel`, play it | The vocals sing as before (from the local `samples/` folder). Until the branch is merged, the Output has one warning: `samples from github:alienmind/strdltn/main/template/samples not loaded` |
-
-Expected still broken: on strudel.cc the knob does nothing (by design, ARCHITECTURE
-"Sliders on knobs"). Revert `examples/02-acid-techno.strudel` afterwards unless the
-mappings should stay.
+Every hand check of `feat/knobs` (30 of them) passed on 2026-11-22, and `pnpm test:vscode`
+passed the same day: 38 files with no problem, no typing failure, the Mixer with 10 strips.
+The one warning, the demo's `samples('github:alienmind/strdltn/main/template/samples')`
+answering 404, goes away once the branch is on `main`. Nothing waits for a hand test.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.

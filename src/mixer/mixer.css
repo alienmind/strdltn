@@ -248,7 +248,9 @@ button:disabled { cursor: default; opacity: .35; }
 /* The column of utility buttons left of the strips, written upright to stay narrow. */
 .main { flex: 1; display: flex; min-height: 0; }
 .main .strips { flex: 1; }
-.tools { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 0 0 0 10px; }
+.tools { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 0 0 0 10px; min-height: 0; overflow-y: auto; }
+/* A low panel: the upright buttons keep their size, the column scrolls instead of cutting them. */
+.tool { flex: none; }
 .tool {
 	writing-mode: vertical-rl;
 	transform: rotate(180deg);

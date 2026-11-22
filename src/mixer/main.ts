@@ -161,8 +161,12 @@ function showMappings(open: boolean): void {
 	const table = box.appendChild(el('table', 'mappings'));
 	const header = table.appendChild(el('tr'));
 	for (const name of ['CC', 'Line', 'Code', '']) header.appendChild(el('th', '', name));
+	const perCC = new Map<number, number>();
+	for (const slider of mapped) perCC.set(slider.knob!, (perCC.get(slider.knob!) ?? 0) + 1);
+	const twice = [...perCC].filter(([, count]) => count > 1).map(([cc]) => cc);
+	if (twice.length) box.insertBefore(el('div', 'note warn', `${twice.map((cc) => `CC ${cc}`).join(', ')} ${twice.length > 1 ? 'move' : 'moves'} more than one slider. That can be on purpose; if not, remove one.`), table);
 	for (const slider of mapped) {
-		const row = table.appendChild(el('tr'));
+		const row = table.appendChild(el('tr', perCC.get(slider.knob!)! > 1 ? 'twice' : ''));
 		row.appendChild(el('td', 'cc', String(slider.knob)));
 		row.appendChild(el('td', 'line', slider.line === undefined ? '' : String(slider.line)));
 		row.appendChild(el('td', 'code', slider.code ?? '')).title = slider.code ?? '';
@@ -372,10 +376,11 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 	const shown = open ? sliders : chain.gain !== undefined ? [chain.gain] : [];
 	const toggleGain = () => post({ type: 'toggle', chain: index, button: 'gain' });
 	for (const i of shown) {
-		const box = faders.appendChild(fader(m.sliders[i!]));
+		const box = faders.appendChild(fader(m.sliders[i!], index));
 		// The gain fader sits on the chain's level meter, as in Live's mixer, with no text: its value is over the scope.
 		if (i === chain.gain) {
-			box.querySelectorAll('.label, .detail, .value').forEach((node) => node.classList.add('blank'));
+			// Blank rows, but a shared gain still says so: two strips on one gain move together.
+			box.querySelectorAll(box.classList.contains('shared') ? '.label, .value' : '.label, .detail, .value').forEach((node) => node.classList.add('blank'));
 			addMeter(box, String(index));
 			clickToToggle(box.querySelector('input')!, toggleGain, 'Drag to set the gain. Click the triangle to take the gain fader out of the code');
 		}
@@ -456,8 +461,14 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
  * detail and the value (blank but there on a gain fader, whose value is over the scope), and
  * the knob button.
  */
-function fader(slider: MixerSlider): HTMLElement {
-	const box = el('div', 'fader');
+/**
+ * `chain`: the strip it is drawn in. A slider that other strips use too says so under it
+ * ("shared with oh"), and one that nothing uses is dimmed: the maintainer took both for
+ * bugs (2026-11-22).
+ */
+function fader(slider: MixerSlider, chain?: number): HTMLElement {
+	const others = (slider.chains ?? []).filter((c) => c !== chain).map((c) => model?.chains[c]?.name).filter(Boolean);
+	const box = el('div', `fader${slider.unused ? ' unused' : ''}${others.length ? ' shared' : ''}`);
 	box.appendChild(el('span', 'top'));
 	const input = box.appendChild(el('input'));
 	input.type = 'range';
@@ -468,7 +479,10 @@ function fader(slider: MixerSlider): HTMLElement {
 	input.dataset.slider = String(slider.index);
 	box.title = `${slider.label}${slider.constant ? ` (${slider.constant})` : ''}: from ${slider.min} to ${slider.max}. Changes the sound at once and the number in the code after a moment.`;
 	box.appendChild(el('span', 'label', slider.label));
-	box.appendChild(el('span', 'detail', slider.constant || slider.detail !== slider.label ? slider.detail : ''));
+	const detail = slider.unused ? 'not used' : others.length ? `shared: ${others.join(', ')}` : slider.constant || slider.detail !== slider.label ? slider.detail : '';
+	box.appendChild(el('span', 'detail', detail));
+	if (slider.unused) box.title = `${slider.constant ?? slider.label}: no chain uses it, so it changes nothing. Use it in a chain, or take it out of the code`;
+	else if (others.length) box.title += `\nThe same slider as on ${others.join(', ')}: they move together, and a knob maps both. Give each its own slider to set them apart.`;
 	const output = box.appendChild(el('output', 'value', String(slider.value)));
 	output.dataset.slider = String(slider.index);
 	// MIDI learn for this slider, as the knob button left of its line in the code. The host

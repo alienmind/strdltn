@@ -34,6 +34,11 @@ export interface MixerSlider {
 	detail: string;
 	/** The chains that use it, by index. */
 	chains: number[];
+	/**
+	 * True when nothing uses it: not a chain, not `setcps()`, not `all(...)`. The Master
+	 * shows it dimmed, "not used by any chain"; the maintainer took one for a broken fader.
+	 */
+	unused?: boolean;
 	/** The CC of `.knob(cc)` on the slider call, when a knob is mapped to it. */
 	knob?: number;
 	/** With a knob: the line of the slider, 1-based, and its code, for "Show MIDI Mappings". */
@@ -235,7 +240,10 @@ export function gainEdit(code: string, chain: number): { from: number; to: numbe
 			const simple = ['Identifier', 'Literal', 'CallExpression', 'MemberExpression', 'TemplateLiteral'].includes(argument.type);
 			return { from: argument.start, to: argument.end, insert: `${simple ? text : `(${text})`}.mul(slider(1, 0, 1))` };
 		}
-		return { from: expression.end, to: expression.end, insert: '.gain(slider(1, 0, 1))' };
+		// An unused constant named after the chain (`KICK` or `KICK_VOL` for kick) is what the
+		// gain was before: use it, rather than a new slider beside it (the maintainer, 2026-11-22).
+		const own = model.sliders.find((s) => s.unused && s.constant && sameName(s.constant, target.name));
+		return { from: expression.end, to: expression.end, insert: `.gain(${own?.constant ?? 'slider(1, 0, 1)'})` };
 	}
 	const slider = model.sliders[target.gain];
 	if (!gainCall || !slider) return undefined;
@@ -461,6 +469,7 @@ export function readChains(code: string): MixerModel | { error: string } {
 	}
 
 	// Where each slider is used: in which chain, as the argument of which call.
+	const used = new Set<number>();
 	const chainOf = (position: number) => chains.findIndex((chain) => chain.from <= position && position < chain.to);
 	walk(program, [], (node, parents) => {
 		const parent = parents[parents.length - 1];
@@ -473,6 +482,7 @@ export function readChains(code: string): MixerModel | { error: string } {
 		const call = feedingCall(node, parents);
 		for (const index of held) {
 			const slider = sliders[index];
+			used.add(index);
 			if (!slider.label && call) slider.label = call;
 			if (chain >= 0 && !slider.chains.includes(chain)) {
 				slider.chains.push(chain);
@@ -483,6 +493,7 @@ export function readChains(code: string): MixerModel | { error: string } {
 		}
 	});
 	for (const slider of sliders) if (!slider.label) slider.label = slider.detail;
+	for (const slider of sliders) if (!used.has(slider.index)) slider.unused = true;
 	for (const chain of chains) chain.controls.sort((a, b) => a - b);
 
 	// Duck cables: from the chain that ducks to every chain on a ducked orbit.
@@ -635,4 +646,12 @@ function lineOf(code: string, offset: number): { line: number; code: string } {
 	const start = code.lastIndexOf('\n', offset - 1) + 1;
 	const end = code.indexOf('\n', offset);
 	return { line: code.slice(0, start).split('\n').length, code: code.slice(start, end < 0 ? undefined : end).trim() };
+}
+
+/** `KICK`, `KICK_VOL`, `kickGain` and `$kick` name the same thing. */
+function sameName(constant: string, chain: string): boolean {
+	const plain = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+	const base = plain(constant).replace(/(vol|volume|gain|level|lvl)$/, '');
+	const name = plain(chain);
+	return !!name && (base === name || plain(constant) === name);
 }

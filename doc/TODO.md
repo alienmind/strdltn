@@ -52,7 +52,7 @@ Next in line:
 | 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Asked for, not designed |
 | 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with a click on its number. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Asked for, not designed |
 | 1 | MIDI: devices in the Browser, playing through them, mappings | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
-| 2 | A list of sound cards to send the sound to | Probed, not built. See "Sound card" |
+| 2 | A list of sound cards to send the sound to | Not possible in the webview (S6: the microphone is refused, so no names or ids). Windows' per-app output does it by hand. See "Sound card" |
 | 4 | Firmware Hub: the hub's catalog and a Firmware view | Playing works and was tested by hand. The view is not built. See "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
 | 6a | Songs of the Template place: an "Insert at the cursor" button beside "Open" | Noted, not built. See "Insert a song" in `doc/DAW-PLAN.md` |
@@ -436,17 +436,15 @@ reports a delay to the DAW for that reason; expected from the code, not measured
 
 ## Sound card
 
-Measured in the webview: `enumerateDevices()` returns one audio output with no label,
-and `AudioContext.setSinkId` exists. A browser only gives the real list, with names,
-to a page that may use the microphone. We have not asked for that permission yet, so we
-do not know whether VS Code lets a webview have it.
+Spike S6 ran on 2026-11-22 (ARCHITECTURE "Measured"): VS Code refuses the microphone to a
+webview, so the page sees one output without a name or an id, and `setSinkId` has nothing
+to switch to. The editor's page cannot pick its own sound card. What is left:
 
-To try, in this order:
-1. Ask for the microphone once in the webview and list the outputs again. If it works,
-   the list goes in the side bar and a click calls `setSinkId`. superdough already has
-   `getAudioDevices()` and an audio device setting for this.
-2. If VS Code refuses, there is no way from the webview. The extension host cannot
-   route the webview's sound.
+- Windows' per-app output (Settings, System, Sound, Volume mixer): moves VS Code's sound
+  alone, not all of Windows. Works today, by hand.
+- The browser page of phase 7 (`doc/DAW-PLAN.md`): a real browser tab may ask for the
+  microphone and then pick an output. Not tried.
+- A Chrome device id cannot be made in the extension host: Chrome salts it per origin.
 
 The maintainer wants it now (2026-11-22): the M-VAVE FM-1 is a USB sound card too, and
 playing SHRUB on it by MIDI next to Strudel's sound on the computer's card splits the
@@ -649,14 +647,13 @@ column says, then delete the spike. None of these is started unless it says so.
 | S2 | Can the weights be served from `tmp/strdltn-models/` through `asWebviewUri`, or does the runtime insist on its own download? | Same spike as S1, with the files fetched by the extension host first | Works or not, and what had to be configured | "Local model" below |
 | S3 | Does a completion extension with a local server complete `.strudel` files? | Install llama.cpp (or Ollama) on the host and `llama.vscode` (or Continue) in the test profile. Type in a `.strudel` file in the native editor | Whether it offers anything, whether it needs `.strudel` mapped to JavaScript, tokens per second on the CPU | "Completion from another extension" below |
 | S4 | Do local reference files change what stock completion offers? | With Copilot on, type the start of a rare function in a `.strudel` file, first without and then with a reference file open in another tab, then with it only on disk | What was offered in each of the three cases | "Strudel's documentation as local examples" below |
-| S6 | Can a webview list the sound cards by name? | Ask for the microphone once in the webview, then call `enumerateDevices()` again | Whether VS Code allows the request, and the list that comes back | "Sound card" above |
 | S7 | Does the pack cache work in Codespaces? | Open `examples/05-coastline.strudel` in a Codespace | Whether the files arrive in `.strdltn/cache/` and play from there | "Measured" in `doc/ARCHITECTURE.md` |
 
 Already done, with their answers in `doc/ARCHITECTURE.md` and the drawer: sound in a
 webview, WebMIDI in a webview (refused), WebGPU in a webview (works), a native MIDI
 module in the extension host (works, but a plain timer is too late), sending MIDI on
 time from a worker thread (S5, passed), audio outputs seen by a webview (one, without a
-name).
+name), the microphone in a webview to name them (S6, refused).
 ## Local model
 
 Planned, not started. No code until the maintainer says so. The goal: completion and

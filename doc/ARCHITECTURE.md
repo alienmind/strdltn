@@ -1347,6 +1347,7 @@ In VS Code 1.130.0 on Windows (Electron 42, Chrome 148), with `pnpm test:vscode`
 | A new folder under `samples/` appears in the list without a reload | Works |
 | Insert a sound name into the Strudel editor, and a snippet into the native editor | Works |
 | Audio outputs seen by the webview (`enumerateDevices`) | 1, without a label. `AudioContext.setSinkId` exists |
+| The microphone in a webview (`getUserMedia({ audio: true })`), to get the outputs' names (spike S6, 2026-11-22, VS Code 1.147) | Refused: `NotAllowedError: Permission denied`, at once. After it, still 1 output with an empty label and id, so `setSinkId` has nothing to pick |
 | A native MIDI module (`@julusian/midi`) in the extension host's runtime | Loads, lists inputs and outputs, sends in 0.05 ms |
 | A 20 ms timer in the extension host's runtime, Windows | Late by 10 ms in the middle, 16 ms at the 95th percentile, 80 ms at worst |
 | Drum machine banks in the Sounds view | 138 |

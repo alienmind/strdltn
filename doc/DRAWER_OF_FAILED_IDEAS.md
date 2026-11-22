@@ -314,3 +314,13 @@ editor" in `doc/ARCHITECTURE.md`). A `ResizeObserver` on the content that called
 `requestMeasure()`, a measure right before the click, and an `estimatedHeight` for
 upstream's `BlockWidget` set from outside all left the error as it was. The cause was
 inline canvases, fixed with CSS.
+
+## Picking the sound card from the webview
+
+Tried in spike S6 (2026-11-22, VS Code 1.147, muted test window). A browser names its
+audio outputs only to a page that may use the microphone, and `AudioContext.setSinkId`
+needs one of those ids. The webview asked for the microphone with
+`getUserMedia({ audio: true })` and VS Code refused at once (`NotAllowedError: Permission
+denied`); the page still saw one output with an empty label and id. So the editor's page
+cannot send its sound to another card. Windows' per-app output does it by hand; see
+"Sound card" in `doc/TODO.md`.

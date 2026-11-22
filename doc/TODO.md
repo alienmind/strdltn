@@ -26,9 +26,11 @@ it (Enter still inserts it), the Browser opens songs and snippets in the Strudel
 and never in the native one, the setting `strdltn.midi.highPriority` of decision 17, and
 Songs and Snippets merged back into the Library view (the maintainer, 2026-11-22;
 Reference and Results stay views of their own). Every hand test passed on 2026-11-22.
+`pnpm test:vscode` passed the same day: 38 files with no problem, the Library with 41
+songs and 29 snippets, every case as expected but one typing case, `undo` on the `\r\n`
+song, the open lead under "Integration test".
 This branch is version 0.4.1 (the maintainer, 2026-11-22): 0.4.0 stays untagged, and the
-next tag is `v0.4.1` on `main` after the merge. Next: `pnpm test:vscode`, then the pull
-request.
+next tag is `v0.4.1` on `main` after the merge.
 
 Next in line:
 
@@ -77,6 +79,7 @@ with none: 3 of 4 runs had one failure.
 | 1 | `typingWhileAFaderMoves`, `\r\n` song | One extra line break at the end of the file | Yes |
 | 2 | `typingWhileTheHostEdits`, `\n` song | The line the test writes from the host is missing | Yes |
 | 3 | `undo`, `\n` song | Ctrl+Z after typing `zz` did nothing | Yes |
+| 4 (2026-11-22, `feat/open-snippets`) | `undo`, `\r\n` song | The same: `zz` still there after Ctrl+Z | Yes |
 
 Editor and document always agreed, so it is not the text sync. The test now records
 whether VS Code took the host's edit; in run 3 it did. What changed just before:

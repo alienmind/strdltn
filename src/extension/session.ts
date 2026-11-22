@@ -22,6 +22,8 @@ export interface SessionHost {
 	onSounds(sounds: SoundInfo[]): void;
 	/** The waves of the song's inline scopes, for the Mixer. */
 	onScopes?(document: vscode.TextDocument, scopes: ScopeFrame[]): void;
+	/** A slider of the song moved live, for the Mixer. */
+	onSliderLive?(document: vscode.TextDocument, from: number, value: number): void;
 	/** The engine state, the error or the active tab changed. The status bar follows. */
 	onState(session: Session): void;
 	/** The firmware copies this engine runs, for the Devices view. */
@@ -321,6 +323,9 @@ export class Session {
 				break;
 			case 'scopes':
 				this.host.onScopes?.(this.document, message.scopes);
+				break;
+			case 'sliderLive':
+				this.host.onSliderLive?.(this.document, message.from, message.value);
 				break;
 			case 'devices':
 				this.host.onDevices?.(this, message.devices);

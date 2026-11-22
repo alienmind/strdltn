@@ -229,6 +229,15 @@ export class MixerView implements Surface {
 		await this.write(document, text, tempoEdit(text, bpm));
 	}
 
+	/**
+	 * A slider moved live (a drag in the editor, a knob). The model is read again only 300 ms
+	 * after the last change of the text, and a turning knob writes every 150 ms, so without
+	 * this the fader waited until the knob stopped (seen by the maintainer on 2026-11-22).
+	 */
+	sliderLive(document: vscode.TextDocument, from: number, value: number): void {
+		if (document === this.document) this.post({ type: 'sliderLive', from, value });
+	}
+
 	/** The waves of the scopes of a song, passed on when it is the song the Mixer shows. */
 	setScopes(document: vscode.TextDocument, scopes: ScopeFrame[]): void {
 		if (document !== this.document) return;

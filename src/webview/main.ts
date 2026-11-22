@@ -831,6 +831,14 @@ function finishLearn(cc: number): void {
 	post({ type: 'knobLearn', state: 'done', cc });
 }
 
+// Every live move of a slider, whoever made it (upstream's widget, a Mixer fader, a knob),
+// is a `cm-slider` window message. The Mixer hears of it by where the number is now.
+window.addEventListener('message', (event: MessageEvent) => {
+	if (event.data?.type !== 'cm-slider') return;
+	const slider = liveSliders.find((s) => s.id === event.data.id);
+	if (slider) post({ type: 'sliderLive', from: slider.from, value: Number(event.data.value) });
+});
+
 /** Writes for sliders typed since the last evaluation, which have no id yet. */
 let pendingWrites: LiveSlider[] = [];
 

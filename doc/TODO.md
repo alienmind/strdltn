@@ -33,6 +33,7 @@ Next in line:
 
 | # | What | State |
 |---|---|---|
+| 19 | Line actions: a gutter left of the line numbers, in the Strudel editor and the native editor, with a knob button on every line that has a slider. A click captures the next knob (MIDI learn). Lines without an action keep an empty gap, so everything stays aligned; more line actions will come. High priority, the first thing after `feat/knobs` passes its tests (the maintainer, 2026-11-22). Replaces Ctrl+Alt+K as the main way to learn a knob, which the maintainer finds too convoluted. See "Line actions" | Planned, not built |
 | 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Ctrl+F and Ctrl+G passed the hand test; Ctrl+H, Ctrl+D, Ctrl+Shift+L built, waiting for it. Keys CodeMirror takes first do not follow a rebinding yet |
 | 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with MIDI learn. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Built on `feat/knobs`, waiting for the hand test |
 | 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
@@ -70,6 +71,12 @@ with the template folder open and the Output strdltn shown.
 | 8 | Press Ctrl+Alt+K with the cursor outside any slider | Status bar: "Put the cursor in a slider(...) call first" |
 | 9 | Press Ctrl+Alt+K in a slider, touch nothing for 10 s | "No knob moved: nothing mapped" |
 | 10 | Stop, save, reopen the file, play, turn knob 1 | The knob works after the new evaluation (pickup first) |
+| 11 | Unfold the strip of the slider you mapped in the Mixer, turn the knob | The Mixer's fader and its number follow the knob while it turns. Also when you drag the slider in the code |
+
+Checks 1 to 4 passed on 2026-11-22. In that test the Mixer's fader did not follow the knob:
+the Mixer read the code only 300 ms after the last change, and a knob writes every 150 ms.
+Fixed: every live move of a slider (`cm-slider`) goes to the Mixer as `sliderLive`. Check
+11 is for that fix.
 
 Expected still broken: MIDI learn only in the Strudel editor, not on the stage. On
 strudel.cc the knob does nothing (by design, see ARCHITECTURE "Sliders on knobs").
@@ -495,6 +502,32 @@ Built on `feat/knobs`, waiting for the hand test (ARCHITECTURE "Sliders on knobs
 change from the design above: on strudel.cc the knob does nothing, it does not change
 the sound. The snippet cannot use `midin()` (see above), and a knob there would not know
 the slider's range.
+
+## Line actions
+
+Asked by the maintainer on 2026-11-22, high priority after `feat/knobs`. A column of
+buttons left of the line numbers, one per line that has an action, an empty gap on the
+others so everything stays aligned. The first action is a knob button on every line with
+a `slider(...)`: a click captures the next knob, as Ctrl+Alt+K does now. More actions
+will come in the same column. It must work in both the Strudel editor and the native
+editor. Lines are not contiguous on screen: inline scopes and other widgets sit between
+them, and the button belongs beside its line number, not beside the widget.
+
+- Strudel editor: a CodeMirror `gutter()` of our own, added with `Prec.highest` so it
+  comes before upstream's line numbers, with a `lineMarker` per line that holds a slider
+  and `domEventHandlers` for the click. CodeMirror lays a gutter out per line block, so a
+  block widget between two lines leaves a gap in the gutter, as the picture of the
+  maintainer wants. Expected, not tried.
+- Native editor: VS Code's glyph margin is left of the line numbers, and a decoration
+  with `gutterIconPath` draws an icon there. The API gives no click on it. Spike first:
+  does a click in the glyph margin move the cursor or the selection
+  (`onDidChangeTextEditorSelection` with `kind == Mouse`), so the click can be told from
+  it? Fallbacks, in order: the line number context menu (`editor/lineNumber/context`, a
+  right click), then a CodeLens above the line. Neither is a button in the gutter.
+- The icon: a small knob drawn by us, in the theme's colors. A knob already mapped shows
+  its CC.
+- Same rules as now: `sliderAt` for the slider of the line (the first one when a line has
+  two; open: a button per slider then?), `knobEdits` for the edit.
 
 ## Keybindings in the Strudel editor
 

@@ -13,7 +13,9 @@ export type ToMixer =
 	/** The waves of the song's inline scopes. The page draws each under the strip it is in. */
 	| { type: 'scopes'; scopes: ScopeFrame[] }
 	/** Whether the song shown plays. The scopes go flat when it stops. */
-	| { type: 'playing'; on: boolean };
+	| { type: 'playing'; on: boolean }
+	/** A slider moved live in the song (a drag, a knob), before the code says so. By where its number starts. */
+	| { type: 'sliderLive'; from: number; value: number };
 
 export type FromMixer =
 	| { type: 'ready' }

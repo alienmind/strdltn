@@ -156,6 +156,8 @@ export type FromWebview =
 	| { type: 'midiListen'; port: string }
 	/** The song stopped: drop this engine's queued events and turn its notes off. */
 	| { type: 'midiPanic' }
+	/** A slider's value changed live (a drag, a knob, a fader): `from` is where its number is now. For the Mixer. */
+	| { type: 'sliderLive'; from: number; value: number }
 	/** Where MIDI learn is: waiting for a knob, done with a CC, no slider at the cursor, no knob moved, no MIDI. */
 	| { type: 'knobLearn'; state: 'waiting' | 'done' | 'noSlider' | 'timeout' | 'noMidi'; cc?: number };
 

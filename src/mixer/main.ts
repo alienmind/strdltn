@@ -82,6 +82,14 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 		case 'playing':
 			if (!message.on) clearScopes();
 			break;
+		case 'sliderLive': {
+			// Not while a fader is held: that move is the one coming back.
+			const slider = !dragging && model?.sliders.find((s) => s.from === message.from);
+			if (!slider) break;
+			for (const input of strips.querySelectorAll<HTMLInputElement>(`input[data-slider="${slider.index}"]`)) input.value = String(message.value);
+			for (const out of strips.querySelectorAll(`output[data-slider="${slider.index}"]`)) out.textContent = formatValue(message.value, slider);
+			break;
+		}
 		case 'scopes':
 			drawScopes(message.scopes);
 			break;

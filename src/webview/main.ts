@@ -402,7 +402,16 @@ async function taggedSamples(map: any, base?: string, options: Record<string, un
 	if (typeof map === 'string') {
 		const cached = map.startsWith('github:') ? undefined : cachedPacks.get(map);
 		if (cached) return strudelWebaudio.samples(structuredClone(cached.map), base || cached.base, { tag: map, ...options });
-		return strudelWebaudio.samples(map, base, { tag: map, ...options });
+		// A pack that cannot be read (offline, a wrong address, a file not pushed yet) is a
+		// warning, not an error of the song: on strudel.cc the song plays on without it, and
+		// the demo loads its vocals from its own repository, which a branch has not on `main`
+		// yet. The sounds of the project's samples folder are loaded already.
+		try {
+			return await strudelWebaudio.samples(map, base, { tag: map, ...options });
+		} catch (error) {
+			log('warn', `samples from ${map} not loaded: ${(error as Error).message}`);
+			return;
+		}
 	}
 	const remote = base ?? map?._base;
 	if (map && typeof map === 'object' && isRemote(remote) && !hasOwnBases(map)) {

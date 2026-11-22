@@ -1,0 +1,17 @@
+{
+  "sos-vocals": [
+    "sos-vocals/00-silence.mp3",
+    "sos-vocals/01-voices.mp3",
+    "sos-vocals/02-calling.mp3",
+    "sos-vocals/03-deepest.mp3",
+    "sos-vocals/04-ocean.mp3",
+    "sos-vocals/05-desire.mp3",
+    "sos-vocals/06-devotion.mp3",
+    "sos-vocals/07-drifting.mp3",
+    "sos-vocals/08-searching.mp3",
+    "sos-vocals/09-temptation.mp3",
+    "sos-vocals/10-stalling.mp3",
+    "sos-vocals/99-meld.mp3"
+  ],
+  "blip": ["blip/blip.wav"]
+}

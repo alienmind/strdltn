@@ -10,6 +10,9 @@
 // Tempo 133 bpm at 4/4: one cycle is one bar
 setCps(133/60/4)
 
+// The vocals, from this project on GitHub, so the song also plays when pasted into strudel.cc
+samples('github:alienmind/strdltn/main/template/samples')
+
 //   ___ _               _
 //  / __| |_ _ _ _  _ __| |_ _  _ _ _ ___
 //  \__ \  _| '_| || / _|  _| || | '_/ -_)

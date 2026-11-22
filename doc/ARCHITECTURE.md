@@ -760,7 +760,7 @@ edited.
 
 | Path | Holds |
 |---|---|
-| `demo.strudel` | "Sea of Souls (club mix)" by the maintainer. The test plays it on every run. It uses the vocals in `samples/sos-vocals/` |
+| `demo.strudel` | "Sea of Souls (club mix)" by the maintainer. The test plays it on every run. It uses the vocals in `samples/sos-vocals/`, loaded with `samples('github:alienmind/strdltn/main/template/samples')` from `samples/strudel.json`, so the song also plays when pasted into strudel.cc. In [str]dltn the same files come from the local folder too, and a pack that cannot be read is a warning, not an error of the song (`taggedSamples`): the address works only once the files are on `main` |
 | `examples/` | Songs to learn from: three of ours, Hydra visuals, `coastline` from Strudel's own examples, and "Array (Lil Data Edit)" |
 | `lib/` | Snippets by category, one folder each |
 | `samples/` | Local samples |

@@ -78,11 +78,12 @@ table passed on 2026-11-22 (Ctrl+H, Ctrl+D, Ctrl+Shift+L, learn with Ctrl+Alt+K)
 | 11 | Click a knob button, touch nothing for 10 s | "No knob moved: nothing mapped" |
 | 12 | Stop, close and reopen the file, play, turn knob 2 | The knob works after the new evaluation, pickup first |
 | 13 | A fast turn of a mapped knob, both ways | The knob keeps the slider for the whole turn (it let go after a few steps before `d5e816f`) |
-| 14 | In the Mixer's utility column (left of the strips, upright buttons), "Reset MIDI Mappings" | Every `.knob(...)` and the `register('knob', ...)` snippet leave the code; the button greys out. Ctrl+Z in the editor brings them all back |
-| 18 | Map two knobs, then "Show MIDI Mappings" | A modal lists CC, line and code of each knob. Remove on a row takes that knob off, and the row goes. Esc, the cross or a click outside closes it. "Show MIDI Routing" is greyed out |
-| 15 | Click a filled knob button, in the gutter and on a fader | That knob leaves the code; the button empties. A click on an empty one learns, as before |
-| 16 | Turn a mapped knob slowly and fast | The number in the code and the inline slider follow while it turns, not only when it stops |
-| 17 | Look at the Mixer | The Master strip first, always there; its fold arrow shows the global sliders (the old "global" strip is gone). Then the chains in code order. Every fader track has one height, and the names, values and knob buttons sit on one line across strips |
+| 14 | Click a filled knob button, in the gutter and on a fader | That knob leaves the code; the button empties. A click on an empty one learns, as before |
+| 15 | Turn a mapped knob slowly and fast | The number in the code and the inline slider follow while it turns, not only when it stops |
+| 16 | In the Mixer's utility column (left of the strips, upright buttons), "Reset MIDI Mappings" | Every `.knob(...)` and the `register('knob', ...)` snippet leave the code; the button greys out. Ctrl+Z in the editor brings them all back |
+| 17 | Map two knobs, then "Show MIDI Mappings" | A modal lists CC, line and code of each knob. Remove on a row takes that knob off, and the row goes. Esc, the cross or a click outside closes it. "Show MIDI Routing" is greyed out |
+| 18 | Look at the Mixer | The Master strip first, always there; its fold arrow shows the global sliders (the old "global" strip is gone). Then the chains in code order. Every fader track has one height, and the names, values and knob buttons sit on one line across strips |
+| 19 | Open `demo.strudel`, play it | The vocals sing as before (from the local `samples/` folder). Until the branch is merged, the Output has one warning: `samples from github:alienmind/strdltn/main/template/samples not loaded` |
 
 Expected still broken: on strudel.cc the knob does nothing (by design, ARCHITECTURE
 "Sliders on knobs"). Revert `examples/02-acid-techno.strudel` afterwards unless the

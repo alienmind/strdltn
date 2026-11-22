@@ -1,0 +1,55 @@
+/* The firmware screen popup. Every color is a theme variable of VS Code, except the firmware's own display. */
+* { box-sizing: border-box; }
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	color: var(--vscode-foreground);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size, 13px);
+	background: var(--vscode-editor-background);
+}
+#app { max-width: 760px; margin: 0 auto; padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+[hidden] { display: none !important; }
+
+header { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'title actions' 'meta actions'; gap: 2px 12px; align-items: center; }
+h1 { grid-area: title; margin: 0; font-size: 1.6em; font-weight: 600; letter-spacing: .04em; }
+.meta { grid-area: meta; display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--vscode-descriptionForeground); font-size: 12px; }
+.meta span:last-child { font-family: var(--vscode-editor-font-family, monospace); }
+.actions { grid-area: actions; display: flex; gap: 6px; }
+
+button { font: inherit; cursor: pointer; border: 1px solid var(--vscode-button-border, transparent); border-radius: 2px; padding: 4px 12px; }
+button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+button.primary:hover { background: var(--vscode-button-hoverBackground); }
+button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+
+.description { margin: 0; line-height: 1.45; color: var(--vscode-descriptionForeground); }
+
+/* The display keeps its 3:2 and its pixels, at any width of the tab. */
+.stage { display: flex; flex-direction: column; gap: 4px; }
+canvas {
+	width: 100%;
+	aspect-ratio: 3 / 2;
+	image-rendering: pixelated;
+	background: #000;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-panel-border, #444);
+}
+.keys { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.key {
+	padding: 3px 0;
+	font-size: 11px;
+	border-radius: 2px;
+	background: var(--vscode-button-secondaryBackground, #3a3d41);
+	color: var(--vscode-button-secondaryForeground, #fff);
+}
+.key:active { background: var(--vscode-button-background, #0e639c); color: var(--vscode-button-foreground, #fff); }
+
+.status { font-size: 12px; color: var(--vscode-descriptionForeground); }
+.status.error { color: var(--vscode-errorForeground); }
+
+@media (max-width: 420px) {
+	header { grid-template-columns: 1fr; grid-template-areas: 'title' 'meta' 'actions'; }
+}

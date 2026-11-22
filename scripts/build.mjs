@@ -1,4 +1,4 @@
-// Builds the bundles: the extension host (Node, CommonJS), its MIDI worker thread, the webview of the editor and the stage, the Browser view, the Mixer view, the Devices view, and the firmware worklet (browser).
+// Builds the bundles: the extension host (Node, CommonJS), its MIDI worker thread, the webview of the editor and the stage, the Browser view, the Mixer view, the Devices view, the firmware screen popup, and the firmware worklet (browser).
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { context } from 'esbuild';
@@ -79,6 +79,15 @@ const builds = [
 		// The Devices view in the bottom panel: a panel per firmware that plays. Its CSS lands in dist/devices.css.
 		entryPoints: ['src/devices/main.ts'],
 		outfile: 'dist/devices.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
+	{
+		...shared,
+		// The firmware screen popup, opened from the Firmware category of the Library. Its CSS lands in dist/screen.css.
+		entryPoints: ['src/screen/main.ts'],
+		outfile: 'dist/screen.js',
 		platform: 'browser',
 		format: 'iife',
 		target: 'es2022',

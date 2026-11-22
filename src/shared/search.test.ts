@@ -1,7 +1,7 @@
 // Cases for the search and the chips of the Browser, in search.ts. Run with `pnpm test:unit`.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { emptyUserIndex, readUserIndex, snippetItem, songItem, soundCode, soundItems, writeUserIndex } from './catalog.ts';
+import { emptyUserIndex, firmwareItems, readUserIndex, snippetItem, songItem, soundCode, soundItems, writeUserIndex } from './catalog.ts';
 import { chipGroups, filterItems, groupItems, parseQuery } from './search.ts';
 
 const items = [
@@ -14,6 +14,13 @@ const items = [
 		{ name: 'kick', type: 'sample', tag: 'local', count: 1 },
 		{ name: 'vibefm1', type: 'firmware', count: 2, variations: ['obervave', 'sloop'] },
 	]),
+	...firmwareItems(
+		[
+			{ id: 'obervave', name: 'OBERVAVE', author: 'zvenson', from: 'cache', path: '.strdltn/cache/firmware/a/obervave.wasm', url: 'https://example.com/obervave.wasm' },
+			{ id: 'sloop', name: 'SLOOP', from: 'folder', path: 'firmware/sloop.wasm' },
+		],
+		['obervave', 'sloop'],
+	),
 	snippetItem({ name: 'bass/acid-303', folder: 'bass', title: 'Acid bass line', category: 'bass', fields: [{ name: 'tags', value: 'acid, 303' }], code: 'note("c2")' }, 'lib/bass/acid-303.strudel'),
 	songItem('examples/01-chords.strudel'),
 ];
@@ -30,12 +37,13 @@ test('every word must match, in the name, the text or a tag', () => {
 	assert.deepEqual(find('bass'), ['sound:gm_acoustic_bass', 'snippet:bass/acid-303']);
 	assert.deepEqual(find('#kick'), ['sound:rolandtr909_bd', 'sound:linndrum_bd', 'sound:kick']);
 	assert.deepEqual(find('chords'), ['song:examples/01-chords.strudel']);
-	assert.deepEqual(find('obervave'), ['sound:vibefm1:obervave']);
+	assert.deepEqual(find('obervave'), ['firmware:obervave']);
+	assert.deepEqual(find('zvenson'), ['firmware:obervave']);
 });
 
 test('categories and places', () => {
 	assert.deepEqual(find('', { category: 'drums' }), ['sound:rolandtr909_bd', 'sound:rolandtr909_sd', 'sound:linndrum_bd']);
-	assert.deepEqual(find('', { category: 'instruments' }), ['sound:vibefm1:obervave', 'sound:vibefm1:sloop']);
+	assert.deepEqual(find('', { category: 'firmware' }), ['firmware:obervave', 'firmware:sloop']);
 	assert.deepEqual(find('', { place: 'project', category: 'samples' }), ['sound:kick']);
 });
 
@@ -82,5 +90,15 @@ test('insert as code: s() with .bank(), a note for pitched sounds', () => {
 	assert.deepEqual(code('sound:kick'), { code: 's("kick")', name: 'kick' });
 	assert.deepEqual(code('sound:sawtooth'), { code: 'note("c3").s("sawtooth")', name: 'sawtooth' });
 	assert.deepEqual(code('sound:gm_acoustic_bass', 1), { code: 'note("c3").s("gm_acoustic_bass:1")', name: 'gm_acoustic_bass:1' });
-	assert.deepEqual(code('sound:vibefm1:sloop'), { code: 'note("c3").s("vibefm1:sloop")', name: 'vibefm1:sloop' });
+});
+
+test('a firmware row: its own line, a test note by its position in the engine, Installed', () => {
+	const ob = items.find((item) => item.id === 'firmware:obervave')!;
+	assert.equal(ob.insert, 'note("c2 eb2 g2 bb2").s("vibefm1:obervave")');
+	assert.equal(ob.group, 'Installed');
+	assert.equal(ob.url, 'https://example.com/obervave.wasm');
+	assert.deepEqual([ob.sound, ob.index], ['vibefm1', 0]);
+	assert.equal(items.find((item) => item.id === 'firmware:sloop')!.index, 1);
+	// The firmware host itself is no row of its own any more.
+	assert.equal(items.some((item) => item.id.startsWith('sound:vibefm1')), false);
 });

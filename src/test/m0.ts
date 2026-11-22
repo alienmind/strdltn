@@ -708,6 +708,74 @@ export async function run(): Promise<void> {
 		steps.packCache = await api.packCache();
 		save();
 
+		// 7a3. The Firmware category of the Library (Firmware Marketplace in doc/TODO.md): OBERVAVE, loaded by a song,
+		// is cached and listed under Installed; its screen runs in the popup; Insert puts the line that plays it into a
+		// song without one, with the song's firmware() line first, once.
+		{
+			const obervave = 'https://raw.githubusercontent.com/Vibe-FM-SDK/vibe-fm-sdk/main/firmwares/obervave.wasm';
+			const loader = vscode.Uri.joinPath(folder, 'zz-firmware-load.strudel');
+			const target = vscode.Uri.joinPath(folder, 'zz-firmware-insert.strudel');
+			const found: Record<string, unknown> = {};
+			steps.firmware = found;
+			try {
+				await vscode.workspace.fs.writeFile(loader, new TextEncoder().encode(`firmware('${obervave}')\n$: note("c2").s("vibefm1:obervave")\n`));
+				await vscode.commands.executeCommand('vscode.openWith', loader, EDITOR);
+				found.installed = await until(() => api.firmware().installed.some((fw) => fw.id === 'obervave'), 60000);
+				await sleep(500);
+				found.items = api.browserFind({ category: 'firmware' });
+				found.counts = api.browserCounts().firmware;
+				found.oldCategoryGone = !('instruments' in api.browserCounts());
+				found.results = await api.browserShow({ query: '', chips: [], color: undefined, place: undefined, scope: undefined, builtin: undefined, category: 'firmware' }, ['Installed']);
+				await shot('firmware-library');
+				await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+
+				// The screen popup: frames painted, with the firmware run on the page's thread and no sound.
+				api.firmwareScreen('obervave');
+				found.screenPainted = await until(() => (api.firmware().screen.state?.frames ?? 0) >= 30, 20000);
+				found.screen = api.firmware().screen;
+				await shot('firmware-screen');
+				api.firmwareScreen(undefined);
+
+				// Insert into a song that does not load the firmware: the load line after its comments, the line at the cursor.
+				// The cursor goes before the marker, so the inserted line is `$: note(...)// here`, which plays.
+				const song = '// a song without firmware\n\n$: s("bd*2")\n$: // here\n';
+				await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(song));
+				await vscode.commands.executeCommand('vscode.openWith', target, EDITOR);
+				await until(() => has('editor', target, 'local samples'), 30000);
+				found.cursorPlaced = await api.revealText('// here');
+				await sleep(500);
+				await api.browserMessage({ type: 'insert', id: 'firmware:obervave' });
+				await sleep(1500);
+				const once = lf(await text(target));
+				const insert: Record<string, unknown> = {
+					text: once,
+					loadLineAfterComments: once.startsWith(`// a song without firmware\nfirmware('${obervave}')\n`),
+					playLineAtCursor: once.includes('$: note("c2 eb2 g2 bb2").s("vibefm1:obervave")// here'),
+				};
+				found.insert = insert;
+				await vscode.commands.executeCommand('strdltn.play');
+				found.played = await until(() => has('editor', target, 'report:'), 30000);
+				await sleep(2500);
+				found.problems = problems('editor', target);
+				found.engineKnowsIt = has('editor', target, 'vibefm1: obervave');
+				await shot('firmware-inserted');
+				await vscode.commands.executeCommand('strdltn.stop');
+				// A second insert: the song loads the firmware now, so only the line at the cursor goes in.
+				await api.browserMessage({ type: 'insert', id: 'firmware:obervave' });
+				await sleep(1500);
+				const twice = lf(await text(target));
+				insert.loadLineOnceAfterTwoInserts = count(twice, `firmware('${obervave}')`) === 1;
+				insert.playLinesAfterTwoInserts = count(twice, 's("vibefm1:obervave")');
+				await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+			} catch (error) {
+				found.error = String(error);
+			} finally {
+				await vscode.workspace.fs.delete(loader).then(undefined, () => undefined);
+				await vscode.workspace.fs.delete(target).then(undefined, () => undefined);
+			}
+			save();
+		}
+
 		// 7b. Every snippet and example of the template plays. This is what catches a
 		// function or a sound name that the pinned Strudel version does not have.
 		const files = (await vscode.workspace.findFiles('{lib,examples}/**/*.strudel')).sort((a, b) => a.path.localeCompare(b.path));

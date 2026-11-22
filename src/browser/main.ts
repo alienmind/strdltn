@@ -348,10 +348,18 @@ function drawRows(): void {
 	const last = Math.min(rows.length, Math.ceil((resultsBox.scrollTop + resultsBox.clientHeight) / height) + 5);
 	spacer.replaceChildren();
 	if (!rows.length) {
-		spacer.appendChild(el('div', 'empty', items.length ? 'Nothing matches. Clear the search or the filters.' : 'Loading...'));
+		spacer.appendChild(el('div', 'empty', emptyText()));
 		return;
 	}
 	for (let index = first; index < last; index++) spacer.appendChild(drawRow(rows[index], index, height));
+}
+
+/** What an empty Results says. An empty Firmware category says how a firmware gets there. */
+function emptyText(): string {
+	if (!items.length) return 'Loading...';
+	if (filter.category === 'firmware' && !items.some((item) => item.kind === 'firmware'))
+		return "No firmware installed. Put a VIBE FM firmware (.wasm) in a firmware folder of the project, or load one in a song with firmware('https://...').";
+	return 'Nothing matches. Clear the search or the filters.';
 }
 
 function drawRow(row: Row, index: number, height: number): HTMLElement {
@@ -398,6 +406,8 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		if (item.kind === 'song') actions.appendChild(button('insert', 'Insert at the cursor: the song\'s code, without its header', () => post({ type: 'insertSong', id: item.id })));
 		// A function's example from the reference, as it is (DAW-PLAN "Insert an example").
 		if (item.kind === 'function' && item.code) actions.appendChild(button('snippet', 'Insert an example', () => post({ type: 'insertText', text: item.code! })));
+		// The firmware's display, run in a popup without sound (Firmware Marketplace in doc/TODO.md).
+		if (item.kind === 'firmware') actions.appendChild(button('screen', 'Show the screen', () => post({ type: 'screen', id: item.id })));
 		if (item.kind === 'snippet') actions.appendChild(button('open', 'Open the file', () => post({ type: 'open', id: item.id })));
 		else if (!opens(item)) actions.appendChild(button('copy', 'Copy the name', () => post({ type: 'copy', id: item.id, index: index_ })));
 		// Colors and tags have their own button: a right click or the keys 1 to 7 were the
@@ -455,6 +465,11 @@ function drawDetails(): void {
 		dot.style.background = colorVar(color);
 		dot.title = `${on ? 'Take out of' : 'Put in'} "${user.colorNames[color - 1]}" (key ${color})`;
 		dot.addEventListener('click', () => post({ type: 'color', ids: targets.map((target) => target.id), color, on: !on }));
+	}
+	if (item.kind === 'firmware') {
+		const screen = collect.appendChild(el('button', 'chip more', 'Screen...'));
+		screen.title = "Show the firmware's display, run without sound";
+		screen.addEventListener('click', () => post({ type: 'screen', id: item.id }));
 	}
 	const tagButton = collect.appendChild(el('button', 'chip more', 'Tags...'));
 	tagButton.title = 'Add or remove your own tags';
@@ -655,6 +670,7 @@ function menuFor(row: Row): MenuEntry[] {
 	if (item.kind === 'song') entries.push({ label: 'Insert at the cursor', run: () => post({ type: 'insertSong', id: item.id }) });
 	if (item.kind === 'function' && item.code) entries.push({ label: 'Insert an example', run: () => post({ type: 'insertText', text: item.code! }) });
 	if (item.kind === 'snippet') entries.push({ label: 'Open the file', run: () => post({ type: 'open', id: item.id }) });
+	if (item.kind === 'firmware') entries.push({ label: 'Show the screen', run: () => post({ type: 'screen', id: item.id }) });
 	entries.push({ label: opens(item) ? 'Copy the path' : item.kind === 'snippet' ? 'Copy the code' : 'Copy the name', run: () => post({ type: 'copy', id: item.id, index }) });
 	entries.push('separator', { label: 'Edit tags...', run: () => editTags() });
 	return entries;

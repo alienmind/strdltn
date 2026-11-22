@@ -5,7 +5,9 @@ import { chooseInsert, type InsertArgument } from '../shared/context';
 import type { SoundInfo } from '../shared/protocol';
 import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
-import { FirmwareCache } from './firmware';
+import { FirmwareCache, FirmwareLibrary } from './firmware';
+import { FirmwareScreen } from './screen';
+import { firmwareLoadEdit, type InstalledFirmware } from '../shared/firmware';
 import { DevicesView } from './devices';
 import { KnobLearn } from './knobs';
 import { MidiBridge } from './midi';
@@ -56,6 +58,10 @@ export interface StrdltnApi {
 	browserPreviews(): string[];
 	/** The Mixer's model of the song in front. */
 	mixer(): ReturnType<MixerView['current']>;
+	/** The firmwares of the Library's Firmware category, and what the screen popup reports. */
+	firmware(): { installed: InstalledFirmware[]; screen: ReturnType<FirmwareScreen['current']> };
+	/** Opens the screen popup of an installed firmware, as its button in the Library does. */
+	firmwareScreen(id: string | undefined): void;
 	/** The firmware copies the Devices view lists, the frames passed on, and what its page reports. */
 	devices(): ReturnType<DevicesView['current']>;
 	/** Unfolds the named strips of the Mixer, folds the others, and returns what it reports. */
@@ -91,6 +97,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const sessions = new Set<Session>();
 	const packs = new PackCache(output);
 	const firmwareCache = new FirmwareCache(output);
+	const firmwareLibrary = new FirmwareLibrary(firmwareCache);
+	context.subscriptions.push(firmwareLibrary);
 	const midi = new MidiBridge(context.asAbsolutePath('dist'), output);
 	context.subscriptions.push(midi);
 	const snippets = new SnippetLibrary();
@@ -100,7 +108,13 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		playing: () => [...sessions].some((s) => s.started),
 		control: (message) => mixer.control(message),
 		insert: (text, bare, argument) => insertText(text, bare, argument),
+		insertFirmware: (text, bare, url) => insertFirmware(text, bare, url),
+		showScreen: (id) => screen.show(id),
 	});
+	// The popup's Insert does what the Library row's does.
+	const screen = new FirmwareScreen(context, firmwareLibrary, output, (id) => void browser.handle({ type: 'insert', id: `firmware:${id}` }));
+	context.subscriptions.push(firmwareLibrary.onDidChange((list) => browser.setFirmware(list)));
+	void firmwareLibrary.refresh();
 	// The MIDI category of the Browser: the ports of this machine, kept current by the worker (it reads them every 2 s).
 	// Only where the extension host runs on the user's machine: in a Codespace it would list the cloud machine's.
 	context.subscriptions.push(midi.onPorts((ports) => browser.setMidiPorts(ports)));
@@ -482,7 +496,41 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		}
 		const last = lastSession('editor');
 		if (last) return last.insert(text, bare, argument);
+		// A tab of ours is in front (the firmware screen), and the song is in the native editor beside it.
+		const visible = vscode.window.visibleTextEditors.find(isStrudel);
+		if (visible) {
+			const code = visible.document.getText();
+			await visible.edit((builder) => builder.replace(visible.selection, chooseInsert(code, visible.document.offsetAt(visible.selection.start), text, bare, argument)));
+			return;
+		}
 		void vscode.window.showInformationMessage('Open a .strudel file to insert into.');
+	}
+
+	/** The song an insert goes into, picked as insertText picks it. */
+	function insertTarget(): vscode.TextDocument | undefined {
+		const native = vscode.window.activeTextEditor;
+		return (activeEditorSession() ?? (isStrudel(native) ? undefined : lastSession('editor')))?.document ?? (isStrudel(native) ? native.document : vscode.window.visibleTextEditors.find(isStrudel)?.document);
+	}
+
+	/**
+	 * A firmware's line at the cursor. A cached firmware plays only in a song that loads it, so when the song has no
+	 * `firmware('<url>')` for it, that line goes in first, at the top (firmwareLoadEdit). Both editors follow a
+	 * WorkspaceEdit, and the cursor moves with the text above it, so the line at the cursor still lands where it was.
+	 */
+	async function insertFirmware(text: string, bare: string, url?: string): Promise<void> {
+		const document = insertTarget();
+		if (url && document) {
+			const code = lf(document.getText());
+			const load = firmwareLoadEdit(code, url);
+			if (load) {
+				const at = lineColumn(code, load.offset);
+				const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+				const edit = new vscode.WorkspaceEdit();
+				edit.insert(document.uri, new vscode.Position(at.line, at.character), load.text.replace(/\n/g, eol));
+				await vscode.workspace.applyEdit(edit);
+			}
+		}
+		return insertText(text, bare);
 	}
 
 	/**
@@ -701,6 +749,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		browserPreviews: () => [...browser.previews],
 		mixer: () => mixer.current(),
 		devices: () => devices.current(),
+		firmware: () => ({ installed: firmwareLibrary.all(), screen: screen.current() }),
+		firmwareScreen: (id) => (id ? screen.show(id) : screen.close()),
 		mixerShow: async (unfold) => {
 			if (!mixerPlace.floating) await vscode.commands.executeCommand('strdltn.mixer.focus');
 			return mixer.show(unfold);

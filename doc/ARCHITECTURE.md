@@ -211,7 +211,7 @@ the drawer).
 
 | View | id | Shows |
 |---|---|---|
-| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and its categories: All, Sounds, Drums, Samples, Instruments, Render, MIDI, Songs, Snippets |
+| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and its categories: All, Sounds, Drums, Samples, Firmware, Render, MIDI, Songs, Snippets |
 | Reference | `strdltn.reference` | Its categories: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
 | Results | `strdltn.results` | The chips, the result bar, the results of all views in one list, and the details pane |
 
@@ -293,7 +293,7 @@ sound list (see below), the snippets under `lib/`, the songs, and the functions 
 `@strudel/reference`. The build writes `dist/functions.json` from the reference: name,
 synonyms, description as text, parameters, the first example and the source file, 518
 functions after doubles and inner names (`_fast`) are left out, 166 KB. An item has a
-stable id that the user data hangs on: `sound:bd`, `sound:vibefm1:obervave`,
+stable id that the user data hangs on: `sound:bd`, `firmware:obervave`,
 `snippet:drums/four-on-the-floor`, `song:examples/01-chords.strudel`, `fn:lpf`.
 
 | Category | Holds | Headings |
@@ -301,7 +301,7 @@ stable id that the user data hangs on: `sound:bd`, `sound:vibefm1:obervave`,
 | Sounds | Synths, soundfonts, wavetables, ZZFX | Synths, Soundfonts, Wavetables |
 | Drums | Drum machine sounds, and pack sounds named `<bank>_<sound>` | The bank. Its button types `.bank("...")` |
 | Samples | Local samples, the default samples, other pack sounds | Local samples, Default samples, each pack |
-| Instruments | The VIBE FM firmwares, one row each | - |
+| Firmware | The VIBE FM firmwares on disk, one row each (`firmwareItems`). Replaced Instruments on 2026-11-22, which held the same rows | Installed; later Available |
 | Snippets | The files under `lib/` | The `@category` |
 | Songs | Every `.strudel` file | The folder |
 | Functions | The functions of Strudel | The group from the source file: Effect, Pattern, Signal, Tonal... |
@@ -968,7 +968,7 @@ into `{ s: 'vibefm1', n: 'obervave' }` (checked with `@strudel/mini` 1.2.6, also
 trigger picks the firmware from `n` on every hap. So the firmware is a pattern value: `s("vibefm1:<obervave sloop>")`
 changes it per cycle. A number picks by position in the folder and wraps, as `bd:3` does for samples; no `n` is the
 first one. An id that is not in the folder logs one error with the ids there are. The Browser shows each firmware
-of `vibefm1` (`SoundInfo.variations`) as a row under Instruments, and inserting one types `vibefm1:<id>`.
+in its Firmware category, see "Firmware category" below.
 
 The catch: a later `.n()` replaces the firmware. `s("vibefm1:obervave").n("0 2").scale("c2:minor")` ends up with
 `n` gone, and then plays the first firmware. Put `n(...).scale(...)` first, or use `note`. The first time `vibefm1`
@@ -1082,6 +1082,48 @@ one frame in flight per panel: the view answers when it has painted, and only th
 frame. On desktop that gives the full rate; in a Codespace it gives whatever the connection carries, about 12 to 15
 frames a second for one panel on this one, with a delay of one frame instead of seconds. `Uint8Array` arrived as
 `Uint8Array` there too. Compressing the frame (OBERVAVE's screen is mostly flat colour) is not measured.
+
+**The hub's catalogs.** Read from Node on 2026-11-22, for the Firmware Marketplace (`doc/TODO.md`).
+
+| Address | What | Headers |
+|---|---|---|
+| `play.thefirmwarehub.com/firmware/index.json` | The Playground's list: a JSON array of 43 VIBE FM builds. Fields: `id`, `file` (relative, `firmware/<id>.wasm?v=<stamp>`), `name`, `version`, `author`, `description`, `order` (all 43), `license` (42; GPL-3.0 in three spellings, MPL-2.0, MIT), `protocol` (28, all 7), `cheat` (26, a cheat sheet `.html`), `stage` (5, `{w, h}`), `memory_mb`, `memory_whole`, `buffer_ms`, `touch`. No `sha256`, no picture | No CORS header. `cache-control: no-cache`, an `etag` and `last-modified` (changed that same day). The `.wasm` files: no CORS, `application/wasm` |
+| `thefirmwarehub.com/catalog.json` | The list the hub offers app makers: 294 FM-1 firmwares as `.fwsc` packages, with `sha256`, `lic`, `source`, `card` (a picture) and more. No VIBE FM builds | `access-control-allow-origin: *`, `max-age=600` |
+| `thefirmwarehub.com/fw/natives.json` | The native VIBE firmwares, an object by id: `version`, `date`, `repo`, `card`, `name`; one entry `held` with the reason | `access-control-allow-origin: *` |
+
+The hub's rules for app makers (`thefirmwarehub.com/kb/#catalog`): `catalog.json` is CC BY 4.0 with attribution
+("Firmware list: The Firmware Hub - thefirmwarehub.com", as a link); the makers' texts and pictures are theirs; read it
+at most once a day with a User-Agent that names the app; do not read the pages; download packages from the makers'
+releases, not from the hub; install only what matches its `sha256`. `index.json` is not mentioned. So nothing of ours
+reads it at run time until the hub's author answers (decision 13). Native firmwares put a `.wasm`, a `.zip`, sometimes
+`SHA256SUMS` and a screenshot on their own GitHub releases; converted ones (OBERVAVE among them) do not.
+
+**Firmware category.** The Library's Firmware category lists the firmwares on disk, under Installed. `FirmwareLibrary`
+(`src/extension/firmware.ts`) finds every folder named by `strdltn.firmwareFolder` in the workspace (findFiles, both
+layouts) and every finished download in `.strdltn/cache/firmware/` of each workspace folder (read with
+`readDirectory`: the cache's `.gitignore` says `*`). A cached copy is named by its address (`firmwareIdFromUrl`, the same
+function the engine uses) and described by the `firmware.json` in its `.zip`, when it is one; a bare `.wasm` has only
+its id, shown in capitals. Watchers and `FirmwareCache.onDidChange` scan again, 300 ms after the last event. A folder
+firmware wins over a cached one of the same id, as in the engine. A row plays a test note only when an engine knows the
+firmware (by its position, as `vibefm1:3`); the Library shows every folder, but a song plays only the one nearest to it.
+
+Insert types `note("c2 eb2 g2 bb2").s("vibefm1:<id>")`, or `vibefm1:<id>` inside a string. A cached firmware plays only
+in a song that loads it, so when the song has no `firmware('<url>')` for it, that line goes in first
+(`firmwareLoadEdit`): after the song's last `firmware(` call, else after the comments at the top. It is a
+`WorkspaceEdit`, applied before the insert at the cursor; both editors move the cursor with the text above it. Measured
+in the integration test on 2026-11-22: the line lands after the comments, the note line at the cursor, and a second
+insert adds no second load line.
+
+**Firmware screen.** The screen button of a row (or "Screen..." in the details) opens a tab beside the song, without the
+focus, reused for the next firmware (`FirmwareScreen`, `src/extension/screen.ts`, page `src/screen/`). The page fetches
+the file from disk (`asWebviewUri`, so it works in a Codespace), unpacks a `.zip` with `fflate`, compiles it and runs
+`VibeCore` on its own thread, without sound: per animation frame it renders the frames the clock says have passed (at
+most 0.1 s after the tab was hidden), and draws about 30 times a second. Its CSP adds `'wasm-unsafe-eval'` to
+`script-src` and the webview's own source to `connect-src`. F1 to F6 and the scroll wheel send the same events as the
+Devices view. The tab keeps no page while hidden; a new page says `ready` and gets the firmware again, which starts it
+anew. Measured on 2026-11-22: OBERVAVE in Node renders 400 blocks of 128 frames and draws in 18 ms, and its first
+frame that is not blank comes after 24 blocks (64 ms); in VS Code 1.147 the popup painted 30 frames with 236 parameters
+read, with `new WebAssembly.Instance` on the page's main thread (no worker needed for this size).
 
 ## Level meters
 

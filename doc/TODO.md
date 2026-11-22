@@ -33,7 +33,9 @@ Merged as PR #11, version 0.5.0: MIDI knobs on every slider, the Mixer's Master 
 (step 1) is done: `play.thefirmwarehub.com/firmware/index.json` can be read, but the hub's rules for
 app makers do not cover it (see "Firmware Marketplace"). The maintainer chose on 2026-11-22 to build
 the Installed group, the snippet and the screen preview first; the Available group waits for
-decision 13. Item 20 (melody and drum-rack line actions) waits for the maintainer's go.
+decision 13. Built on the branch: the Firmware category of the Library (it replaced Instruments),
+Insert with the song's `firmware()` line, and the screen popup. Waiting for the hand test below.
+Item 20 (melody and drum-rack line actions) waits for the maintainer's go.
 
 Next in line:
 
@@ -48,7 +50,7 @@ Next in line:
 | 20 | More line actions: a melody button on every line that plays notes, which opens a piano roll fitted to that line and records notes from a MIDI keyboard, quantized to the tempo; and a drum rack button on every drum line, a grid of pads as Live's Drum Rack, each pad mapped to a note, with a record button per rack (the maintainer, 2026-11-22). Goes with items 18 and 7 | To plan, not designed. See "Line actions: melody and drums" |
 | 1 | MIDI: devices in the Browser, playing through them, mappings. Next: MIDI routing in the Mixer, cables from a chain to the MIDI instrument it plays; its button "Show MIDI Routing" is in the Mixer's utility column, disabled until then (the maintainer, 2026-11-22) | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
 | 2 | A list of sound cards to send the sound to | Not possible in the webview (S6: the microphone is refused, so no names or ids). Windows' per-app output does it by hand. See "Sound card" |
-| 4 | Firmware Marketplace: the hub's firmwares in the Library, Installed and Available, download, a snippet into the code, a preview of the screen in a popup. The next branch after `feat/knobs` (the maintainer, 2026-11-22) | Planned, not built. Step 1, the catalog, first. See "Firmware Marketplace" under "Firmware Hub" |
+| 4 | Firmware Marketplace: the hub's firmwares in the Library, Installed and Available, download, a snippet into the code, a preview of the screen in a popup (the maintainer, 2026-11-22) | Installed, Insert and the screen popup built on `feat/firmware-marketplace`, waiting for the hand test. Available waits for decision 13. See "Firmware Marketplace" under "Firmware Hub" |
 | 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
 | 6a | Songs: an "Insert at the cursor" button beside "Open", which types the song's code without its header | Built on `feat/knobs`, waiting for the hand test |
 | 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
@@ -63,10 +65,23 @@ Next in line:
 
 ## Next: test by hand
 
-Every hand check of `feat/knobs` (30 of them) passed on 2026-11-22, and `pnpm test:vscode`
-passed the same day: 38 files with no problem, no typing failure, the Mixer with 10 strips.
-The one warning, the demo's `samples('github:alienmind/strdltn/main/template/samples')`
-answering 404, goes away once the branch is on `main`. Nothing waits for a hand test.
+`feat/firmware-marketplace`. Test on **desktop VS Code, the Extension Development Host
+launched with F5**, folder `template/`.
+
+| # | Do this | Should happen |
+|---|---------|---------------|
+| 1 | Library, click Firmware | Results shows Installed with OBERVAVE (the demo caches it). Instruments is gone from the Library |
+| 2 | Click the OBERVAVE row | The details pane shows the code it inserts (the `firmware(...)` line and the note line), its id and where it was downloaded from, and a "Screen..." button |
+| 3 | Click the screen button of the row (a display icon) | A tab opens beside the song, without taking the focus: OBERVAVE's logo screen moves, F1 to F6 under it, "Running here without sound" |
+| 4 | Press F1 to F6 and scroll on the screen | The firmware's pages and values change |
+| 5 | Close the song tabs, open a new `.strudel` file with `$: s("bd*4")`, put the cursor on an empty line, press "Insert at the cursor" in the screen tab | `firmware('https://...obervave.wasm')` goes in at the top, the note line at the cursor |
+| 6 | Play | The kick and OBERVAVE's chord play |
+| 7 | Insert again from the Library row | Only the note line goes in, the `firmware(...)` line stays once |
+| 8 | Copy a `.wasm` into a `firmware/` folder of the project | It shows under Installed within a second, by the name of its json when it has one |
+| 9 | Delete `.strdltn/cache/firmware/` and the `firmware/` folder | Firmware says "No firmware installed" and how to get one |
+
+Expected still broken: no Available group (decision 13); the README still says Instruments,
+because `README.md` holds the maintainer's own uncommitted changes.
 
 The intermittent typing failures of the integration test are still an open lead: see
 "Integration test" under "Open leads" below.
@@ -107,7 +122,7 @@ it.
 | 10 | Marketplace: publisher id and token (see "Publishing") | Waiting |
 | 11 | Should the test screenshots keep the title "[Extension Development Host]"? The debug text in the corner is gone, the status bar item replaced it | Kept |
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
-| 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com) before building? We would ask for a catalog feed with CORS, and say that we host the `.wasm` with our own code, not with his emulator | Nothing sent |
+| 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com)? The hub's rules for app makers (`thefirmwarehub.com/kb/#catalog`, read 2026-11-22) offer only `catalog.json`, which lists FM-1 `.fwsc` packages we cannot play, and say: download from the makers' releases, not from the hub. The Playground's `index.json` has the 43 VIBE FM builds but is not covered. We would ask whether an app may read `index.json` (once a day, with a User-Agent) and download the `.wasm` from the Playground, or for a VIBE FM list in `catalog.json` | Nothing sent. The Available group of the Firmware Marketplace waits for the answer (the maintainer, 2026-11-22) |
 | 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
 | 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. The SHRUB editor panel stays as an experiment behind its setting; the fm1-emu way stays open. Its editor cannot reach a real FM-1 from VS Code: a webview has no MIDI, and a frame of another site cannot be given ours. In a browser ("Open in browser") it can, if VS Code does not hold the FM-1's port: a Windows MIDI port opens in one program at a time |
 | 16 | The wave editor (item 11) builds on AudioMass, which is not on npm and has no releases or tags. How does it come in? | Answered 2026-11-22: from the maintainer's fork `alienmind/AudioMass`, pinned to a tag we make there. The tag `strdltn-1` is made. See "Wave editor" |
@@ -279,7 +294,7 @@ Read from the hub's pages on 2026-11-20. Not tested.
 
 | # | Step | Done when |
 |---|---|---|
-| 1 | Catalog: find a list we may use. Try `play.thefirmwarehub.com/firmware/index.json` from Node, look at the hub's pages, ask the author (decision 13). Write the result in `doc/ARCHITECTURE.md` | We know the URL, the fields and how often it changes |
+| 1 | Catalog: done 2026-11-22, see "The hub's catalogs" in `doc/ARCHITECTURE.md`. What we may use waits for decision 13 | |
 | 2 | The hub's catalog in the host: fetched and kept for a day, works offline from the last copy. A firmware picked from it goes through `firmware(url)` and the cache that exists, with a SHA-256 check when the catalog has one | `pnpm test:unit` covers the unpack and the cache paths |
 | 3 | Check the transport with a firmware that has its own sequencer (SLOOP) | It follows play, stop and `setcps` |
 | 4 | `.vp()` for parameters by their id, through `VIBE_EV_PARAM`. `VibeCore` already reads the list and has the event | A slider moves a firmware parameter |
@@ -316,11 +331,27 @@ place of step 5 above (the Firmware view) and grows steps 2 and 9.
 - **Done when:** the hand test finds a firmware under Available, downloads it, sees its
   screen, inserts it, and it plays.
 
-Order of work: step 1 (the catalog) first, from Node, read only: fetch
-`play.thefirmwarehub.com/firmware/index.json`, write down its fields and its CORS headers
-in ARCHITECTURE "Firmware". If it cannot be used, the Available group waits for decision 13
-(asking the hub's author for a feed), and the branch builds Installed, the snippet and the
-preview first.
+Where it stands (2026-11-22): step 1, the catalog, is done; the fields and headers are in
+ARCHITECTURE, "The hub's catalogs". `index.json` can be read from Node, but the hub's rules
+do not cover it, so the Available group waits for decision 13 (the maintainer). Built:
+
+- The Firmware category with Installed, which replaced Instruments (it held the same rows).
+- Insert: the note line at the cursor, and the song's `firmware('<url>')` line at the top
+  when a cached firmware is not loaded by the song yet.
+- The screen popup, which runs the firmware from disk without sound. A still image of a
+  firmware not downloaded is not possible: `index.json` has no picture; only some makers'
+  GitHub releases have a screenshot.
+
+Left, once decision 13 is answered: the Available group from the catalog, kept a day; a
+download button on its rows, through `FirmwareCache`, with a SHA-256 check when the catalog
+has one; the screen of an Available firmware ("download to see it"). Not decided: whether
+the snippet should carry `.progNum()`. We left it out, because a program number means
+something else in each firmware and a program change reloads a sound.
+
+Native VIBE firmwares (6 on 2026-11-22, `thefirmwarehub.com/fw/natives.json`) publish
+their `.wasm`, a `.zip`, sometimes `SHA256SUMS` and a screenshot on their own GitHub
+releases. That would follow the hub's rule "download from the makers' releases", but covers
+only those 6, not the 35 converted ones, which exist only on the Playground.
 
 ### Effects on a firmware
 
@@ -392,7 +423,8 @@ can play here, and test it. Started, then put aside for fm1-emu. What we know, r
 - `play.thefirmwarehub.com/firmware/index.json`: the 43 VIBE FM builds the Playground plays.
   35 of them are hub firmwares; 8 exist only for VIBE FM (VALVE, BOOM, HALO, PLAYER, VOX,
   DOOM, Performance Garden, KRACHT). `thefirmwarehub.com/fw/natives.json` lists the native
-  ones with their repos. Neither sends a CORS header: the host fetches them.
+  ones with their repos. `index.json` sends no CORS header, `natives.json` does since
+  2026-11-22 (see "The hub's catalogs" in ARCHITECTURE).
 - A VIBE FM build is either converted (the hub's `thefirmwarehub.com/convert` compiles the
   unchanged source against an imitated FM-1, 8 ms buffer) or native (the author ports to the
   SDK, 4 ms). Both need source. See the SDK's `FROM-FM1.md`.

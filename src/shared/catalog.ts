@@ -4,9 +4,10 @@
 import type { SoundInfo } from './protocol.ts';
 import type { InsertArgument } from './context.ts';
 import type { SnippetInfo } from './snippet.ts';
+import { firmwareCode, type InstalledFirmware } from './firmware.ts';
 import { functionGroup, isPackTag, snippetTags, soundTags, splitBank, splitWords } from './tags.ts';
 
-export type ItemKind = 'sound' | 'snippet' | 'song' | 'function' | 'render' | 'midi';
+export type ItemKind = 'sound' | 'snippet' | 'song' | 'function' | 'render' | 'midi' | 'firmware';
 
 /** The rows of "Library" in the Browser. */
 export const CATEGORIES = [
@@ -14,7 +15,9 @@ export const CATEGORIES = [
 	{ id: 'sounds', label: 'Sounds', icon: 'keyboard' },
 	{ id: 'drums', label: 'Drums', icon: 'drum' },
 	{ id: 'samples', label: 'Samples', icon: 'sample' },
-	{ id: 'instruments', label: 'Instruments', icon: 'midi' },
+	// VIBE FM firmwares: Installed (the project's firmware/ folders and the cache). See firmwareItems. It took the
+	// place of Instruments on 2026-11-22, which held the same firmwares and nothing else.
+	{ id: 'firmware', label: 'Firmware', icon: 'firmware' },
 	// The audio of songs: renders and recordings, next to their song. See src/shared/render.ts.
 	{ id: 'renders', label: 'Render', icon: 'render' },
 	// The MIDI ports of the machine, from the extension host (src/extension/midi.ts). Desktop only.
@@ -75,6 +78,8 @@ export interface CatalogItem {
 	fields?: { name: string; value: string }[];
 	/** A file to open: a snippet or a song, relative to its workspace folder. */
 	path?: string;
+	/** A cached firmware: the address a song needs in `firmware('...')` to play it. */
+	url?: string;
 }
 
 /** What the user gave the items, kept in `strdltn.index.json` of the project. */
@@ -97,6 +102,12 @@ export interface SavedSearch {
 	chips: string[];
 }
 
+/** A category kept from an earlier version: Instruments is Firmware now, and an unknown one is All. */
+export function knownCategory(id: unknown): CategoryId {
+	if (id === 'instruments') return 'firmware';
+	return CATEGORIES.some((c) => c.id === id) ? (id as CategoryId) : 'all';
+}
+
 export function emptyUserIndex(): UserIndex {
 	return { version: 1, colorNames: [...DEFAULT_COLOR_NAMES], items: {}, searches: [] };
 }
@@ -111,7 +122,7 @@ export function readUserIndex(json: unknown): UserIndex {
 		version: 1,
 		colorNames: base.colorNames.map((name, i) => (typeof names[i] === 'string' && names[i] ? names[i] : name)),
 		items: data.items && typeof data.items === 'object' ? data.items : {},
-		searches: Array.isArray(data.searches) ? data.searches.filter((s) => s && typeof s.name === 'string') : [],
+		searches: Array.isArray(data.searches) ? data.searches.filter((s) => s && typeof s.name === 'string').map((s) => ({ ...s, category: knownCategory(s.category) })) : [],
 	};
 }
 
@@ -128,7 +139,7 @@ export function writeUserIndex(index: UserIndex): string {
 
 /** Which Library category a sound belongs to. */
 function soundCategory(sound: SoundInfo): CatalogItem['category'] {
-	if (sound.type === 'firmware') return 'instruments';
+	if (sound.type === 'firmware') return 'firmware';
 	if (sound.tag === 'drum-machines') return 'drums';
 	if (sound.type === 'sample') return isPackTag(sound.tag) && splitBank(sound.name) ? 'drums' : 'samples';
 	return 'sounds';
@@ -136,33 +147,15 @@ function soundCategory(sound: SoundInfo): CatalogItem['category'] {
 
 const TYPE_GROUPS: Record<string, string> = { synth: 'Synths', soundfont: 'Soundfonts', wavetable: 'Wavetables' };
 
-/** One row per sound of the engine's list. A firmware host (`vibefm1`) becomes one row per firmware. */
+/** One row per sound of the engine's list. The firmware host (`vibefm1`) has none: its firmwares are firmwareItems. */
 export function soundItems(sounds: SoundInfo[]): CatalogItem[] {
 	const items: CatalogItem[] = [];
 	for (const sound of sounds) {
 		const category = soundCategory(sound);
 		const place: PlaceId = sound.tag === 'local' ? 'project' : isPackTag(sound.tag) ? 'packs' : 'builtin';
 		const tags = soundTags(sound);
-		if (sound.type === 'firmware' && sound.variations?.length) {
-			for (const [index, id] of sound.variations.entries()) {
-				items.push({
-					id: `sound:${sound.name}:${id}`,
-					kind: 'sound',
-					label: id,
-					detail: sound.name,
-					category,
-					place: 'project',
-					group: 'VIBE FM firmwares',
-					tags,
-					text: `${sound.name} firmware`,
-					insert: `${sound.name}:${id}`,
-					sound: sound.name,
-					index,
-					soundType: sound.type,
-				});
-			}
-			continue;
-		}
+		// A firmware host (`vibefm1`) is shown by its firmwares, in the Firmware category: see firmwareItems.
+		if (sound.type === 'firmware') continue;
 		const split = splitBank(sound.name);
 		const inBank = category === 'drums' && split;
 		const group =
@@ -285,6 +278,51 @@ export function midiItem(name: string, direction: 'out' | 'in'): CatalogItem {
 /** A device's name inside single quotes: a backslash or a quote in it is escaped. */
 const quoted = (name: string) => name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+/**
+ * The Firmware category: one row per firmware the host found on disk, under Installed. A firmware in a `firmware/`
+ * folder wins over a cached one of the same id, as it does in the engine. `engine` is the firmwares the engine of a
+ * song knows, in its order: those rows can play a test note, by their position, as `vibefm1:3` would.
+ */
+export function firmwareItems(installed: InstalledFirmware[], engine: string[] = []): CatalogItem[] {
+	const byId = new Map<string, InstalledFirmware>();
+	for (const fw of installed) {
+		const known = byId.get(fw.id);
+		if (!known || (known.from === 'cache' && fw.from === 'folder')) byId.set(fw.id, fw);
+	}
+	return [...byId.values()]
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map((fw) => {
+			const index = engine.indexOf(fw.id);
+			const tags = ['Source/Firmware', 'Sounds/Synth', ...(fw.author ? [`Maker/${fw.author}`] : [])];
+			const fields = [
+				{ name: 'id', value: `vibefm1:${fw.id}` },
+				...(fw.version ? [{ name: 'version', value: fw.version }] : []),
+				...(fw.author ? [{ name: 'author', value: fw.author }] : []),
+				...(fw.license ? [{ name: 'license', value: fw.license }] : []),
+				{ name: fw.from === 'cache' ? 'downloaded from' : 'file', value: fw.url ?? fw.path },
+			];
+			return {
+				id: `firmware:${fw.id}`,
+				kind: 'firmware',
+				label: fw.name,
+				detail: [fw.version && `v${fw.version.replace(/^v/i, '')}`, fw.author].filter(Boolean).join('  ') || undefined,
+				category: 'firmware',
+				place: 'project',
+				group: 'Installed',
+				tags,
+				text: [fw.id, fw.name, fw.author ?? '', fw.license ?? '', fw.description ?? '', 'firmware vibe fm'].join(' ').toLowerCase(),
+				insert: firmwareCode(fw.id).code,
+				...(index >= 0 ? { sound: 'vibefm1', index, soundType: 'firmware' } : {}),
+				description: fw.description,
+				// What insert types, with the load line a cached one also gets when the song has none (firmwareLoadEdit).
+				code: fw.url ? `firmware('${fw.url}')\n${firmwareCode(fw.id).code}` : firmwareCode(fw.id).code,
+				fields,
+				path: fw.path,
+				url: fw.url,
+			} satisfies CatalogItem;
+		});
+}
+
 /** Songs and audio open when picked; everything else is typed at the cursor. */
 export const opens = (item: CatalogItem): boolean => item.kind === 'song' || item.kind === 'render';
 
@@ -338,12 +376,11 @@ const PITCHED = new Set(['synth', 'soundfont', 'wavetable', 'firmware']);
  *   sample            s("bd"), s("bd:3")
  *   drum machine      s("bd").bank("RolandTR909")
  *   synth, soundfont  note("c3").s("sawtooth")
- *   firmware          note("c3").s("vibefm1:obervave")
  */
 export function soundCode(item: CatalogItem, index?: number): { code: string; name: string } | undefined {
 	if (item.kind !== 'sound' || !item.sound) return undefined;
 	const variation = index === undefined ? undefined : (item.variations?.[index] ?? String(index));
-	const name = item.index !== undefined ? (item.insert ?? item.sound) : variation === undefined ? item.sound : `${item.sound}:${variation}`;
+	const name = variation === undefined ? item.sound : `${item.sound}:${variation}`;
 	if (item.bank) {
 		const short = variation === undefined ? item.label : `${item.label}:${variation}`;
 		return { code: `s("${short}").bank("${item.bank}")`, name };

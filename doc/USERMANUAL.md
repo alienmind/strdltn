@@ -174,7 +174,7 @@ The row at the top of the Library:
   only what does not (your project and the packs your songs load), a third everything.
 - **Collections.** Save a search with the button in the Results, and it becomes a row here.
 - **Categories.** All, Sounds (synths and soundfonts), Drums (by drum machine), Samples,
-  Instruments (firmware synths), Render (the audio of your songs), MIDI (your devices),
+  Firmware (firmware synths), Render (the audio of your songs), MIDI (your devices),
   Songs, Snippets. The Reference has Functions: every function of Strudel with its
   documentation.
 
@@ -370,6 +370,11 @@ follows once you play.
   with `firmware('https://.../name.wasm')`; it is kept in your project and plays offline.
 - **Play it:** `note("c2 eb2").s("vibefm1:obervave")`. `.progNum(55)` picks one of its sounds.
   The firmware can change per step: `s("vibefm1:<obervave sloop>")`.
+- **Find it in the Library:** the **Firmware** category lists the firmwares you have, under
+  Installed. Insert at the cursor types the line that plays one, and the `firmware(...)` line
+  at the top of the song when the song does not load it yet. The display button opens the
+  firmware's **screen** in a tab beside the song, running without sound, so you can see it
+  and press its keys before you use it.
 
 ![OBERVAVE playing on two orbits, each with its own panel](manual/devices.png)
 

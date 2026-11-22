@@ -6,7 +6,7 @@
 import * as strudelWebaudio from '@strudel/webaudio';
 import { unzipSync } from 'fflate';
 import type { DeviceInfo, DeviceParam, DeviceRequest } from '../../shared/devices';
-import type { FirmwareCacheMap } from '../../shared/firmware';
+import { type FirmwareCacheMap, firmwareIdFromUrl } from '../../shared/firmware';
 import type { FirmwareInfo } from '../../shared/protocol';
 import type { VibeEvent } from './core';
 import type { FromVibeWorklet, ToVibeWorklet } from './worklet';
@@ -99,10 +99,7 @@ export function setFirmwareCache(map: FirmwareCacheMap): void {
 	cache = map;
 }
 
-function idFromUrl(url: string): string {
-	const file = url.split(/[?#]/)[0].split('/').pop() ?? '';
-	return file.replace(/\.[^.]*$/, '').replace(/-vibe$/, '');
-}
+const idFromUrl = firmwareIdFromUrl;
 
 function apply(): void {
 	const list = [...local, ...[...remote.values()].filter((fw) => !local.some((l) => l.id === fw.id))];

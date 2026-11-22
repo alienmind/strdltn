@@ -5,7 +5,9 @@ import type { BrowserFilterState, BrowserPage, FromBrowser, ToBrowser } from '..
 import {
 	type CatalogItem,
 	type FunctionDoc,
+	firmwareItems,
 	functionItem,
+	knownCategory,
 	midiItem,
 	readUserIndex,
 	renderItem,
@@ -16,6 +18,7 @@ import {
 	type UserIndex,
 	writeUserIndex,
 } from '../shared/catalog';
+import { firmwareCode, type InstalledFirmware } from '../shared/firmware';
 import type { SoundInfo } from '../shared/protocol';
 import { filterItems } from '../shared/search';
 import { parseSnippet, setSnippetTags } from '../shared/snippet';
@@ -38,6 +41,10 @@ export interface BrowserActions {
 	control(message: FromControls): void;
 	/** `bare` goes in instead when the cursor is inside a string. */
 	insert(text: string, bare?: string, argument?: InsertArgument): Promise<void>;
+	/** As insert, and a cached firmware's `firmware('<url>')` line at the top of the song when it has none. */
+	insertFirmware(text: string, bare: string, url?: string): Promise<void>;
+	/** Opens the popup with a firmware's screen. */
+	showScreen(id: string): void;
 }
 
 const FILTER_KEY = 'strdltn.browserFilter';
@@ -66,6 +73,7 @@ export class BrowserView {
 	/** The filter of all views. Kept per workspace, so a reload shows the same. */
 	private filter: BrowserFilterState;
 	private sounds: SoundInfo[] = [];
+	private firmware: InstalledFirmware[] = [];
 	private functions: FunctionDoc[] = [];
 	private items: CatalogItem[] = [];
 	private user: UserIndex = readUserIndex(undefined);
@@ -80,7 +88,8 @@ export class BrowserView {
 		private readonly actions: BrowserActions,
 	) {
 		this.preview = context.globalState.get(PREVIEW_KEY, true);
-		this.filter = { ...NO_FILTER, ...context.workspaceState.get<Partial<BrowserFilterState>>(FILTER_KEY) };
+		const kept = { ...NO_FILTER, ...context.workspaceState.get<Partial<BrowserFilterState>>(FILTER_KEY) };
+		this.filter = { ...kept, category: knownCategory(kept.category) };
 		snippets.onDidChange(() => this.rebuild());
 		songs.onDidChange(() => this.rebuild());
 	}
@@ -98,6 +107,12 @@ export class BrowserView {
 
 	setSounds(sounds: SoundInfo[]): void {
 		this.sounds = sounds;
+		this.rebuild();
+	}
+
+	/** The firmwares on disk, from FirmwareLibrary. */
+	setFirmware(list: InstalledFirmware[]): void {
+		this.firmware = list;
 		this.rebuild();
 	}
 
@@ -156,7 +171,9 @@ export class BrowserView {
 		const snippetItems = this.snippets.all().map((snippet) => snippetItem(snippet, vscode.workspace.asRelativePath(snippet.uri)));
 		const renders = this.songs.renders().map((audio) => renderItem(audio.path, audio.song));
 		const midi = [...this.midiPorts.outputs.map((name) => midiItem(name, 'out')), ...this.midiPorts.inputs.map((name) => midiItem(name, 'in'))];
-		this.items = [...soundItems(this.sounds), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
+		// The engine's order of its firmwares: a row plays by its position, as `vibefm1:3` does.
+		const engine = this.sounds.find((sound) => sound.type === 'firmware')?.variations ?? [];
+		this.items = [...soundItems(this.sounds), ...firmwareItems(this.firmware, engine), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
 		// A pack loads hundreds of sounds one by one, and each change would send 2000 items.
 		clearTimeout(this.pushTimer);
 		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
@@ -231,6 +248,10 @@ export class BrowserView {
 				const item = this.item(message.id);
 				if (!item) return;
 				if (item.kind === 'song' || item.kind === 'render') return this.open(item);
+				if (item.kind === 'firmware') {
+					const code = firmwareCode(item.id.slice('firmware:'.length));
+					return this.actions.insertFirmware(code.code, code.name, item.url);
+				}
 				if (item.kind === 'sound') {
 					const sound = soundCode(item, message.index);
 					if (sound) return this.actions.insert(sound.code, sound.name);
@@ -243,6 +264,11 @@ export class BrowserView {
 			}
 			case 'insertText':
 				return this.actions.insert(message.text);
+			case 'screen': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware') this.actions.showScreen(item.id.slice('firmware:'.length));
+				return;
+			}
 			case 'insertSong': {
 				const item = this.item(message.id);
 				const uri = item?.kind === 'song' && item.path ? this.songs.uri(item.path) : undefined;
@@ -255,7 +281,7 @@ export class BrowserView {
 			}
 			case 'copy': {
 				const item = this.item(message.id);
-				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'song' || item.kind === 'render' ? item.path : item.kind === 'midi' ? item.label : item.insert);
+				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'firmware' ? firmwareCode(item.id.slice('firmware:'.length)).name : item.kind === 'song' || item.kind === 'render' ? item.path : item.kind === 'midi' ? item.label : item.insert);
 				if (text) await vscode.env.clipboard.writeText(text);
 				return;
 			}

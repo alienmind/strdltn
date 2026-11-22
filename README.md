@@ -102,6 +102,9 @@ browser.
 - The window button in the Mixer's title floats it in a window of its own. The dock
   button, or closing that window, puts it back in the panel.
 
+- A level meter behind each strip's gain fader, as in Live: two bars on a 0 to 60 dB scale, and the highest peak
+  above them, orange when it went over 0 dB. A click starts the peak again. A Master strip meters the whole mix.
+
 **Render and record**
 
 - Record, the red circle in Music Controls: plays the song and records what you hear into a `.wav` and an `.mp3` next to

@@ -110,6 +110,12 @@ export type ToWebview =
 export interface ScopeFrame {
 	chain: string;
 	level: number;
+	/**
+	 * The chain's real audio, left and right: the loudest sample of the last 50 ms in dBFS (0 is full scale, above 0
+	 * clips at the speakers), null for silence. Read from a meter the engine puts after each of the chain's notes.
+	 * `chain` is `@master` for the whole mix.
+	 */
+	peak?: [number | null, number | null];
 }
 
 export type FromWebview =

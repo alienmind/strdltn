@@ -40,7 +40,8 @@ Version 0.4.0 is collected on the branch `feat/midi`, not merged: phase 5, MIDI 
 through the extension host (ARCHITECTURE "MIDI"), the demo's levels brought down, and
 Record and Render, which write a song's audio next to it as `.wav` and `.mp3` and list it
 under Render in the Library (ARCHITECTURE "Render and record"; built on `feat/render`,
-merged into `feat/midi` on 2026-11-22). Next on it: level meters on the Mixer's strips.
+merged into `feat/midi` on 2026-11-22), and level meters on the Mixer's strips with a Master
+strip (ARCHITECTURE "Level meters").
 
 Next in line:
 

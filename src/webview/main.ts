@@ -160,6 +160,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			return { cycle: scheduler?.started ? scheduler.now() : 0, cps: scheduler?.cps ?? 0.5, playing: !!scheduler?.started || renderingNow };
 		},
 		devices: (devices) => post({ type: 'devices', devices }),
+		meter: meterInput,
 		frame: (key, px, values) => post({ type: 'frame', key, px, values }),
 	});
 
@@ -170,7 +171,15 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		// Every note passes here on its way to superdough: the Mixer's pump meter counts it.
 		defaultOutput: (hap: any, deadline: number, duration: number, cps: number, t: number) => {
 			noteHit(hap, t);
-			return strudelWebaudio.webaudioOutput(hap, deadline, duration, cps, t);
+			// superdough reaches getOrbit before its first await, so while this call runs the note's chain is known
+			// there: see meterOrbits.
+			meterOrbits();
+			meterChain = String(hap?.value?.[CHAIN_KEY] ?? '');
+			try {
+				return strudelWebaudio.webaudioOutput(hap, deadline, duration, cps, t);
+			} finally {
+				meterChain = undefined;
+			}
 		},
 		getTime: () => strudelWebaudio.getAudioContext().currentTime,
 		transpiler,
@@ -776,7 +785,12 @@ function sendLevels(): void {
 			levels.set(hit.chain, Math.max(levels.get(hit.chain) ?? 0, hit.level));
 			return false;
 		});
-		post({ type: 'scopes', scopes: [...levels].map(([chain, level]) => ({ chain, level: Math.round(level * 1000) / 1000 })) });
+		const peaks = readMeters();
+		const chains = new Set([...levels.keys(), ...peaks.keys()]);
+		post({
+			type: 'scopes',
+			scopes: [...chains].map((chain) => ({ chain, level: Math.round((levels.get(chain) ?? 0) * 1000) / 1000, ...(peaks.has(chain) ? { peak: peaks.get(chain) } : {}) })),
+		});
 	}, 50);
 }
 
@@ -1079,4 +1093,103 @@ async function renderSong(cycles: number): Promise<void> {
 	} catch (error) {
 		post({ type: 'audioError', kind: 'render', message: String((error as Error)?.message ?? error) });
 	}
+}
+
+// ---- level meters ----------------------------------------------------------------------
+//
+// The Mixer's meters show each chain's real audio, as Live's do. superdough plays a note through its own nodes and
+// ends with `orbit.connectToOutput(post)`, where `post` is that note's last node, after its own effects and before
+// the orbit's shared ones. superdough gets the orbit with `getOrbit` before its first await, so while defaultOutput
+// runs it the note's chain is known (`meterChain`): the controller's getOrbit is wrapped to hand back the orbit with a
+// connectToOutput that also feeds the chain's meter. Nothing in the song changes, unlike a per-chain `analyze`, which
+// a song's own `.scope()` takes over (see the drawer, "Per-chain scopes from the analysers"). Chains on one orbit get
+// meters of their own; the orbit's shared room and delay are not in them. Firmwares are metered where their node
+// joins the orbit (`meter` of the firmware host).
+
+/** The chain of the note superdough is being given right now, or undefined. */
+let meterChain: string | undefined;
+
+interface Meter {
+	context: BaseAudioContext;
+	input: GainNode;
+	left: AnalyserNode;
+	right: AnalyserNode;
+}
+const meters = new Map<string, Meter>();
+let masterMeter: Meter | undefined;
+const METER_BUFFER = new Float32Array(2048);
+
+function makeMeter(context: BaseAudioContext): Meter {
+	const input = context.createGain();
+	const split = context.createChannelSplitter(2);
+	const left = context.createAnalyser();
+	const right = context.createAnalyser();
+	left.fftSize = right.fftSize = 2048;
+	input.connect(split);
+	split.connect(left, 0);
+	split.connect(right, 1);
+	return { context, input, left, right };
+}
+
+/** The meter of a chain in the current AudioContext. A render makes a new context, so meters follow it. */
+function meterFor(chain: string): Meter | undefined {
+	const context = strudelWebaudio.getAudioContext();
+	if (context instanceof OfflineAudioContext) return undefined;
+	let meter = meters.get(chain);
+	if (!meter || meter.context !== context) meters.set(chain, (meter = makeMeter(context)));
+	return meter;
+}
+
+/** Wraps getOrbit of superdough's controller once per controller. */
+function meterOrbits(): void {
+	const controller = strudelWebaudio.getSuperdoughAudioController() as any;
+	if (!controller || controller.strdltnMeters) return;
+	controller.strdltnMeters = true;
+	const getOrbit = controller.getOrbit.bind(controller);
+	controller.getOrbit = (orbitNum: number, channels?: number) => {
+		const orbit = getOrbit(orbitNum, channels);
+		const chain = meterChain;
+		if (chain === undefined) return orbit;
+		return new Proxy(orbit, {
+			get(target, prop) {
+				if (prop === 'connectToOutput')
+					return (node: AudioNode) => {
+						target.connectToOutput(node);
+						const meter = meterFor(chain);
+						if (meter) node.connect(meter.input);
+					};
+				const value = Reflect.get(target, prop, target);
+				return typeof value === 'function' ? value.bind(target) : value;
+			},
+		});
+	};
+}
+
+function readPeak(analyser: AnalyserNode): number | null {
+	analyser.getFloatTimeDomainData(METER_BUFFER);
+	let peak = 0;
+	for (let i = 0; i < METER_BUFFER.length; i++) peak = Math.max(peak, Math.abs(METER_BUFFER[i]));
+	return peak > 1e-6 ? Math.round(2000 * Math.log10(peak)) / 100 : null;
+}
+
+/** Each chain's peak of the last 2048 samples (about 43 ms) in dBFS, and the whole mix's as `@master`. */
+function readMeters(): Map<string, [number | null, number | null]> {
+	const out = new Map<string, [number | null, number | null]>();
+	const context = strudelWebaudio.getAudioContext();
+	for (const [chain, meter] of meters) if (meter.context === context) out.set(chain, [readPeak(meter.left), readPeak(meter.right)]);
+	const tap = (strudelWebaudio.getSuperdoughAudioController() as any)?.output?.destinationGain as AudioNode | undefined;
+	if (tap && !(context instanceof OfflineAudioContext)) {
+		if (!masterMeter || masterMeter.context !== context) {
+			masterMeter = makeMeter(context);
+			tap.connect(masterMeter.input);
+		}
+		out.set('@master', [readPeak(masterMeter.left), readPeak(masterMeter.right)]);
+	}
+	return out;
+}
+
+/** For the firmware host: the input of a chain's meter, where a firmware's node joins in too. */
+function meterInput(value: any): AudioNode | undefined {
+	const chain = value?.[CHAIN_KEY];
+	return chain === undefined ? undefined : meterFor(String(chain))?.input;
 }

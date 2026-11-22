@@ -118,6 +118,7 @@ function draw(): void {
 		jacks.in[index] = input!;
 		strips.appendChild(strip);
 	});
+	if (model.chains.length) strips.appendChild(masterStrip());
 	outJacks = jacks.out;
 	drawnCables = model.ducks
 		.filter((duck) => duck.to !== undefined && jacks.out[duck.from] && jacks.in[duck.to])
@@ -145,7 +146,9 @@ function chainOf(label: string): number {
 /** Each chain's level joins its history, and the boxes of chains with `._scope()` draw it. */
 function drawScopes(frames: ScopeFrame[]): void {
 	if (!model) return;
+	feedMeters(frames);
 	for (const frame of frames) {
+		if (frame.chain === '@master') continue;
 		const history = histories.get(frame.chain) ?? [];
 		history.push(frame.level);
 		if (history.length > HISTORY) history.shift();
@@ -184,6 +187,8 @@ function drawWave(canvas: HTMLCanvasElement, history: number[]): void {
 
 function clearScopes(): void {
 	histories.clear();
+	for (const state of meterStates.values()) state.left = state.right = -Infinity;
+	drawMeters();
 	strips.querySelectorAll<HTMLCanvasElement>('canvas.scope').forEach((canvas) => drawWave(canvas, []));
 }
 
@@ -311,9 +316,13 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 
 	const faders = body.appendChild(el('div', 'faders'));
 	const shown = open ? sliders : chain.gain !== undefined ? [chain.gain] : [];
-	for (const i of shown) faders.appendChild(fader(m.sliders[i!]));
-	// No gain slider: a fader that cannot move, until G puts one in the code.
-	if (!shown.length) faders.appendChild(disabledFader(sliders.length));
+	for (const i of shown) {
+		const box = faders.appendChild(fader(m.sliders[i!]));
+		// The gain fader sits on the chain's level meter, as in Live's mixer.
+		if (i === chain.gain) addMeter(box, String(index));
+	}
+	// No gain slider: a fader that cannot move, until G puts one in the code. The meter still shows the chain.
+	if (chain.gain === undefined) addMeter(faders.insertBefore(disabledFader(sliders.length), faders.firstChild), String(index));
 
 	// The chain's scope under its faders. With `._scope()` in the chain it is green and moves
 	// while the song plays; without, a gray flat line, and a click adds the `._scope()`, as
@@ -402,7 +411,8 @@ function report(): void {
 	requestAnimationFrame(() =>
 		post({
 			type: 'state',
-			strips: [...strips.querySelectorAll<HTMLElement>('.strip')].map((strip) => ({
+			// The chains' strips: the master strip is not one of them.
+			strips: [...strips.querySelectorAll<HTMLElement>('.strip:not(.master)')].map((strip) => ({
 				name: strip.querySelector('.name')?.textContent ?? '',
 				unfolded: strip.classList.contains('open'),
 				faders: strip.querySelectorAll('.fader').length,
@@ -423,4 +433,123 @@ function jackSymbols(): string {
 <g id="jack-socket"><circle r="11.5" fill="url(#jack-shadow)" transform="translate(1 1.2)"/><circle r="10" fill="url(#jack-bezel)"/><circle r="7.6" fill="url(#jack-bevel)"/><circle r="5.6" fill="url(#jack-hole)"/><circle r="5.6" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="0.6"/><path d="M -6.6 -3.2 A 7.4 7.4 0 0 1 -1.8 -7.2" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="0.8" stroke-linecap="round"/></g>
 <g id="jack-plug"><circle r="7.2" fill="currentColor"/><circle r="7.2" fill="url(#jack-shine)"/><circle r="4.6" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="0.7"/><circle r="2.4" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="0.7"/></g>
 </defs></svg>`;
+}
+
+// ---- level meters -----------------------------------------------------------------------
+//
+// As Live's: two bars, left and right, on a scale from 0 down to 60 dB, behind the gain fader, and above them the
+// highest peak so far ("-Inf" before any sound, orange above 0 dB, where it clips at the speakers). A click on it
+// starts the peak again. The engine sends each chain's peak of the last 50 ms in dBFS with the levels
+// (`ScopeFrame.peak`, see "Level meters" in doc/ARCHITECTURE.md); `@master` is the whole mix.
+
+const METER_FLOOR = -60;
+/** How fast a bar falls when the sound stops, in dB a second, about as Live's. */
+const METER_FALL = 24;
+const meterStates = new Map<string, { left: number; right: number; hold: number; at: number }>();
+
+function meterState(key: string) {
+	let state = meterStates.get(key);
+	if (!state) meterStates.set(key, (state = { left: -Infinity, right: -Infinity, hold: -Infinity, at: 0 }));
+	return state;
+}
+
+function feedMeters(frames: ScopeFrame[]): void {
+	const now = performance.now();
+	for (const frame of frames) {
+		if (!frame.peak) continue;
+		const key = frame.chain === '@master' ? 'master' : String(chainOf(frame.chain));
+		if (key === '-1') continue;
+		const state = meterState(key);
+		const fall = state.at ? (METER_FALL * (now - state.at)) / 1000 : Infinity;
+		const [l, r] = frame.peak.map((v) => (v === null ? -Infinity : v));
+		state.left = Math.max(l, state.left - fall);
+		state.right = Math.max(r, state.right - fall);
+		state.hold = Math.max(state.hold, l, r);
+		state.at = now;
+	}
+	drawMeters();
+}
+
+/** Turns a fader box into a metered one: the meter in a well behind the fader, the peak above. */
+function addMeter(box: HTMLElement, key: string): void {
+	box.classList.add('metered');
+	const input = box.querySelector('input');
+	const well = el('div', 'meter-well');
+	const canvas = well.appendChild(el('canvas', 'meter'));
+	canvas.dataset.meter = key;
+	if (input) {
+		input.replaceWith(well);
+		well.appendChild(input);
+	} else box.appendChild(well);
+	box.insertBefore(peakHold(key), well);
+	requestAnimationFrame(drawMeters);
+}
+
+function peakHold(key: string): HTMLElement {
+	const hold = el('button', 'peakhold', '-Inf');
+	hold.dataset.meter = key;
+	hold.title = 'Peak: the highest level so far, in dB below full scale. Above 0 it clips. Click to start again';
+	hold.addEventListener('click', () => {
+		meterState(key).hold = -Infinity;
+		drawMeters();
+	});
+	return hold;
+}
+
+/** The whole mix, as Live's Master track: its meter and peak, no fader. */
+function masterStrip(): HTMLElement {
+	const strip = el('section', 'strip master');
+	const head = strip.appendChild(el('header'));
+	head.appendChild(el('span', 'name', 'Master')).title = 'The whole mix, as it goes to the speakers';
+	const box = strip.appendChild(el('div', 'body')).appendChild(el('div', 'faders')).appendChild(el('div', 'fader'));
+	addMeter(box, 'master');
+	box.appendChild(el('span', 'label', 'out'));
+	return strip;
+}
+
+function drawMeters(): void {
+	for (const canvas of strips.querySelectorAll<HTMLCanvasElement>('canvas.meter')) drawMeter(canvas, meterState(canvas.dataset.meter!));
+	for (const hold of strips.querySelectorAll<HTMLElement>('.peakhold')) {
+		const value = meterState(hold.dataset.meter!).hold;
+		hold.textContent = Number.isFinite(value) ? value.toFixed(2) : '-Inf';
+		hold.classList.toggle('over', value > 0);
+	}
+}
+
+function drawMeter(canvas: HTMLCanvasElement, state: { left: number; right: number }): void {
+	if (!canvas.isConnected) return;
+	const dpr = devicePixelRatio;
+	const width = (canvas.width = Math.max(1, Math.round(canvas.clientWidth * dpr)));
+	const height = (canvas.height = Math.max(1, Math.round(canvas.clientHeight * dpr)));
+	const g = canvas.getContext('2d')!;
+	g.clearRect(0, 0, width, height);
+	const style = getComputedStyle(canvas);
+	const pad = 5 * dpr;
+	const top = pad;
+	const bottom = height - pad;
+	const y = (db: number) => top + (Math.min(0, Math.max(METER_FLOOR, db)) / METER_FLOOR) * (bottom - top);
+	// Two bars and the scale to their right, as in Live.
+	const bar = Math.max(2 * dpr, Math.round(width * 0.11));
+	const x0 = Math.round(width * 0.34);
+	const gradient = g.createLinearGradient(0, bottom, 0, top);
+	gradient.addColorStop(0, '#3fb950');
+	gradient.addColorStop(0.75, '#3fb950');
+	gradient.addColorStop(0.9, '#d4b84a');
+	gradient.addColorStop(1, '#f14c4c');
+	[state.left, state.right].forEach((db, i) => {
+		const x = x0 + i * (bar + dpr);
+		g.fillStyle = 'rgba(0, 0, 0, .45)';
+		g.fillRect(x, top, bar, bottom - top);
+		if (db <= METER_FLOOR) return;
+		g.fillStyle = db > 0 ? '#f14c4c' : gradient;
+		g.fillRect(x, y(db), bar, bottom - y(db));
+	});
+	g.fillStyle = style.color;
+	g.font = `${8 * dpr}px ${style.fontFamily}`;
+	g.textBaseline = 'middle';
+	const xs = x0 + 2 * bar + 4 * dpr;
+	for (let db = 0; db >= METER_FLOOR; db -= 12) {
+		g.fillRect(xs - 2 * dpr, y(db), 2 * dpr, dpr);
+		g.fillText(String(-db), xs + 3 * dpr, y(db));
+	}
 }

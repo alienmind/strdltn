@@ -136,3 +136,50 @@ button:disabled { cursor: default; opacity: .35; }
 	.badges { flex-direction: row; justify-content: center; padding-top: 2px; }
 	.fader input { height: clamp(48px, calc(100vh - 256px), 400px); }
 }
+
+/* Level meters, as Live's: behind the gain fader, the meter in a well; the fader's track is clear so the meter
+   shows through, and its thumb is a small triangle that points at the bars. The peak above: orange above 0 dB. */
+.meter-well { position: relative; width: 100%; height: clamp(48px, calc(100vh - 252px), 400px); margin: 2px 0 4px; }
+.meter-well canvas.meter { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--vscode-descriptionForeground); font-family: var(--vscode-font-family); }
+.fader.metered .meter-well input {
+	position: absolute;
+	inset: 0;
+	height: 100%;
+	width: 100%;
+	margin: 0;
+	-webkit-appearance: none;
+	appearance: none;
+	background: transparent;
+}
+.fader.metered .meter-well input::-webkit-slider-runnable-track { background: transparent; border: 0; }
+.fader.metered .meter-well input::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 12px;
+	height: 12px;
+	margin-left: -2px;
+	background: var(--vscode-foreground, #ccc);
+	clip-path: polygon(0 50%, 100% 0, 100% 100%);
+	cursor: grab;
+}
+.fader.metered.off .meter-well input::-webkit-slider-thumb { background: var(--vscode-disabledForeground, #888); cursor: default; }
+.peakhold {
+	min-width: 36px;
+	padding: 0 3px;
+	border-radius: 8px;
+	font-family: var(--vscode-editor-font-family, monospace);
+	font-size: 10px;
+	line-height: 15px;
+	background: rgba(0, 0, 0, .35);
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+.peakhold.over { background: #f0a23a; color: #000; font-weight: 600; }
+/* A chain without a gain fader still has its meter at full strength; only the dead fader is dim. */
+.fader.off.metered { opacity: 1; }
+.fader.off.metered .label, .fader.off.metered .value, .fader.off.metered input { opacity: .4; }
+.strip.master { min-width: 64px; }
+.strip.master .name { font-weight: 600; }
+@media (min-height: 420px) {
+	.meter-well { height: clamp(48px, calc(100vh - 278px), 400px); }
+}

@@ -19,6 +19,8 @@ export interface VibeHost {
 	devices(list: DeviceInfo[]): void;
 	/** A display frame of a copy, while a panel of the Devices view shows it. */
 	frame(key: string, px: Uint8Array, values: number[]): void;
+	/** The level meter of the chain a note comes from, for the Mixer. */
+	meter?(value: any): AudioNode | undefined;
 }
 
 interface Instance {
@@ -33,6 +35,8 @@ interface Instance {
 	bpm?: number;
 	/** The program last sent per channel. A program change reloads a sound, so it is not sent with every note. */
 	programs: Map<number, number>;
+	/** The chain meters this copy already feeds. */
+	metered?: Set<AudioNode>;
 }
 
 /** The instrument's name in a song. */
@@ -226,6 +230,13 @@ async function trigger(t: number, value: any): Promise<undefined> {
 	// A firmware that just loaded should not play the first notes late: drop what is already more than a block past.
 	if (t < ac.currentTime - 128 / rate) return undefined;
 	const events = noteEvents(t, value, rate, instance.programs);
+	// The firmware's sound joins its orbit here, not through superdough's notes, so its chain's meter is fed here. Two
+	// chains on one copy both see the whole copy.
+	const meter = host.meter?.(value);
+	if (meter && !(instance.metered ??= new Set()).has(meter)) {
+		instance.metered.add(meter);
+		instance.node.connect(meter);
+	}
 	sendClock(instance);
 	instance.post({ t: 'events', events });
 	return undefined;

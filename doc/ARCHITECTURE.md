@@ -1064,6 +1064,33 @@ frame. On desktop that gives the full rate; in a Codespace it gives whatever the
 frames a second for one panel on this one, with a delay of one frame instead of seconds. `Uint8Array` arrived as
 `Uint8Array` there too. Compressing the frame (OBERVAVE's screen is mostly flat colour) is not measured.
 
+## Level meters
+
+Each strip of the Mixer has a level meter behind its gain fader, as in Live's mixer: two bars, left and right, on a
+scale from 0 down to 60 dB, and above them the highest peak so far in dB ("-Inf" before any sound, orange above 0 dB,
+where it clips at the speakers; a click starts it again). A Master strip at the end meters the whole mix. Built on
+2026-11-22 on `feat/midi`, asked by the maintainer after Record measured the demo peaking at +8.3 dB.
+
+The meters show the real audio, not the notes (the pump meter under the faders still shows the notes). superdough plays
+each note through its own nodes and ends with `orbit.connectToOutput(post)`; `post` is that note's last node, after
+its own effects and before the orbit's shared room and delay. superdough calls `getOrbit` before its first `await`
+(read in superdough 1.3.0), so while our `defaultOutput` runs it the note's chain is still known (`meterChain`, from
+the chain tag of the pump meter). `meterOrbits` wraps the controller's `getOrbit` to hand back the orbit through a
+`Proxy` whose `connectToOutput` also feeds the chain's meter: a gain, a channel splitter and two `AnalyserNode`s. A
+song's own `.scope()` and `analyze` are untouched, which a per-chain `analyze` would not be (see the drawer, "Per-chain
+scopes from the analysers"). A firmware's node joins its orbit outside superdough, so `trigger` feeds the meter of the
+chain the note comes from (`meter` of the firmware host); two chains on one firmware copy both see the whole copy. The
+master meter taps `destinationGain`, the node in front of the speakers.
+
+Every 50 ms, with the pump meter's levels, the engine reads the last 2048 samples (about 43 ms) of each meter and sends
+the peak in dBFS (`ScopeFrame.peak`, null for silence, `@master` for the mix). The Mixer page lets a bar fall 24 dB a
+second, keeps the peak, and draws both on a canvas under the fader, whose track is clear and whose thumb is a small
+triangle.
+
+Seen on 2026-11-22 in a development host with the demo playing: peaks of -8.92 dB (vocals) to -20.64 dB (bass), -Inf
+for chains not yet heard, and -5.38 dB on the master. Not measured: how close the meter's peak is to the true peak
+between two reads (a read sees 43 ms of every 50 ms).
+
 ## Render and record
 
 Two buttons of Music Controls, beside Play and Stop, write a song's audio next to it, as a `.wav` and then an `.mp3`.

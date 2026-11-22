@@ -1,7 +1,7 @@
 /* The Mixer view. Every color is a theme variable of VS Code, so it fits any theme. */
 :root {
 	/* The width of a folded strip. Long names are cut, the whole name is in the tooltip. */
-	--strip: 78px;
+	--strip: 88px;
 	--fader: 40px;
 	--sidechain: var(--vscode-charts-orange, #d18616);
 }
@@ -137,15 +137,18 @@ button:disabled { cursor: default; opacity: .35; }
 	.fader input { height: clamp(48px, calc(100vh - 256px), 400px); }
 }
 
-/* Level meters, as Live's: behind the gain fader, the meter in a well; the fader's track is clear so the meter
-   shows through, and its thumb is a small triangle that points at the bars. The peak above: orange above 0 dB. */
-.meter-well { position: relative; width: 100%; height: clamp(48px, calc(100vh - 252px), 400px); margin: 2px 0 4px; }
+/* Level meters, as Live's. Left to right in the well: the fader's lane (13 pixels, METER_LANE in main.ts) with its
+   triangle pointing at the bars, the two bars, the scale. The fader's track is clear, so the meter is the track. The
+   peak sits above: orange above 0 dB. */
+.fader.metered { width: 60px; }
+.meter-well { position: relative; width: 100%; height: clamp(60px, calc(100vh - 262px), 400px); margin: 3px 0 5px; }
 .meter-well canvas.meter { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--vscode-descriptionForeground); font-family: var(--vscode-font-family); }
 .fader.metered .meter-well input {
 	position: absolute;
-	inset: 0;
+	left: 0;
+	top: 0;
 	height: 100%;
-	width: 100%;
+	width: 13px;
 	margin: 0;
 	-webkit-appearance: none;
 	appearance: none;
@@ -155,31 +158,33 @@ button:disabled { cursor: default; opacity: .35; }
 .fader.metered .meter-well input::-webkit-slider-thumb {
 	-webkit-appearance: none;
 	appearance: none;
-	width: 12px;
+	width: 11px;
 	height: 12px;
-	margin-left: -2px;
 	background: var(--vscode-foreground, #ccc);
-	clip-path: polygon(0 50%, 100% 0, 100% 100%);
+	clip-path: polygon(0 0, 100% 50%, 0 100%);
 	cursor: grab;
 }
-.fader.metered.off .meter-well input::-webkit-slider-thumb { background: var(--vscode-disabledForeground, #888); cursor: default; }
+.fader.metered .meter-well input:focus-visible { outline: none; }
+.fader.metered .meter-well input:focus-visible::-webkit-slider-thumb { background: var(--vscode-focusBorder, #3794ff); }
 .peakhold {
-	min-width: 36px;
-	padding: 0 3px;
-	border-radius: 8px;
+	min-width: 44px;
+	padding: 0 4px;
+	border-radius: 9px;
 	font-family: var(--vscode-editor-font-family, monospace);
-	font-size: 10px;
-	line-height: 15px;
+	font-size: 11px;
+	line-height: 17px;
 	background: rgba(0, 0, 0, .35);
 	color: var(--vscode-foreground);
 	cursor: pointer;
 }
-.peakhold.over { background: #f0a23a; color: #000; font-weight: 600; }
+.peakhold.over { background: #f0a23a; color: #1e1e1e; font-weight: 600; }
+.fader.metered .label { font-size: 11px; }
+.fader.metered .value { font-size: 11px; }
 /* A chain without a gain fader still has its meter at full strength; only the dead fader is dim. */
 .fader.off.metered { opacity: 1; }
-.fader.off.metered .label, .fader.off.metered .value, .fader.off.metered input { opacity: .4; }
-.strip.master { min-width: 64px; }
+.fader.off.metered .label, .fader.off.metered .value, .fader.off.metered input { opacity: .45; }
 .strip.master .name { font-weight: 600; }
+.badges.spacer { visibility: hidden; }
 @media (min-height: 420px) {
-	.meter-well { height: clamp(48px, calc(100vh - 278px), 400px); }
+	.meter-well { height: clamp(60px, calc(100vh - 290px), 400px); }
 }

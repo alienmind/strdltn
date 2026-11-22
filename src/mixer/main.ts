@@ -443,6 +443,8 @@ function jackSymbols(): string {
 // (`ScopeFrame.peak`, see "Level meters" in doc/ARCHITECTURE.md); `@master` is the whole mix.
 
 const METER_FLOOR = -60;
+/** The width of the fader's lane at the left of the meter, in CSS pixels. Matches `.meter-well input` in mixer.css. */
+const METER_LANE = 13;
 /** How fast a bar falls when the sound stops, in dB a second, about as Live's. */
 const METER_FALL = 24;
 const meterStates = new Map<string, { left: number; right: number; hold: number; at: number }>();
@@ -501,7 +503,11 @@ function masterStrip(): HTMLElement {
 	const strip = el('section', 'strip master');
 	const head = strip.appendChild(el('header'));
 	head.appendChild(el('span', 'name', 'Master')).title = 'The whole mix, as it goes to the speakers';
-	const box = strip.appendChild(el('div', 'body')).appendChild(el('div', 'faders')).appendChild(el('div', 'fader'));
+	const body = strip.appendChild(el('div', 'body'));
+	// An empty row where the chains have M, S and G, so every meter starts at the same height.
+	const badges = body.appendChild(el('div', 'badges spacer'));
+	for (const text of ['M', 'S', 'G']) badges.appendChild(el('span', 'badge', text));
+	const box = body.appendChild(el('div', 'faders')).appendChild(el('div', 'fader'));
 	addMeter(box, 'master');
 	box.appendChild(el('span', 'label', 'out'));
 	return strip;
@@ -524,13 +530,15 @@ function drawMeter(canvas: HTMLCanvasElement, state: { left: number; right: numb
 	const g = canvas.getContext('2d')!;
 	g.clearRect(0, 0, width, height);
 	const style = getComputedStyle(canvas);
-	const pad = 5 * dpr;
+	// The top and the bottom of the scale sit where the fader's thumb can reach (its half height, 6 pixels), with
+	// room for the half height of the "0" and "60" labels.
+	const pad = 7 * dpr;
 	const top = pad;
 	const bottom = height - pad;
 	const y = (db: number) => top + (Math.min(0, Math.max(METER_FLOOR, db)) / METER_FLOOR) * (bottom - top);
-	// Two bars and the scale to their right, as in Live.
-	const bar = Math.max(2 * dpr, Math.round(width * 0.11));
-	const x0 = Math.round(width * 0.34);
+	// As in Live, left to right: the lane of the fader's triangle (METER_LANE), two bars, the scale.
+	const bar = 5 * dpr;
+	const x0 = METER_LANE * dpr;
 	const gradient = g.createLinearGradient(0, bottom, 0, top);
 	gradient.addColorStop(0, '#3fb950');
 	gradient.addColorStop(0.75, '#3fb950');
@@ -545,11 +553,11 @@ function drawMeter(canvas: HTMLCanvasElement, state: { left: number; right: numb
 		g.fillRect(x, y(db), bar, bottom - y(db));
 	});
 	g.fillStyle = style.color;
-	g.font = `${8 * dpr}px ${style.fontFamily}`;
+	g.font = `${9.5 * dpr}px ${style.fontFamily}`;
 	g.textBaseline = 'middle';
-	const xs = x0 + 2 * bar + 4 * dpr;
+	const xs = x0 + 2 * bar + dpr + 2 * dpr;
 	for (let db = 0; db >= METER_FLOOR; db -= 12) {
-		g.fillRect(xs - 2 * dpr, y(db), 2 * dpr, dpr);
-		g.fillText(String(-db), xs + 3 * dpr, y(db));
+		g.fillRect(xs, Math.round(y(db)), 3 * dpr, dpr);
+		g.fillText(String(-db), xs + 5 * dpr, y(db) + 0.5 * dpr);
 	}
 }

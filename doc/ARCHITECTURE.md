@@ -636,8 +636,11 @@ s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
 ```
 
 `parseSnippet` reads `// @name value` lines, the same lines inside one block comment,
-and the older upstream form `// "title" @by author`. The header ends at the first line
-that is neither. A file whose top comment has no field has no header, and the comment
+and the older upstream form `// "title" @by author`. A value goes on over the next `//`
+lines indented two spaces or more (`//   more`), and over the next lines without `@` in
+a block comment, so a header line stays under 100 characters; `setSnippetTags` writes
+after such lines, not between them. The header ends at the first line that is none of
+these. A file whose top comment has no field has no header, and the comment
 stays in the code. Every field is shown in the card. `@title` names the row, `@category`
 picks the color, `@tags` become chips. The categories are `drums`, `bass`, `melody`,
 `chords`, `texture`, `effect`, `function`, `song` and `visual`.
@@ -1174,8 +1177,11 @@ An error is a message. Only a syntax error carries a position. `locateError` in
 | name | `x is not defined` | The first use of the name `x` |
 | call | `....x is not a function` | The first call of `.x(` |
 
-The last two take the first place the name is written. When the name is written more
-than once, that may be the wrong one. An error that no rule places goes on the first
+The last two take the first place the name is written outside a comment
+(`withoutComments` blanks comments and skips strings, so the `//` of an address in a
+string stays code). Before that, the `.midi()` in the header of
+`examples/09-midi-out.strudel` took the mark. When the name is written more than once in
+the code, that may still be the wrong one. An error that no rule places goes on the first
 line.
 
 The diagnostic is removed by the next evaluation that works, by closing the editor, and

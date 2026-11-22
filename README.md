@@ -282,6 +282,13 @@ A snippet describes itself in comments at the top:
 s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
 ```
 
+A long value goes on over the next lines, indented two spaces after the `//`:
+
+```
+// @details Kick on every beat, clap on 2 and 4,
+//   open hat on the off beat.
+```
+
 Only the code is inserted. The categories are `drums`, `bass`, `melody`, `chords`,
 `texture`, `effect`, `function`, `song` and `visual`.
 

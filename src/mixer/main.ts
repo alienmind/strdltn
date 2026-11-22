@@ -47,6 +47,17 @@ const tool = (text: string, title: string, onClick?: () => void) => {
 	else button.disabled = true;
 	return button;
 };
+// Expand and collapse every strip at once, at the top of the column (the maintainer,
+// 2026-11-22): ">" shows every inner slider of every chain and the Master's global
+// sliders, "<" folds them all back to their gain.
+const foldAll = (open: boolean) => {
+	unfolded.clear();
+	if (open && model) for (const name of [MASTER, ...model.chains.map((chain) => chain.name)]) unfolded.add(name);
+	keep();
+	draw();
+};
+tool('>', 'Expand every strip: all their sliders', () => foldAll(true)).classList.add('accent');
+tool('<', 'Collapse every strip to its gain', () => foldAll(false)).classList.add('accent');
 const resetMappings = tool('Reset MIDI Mappings', 'Take every .knob(...) and the knob snippet out of the song. Ctrl+Z in the editor brings them back', () => post({ type: 'unmapKnobs' }));
 tool('Show MIDI Mappings', 'Every knob mapped in this song: its CC and the line it moves', () => showMappings(true));
 tool('Show MIDI Routing', 'The cables that route MIDI instruments. Not built yet (doc/TODO.md)');

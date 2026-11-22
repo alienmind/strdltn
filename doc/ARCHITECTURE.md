@@ -1818,7 +1818,9 @@ does. The rules are in `src/shared/knob.ts` with tests; the page side is in
   cut out by a later edit of the knob code, so the Mixer stopped following knobs and drags
   without any error. Restored with the per-frame limit.
 - The Mixer has a column of utility buttons left of the strips, written upright to stay
-  narrow (the maintainer, 2026-11-22; more will come). "Reset MIDI Mappings" (enabled when a
+  narrow (the maintainer, 2026-11-22; more will come). At its top, in the button blue, ">"
+  unfolds every strip (every chain's inner sliders and the Master's global ones) and "<"
+  folds them all back to their gain. "Reset MIDI Mappings" (enabled when a
   slider has a knob): `removeKnobEdits` takes out every `.knob(cc)` on a slider and the
   snippet, as one `WorkspaceEdit`, so one Ctrl+Z brings them back. "Show MIDI Mappings": a
   modal, as Live's MIDI Mappings, with per knob its CC, its line and that line's code

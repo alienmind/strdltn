@@ -276,3 +276,14 @@ table.mappings td.cc, table.mappings td.line { font-family: var(--vscode-editor-
 table.mappings td.code { font-family: var(--vscode-editor-font-family, monospace); max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 table.mappings .remove { padding: 1px 8px; border: 1px solid var(--vscode-panel-border, #555); border-radius: 2px; font-size: 11px; }
 table.mappings .remove:hover { background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, .3)); }
+/* Expand all and collapse all, at the top of the column: short, upright, in the button blue. */
+.tool.accent {
+	writing-mode: horizontal-tb;
+	transform: none;
+	padding: 3px 0;
+	font-weight: 700;
+	background: var(--vscode-button-background, #0e639c);
+	color: var(--vscode-button-foreground, #fff);
+	border-color: transparent;
+}
+.tool.accent:hover:not(:disabled) { background: var(--vscode-button-hoverBackground, #1177bb); }

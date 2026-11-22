@@ -88,7 +88,8 @@ browser.
 - M and S on each strip, above its scope. M mutes and S solos the chain, written as
   upstream's own labels (`_kick:`, `Skick:`); a song that plays is updated at once.
 - A click on the gain fader's triangle, without dragging it, takes the gain fader out of the
-  code; on a chain without one, the dim triangle puts one in (`.gain(slider(1, 0, 1))`).
+  code; on a chain without one, the dim triangle puts one in (`.gain(slider(1, 0, 1))`). A
+  gain that comes from a knob or a pattern keeps working: the fader scales it.
   The gain's value shows in the corner of the strip's scope.
 - The jack at the foot of a strip tells its orbit when the mouse is over it.
 - Sidechain cables: a chain with `.duck("2:3")` is cabled to the chains on those orbits.

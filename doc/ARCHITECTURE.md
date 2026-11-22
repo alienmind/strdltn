@@ -552,8 +552,10 @@ sync"). M and S flip `_` and `S` on the label. Both on is `Skick_`, because upst
 silences a label that ends with `_` before it looks at the solo. After a mute or solo
 the host evaluates the song again if it plays (`MixerActions.evaluate`), since upstream
 reads the labels only on evaluation. G adds `.gain(slider(1, 0, 1))` at the end of the
-chain's own spine, or makes a fixed `.gain(0.8)` a slider, and G off removes the
-`.gain(...)` call that holds the fader. A chain without a gain fader shows the dim triangle. The integration test clicks all three on a scratch song (`zz-mixer-test.strudel`)
+chain's own spine, makes a fixed `.gain(0.8)` a slider, or scales a gain that is not a
+number, `.gain(KICK)` becoming `.gain(KICK.mul(slider(1, 0, 1)))`: a second `.gain()` after
+it would win and silence the knob (seen by the maintainer on 2026-11-22). G off removes the
+`.gain(...)` call that holds the fader, or gives a scaled gain back as it was. A chain without a gain fader shows the dim triangle. The integration test clicks all three on a scratch song (`zz-mixer-test.strudel`)
 and reads the text after each click.
 
 Sliders are counted in the order of the code, the same order as the transpiler's widgets,

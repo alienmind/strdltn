@@ -223,10 +223,31 @@ export function gainEdit(code: string, chain: number): { from: number; to: numbe
 			const level = argument.value as number;
 			return { from: argument.start, to: argument.end, insert: `slider(${code.slice(argument.start, argument.end)}, 0, ${Math.max(1, level)})` };
 		}
+		// A gain that is not a number (a knob, `.gain(KICK)`, or a pattern) is scaled by the fader, not replaced: a
+		// second `.gain(...)` after it would win, and the knob went silent (the maintainer, 2026-11-22).
+		if (argument) {
+			const text = code.slice(argument.start, argument.end);
+			const simple = ['Identifier', 'Literal', 'CallExpression', 'MemberExpression', 'TemplateLiteral'].includes(argument.type);
+			return { from: argument.start, to: argument.end, insert: `${simple ? text : `(${text})`}.mul(slider(1, 0, 1))` };
+		}
 		return { from: expression.end, to: expression.end, insert: '.gain(slider(1, 0, 1))' };
 	}
 	const slider = model.sliders[target.gain];
 	if (!gainCall || !slider) return undefined;
+	// G off on a scaled gain gives the gain back as it was: `.gain(KICK.mul(slider(...)))` becomes `.gain(KICK)`.
+	const scaled = gainCall.arguments?.[0] as Node | undefined;
+	if (
+		scaled?.type === 'CallExpression' &&
+		scaled.callee.type === 'MemberExpression' &&
+		scaled.callee.property?.name === 'mul' &&
+		scaled.arguments?.length === 1 &&
+		slider.from >= scaled.arguments[0].start &&
+		slider.from < scaled.arguments[0].end
+	) {
+		const base = scaled.callee.object as Node;
+		const inner = code.slice(base.start, base.end);
+		return { from: scaled.start, to: scaled.end, insert: /^\(.*\)$/s.test(inner) ? inner.slice(1, -1) : inner };
+	}
 	// Only the spine's own gain, the one that holds the fader: its slider, or the constant it names.
 	const inside = code.slice(gainCall.callee.property.end, gainCall.end);
 	const holds = (slider.from >= gainCall.start && slider.from < gainCall.end) || (slider.constant !== undefined && new RegExp(`\\b${slider.constant}\\b`).test(inside));

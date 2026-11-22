@@ -206,6 +206,14 @@ test('G adds a gain fader and takes it out again', () => {
 	// A constant: the call goes, the const stays.
 	const constant = 'const V = slider(0.5)\n$a: s("bd")\n  .gain(V)\n  .room(0.2)\n';
 	assert.equal(apply(constant, gainEdit(constant, 0)), 'const V = slider(0.5)\n$a: s("bd")\n  .room(0.2)\n');
+	// A gain from a knob or a pattern is scaled by the fader, and G off gives it back.
+	const knob = '$kick: s("bd*4").gain(KICK)';
+	const scaledOn = apply(knob, gainEdit(knob, 0));
+	assert.equal(scaledOn, '$kick: s("bd*4").gain(KICK.mul(slider(1, 0, 1)))');
+	assert.notEqual(model(scaledOn).chains[0].gain, undefined);
+	assert.equal(apply(scaledOn, gainEdit(scaledOn, 0)), knob);
+	const pattern = '$a: s("bd").gain("1 .5")';
+	assert.equal(apply(pattern, gainEdit(pattern, 0)), '$a: s("bd").gain("1 .5".mul(slider(1, 0, 1)))');
 	// A gain inside a function is not the chain's own.
 	const inner = '$a: s("bd").sometimes(x => x.gain(slider(0.5)))';
 	assert.equal(model(inner).chains[0].gain === undefined || gainEdit(inner, 0) === undefined, true);

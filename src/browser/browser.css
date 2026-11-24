@@ -1,6 +1,8 @@
 /* The Browser view. Every color is a theme variable of VS Code, so it fits any theme. */
 :root {
 	--row: 22px;
+	/* A firmware's row: its name, then its picture, 480 x 320 shown at 108 x 72. */
+	--row-tall: 98px;
 	--c1: var(--vscode-charts-red, #f14c4c);
 	--c2: var(--vscode-charts-orange, #d18616);
 	--c3: var(--vscode-charts-yellow, #cca700);
@@ -138,10 +140,40 @@ svg { display: block; flex: none; }
 .row:hover .actions, .row.cursor .actions { display: flex; }
 .row .actions .icon-button { width: 20px; height: 20px; }
 .empty { padding: 12px; color: var(--vscode-descriptionForeground); }
+.row.tall { align-items: flex-start; padding-top: 2px; }
+.row.tall > :not(.picture) { height: calc(var(--row) - 4px); align-items: center; }
+.row.tall > .twisty, .row.tall > span:not(.actions) { display: flex; }
+.row .picture {
+	position: absolute;
+	top: calc(var(--row) - 1px);
+	width: 108px;
+	height: 72px;
+	border-radius: 3px;
+	overflow: hidden;
+	background: #000;
+	border: 1px solid var(--vscode-panel-border, #444);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--vscode-descriptionForeground);
+	font-size: 10px;
+}
+.row .picture img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.row .picture .badge {
+	position: absolute;
+	right: 2px;
+	bottom: 2px;
+	padding: 0 4px;
+	border-radius: 2px;
+	font-size: 9px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+.nav-row.child { padding-left: 34px; }
 
 .details {
 	flex: none;
-	max-height: 35%;
+	max-height: 50%;
 	overflow-y: auto;
 	padding: 6px 10px 8px 10px;
 	border-top: 1px solid var(--vscode-sideBarSectionHeader-border, var(--vscode-panel-border, transparent));
@@ -166,6 +198,7 @@ svg { display: block; flex: none; }
 .details .tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0; }
 .details .collect { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
 .details .collect .chip.more { margin-left: 4px; }
+.details img.picture { display: block; width: 100%; max-width: 240px; aspect-ratio: 3 / 2; margin: 4px 0; border-radius: 3px; background: #000; }
 
 .menu {
 	position: fixed;

@@ -71,6 +71,8 @@ export type FromBrowser =
 	| { type: 'open'; id: string }
 	/** A firmware's screen, in a popup. */
 	| { type: 'screen'; id: string }
+	/** Installs an Available firmware into the project. */
+	| { type: 'install'; id: string }
 	/** Turns one color on or off for the items. `color` 0 clears every color. */
 	| { type: 'color'; ids: string[]; color: number; on: boolean }
 	| { type: 'tags'; ids: string[]; add: string[]; remove: string[] }

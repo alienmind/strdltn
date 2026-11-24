@@ -4,7 +4,7 @@
 import type { SoundInfo } from './protocol.ts';
 import type { InsertArgument } from './context.ts';
 import type { SnippetInfo } from './snippet.ts';
-import { firmwareCode, type InstalledFirmware } from './firmware.ts';
+import { firmwareCode, type HubFirmware, type InstalledFirmware } from './firmware.ts';
 import { functionGroup, isPackTag, snippetTags, soundTags, splitBank, splitWords } from './tags.ts';
 
 export type ItemKind = 'sound' | 'snippet' | 'song' | 'function' | 'render' | 'midi' | 'firmware';
@@ -15,9 +15,11 @@ export const CATEGORIES = [
 	{ id: 'sounds', label: 'Sounds', icon: 'keyboard' },
 	{ id: 'drums', label: 'Drums', icon: 'drum' },
 	{ id: 'samples', label: 'Samples', icon: 'sample' },
-	// VIBE FM firmwares: Installed (the project's firmware/ folders and the cache). See firmwareItems. It took the
-	// place of Instruments on 2026-11-22, which held the same firmwares and nothing else.
-	{ id: 'firmware', label: 'Firmware', icon: 'firmware' },
+	// Plugins, as in Live: one child per kind of plugin, more kinds to come (the maintainer, 2026-11-24). FM-1 Synths
+	// are the VIBE FM firmwares, Installed and Available (firmwareItems). It took the place of Instruments, which held
+	// the same firmwares and nothing else.
+	{ id: 'plugins', label: 'Plugins', icon: 'plugin' },
+	{ id: 'fm1', label: 'FM-1 Synths', icon: 'firmware', parent: 'plugins' },
 	// The audio of songs: renders and recordings, next to their song. See src/shared/render.ts.
 	{ id: 'renders', label: 'Render', icon: 'render' },
 	// The MIDI ports of the machine, from the extension host (src/extension/midi.ts). Desktop only.
@@ -28,6 +30,14 @@ export const CATEGORIES = [
 	{ id: 'functions', label: 'Functions', icon: 'function' },
 ] as const;
 export type CategoryId = (typeof CATEGORIES)[number]['id'];
+/** A category an item can be in: not All, and not a parent like Plugins, which shows its children's items. */
+export type ItemCategory = Exclude<CategoryId, 'all' | 'plugins'>;
+
+/** The parent of a category, for the indented rows of the Library. */
+export const parentOf = (id: string): CategoryId | undefined => (CATEGORIES.find((c) => c.id === id) as { parent?: CategoryId } | undefined)?.parent;
+
+/** Whether an item of `category` shows when `picked` is picked: the category itself, or its parent. */
+export const inCategory = (category: string, picked: CategoryId): boolean => picked === 'all' || category === picked || parentOf(category) === picked;
 
 /** The rows of "Places": where an item comes from. */
 export const PLACES = [
@@ -49,12 +59,14 @@ export interface CatalogItem {
 	label: string;
 	/** Dim text after the label: the bank, the folder, the tags of a snippet. */
 	detail?: string;
-	category: Exclude<CategoryId, 'all'>;
+	category: ItemCategory;
 	place: PlaceId;
 	/** The heading the row sits under in the results: a bank, a folder, a type. */
 	group: string;
 	/** For a bank heading: what its button types. */
 	groupInsert?: string;
+	/** Headings sort by this first, then by name: Installed before Available. */
+	groupRank?: number;
 	tags: string[];
 	/** Lower case, everything a search term may match besides name and tags. */
 	text: string;
@@ -80,6 +92,10 @@ export interface CatalogItem {
 	path?: string;
 	/** A cached firmware: the address a song needs in `firmware('...')` to play it. */
 	url?: string;
+	/** A picture of it, as a webview URL: a firmware's screen. Its row is taller to show it. */
+	image?: string;
+	/** A firmware of the hub that is not installed: a double click installs it. */
+	available?: boolean;
 }
 
 /** What the user gave the items, kept in `strdltn.index.json` of the project. */
@@ -102,9 +118,9 @@ export interface SavedSearch {
 	chips: string[];
 }
 
-/** A category kept from an earlier version: Instruments is Firmware now, and an unknown one is All. */
+/** A category kept from an earlier version: Instruments and Firmware are FM-1 Synths now, and an unknown one is All. */
 export function knownCategory(id: unknown): CategoryId {
-	if (id === 'instruments') return 'firmware';
+	if (id === 'instruments' || id === 'firmware') return 'fm1';
 	return CATEGORIES.some((c) => c.id === id) ? (id as CategoryId) : 'all';
 }
 
@@ -139,7 +155,7 @@ export function writeUserIndex(index: UserIndex): string {
 
 /** Which Library category a sound belongs to. */
 function soundCategory(sound: SoundInfo): CatalogItem['category'] {
-	if (sound.type === 'firmware') return 'firmware';
+	if (sound.type === 'firmware') return 'fm1';
 	if (sound.tag === 'drum-machines') return 'drums';
 	if (sound.type === 'sample') return isPackTag(sound.tag) && splitBank(sound.name) ? 'drums' : 'samples';
 	return 'sounds';
@@ -279,48 +295,85 @@ export function midiItem(name: string, direction: 'out' | 'in'): CatalogItem {
 const quoted = (name: string) => name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
 /**
- * The Firmware category: one row per firmware the host found on disk, under Installed. A firmware in a `firmware/`
- * folder wins over a cached one of the same id, as it does in the engine. `engine` is the firmwares the engine of a
- * song knows, in its order: those rows can play a test note, by their position, as `vibefm1:3` would.
+ * The FM-1 Synths of Plugins: Installed, one row per firmware the host found on disk, then Available, the hub's
+ * firmwares that are not installed. A firmware in a `firmware/` folder wins over a cached one of the same id, as it does
+ * in the engine. `engine` is the firmwares the engine of a song knows, in its order: those rows can play a test note, by
+ * their position, as `vibefm1:3` would. `images` is the picture of each item's screen, by item id. An Available row keeps
+ * the id it will have once installed, so its colors and tags stay with it.
  */
-export function firmwareItems(installed: InstalledFirmware[], engine: string[] = []): CatalogItem[] {
+export function firmwareItems(installed: InstalledFirmware[], available: HubFirmware[] = [], engine: string[] = [], images: Record<string, string> = {}): CatalogItem[] {
 	const byId = new Map<string, InstalledFirmware>();
 	for (const fw of installed) {
 		const known = byId.get(fw.id);
 		if (!known || (known.from === 'cache' && fw.from === 'folder')) byId.set(fw.id, fw);
 	}
-	return [...byId.values()]
+	const describe = (fw: { name: string; version?: string; author?: string }) => [fw.version && `v${fw.version.replace(/^v/i, '')}`, fw.author].filter(Boolean).join('  ') || undefined;
+	const tagsOf = (fw: { author?: string }) => ['Source/Firmware', 'Sounds/Synth', ...(fw.author ? [`Maker/${fw.author}`] : [])];
+	const textOf = (fw: { id: string; name: string; author?: string; license?: string; description?: string }) =>
+		[fw.id, fw.name, fw.author ?? '', fw.license ?? '', fw.description ?? '', 'firmware vibe fm fm-1 synth plugin'].join(' ').toLowerCase();
+	const own = [...byId.values()]
 		.sort((a, b) => a.name.localeCompare(b.name))
 		.map((fw) => {
 			const index = engine.indexOf(fw.id);
-			const tags = ['Source/Firmware', 'Sounds/Synth', ...(fw.author ? [`Maker/${fw.author}`] : [])];
-			const fields = [
-				{ name: 'id', value: `vibefm1:${fw.id}` },
-				...(fw.version ? [{ name: 'version', value: fw.version }] : []),
-				...(fw.author ? [{ name: 'author', value: fw.author }] : []),
-				...(fw.license ? [{ name: 'license', value: fw.license }] : []),
-				{ name: fw.from === 'cache' ? 'downloaded from' : 'file', value: fw.url ?? fw.path },
-			];
+			const id = `firmware:${fw.id}`;
 			return {
-				id: `firmware:${fw.id}`,
+				id,
 				kind: 'firmware',
 				label: fw.name,
-				detail: [fw.version && `v${fw.version.replace(/^v/i, '')}`, fw.author].filter(Boolean).join('  ') || undefined,
-				category: 'firmware',
+				detail: describe(fw),
+				category: 'fm1',
 				place: 'project',
 				group: 'Installed',
-				tags,
-				text: [fw.id, fw.name, fw.author ?? '', fw.license ?? '', fw.description ?? '', 'firmware vibe fm'].join(' ').toLowerCase(),
+				groupRank: 0,
+				tags: tagsOf(fw),
+				text: textOf(fw),
 				insert: firmwareCode(fw.id).code,
 				...(index >= 0 ? { sound: 'vibefm1', index, soundType: 'firmware' } : {}),
 				description: fw.description,
 				// What insert types, with the load line a cached one also gets when the song has none (firmwareLoadEdit).
 				code: fw.url ? `firmware('${fw.url}')\n${firmwareCode(fw.id).code}` : firmwareCode(fw.id).code,
-				fields,
+				fields: [
+					{ name: 'id', value: `vibefm1:${fw.id}` },
+					...(fw.version ? [{ name: 'version', value: fw.version }] : []),
+					...(fw.author ? [{ name: 'author', value: fw.author }] : []),
+					...(fw.license ? [{ name: 'license', value: fw.license }] : []),
+					{ name: fw.from === 'cache' ? 'downloaded from' : 'file', value: fw.url ?? fw.path },
+				],
 				path: fw.path,
 				url: fw.url,
+				image: images[id],
 			} satisfies CatalogItem;
 		});
+	const hub = [...available]
+		.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+		.map((fw) => {
+			const id = `firmware:${fw.id}`;
+			return {
+				id,
+				kind: 'firmware',
+				label: fw.name,
+				detail: describe(fw),
+				category: 'fm1',
+				place: 'packs',
+				group: 'Available',
+				groupRank: 1,
+				tags: tagsOf(fw),
+				text: textOf(fw),
+				available: true,
+				description: fw.description,
+				fields: [
+					{ name: 'id once installed', value: `vibefm1:${fw.id}` },
+					...(fw.version ? [{ name: 'version', value: fw.version }] : []),
+					...(fw.author ? [{ name: 'author', value: fw.author }] : []),
+					...(fw.license ? [{ name: 'license', value: fw.license }] : []),
+					{ name: 'from', value: fw.url },
+					...(fw.cheat ? [{ name: 'cheat sheet', value: fw.cheat }] : []),
+				],
+				url: fw.url,
+				image: images[id],
+			} satisfies CatalogItem;
+		});
+	return [...own, ...hub];
 }
 
 /** Songs and audio open when picked; everything else is typed at the cursor. */

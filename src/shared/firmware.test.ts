@@ -1,7 +1,7 @@
 // Cases for finding `firmware(...)` addresses in a song. Run with `pnpm test:unit`.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findFirmwareUrls, firmwareCode, firmwareFileName, firmwareIdFromUrl, firmwareLoadEdit } from './firmware.ts';
+import { availableFirmware, findFirmwareUrls, firmwareCode, firmwareFileName, firmwareIdFromUrl, firmwareLoadEdit, parseHubIndex } from './firmware.ts';
 
 const A = 'https://raw.githubusercontent.com/Vibe-FM-SDK/vibe-fm-sdk/main/firmwares/obervave.wasm';
 const B = 'https://thefirmwarehub.com/fw/vibe/boom-native-vibe.zip';
@@ -39,7 +39,8 @@ test('the id of a firmware from an address', () => {
 });
 
 test('the snippet of a firmware', () => {
-	assert.deepEqual(firmwareCode('obervave'), { code: 'note("c2 eb2 g2 bb2").s("vibefm1:obervave")', name: 'vibefm1:obervave' });
+	// With $:, or only the song's last bare pattern would play (hand test, 2026-11-24).
+	assert.deepEqual(firmwareCode('obervave'), { code: '$: note("c2 eb2 g2 bb2").s("vibefm1:obervave")', name: 'vibefm1:obervave' });
 });
 
 const insertAt = (text: string, edit: { offset: number; text: string } | undefined) => (edit ? text.slice(0, edit.offset) + edit.text + text.slice(edit.offset) : text);
@@ -69,4 +70,34 @@ test('no load line when the song loads the firmware already, but a commented one
 
 test('a quote in an address is escaped', () => {
 	assert.equal(firmwareLoadEdit('', "https://example.com/it's.wasm")?.text, "firmware('https://example.com/it\\'s.wasm')\n");
+});
+
+// Two entries as index.json had them on 2026-11-22, and the kinds of broken ones a lenient reader skips.
+const INDEX = [
+	{ id: 'echofield-vibe', file: 'firmware/echofield-vibe.wasm?v=20261114133610', name: 'ECHOFIELD', version: '1.0.0', author: 'PhilipsKnobs', description: 'A granular instrument', license: 'MIT', order: 50, stage: { w: 960, h: 540 } },
+	{ id: 'obervave', file: 'firmware/obervave.wasm?v=20261113121501', name: 'OBERVAVE', version: '3.9', author: 'zvenson', license: 'GPL-3.0', order: 0, cheat: 'firmware/obervave.cheat.html' },
+	{ id: 'valve', file: 'firmware/valve.wasm', name: 'VALVE', order: 2 },
+	{ id: 'no-file', name: 'X' },
+	{ id: 'bad id!', file: 'firmware/x.wasm' },
+	{ id: 'fwsc', file: 'firmware/x.fwsc' },
+	null,
+];
+
+test('the hub list: addresses made absolute, missing fields left out, broken entries skipped', () => {
+	const list = parseHubIndex(INDEX);
+	assert.deepEqual(list.map((f) => f.id), ['echofield-vibe', 'obervave', 'valve']);
+	assert.equal(list[0].url, 'https://play.thefirmwarehub.com/firmware/echofield-vibe.wasm?v=20261114133610');
+	assert.equal(list[1].cheat, 'https://play.thefirmwarehub.com/firmware/obervave.cheat.html');
+	assert.equal(list[2].license, undefined);
+	assert.deepEqual(parseHubIndex({ not: 'a list' }), []);
+});
+
+test('Available leaves out what is installed, by the hub id or by the id its address gives', () => {
+	const hub = parseHubIndex(INDEX);
+	const installed = [
+		{ id: 'obervave', name: 'OBERVAVE', from: 'cache' as const, path: 'x' },
+		{ id: 'echofield-vibe', name: 'ECHOFIELD', from: 'folder' as const, path: 'firmware/echofield-vibe/echofield-vibe.wasm' },
+	];
+	assert.deepEqual(availableFirmware(hub, installed).map((f) => f.id), ['valve']);
+	assert.deepEqual(availableFirmware(hub, [{ id: 'echofield', name: 'E', from: 'cache', path: 'x' }]).map((f) => f.id), ['obervave', 'valve']);
 });

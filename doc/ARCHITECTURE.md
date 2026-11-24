@@ -211,7 +211,7 @@ the drawer).
 
 | View | id | Shows |
 |---|---|---|
-| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and its categories: All, Sounds, Drums, Samples, Firmware, Render, MIDI, Songs, Snippets |
+| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and its categories: All, Sounds, Drums, Samples, Plugins (with FM-1 Synths under it), Render, MIDI, Songs, Snippets |
 | Reference | `strdltn.reference` | Its categories: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
 | Results | `strdltn.results` | The chips, the result bar, the results of all views in one list, and the details pane |
 
@@ -301,7 +301,7 @@ stable id that the user data hangs on: `sound:bd`, `firmware:obervave`,
 | Sounds | Synths, soundfonts, wavetables, ZZFX | Synths, Soundfonts, Wavetables |
 | Drums | Drum machine sounds, and pack sounds named `<bank>_<sound>` | The bank. Its button types `.bank("...")` |
 | Samples | Local samples, the default samples, other pack sounds | Local samples, Default samples, each pack |
-| Firmware | The VIBE FM firmwares on disk, one row each (`firmwareItems`). Replaced Instruments on 2026-11-22, which held the same rows | Installed; later Available |
+| Plugins > FM-1 Synths | The VIBE FM firmwares: on disk, and the hub's that are not (`firmwareItems`). Each row is taller and shows a picture of the firmware's screen. Plugins is a parent: picking it shows its children's items (`inCategory`). Replaced Instruments, which held the same rows; a saved `instruments` or `firmware` filter opens FM-1 Synths (`knownCategory`) | Installed, then Available (`groupRank`) |
 | Snippets | The files under `lib/` | The `@category` |
 | Songs | Every `.strudel` file | The folder |
 | Functions | The functions of Strudel | The group from the source file: Effect, Pattern, Signal, Tonal... |
@@ -968,7 +968,7 @@ into `{ s: 'vibefm1', n: 'obervave' }` (checked with `@strudel/mini` 1.2.6, also
 trigger picks the firmware from `n` on every hap. So the firmware is a pattern value: `s("vibefm1:<obervave sloop>")`
 changes it per cycle. A number picks by position in the folder and wraps, as `bd:3` does for samples; no `n` is the
 first one. An id that is not in the folder logs one error with the ids there are. The Browser shows each firmware
-in its Firmware category, see "Firmware category" below.
+in Plugins > FM-1 Synths, see "FM-1 Synths" below.
 
 The catch: a later `.n()` replaces the firmware. `s("vibefm1:obervave").n("0 2").scale("c2:minor")` ends up with
 `n` gone, and then plays the first firmware. Put `n(...).scale(...)` first, or use `note`. The first time `vibefm1`
@@ -1094,11 +1094,24 @@ frames a second for one panel on this one, with a delay of one frame instead of 
 The hub's rules for app makers (`thefirmwarehub.com/kb/#catalog`): `catalog.json` is CC BY 4.0 with attribution
 ("Firmware list: The Firmware Hub - thefirmwarehub.com", as a link); the makers' texts and pictures are theirs; read it
 at most once a day with a User-Agent that names the app; do not read the pages; download packages from the makers'
-releases, not from the hub; install only what matches its `sha256`. `index.json` is not mentioned. So nothing of ours
-reads it at run time until the hub's author answers (decision 13). Native firmwares put a `.wasm`, a `.zip`, sometimes
+releases, not from the hub; install only what matches its `sha256`. `index.json` is not mentioned. The maintainer chose to
+read it anyway on 2026-11-24, once a day with a User-Agent, see "FM-1 Synths". Native firmwares put a `.wasm`, a `.zip`, sometimes
 `SHA256SUMS` and a screenshot on their own GitHub releases; converted ones (OBERVAVE among them) do not.
 
-**Firmware category.** The Library's Firmware category lists the firmwares on disk, under Installed. `FirmwareLibrary`
+**FM-1 Synths.** Plugins > FM-1 Synths of the Library lists the firmwares on disk under Installed, and the hub's
+others under Available. `FirmwareMarket` (`src/extension/market.ts`) keeps the items current from three sources:
+
+| Part | What |
+|---|---|
+| `HubCatalog` | `index.json` of the Playground, read at most once a day with the User-Agent `strdltn/<version> (VS Code extension; +https://github.com/alienmind/strdltn)`, kept with the time it was read in global storage (`firmware/hub-index.json`), and used from there offline. Read when FM-1 Synths or Plugins is first picked, not at start. `file` is relative to the Playground's root, not to the list's folder (`parseHubIndex`) |
+| `FirmwarePreviews` | A PNG of each firmware's screen. A worker thread (`dist/preview-worker.cjs`) runs the firmware 1.5 s without sound, draws every 37 blocks and keeps the last frame that is not one flat colour; ended after 20 s. The PNG (`png.ts`, our own encoder) goes to global storage, `firmware/pictures/<key>.png`; the key is the address for an Available one and path, mtime and size for an installed one. A firmware that cannot draw gets `<key>.none` and is not tried again; a failed download is. Two at a time. An Available firmware is downloaded once into `firmware/files/`, which the picture, the screen popup and an install all use. The Browser's pages may load from global storage (`localResourceRoots`) |
+| Install | A double click or Enter on an Available row, the install button, or Install in the screen popup: `FirmwareLibrary.install` writes `<firmware folder>/<id>/<id>.wasm` and a `firmware.json` with the hub's fields at the root of the first workspace folder. A song finds it there (the nearest folder, looking up) and plays it as `vibefm1:<id>` with no `firmware()` line. `template/firmware/` is in `.gitignore` |
+
+Measured on 2026-11-24 in `pnpm test:quick` (VS Code 1.147, Windows 11): the list had 44 firmwares; all 44
+pictures were made, none failed, in the time the test waits (under 3 minutes, with the downloads). The first rows of
+the Library get theirs first only by chance: the jobs run in list order.
+
+The rest of what was "Firmware category": `FirmwareLibrary`
 (`src/extension/firmware.ts`) finds every folder named by `strdltn.firmwareFolder` in the workspace (findFiles, both
 layouts) and every finished download in `.strdltn/cache/firmware/` of each workspace folder (read with
 `readDirectory`: the cache's `.gitignore` says `*`). A cached copy is named by its address (`firmwareIdFromUrl`, the same
@@ -1107,7 +1120,9 @@ its id, shown in capitals. Watchers and `FirmwareCache.onDidChange` scan again, 
 firmware wins over a cached one of the same id, as in the engine. A row plays a test note only when an engine knows the
 firmware (by its position, as `vibefm1:3`); the Library shows every folder, but a song plays only the one nearest to it.
 
-Insert types `note("c2 eb2 g2 bb2").s("vibefm1:<id>")`, or `vibefm1:<id>` inside a string. A cached firmware plays only
+Insert types `$: note("c2 eb2 g2 bb2").s("vibefm1:<id>")`, or `vibefm1:<id>` inside a string. The `$:` matters: a
+song plays only its last bare pattern, so without it a firmware line after a kick line was silent (hand test,
+2026-11-24). A cached firmware plays only
 in a song that loads it, so when the song has no `firmware('<url>')` for it, that line goes in first
 (`firmwareLoadEdit`): after the song's last `firmware(` call, else after the comments at the top. It is a
 `WorkspaceEdit`, applied before the insert at the cursor; both editors move the cursor with the text above it. Measured
@@ -1115,7 +1130,8 @@ in the integration test on 2026-11-22: the line lands after the comments, the no
 insert adds no second load line.
 
 **Firmware screen.** The screen button of a row (or "Screen..." in the details) opens a tab beside the song, without the
-focus, reused for the next firmware (`FirmwareScreen`, `src/extension/screen.ts`, page `src/screen/`). The page fetches
+focus, reused for the next firmware. An Available one runs from its downloaded copy, and the tab's button says Install
+until it is installed (`FirmwareScreen`, `src/extension/screen.ts`, page `src/screen/`). The page fetches
 the file from disk (`asWebviewUri`, so it works in a Codespace), unpacks a `.zip` with `fflate`, compiles it and runs
 `VibeCore` on its own thread, without sound: per animation frame it renders the frames the clock says have passed (at
 most 0.1 s after the tab was hidden), and draws about 30 times a second. Its CSP adds `'wasm-unsafe-eval'` to

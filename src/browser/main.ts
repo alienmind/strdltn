@@ -4,7 +4,7 @@
 // each. See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
 import { type BrowserFilterState, type BrowserPage, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
-import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, opens, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
+import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, inCategory, opens, parentOf, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
 import type { PreviewPlan } from '../shared/preview.ts';
 import { chipGroups, filterItems, groupItems } from '../shared/search.ts';
 import { TAG_GROUPS } from '../shared/tags.ts';
@@ -239,10 +239,12 @@ function drawNav(): void {
 			all.addEventListener('click', () => setFilter(allOn ? { scope: undefined } : { category: 'all', scope: page, chips: [] }));
 			for (const category of CATEGORIES) {
 				if (category.id === 'all') continue;
-				const count = own.filter((item) => item.category === category.id).length;
-				if (!count) continue;
+				const count = own.filter((item) => inCategory(item.category, category.id)).length;
+				// Plugins and FM-1 Synths show in the Library while empty: FM-1 Synths is where the hub's list loads.
+				if (!count && !(page === 'library' && (category.id === 'plugins' || category.id === 'fm1'))) continue;
 				const on = filter.category === category.id;
 				const row = body.appendChild(navRow(category.icon, category.label, count, on));
+				if (parentOf(category.id)) row.classList.add('child');
 				row.addEventListener('click', () => setFilter(on ? { category: 'all', scope: undefined } : { category: category.id, scope: undefined, chips: [] }));
 			}
 		}),
@@ -340,32 +342,65 @@ function rowHeight(): number {
 	return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--row')) || 22;
 }
 
+/** A firmware's row is taller: its picture sits under its name. */
+const isTall = (row: Row) => row.type === 'item' && row.item.kind === 'firmware';
+function tallHeight(): number {
+	return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--row-tall')) || 98;
+}
+
+/** Where each row starts, and the height of all of them, worked out again when the rows are drawn. */
+let tops: number[] = [];
+let total = 0;
+function layout(): void {
+	const height = rowHeight();
+	const tall = tallHeight();
+	tops = [];
+	total = 0;
+	for (const row of rows) {
+		tops.push(total);
+		total += isTall(row) ? tall : height;
+	}
+}
+const heightAt = (index: number) => (tops[index + 1] ?? total) - (tops[index] ?? 0);
+/** The row at a height of the list. */
+function rowAt(y: number): number {
+	let low = 0;
+	let high = tops.length - 1;
+	while (low < high) {
+		const mid = (low + high + 1) >> 1;
+		if (tops[mid] <= y) low = mid;
+		else high = mid - 1;
+	}
+	return Math.max(0, low);
+}
+
 /** Only the rows in sight exist in the page. 2000 rows would make every keystroke slow. */
 function drawRows(): void {
-	const height = rowHeight();
-	spacer.style.height = `${rows.length * height}px`;
-	const first = Math.max(0, Math.floor(resultsBox.scrollTop / height) - 5);
-	const last = Math.min(rows.length, Math.ceil((resultsBox.scrollTop + resultsBox.clientHeight) / height) + 5);
+	layout();
+	spacer.style.height = `${total}px`;
+	const first = Math.max(0, rowAt(resultsBox.scrollTop) - 5);
+	const last = Math.min(rows.length, rowAt(resultsBox.scrollTop + resultsBox.clientHeight) + 6);
 	spacer.replaceChildren();
 	if (!rows.length) {
 		spacer.appendChild(el('div', 'empty', emptyText()));
 		return;
 	}
-	for (let index = first; index < last; index++) spacer.appendChild(drawRow(rows[index], index, height));
+	for (let index = first; index < last; index++) spacer.appendChild(drawRow(rows[index], index));
 }
 
-/** What an empty Results says. An empty Firmware category says how a firmware gets there. */
+/** What an empty Results says. An empty FM-1 Synths says how a firmware gets there. */
 function emptyText(): string {
 	if (!items.length) return 'Loading...';
-	if (filter.category === 'firmware' && !items.some((item) => item.kind === 'firmware'))
-		return "No firmware installed. Put a VIBE FM firmware (.wasm) in a firmware folder of the project, or load one in a song with firmware('https://...').";
+	if ((filter.category === 'fm1' || filter.category === 'plugins') && !items.some((item) => item.kind === 'firmware'))
+		return 'Loading the list of The Firmware Hub... Without a network, put a VIBE FM firmware (.wasm) in a firmware folder of the project.';
 	return 'Nothing matches. Clear the search or the filters.';
 }
 
-function drawRow(row: Row, index: number, height: number): HTMLElement {
+function drawRow(row: Row, index: number): HTMLElement {
 	const key = rowKey(row);
 	const node = el('div', `row${selection.has(key) ? ' selected' : ''}${index === cursor ? ' cursor' : ''}`);
-	node.style.top = `${index * height}px`;
+	node.style.top = `${tops[index]}px`;
+	node.style.height = `${heightAt(index)}px`;
 	const depth = row.type === 'heading' ? 0 : row.depth;
 	node.style.paddingLeft = `${4 + depth * 14}px`;
 	const twisty = node.appendChild(el('span', 'twisty'));
@@ -399,8 +434,22 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		for (const color of colorsOf(item, user)) squares.appendChild(el('span', 'sq')).style.background = colorVar(color);
 		const actions = node.appendChild(el('span', 'actions'));
 		const index_ = row.type === 'variation' ? row.index : undefined;
+		if (isTall(row)) {
+			node.classList.add('tall');
+			// The firmware's display, made by the host from a moment of running it (src/extension/previews.ts).
+			const picture = node.appendChild(el('div', 'picture'));
+			picture.style.left = `${4 + depth * 14 + 42}px`;
+			if (item.image) {
+				const image = picture.appendChild(el('img'));
+				image.src = item.image;
+				image.alt = `The screen of ${item.label}`;
+				image.draggable = false;
+			} else picture.appendChild(el('span', '', 'No preview yet'));
+			if (item.available) picture.appendChild(el('span', 'badge', 'Available'));
+		}
 		if (item.sound) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
-		if (opens(item)) actions.appendChild(button('open', item.kind === 'render' ? 'Play' : 'Open', () => post({ type: 'open', id: item.id })));
+		if (item.available) actions.appendChild(button('install', 'Install into the project (double click)', () => post({ type: 'install', id: item.id })));
+		else if (opens(item)) actions.appendChild(button('open', item.kind === 'render' ? 'Play' : 'Open', () => post({ type: 'open', id: item.id })));
 		else actions.appendChild(button('insert', 'Insert at the cursor (Enter)', () => post({ type: 'insert', id: item.id, index: index_ })));
 		// A song's code, without its header, at the cursor, as a snippet's (DAW-PLAN "Insert a song").
 		if (item.kind === 'song') actions.appendChild(button('insert', 'Insert at the cursor: the song\'s code, without its header', () => post({ type: 'insertSong', id: item.id })));
@@ -466,6 +515,11 @@ function drawDetails(): void {
 		dot.title = `${on ? 'Take out of' : 'Put in'} "${user.colorNames[color - 1]}" (key ${color})`;
 		dot.addEventListener('click', () => post({ type: 'color', ids: targets.map((target) => target.id), color, on: !on }));
 	}
+	if (item.available) {
+		const install = collect.appendChild(el('button', 'chip more', 'Install'));
+		install.title = 'Install it into the firmware folder of the project';
+		install.addEventListener('click', () => post({ type: 'install', id: item.id }));
+	}
 	if (item.kind === 'firmware') {
 		const screen = collect.appendChild(el('button', 'chip more', 'Screen...'));
 		screen.title = "Show the firmware's display, run without sound";
@@ -488,6 +542,11 @@ function drawDetails(): void {
 			chip.title = 'Filter by this tag';
 			chip.addEventListener('click', () => toggleChip(tag, true));
 		}
+	}
+	if (item.image) {
+		const picture = details.appendChild(el('img', 'picture'));
+		picture.src = item.image;
+		picture.alt = `The screen of ${item.label}`;
 	}
 	if (item.description) details.appendChild(el('p', '', item.description));
 	const fields = (item.fields ?? []).filter((field) => !['details', 'tags', 'category'].includes(field.name));
@@ -530,8 +589,8 @@ function moveCursor(index: number, extend: boolean): void {
 	if (!rows.length) return;
 	index = Math.max(0, Math.min(rows.length - 1, index));
 	select(index, false, extend);
-	const height = rowHeight();
-	const top = index * height;
+	const height = heightAt(index);
+	const top = tops[index] ?? 0;
 	if (top < resultsBox.scrollTop) resultsBox.scrollTop = top;
 	else if (top + height > resultsBox.scrollTop + resultsBox.clientHeight) resultsBox.scrollTop = top + height - resultsBox.clientHeight;
 	drawRows();
@@ -666,6 +725,7 @@ function menuFor(row: Row): MenuEntry[] {
 	const entries: MenuEntry[] = ['colors', 'separator'];
 	if (item.sound) entries.push({ label: 'Play once', run: () => playRow(row) });
 	if (opens(item)) entries.push({ label: item.kind === 'render' ? 'Play' : 'Open', run: () => post({ type: 'open', id: item.id }) });
+	else if (item.available) entries.push({ label: 'Install', run: () => post({ type: 'install', id: item.id }) });
 	else entries.push({ label: 'Insert at the cursor', run: () => post({ type: 'insert', id: item.id, index }) });
 	if (item.kind === 'song') entries.push({ label: 'Insert at the cursor', run: () => post({ type: 'insertSong', id: item.id }) });
 	if (item.kind === 'function' && item.code) entries.push({ label: 'Insert an example', run: () => post({ type: 'insertText', text: item.code! }) });
@@ -960,7 +1020,7 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			if (page === 'results' && message.open?.length) {
 				const index = rows.findIndex((row) => row.type === 'heading' && row.key === `${filter.category}|${message.open![0]}`);
 				if (index >= 0) {
-					resultsBox.scrollTop = index * rowHeight();
+					resultsBox.scrollTop = tops[index] ?? index * rowHeight();
 					moveCursor(Math.min(index + 1, rows.length - 1), false);
 				}
 			}

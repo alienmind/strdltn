@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import type { FromScreen, ScreenFirmware, ToScreen } from '../shared/screen';
-import type { FirmwareLibrary } from './firmware';
 import { setPage } from './surface';
 
 /**
@@ -17,21 +16,28 @@ export class FirmwareScreen {
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
-		private readonly library: FirmwareLibrary,
+		private readonly source: (id: string) => Promise<{ firmware: Omit<ScreenFirmware, 'url'>; file: vscode.Uri } | undefined>,
 		private readonly output: vscode.OutputChannel,
 		private readonly insert: (id: string) => void,
+		private readonly install: (id: string) => Promise<void>,
 	) {}
 
-	show(id: string): void {
-		const fw = this.library.all().find((f) => f.id === id);
-		const file = this.library.file(id);
-		if (!fw || !file) return void vscode.window.showWarningMessage(`The firmware "${id}" is not installed any more.`);
+	async show(id: string): Promise<void> {
+		let found: Awaited<ReturnType<typeof this.source>>;
+		try {
+			found = await this.source(id);
+		} catch (error) {
+			return void vscode.window.showErrorMessage(`The firmware "${id}" could not be downloaded: ${(error as Error).message}`);
+		}
+		if (!found) return void vscode.window.showWarningMessage(`The firmware "${id}" is not there any more.`);
+		const { firmware: fw, file } = found;
 		if (!this.panel) {
 			// Beside the song and without the focus, so typing goes on in the editor.
 			const panel = vscode.window.createWebviewPanel('strdltn.firmwareScreen', fw.name, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
 			panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'strdltn.svg');
 			setPage(this.context, panel.webview, 'screen', {
-				roots: (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri),
+				// The project, and global storage: an Available firmware runs from the copy downloaded for its picture.
+				roots: [...(vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri), this.context.globalStorageUri],
 				// The page compiles the firmware: WebAssembly needs 'wasm-unsafe-eval', and fetch needs connect-src.
 				script: ["'wasm-unsafe-eval'"],
 				csp: [`connect-src ${panel.webview.cspSource}`],
@@ -54,6 +60,7 @@ export class FirmwareScreen {
 			author: fw.author,
 			license: fw.license,
 			description: fw.description,
+			available: fw.available,
 			url: this.panel.webview.asWebviewUri(file).toString(),
 		};
 		this.lastState = undefined;
@@ -85,6 +92,11 @@ export class FirmwareScreen {
 				return;
 			case 'insert':
 				return this.insert(message.id);
+			case 'install':
+				// Installed, the popup shows it again as installed: its button inserts now.
+				return void this.install(message.id).then(async () => {
+					if (this.shown?.id === message.id) await this.show(message.id);
+				});
 			case 'log':
 				this.output.appendLine(`[firmware] ${message.message}`);
 				return;

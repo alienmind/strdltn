@@ -49,6 +49,15 @@ const builds = [
 	},
 	{
 		...shared,
+		// The thread that runs a firmware for the picture of its display (src/extension/previews.ts).
+		entryPoints: ['src/extension/preview-worker.ts'],
+		outfile: 'dist/preview-worker.cjs',
+		platform: 'node',
+		format: 'cjs',
+		target: 'node20',
+	},
+	{
+		...shared,
 		entryPoints: ['src/webview/main.ts'],
 		outfile: 'dist/webview.js',
 		platform: 'browser',

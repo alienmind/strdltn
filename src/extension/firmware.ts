@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { unzipSync } from 'fflate';
 import * as vscode from 'vscode';
-import { firmwareFileName, firmwareIdFromUrl, type InstalledFirmware } from '../shared/firmware';
+import { firmwareFileName, firmwareIdFromUrl, type HubFirmware, type InstalledFirmware } from '../shared/firmware';
 import type { FirmwareInfo } from '../shared/protocol';
 
 /** A firmware id as the SDK allows it: letters, digits, `-`, `_`, `.`. Mini-notation keeps all of them in `vibefm1:<id>`. */
@@ -116,6 +116,35 @@ export class FirmwareLibrary implements vscode.Disposable {
 	/** The file of an installed firmware: its `.wasm`, or the package `.zip` it came in. */
 	file(id: string): vscode.Uri | undefined {
 		return this.files.get(id);
+	}
+
+	/**
+	 * Installs a firmware of the hub into the project: `<firmware folder>/<id>/<id>.wasm` with a `firmware.json` of the
+	 * hub's fields, the layout of an unzipped package, at the root of the first workspace folder. From there every song
+	 * of the project finds it (`Session.firmwareFolder` looks in the parent folders), with no `firmware()` line.
+	 */
+	async install(fw: HubFirmware, bytes: Uint8Array): Promise<vscode.Uri> {
+		const workspace = vscode.workspace.workspaceFolders?.[0];
+		if (!workspace) throw new Error('open a folder first: a firmware is installed into the project');
+		const folder = vscode.Uri.joinPath(workspace.uri, folderSetting(), fw.id);
+		await vscode.workspace.fs.createDirectory(folder);
+		await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder, `${fw.id}.wasm`), bytes);
+		const meta = { name: fw.name, version: fw.version, author: fw.author, license: fw.license, description: fw.description, source: fw.url, cheat: fw.cheat };
+		await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder, 'firmware.json'), new TextEncoder().encode(`${JSON.stringify(meta, null, '\t')}\n`));
+		await this.refresh();
+		return folder;
+	}
+
+	/** What changes when an installed firmware's file does: for the key of its picture. */
+	async stamp(id: string): Promise<string | undefined> {
+		const file = this.files.get(id);
+		if (!file) return undefined;
+		try {
+			const stat = await vscode.workspace.fs.stat(file);
+			return `${file.toString()}|${stat.mtime}|${stat.size}`;
+		} catch {
+			return undefined;
+		}
 	}
 
 	/** A change comes as a burst of file events: one scan after the last. */

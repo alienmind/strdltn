@@ -6,3 +6,5 @@ tmp/
 .vscode-test/
 .bin/
 strdltn-manual.pdf
+# Firmwares installed from the Library are GPL and somebody else's: never in the repo.
+template/firmware/

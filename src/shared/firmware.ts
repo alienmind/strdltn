@@ -72,10 +72,75 @@ const NOTES = 'c2 eb2 g2 bb2';
 
 /**
  * What insert at the cursor types for a firmware: a line that plays it, and the bare name for inside a string.
- * No `.progNum()`: what a program number means differs per firmware, and a program change reloads a sound.
+ * The line starts with `$:`: without it, only the last bare pattern of a song plays, so a second instrument would be
+ * silent (found in the hand test, 2026-11-24). No `.progNum()`: what a program number means differs per firmware, and a
+ * program change reloads a sound.
  */
 export function firmwareCode(id: string): { code: string; name: string } {
-	return { code: `note("${NOTES}").s("vibefm1:${id}")`, name: `vibefm1:${id}` };
+	return { code: `$: note("${NOTES}").s("vibefm1:${id}")`, name: `vibefm1:${id}` };
+}
+
+/** The Playground's list of VIBE FM builds, `play.thefirmwarehub.com/firmware/index.json`. */
+export const HUB_INDEX = 'https://play.thefirmwarehub.com/firmware/index.json';
+
+/** A firmware of the hub's list that can be installed. */
+export interface HubFirmware {
+	/** The hub's id, `echofield-vibe`. Installed as `firmware/<id>/`, so a song plays it as `vibefm1:<id>`. */
+	id: string;
+	name: string;
+	version?: string;
+	author?: string;
+	license?: string;
+	description?: string;
+	/** The `.wasm`, absolute, with the hub's `?v=` stamp. */
+	url: string;
+	/** The firmware's cheat sheet, a page on the hub. */
+	cheat?: string;
+	/** The hub's own order: 0 first. */
+	order: number;
+}
+
+/**
+ * Reads the Playground's `index.json` (fields measured on 2026-11-22, ARCHITECTURE "The hub's catalogs"). Leniently:
+ * an entry without an id or a `.wasm` is left out, and unknown fields are ignored.
+ */
+export function parseHubIndex(json: unknown, base = HUB_INDEX): HubFirmware[] {
+	if (!Array.isArray(json)) return [];
+	const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
+	const list: HubFirmware[] = [];
+	for (const entry of json) {
+		if (!entry || typeof entry !== 'object') continue;
+		const e = entry as Record<string, unknown>;
+		const id = text(e.id)?.toLowerCase();
+		const file = text(e.file);
+		if (!id || !/^[a-z0-9._-]+$/.test(id) || !file || !/\.wasm(\?|$)/.test(file)) continue;
+		let url: string;
+		try {
+			// `file` is relative to the Playground's root (`firmware/<id>.wasm`), not to the list's own folder.
+			url = new URL(file, new URL('/', base)).toString();
+		} catch {
+			continue;
+		}
+		const cheat = text(e.cheat);
+		list.push({
+			id,
+			name: text(e.name) ?? id.toUpperCase(),
+			version: text(e.version),
+			author: text(e.author),
+			license: text(e.license),
+			description: text(e.description),
+			url,
+			cheat: cheat ? new URL(cheat, new URL('/', base)).toString() : undefined,
+			order: typeof e.order === 'number' ? e.order : 50,
+		});
+	}
+	return list;
+}
+
+/** The hub's firmwares that are not installed: none whose id, or the id its address gives, is on disk already. */
+export function availableFirmware(hub: HubFirmware[], installed: InstalledFirmware[]): HubFirmware[] {
+	const have = new Set(installed.map((fw) => fw.id));
+	return hub.filter((fw) => !have.has(fw.id) && !have.has(firmwareIdFromUrl(fw.url)));
 }
 
 /**

@@ -18,7 +18,7 @@ import {
 	type UserIndex,
 	writeUserIndex,
 } from '../shared/catalog';
-import { firmwareCode, type InstalledFirmware } from '../shared/firmware';
+import { availableFirmware, firmwareCode, type HubFirmware, type InstalledFirmware } from '../shared/firmware';
 import type { SoundInfo } from '../shared/protocol';
 import { filterItems } from '../shared/search';
 import { parseSnippet, setSnippetTags } from '../shared/snippet';
@@ -45,6 +45,10 @@ export interface BrowserActions {
 	insertFirmware(text: string, bare: string, url?: string): Promise<void>;
 	/** Opens the popup with a firmware's screen. */
 	showScreen(id: string): void;
+	/** Installs a firmware of the hub into the project. */
+	install(id: string): Promise<void>;
+	/** FM-1 Synths is in sight: read the hub's list and make the pictures that are missing. */
+	wantFirmware(): void;
 }
 
 const FILTER_KEY = 'strdltn.browserFilter';
@@ -74,6 +78,8 @@ export class BrowserView {
 	private filter: BrowserFilterState;
 	private sounds: SoundInfo[] = [];
 	private firmware: InstalledFirmware[] = [];
+	private hub: HubFirmware[] = [];
+	private images: Record<string, vscode.Uri> = {};
 	private functions: FunctionDoc[] = [];
 	private items: CatalogItem[] = [];
 	private user: UserIndex = readUserIndex(undefined);
@@ -111,9 +117,16 @@ export class BrowserView {
 	}
 
 	/** The firmwares on disk, from FirmwareLibrary. */
-	setFirmware(list: InstalledFirmware[]): void {
-		this.firmware = list;
+	setFirmware(installed: InstalledFirmware[], hub: HubFirmware[], images: Record<string, vscode.Uri>): void {
+		this.firmware = installed;
+		this.hub = hub;
+		this.images = images;
 		this.rebuild();
+	}
+
+	/** The pictures live in the extension's global storage: the pages may load from there. */
+	private get imageRoot(): vscode.Uri {
+		return vscode.Uri.joinPath(this.context.globalStorageUri, 'firmware');
 	}
 
 	allSounds(): SoundInfo[] {
@@ -128,7 +141,7 @@ export class BrowserView {
 				// The page plays previews itself: sample files from the web, from the project and
 				// from the pack cache in it (`.strdltn/cache`).
 				setPage(this.context, view.webview, 'browser', {
-					roots: (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri),
+					roots: [...(vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri), this.imageRoot],
 					csp: [`connect-src ${view.webview.cspSource} https:`, `media-src ${view.webview.cspSource} https: data: blob:`],
 				});
 				view.webview.onDidReceiveMessage((message: FromBrowser) => void this.handle(message, page));
@@ -173,7 +186,10 @@ export class BrowserView {
 		const midi = [...this.midiPorts.outputs.map((name) => midiItem(name, 'out')), ...this.midiPorts.inputs.map((name) => midiItem(name, 'in'))];
 		// The engine's order of its firmwares: a row plays by its position, as `vibefm1:3` does.
 		const engine = this.sounds.find((sound) => sound.type === 'firmware')?.variations ?? [];
-		this.items = [...soundItems(this.sounds), ...firmwareItems(this.firmware, engine), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
+		// A webview URL is the same for every view of the Browser; without a view yet there are no pictures to show.
+		const webview = [...this.views.values()][0]?.webview;
+		const images = webview ? Object.fromEntries(Object.entries(this.images).map(([id, uri]) => [id, webview.asWebviewUri(uri).toString()])) : {};
+		this.items = [...soundItems(this.sounds), ...firmwareItems(this.firmware, availableFirmware(this.hub, this.firmware), engine, images), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
 		// A pack loads hundreds of sounds one by one, and each change would send 2000 items.
 		clearTimeout(this.pushTimer);
 		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
@@ -198,6 +214,7 @@ export class BrowserView {
 	/** The filter changed in one view: the others follow, and Results opens to show it. */
 	private setFilter(filter: BrowserFilterState, from?: BrowserPage, open?: string[]): void {
 		this.filter = filter;
+		if (filter.category === 'plugins' || filter.category === 'fm1') this.actions.wantFirmware();
 		void this.context.workspaceState.update(FILTER_KEY, filter);
 		for (const [page, view] of this.views) if (page !== from) void view.webview.postMessage({ type: 'filter', filter, open } satisfies ToBrowser);
 		if (from && from !== 'results') void this.showResults(from);
@@ -229,6 +246,9 @@ export class BrowserView {
 	async handle(message: FromBrowser, page: BrowserPage = 'results'): Promise<void> {
 		switch (message.type) {
 			case 'ready': {
+				// The first view: the pictures get their webview URLs now.
+				if (Object.keys(this.images).length && !this.items.some((item) => item.image)) this.rebuild();
+				if (this.filter.category === 'plugins' || this.filter.category === 'fm1') this.actions.wantFirmware();
 				this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter }, page);
 				if (page === 'library' && this.controls) this.post({ type: 'controls', state: this.controls }, page);
 				return;
@@ -248,6 +268,8 @@ export class BrowserView {
 				const item = this.item(message.id);
 				if (!item) return;
 				if (item.kind === 'song' || item.kind === 'render') return this.open(item);
+				// An Available firmware is installed first: Enter and a double click do that.
+				if (item.kind === 'firmware' && item.available) return this.actions.install(item.id.slice('firmware:'.length));
 				if (item.kind === 'firmware') {
 					const code = firmwareCode(item.id.slice('firmware:'.length));
 					return this.actions.insertFirmware(code.code, code.name, item.url);
@@ -264,6 +286,11 @@ export class BrowserView {
 			}
 			case 'insertText':
 				return this.actions.insert(message.text);
+			case 'install': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware' && item.available) await this.actions.install(item.id.slice('firmware:'.length));
+				return;
+			}
 			case 'screen': {
 				const item = this.item(message.id);
 				if (item?.kind === 'firmware') this.actions.showScreen(item.id.slice('firmware:'.length));

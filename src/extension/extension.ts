@@ -7,6 +7,7 @@ import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
 import { FirmwareCache, FirmwareLibrary } from './firmware';
 import { FirmwareScreen } from './screen';
+import { FirmwareMarket } from './market';
 import { firmwareLoadEdit, type InstalledFirmware } from '../shared/firmware';
 import { DevicesView } from './devices';
 import { KnobLearn } from './knobs';
@@ -59,7 +60,18 @@ export interface StrdltnApi {
 	/** The Mixer's model of the song in front. */
 	mixer(): ReturnType<MixerView['current']>;
 	/** The firmwares of the Library's Firmware category, and what the screen popup reports. */
-	firmware(): { installed: InstalledFirmware[]; screen: ReturnType<FirmwareScreen['current']> };
+	firmware(): {
+		installed: InstalledFirmware[];
+		hub: number;
+		hubError?: string;
+		/** The ids under Available, in the Library's order. */
+		available: string[];
+		pictures: string[];
+		picturesMade: string[];
+		picturesFailed: string[];
+		installs: string[];
+		screen: ReturnType<FirmwareScreen['current']>;
+	};
 	/** Opens the screen popup of an installed firmware, as its button in the Library does. */
 	firmwareScreen(id: string | undefined): void;
 	/** The firmware copies the Devices view lists, the frames passed on, and what its page reports. */
@@ -109,11 +121,20 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		control: (message) => mixer.control(message),
 		insert: (text, bare, argument) => insertText(text, bare, argument),
 		insertFirmware: (text, bare, url) => insertFirmware(text, bare, url),
-		showScreen: (id) => screen.show(id),
+		showScreen: (id) => void screen.show(id),
+		install: (id) => market.install(id),
+		wantFirmware: () => market.want(),
 	});
+	const market = new FirmwareMarket(context, firmwareLibrary, browser, output);
+	context.subscriptions.push(market);
 	// The popup's Insert does what the Library row's does.
-	const screen = new FirmwareScreen(context, firmwareLibrary, output, (id) => void browser.handle({ type: 'insert', id: `firmware:${id}` }));
-	context.subscriptions.push(firmwareLibrary.onDidChange((list) => browser.setFirmware(list)));
+	const screen = new FirmwareScreen(
+		context,
+		(id) => market.screenSource(id),
+		output,
+		(id) => void browser.handle({ type: 'insert', id: `firmware:${id}` }),
+		(id) => market.install(id),
+	);
 	void firmwareLibrary.refresh();
 	// The MIDI category of the Browser: the ports of this machine, kept current by the worker (it reads them every 2 s).
 	// Only where the extension host runs on the user's machine: in a Codespace it would list the cloud machine's.
@@ -749,8 +770,18 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		browserPreviews: () => [...browser.previews],
 		mixer: () => mixer.current(),
 		devices: () => devices.current(),
-		firmware: () => ({ installed: firmwareLibrary.all(), screen: screen.current() }),
-		firmwareScreen: (id) => (id ? screen.show(id) : screen.close()),
+		firmware: () => ({
+			installed: firmwareLibrary.all(),
+			hub: market.hub.all().length,
+			hubError: market.hub.error,
+			available: market.availableIds(),
+			pictures: Object.keys(market.previews.all()),
+			picturesMade: [...market.previews.made],
+			picturesFailed: [...market.previews.failed],
+			installs: [...market.installed],
+			screen: screen.current(),
+		}),
+		firmwareScreen: (id) => (id ? void screen.show(id) : screen.close()),
 		mixerShow: async (unfold) => {
 			if (!mixerPlace.floating) await vscode.commands.executeCommand('strdltn.mixer.focus');
 			return mixer.show(unfold);

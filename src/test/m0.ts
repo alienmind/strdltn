@@ -708,26 +708,42 @@ export async function run(): Promise<void> {
 		steps.packCache = await api.packCache();
 		save();
 
-		// 7a3. The Firmware category of the Library (Firmware Marketplace in doc/TODO.md): OBERVAVE, loaded by a song,
-		// is cached and listed under Installed; its screen runs in the popup; Insert puts the line that plays it into a
-		// song without one, with the song's firmware() line first, once.
+		// 7a3. FM-1 Synths under Plugins in the Library (Firmware Marketplace in doc/TODO.md). OBERVAVE, loaded by a song,
+		// is cached and listed under Installed. The hub's list fills Available, and each firmware gets a picture of its
+		// screen. The screen runs in the popup. Insert puts the line that plays OBERVAVE into a song without one, with the
+		// song's firmware() line first, once. A double click on an Available one installs it into firmware/, and a song
+		// plays it from there with no firmware() line.
 		{
 			const obervave = 'https://raw.githubusercontent.com/Vibe-FM-SDK/vibe-fm-sdk/main/firmwares/obervave.wasm';
 			const loader = vscode.Uri.joinPath(folder, 'zz-firmware-load.strudel');
 			const target = vscode.Uri.joinPath(folder, 'zz-firmware-insert.strudel');
+			const firmwareFolder = vscode.Uri.joinPath(folder, 'firmware');
+			const hadFirmwareFolder = await vscode.workspace.fs.stat(firmwareFolder).then(
+				() => true,
+				() => false,
+			);
 			const found: Record<string, unknown> = {};
 			steps.firmware = found;
+			let installedId: string | undefined;
 			try {
 				await vscode.workspace.fs.writeFile(loader, new TextEncoder().encode(`firmware('${obervave}')\n$: note("c2").s("vibefm1:obervave")\n`));
 				await vscode.commands.executeCommand('vscode.openWith', loader, EDITOR);
 				found.installed = await until(() => api.firmware().installed.some((fw) => fw.id === 'obervave'), 60000);
-				await sleep(500);
-				found.items = api.browserFind({ category: 'firmware' });
-				found.counts = api.browserCounts().firmware;
-				found.oldCategoryGone = !('instruments' in api.browserCounts());
-				found.results = await api.browserShow({ query: '', chips: [], color: undefined, place: undefined, scope: undefined, builtin: undefined, category: 'firmware' }, ['Installed']);
-				await shot('firmware-library');
 				await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+				const all = { query: '', chips: [] as string[], color: undefined, place: undefined, scope: undefined, builtin: undefined };
+				await api.browserShow({ ...all, category: 'fm1' }, ['Installed', 'Available']);
+				found.hubListed = await until(() => api.firmware().hub > 0, 30000);
+				found.hub = api.firmware().hub;
+				found.hubError = api.firmware().hubError;
+				found.available = api.firmware().available.length;
+				found.counts = { plugins: api.browserCounts().plugins, fm1: api.browserCounts().fm1 };
+				found.oldCategoriesGone = !('instruments' in api.browserCounts()) && !('firmware' in api.browserCounts());
+				// Pictures: OBERVAVE's and the first Available ones, which the Library shows at the top.
+				const first = api.firmware().available.slice(0, 3);
+				found.picturesOfFirst = await until(() => ['obervave', ...first].every((id) => api.firmware().pictures.includes(`firmware:${id}`) || api.firmware().picturesFailed.some((f) => f.startsWith(`firmware:${id}:`))), 180000);
+				await sleep(800);
+				found.results = await api.browserShow({ ...all, category: 'fm1' }, ['Installed', 'Available']);
+				await shot('firmware-library');
 
 				// The screen popup: frames painted, with the firmware run on the page's thread and no sound.
 				api.firmwareScreen('obervave');
@@ -737,8 +753,8 @@ export async function run(): Promise<void> {
 				api.firmwareScreen(undefined);
 
 				// Insert into a song that does not load the firmware: the load line after its comments, the line at the cursor.
-				// The cursor goes before the marker, so the inserted line is `$: note(...)// here`, which plays.
-				const song = '// a song without firmware\n\n$: s("bd*2")\n$: // here\n';
+				// The cursor goes before the marker on its own line, so the inserted line is `$: note(...)// here`, which plays.
+				const song = '// a song without firmware\n\n$: s("bd*2")\n// here\n';
 				await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(song));
 				await vscode.commands.executeCommand('vscode.openWith', target, EDITOR);
 				await until(() => has('editor', target, 'local samples'), 30000);
@@ -750,7 +766,7 @@ export async function run(): Promise<void> {
 				const insert: Record<string, unknown> = {
 					text: once,
 					loadLineAfterComments: once.startsWith(`// a song without firmware\nfirmware('${obervave}')\n`),
-					playLineAtCursor: once.includes('$: note("c2 eb2 g2 bb2").s("vibefm1:obervave")// here'),
+					playLineAtCursor: once.includes('\n$: note("c2 eb2 g2 bb2").s("vibefm1:obervave")// here'),
 				};
 				found.insert = insert;
 				await vscode.commands.executeCommand('strdltn.play');
@@ -767,11 +783,38 @@ export async function run(): Promise<void> {
 				insert.loadLineOnceAfterTwoInserts = count(twice, `firmware('${obervave}')`) === 1;
 				insert.playLinesAfterTwoInserts = count(twice, 's("vibefm1:obervave")');
 				await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+
+				// Install by a double click on an Available row (the page sends `insert` for it, as Enter does).
+				installedId = first.find((id) => api.firmware().pictures.includes(`firmware:${id}`)) ?? first[0];
+				if (installedId) {
+					await api.browserMessage({ type: 'insert', id: `firmware:${installedId}` });
+					const installed = await until(() => api.firmware().installed.some((fw) => fw.id === installedId && fw.from === 'folder'), 60000);
+					const meta = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(firmwareFolder, installedId, 'firmware.json')).then(
+						(bytes) => JSON.parse(new TextDecoder().decode(bytes)),
+						() => undefined,
+					);
+					found.install = { id: installedId, installed, name: meta?.name, leftAvailable: !api.firmware().available.includes(installedId) };
+					// The installed one plays in a song without a firmware() line.
+					await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(`$: note("c2 eb2").s("vibefm1:${installedId}")\n`));
+					await vscode.commands.executeCommand('vscode.openWith', target, EDITOR);
+					await until(() => has('editor', target, 'local samples'), 30000);
+					await vscode.commands.executeCommand('strdltn.play');
+					(found.install as Record<string, unknown>).played = await until(() => has('editor', target, 'report:'), 30000);
+					await sleep(2500);
+					(found.install as Record<string, unknown>).problems = problems('editor', target);
+					(found.install as Record<string, unknown>).engineKnowsIt = has('editor', target, `vibefm1: ${installedId}`) || !!last('editor', target, 'vibefm1:')?.includes(installedId);
+					await vscode.commands.executeCommand('strdltn.stop');
+					await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+				}
+				found.pictures = { shown: api.firmware().pictures.length, made: api.firmware().picturesMade.length, failed: api.firmware().picturesFailed };
 			} catch (error) {
 				found.error = String(error);
 			} finally {
 				await vscode.workspace.fs.delete(loader).then(undefined, () => undefined);
 				await vscode.workspace.fs.delete(target).then(undefined, () => undefined);
+				// The test must not leave a GPL firmware in the template.
+				if (installedId) await vscode.workspace.fs.delete(vscode.Uri.joinPath(firmwareFolder, installedId), { recursive: true }).then(undefined, () => undefined);
+				if (!hadFirmwareFolder) await vscode.workspace.fs.delete(firmwareFolder, { recursive: true }).then(undefined, () => undefined);
 			}
 			save();
 		}

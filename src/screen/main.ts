@@ -74,7 +74,7 @@ canvas.addEventListener(
 	},
 	{ passive: false },
 );
-insertButton.addEventListener('click', () => firmware && post({ type: 'insert', id: firmware.id }));
+insertButton.addEventListener('click', () => firmware && post({ type: firmware.available ? 'install' : 'insert', id: firmware.id }));
 runButton.addEventListener('click', () => {
 	running = !running;
 	runButton.textContent = running ? 'Pause' : 'Run';
@@ -98,6 +98,8 @@ async function load(next: ScreenFirmware): Promise<void> {
 	frames = 0;
 	error = undefined;
 	document.title = next.name;
+	insertButton.textContent = next.available ? 'Install' : 'Insert at the cursor';
+	insertButton.title = next.available ? 'Install it into the firmware folder of the project' : 'Type a line that plays this firmware into the song';
 	title.textContent = next.name;
 	meta.replaceChildren(
 		...[next.version && `v${next.version.replace(/^v/i, '')}`, next.author, next.license, `vibefm1:${next.id}`]

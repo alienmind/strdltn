@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { emptyUserIndex, firmwareItems, readUserIndex, snippetItem, songItem, soundCode, soundItems, writeUserIndex } from './catalog.ts';
 import { chipGroups, filterItems, groupItems, parseQuery } from './search.ts';
+import { knownCategory } from './catalog.ts';
 
 const items = [
 	...soundItems([
@@ -19,7 +20,9 @@ const items = [
 			{ id: 'obervave', name: 'OBERVAVE', author: 'zvenson', from: 'cache', path: '.strdltn/cache/firmware/a/obervave.wasm', url: 'https://example.com/obervave.wasm' },
 			{ id: 'sloop', name: 'SLOOP', from: 'folder', path: 'firmware/sloop.wasm' },
 		],
+		[{ id: 'echofield-vibe', name: 'ECHOFIELD', author: 'PhilipsKnobs', url: 'https://play.thefirmwarehub.com/firmware/echofield-vibe.wasm?v=1', order: 50 }],
 		['obervave', 'sloop'],
+		{ 'firmware:obervave': 'https://pictures/obervave.png' },
 	),
 	snippetItem({ name: 'bass/acid-303', folder: 'bass', title: 'Acid bass line', category: 'bass', fields: [{ name: 'tags', value: 'acid, 303' }], code: 'note("c2")' }, 'lib/bass/acid-303.strudel'),
 	songItem('examples/01-chords.strudel'),
@@ -43,7 +46,9 @@ test('every word must match, in the name, the text or a tag', () => {
 
 test('categories and places', () => {
 	assert.deepEqual(find('', { category: 'drums' }), ['sound:rolandtr909_bd', 'sound:rolandtr909_sd', 'sound:linndrum_bd']);
-	assert.deepEqual(find('', { category: 'firmware' }), ['firmware:obervave', 'firmware:sloop']);
+	assert.deepEqual(find('', { category: 'fm1' }), ['firmware:obervave', 'firmware:sloop', 'firmware:echofield-vibe']);
+	// Plugins, the parent, shows what its children hold.
+	assert.deepEqual(find('', { category: 'plugins' }), ['firmware:obervave', 'firmware:sloop', 'firmware:echofield-vibe']);
 	assert.deepEqual(find('', { place: 'project', category: 'samples' }), ['sound:kick']);
 });
 
@@ -94,11 +99,26 @@ test('insert as code: s() with .bank(), a note for pitched sounds', () => {
 
 test('a firmware row: its own line, a test note by its position in the engine, Installed', () => {
 	const ob = items.find((item) => item.id === 'firmware:obervave')!;
-	assert.equal(ob.insert, 'note("c2 eb2 g2 bb2").s("vibefm1:obervave")');
+	assert.equal(ob.insert, '$: note("c2 eb2 g2 bb2").s("vibefm1:obervave")');
 	assert.equal(ob.group, 'Installed');
+	assert.equal(ob.image, 'https://pictures/obervave.png');
 	assert.equal(ob.url, 'https://example.com/obervave.wasm');
 	assert.deepEqual([ob.sound, ob.index], ['vibefm1', 0]);
 	assert.equal(items.find((item) => item.id === 'firmware:sloop')!.index, 1);
+	const echo = items.find((item) => item.id === 'firmware:echofield-vibe')!;
+	assert.deepEqual([echo.group, echo.available, echo.insert, echo.sound], ['Available', true, undefined, undefined]);
 	// The firmware host itself is no row of its own any more.
 	assert.equal(items.some((item) => item.id.startsWith('sound:vibefm1')), false);
+});
+
+test('Installed before Available, whatever the names', () => {
+	const groups = groupItems(items.filter((item) => item.kind === 'firmware'), false);
+	assert.deepEqual(groups.map((g) => g.label), ['Installed', 'Available']);
+});
+
+test('categories of earlier versions', () => {
+	assert.equal(knownCategory('instruments'), 'fm1');
+	assert.equal(knownCategory('firmware'), 'fm1');
+	assert.equal(knownCategory('drums'), 'drums');
+	assert.equal(knownCategory('nonsense'), 'all');
 });

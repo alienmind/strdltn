@@ -79,9 +79,12 @@ launched with F5**, folder `template/`.
 | 7 | F1 to F6 and the scroll wheel in the screen tab | The firmware's pages and values change |
 | 8 | The Reference view | No Plugins or FM-1 Synths rows there |
 
-`pnpm test:quick` passed on 2026-11-24 with this: 44 firmwares in the hub's list, 44
-pictures made and none failed, AISLING installed by a double click and played from
-`firmware/`. Pictures: `tmp/shots/firmware-*.png`.
+`pnpm test:vscode` on 2026-11-24 with this: the step "firmware" all true (44 firmwares in
+the hub's list, 44 pictures made and none failed, AISLING installed by a double click and
+played from `firmware/`, OBERVAVE inserted with its load line once). 37 of 38 files with no
+problem; `examples/09-midi-out.strudel` did not start because the MIDI keyboard "MPK mini 3"
+was not connected (the run of 2026-11-23, with it connected, passed). Pictures:
+`tmp/shots/firmware-*.png`.
 
 Expected still broken: the README still says Instruments, because `README.md` holds the
 maintainer's own uncommitted changes. An Available firmware that the hub updates gets a new

@@ -133,7 +133,7 @@ export class BrowserView {
 		return this.sounds;
 	}
 
-	/** The provider of one of the three views. */
+	/** The provider of the Browser's view. `page` is always `library` now: its three panes are one page. */
 	provider(page: BrowserPage): vscode.WebviewViewProvider {
 		return {
 			resolveWebviewView: (view) => {
@@ -156,9 +156,9 @@ export class BrowserView {
 		this.post({ type: 'focusSearch' }, 'library');
 	}
 
-	/** Sets what the Browser shows, as clicks would. For the integration test. */
-	show(filter: Partial<BrowserFilterState>, open?: string[]): void {
-		this.setFilter({ ...this.filter, ...filter }, undefined, open);
+	/** Sets what the Browser shows, as a click in a tree would: Contents shows it. For the integration test. */
+	show(filter: Partial<BrowserFilterState>): void {
+		this.setFilter({ ...this.filter, ...filter }, undefined, true);
 	}
 
 	/** What Results reported last: the filter, and how many results and rows it shows. */
@@ -211,26 +211,15 @@ export class BrowserView {
 		this.post({ type: 'controls', state }, 'library');
 	}
 
-	/** The filter changed in one view: the others follow, and Results opens to show it. */
-	private setFilter(filter: BrowserFilterState, from?: BrowserPage, open?: string[]): void {
+	/**
+	 * The filter changed: kept for the next start, and sent to the page unless it came from there. `show` opens Contents
+	 * alone, as a click in a tree does; the page does that itself for its own clicks.
+	 */
+	private setFilter(filter: BrowserFilterState, from?: BrowserPage, show = false): void {
 		this.filter = filter;
 		if (filter.category === 'plugins' || filter.category === 'fm1') this.actions.wantFirmware();
 		void this.context.workspaceState.update(FILTER_KEY, filter);
-		for (const [page, view] of this.views) if (page !== from) void view.webview.postMessage({ type: 'filter', filter, open } satisfies ToBrowser);
-		if (from && from !== 'results') void this.showResults(from);
-	}
-
-	/**
-	 * Expands Results when it is folded, as the maintainer asked: every click and every search
-	 * should show its results at once. `show(true)` keeps the focus, so typing in the search
-	 * goes on. A Results view that was never opened has no `show`: its focus command opens it,
-	 * and the cursor goes back to the search field when the search was typed.
-	 */
-	private async showResults(from: BrowserPage): Promise<void> {
-		const results = this.views.get('results');
-		if (results) return results.visible ? undefined : results.show(true);
-		await vscode.commands.executeCommand('strdltn.results.focus');
-		if (from === 'library') this.post({ type: 'focusSearch' }, 'library');
+		for (const [page, view] of this.views) if (page !== from) void view.webview.postMessage({ type: 'filter', filter, show } satisfies ToBrowser);
 	}
 
 	/** To one view, or to all when no view is named. */
@@ -243,7 +232,7 @@ export class BrowserView {
 	}
 
 	/** What a message of the webview asks. Public for the integration test, which cannot click in a webview. */
-	async handle(message: FromBrowser, page: BrowserPage = 'results'): Promise<void> {
+	async handle(message: FromBrowser, page: BrowserPage = 'library'): Promise<void> {
 		switch (message.type) {
 			case 'ready': {
 				// The first view: the pictures get their webview URLs now.

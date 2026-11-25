@@ -9,6 +9,8 @@ import type { PreviewPlan } from './preview.ts';
  */
 export interface BrowserFilterState {
 	category: CategoryId;
+	/** A group of the category, picked in the tree under it: `Installed`, a bank, a folder. */
+	group?: string;
 	/** With category "all": only the items of this view, the "All" row of that view. */
 	scope?: BrowserPage;
 	place?: PlaceId;
@@ -20,21 +22,14 @@ export interface BrowserFilterState {
 }
 
 /**
- * The three views of the side bar, all made from the same page. Library and Reference pick
- * what is shown. Library also holds the one search field and the colors. Results shows
- * what both pick, in one list.
- *
- * Songs and Snippets was a view of its own from 2026-11-20 to 2026-11-22. The maintainer
- * used it for a while and asked for its categories back in the Library, as one tree with
- * All, Sounds, Drums, ..., Songs and Snippets (see the drawer of failed ideas).
+ * Where an item is picked: the Library tree or the Reference tree. Both are panes of the one Browser view
+ * (`strdltn.browser`), with Contents between them. They were three views of their own until 2026-11-25; see "Three
+ * views of the Browser" in the drawer of failed ideas. `results` is the Contents pane, where the old Results view
+ * stood; the host still names it so.
  */
 export type BrowserPage = 'library' | 'reference' | 'results';
-export const BROWSER_PAGES: { page: BrowserPage; view: string; title: string }[] = [
-	{ page: 'library', view: 'strdltn.browser', title: 'Library' },
-	{ page: 'reference', view: 'strdltn.reference', title: 'Reference' },
-	{ page: 'results', view: 'strdltn.results', title: 'Results' },
-];
-export const viewOf = (page: BrowserPage): string => BROWSER_PAGES.find((p) => p.page === page)!.view;
+/** The one view of the Browser. */
+export const BROWSER_VIEW = 'strdltn.browser';
 
 /** Which view picks an item: functions in the Reference, everything else in the Library. */
 export const pageOf = (item: CatalogItem): BrowserPage => (item.kind === 'function' ? 'reference' : 'library');
@@ -54,7 +49,7 @@ export type ToBrowser =
 	/** Plays a preview in this page, without the engine. */
 	| { type: 'playPreview'; plan: PreviewPlan }
 	/** The filter changed in another view, or by a command. `open` opens headings in Results, for the integration test. */
-	| { type: 'filter'; filter: BrowserFilterState; open?: string[] };
+	| { type: 'filter'; filter: BrowserFilterState; show?: boolean };
 
 export type FromBrowser =
 	| { type: 'ready' }
@@ -85,7 +80,7 @@ export type FromBrowser =
 	/** Ctrl+F in a view without a search field: the Library's field gets the cursor. */
 	| { type: 'focusSearch' }
 	/** What Results shows now. The integration test reads it. */
-	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number }
+	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number; panes: { library: boolean; contents: boolean; reference: boolean } }
 	| { type: 'log'; message: string }
 	/** "User manual (PDF)": the PDF of the latest release, in the user's browser. */
 	| { type: 'openManual' };

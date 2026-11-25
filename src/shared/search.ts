@@ -5,6 +5,8 @@ import { type CatalogItem, type CategoryId, colorsOf, inCategory, type PlaceId, 
 export interface Filter {
 	query: string;
 	category: CategoryId;
+	/** A group of the category: `Installed`, a bank, a folder. */
+	group?: string;
 	place?: PlaceId;
 	/** True: only what comes with Strudel. False: only what does not (the project, the packs it loads). */
 	builtin?: boolean;
@@ -63,6 +65,7 @@ export function filterItems(items: CatalogItem[], filter: Filter, user: UserInde
 	const query = parseQuery(filter.query);
 	return items.filter((item) => {
 		if (!inCategory(item.category, filter.category)) return false;
+		if (filter.group && item.group !== filter.group) return false;
 		if (filter.place && item.place !== filter.place) return false;
 		if (filter.builtin !== undefined && (item.place === 'builtin') !== filter.builtin) return false;
 		if (filter.color && !colorsOf(item, user).includes(filter.color)) return false;

@@ -111,6 +111,12 @@ test('a firmware row: its own line, a test note by its position in the engine, I
 	assert.equal(items.some((item) => item.id.startsWith('sound:vibefm1')), false);
 });
 
+test('a group picked in the tree: only its rows', () => {
+	assert.deepEqual(find('', { category: 'fm1', group: 'Available' }), ['firmware:echofield-vibe']);
+	assert.deepEqual(find('', { category: 'fm1', group: 'Installed' }), ['firmware:obervave', 'firmware:sloop']);
+	assert.deepEqual(find('', { category: 'drums', group: 'linndrum' }), ['sound:linndrum_bd']);
+});
+
 test('Installed before Available, whatever the names', () => {
 	const groups = groupItems(items.filter((item) => item.kind === 'firmware'), false);
 	assert.deepEqual(groups.map((g) => g.label), ['Installed', 'Available']);

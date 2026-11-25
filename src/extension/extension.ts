@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { type BrowserFilterState, type FromBrowser, viewOf } from '../shared/browser';
+import { BROWSER_VIEW, type BrowserFilterState, type FromBrowser } from '../shared/browser';
 import { CATEGORIES } from '../shared/catalog';
 import { chooseInsert, type InsertArgument } from '../shared/context';
 import type { SoundInfo } from '../shared/protocol';
@@ -51,8 +51,10 @@ export interface StrdltnApi {
 	browserFind(filter: Partial<BrowserFilterState>): string[];
 	/** The headings of a category in the Browser: the banks of Drums, the folders of Songs. */
 	browserGroups(category: BrowserFilterState['category']): string[];
-	/** Sets what the Browser shows, and returns what it reports back. */
+	/** Sets what the Browser shows, as a click in a tree would, and returns what it reports back. */
 	browserShow(filter: Partial<BrowserFilterState>, open?: string[]): Promise<unknown>;
+	/** What the Browser's page reported last: the filter, the counts, which panes are open. */
+	browserState(): unknown;
 	/** Handles a message as if the Browser had sent it: a click on a row, a color. */
 	browserMessage(message: FromBrowser): Promise<void>;
 	/** The previews the Browser played without the engine. */
@@ -287,8 +289,6 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// The Browser keeps its page while hidden, so its filters and open headings survive a
 		// switch to another side bar.
 		vscode.window.registerWebviewViewProvider('strdltn.browser', browser.provider('library'), { webviewOptions: { retainContextWhenHidden: true } }),
-		vscode.window.registerWebviewViewProvider('strdltn.reference', browser.provider('reference'), { webviewOptions: { retainContextWhenHidden: true } }),
-		vscode.window.registerWebviewViewProvider('strdltn.results', browser.provider('results'), { webviewOptions: { retainContextWhenHidden: true } }),
 		// The Mixer keeps its page too, so its strips stay unfolded behind the Terminal tab.
 		vscode.window.registerWebviewViewProvider('strdltn.mixer', mixerPlace, { webviewOptions: { retainContextWhenHidden: true } }),
 		vscode.window.registerWebviewViewProvider('strdltn.devices', devices),
@@ -756,17 +756,17 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		browserCounts: () => Object.fromEntries(CATEGORIES.map(({ id }) => [id, browser.find({ category: id }).length])),
 		browserFind: (filter) => browser.find(filter).map((item) => item.id),
 		browserGroups: (category) => [...new Set(browser.find({ category }).map((item) => item.group))].sort(),
-		browserShow: async (filter, open) => {
-			// The filter is the same in every view; Results shows what it picks.
-			await vscode.commands.executeCommand(viewOf('results') + '.focus');
+		browserShow: async (filter) => {
+			await vscode.commands.executeCommand(`${BROWSER_VIEW}.focus`);
 			// A view opened for the first time needs a moment before it takes messages.
 			for (let i = 0; i < 20 && !browser.state(); i++) await new Promise((resolve) => setTimeout(resolve, 250));
-			browser.show(filter, open);
+			browser.show({ group: undefined, ...filter });
 			// The webview reports what it shows after it has drawn.
 			await new Promise((resolve) => setTimeout(resolve, 600));
 			return browser.state();
 		},
 		browserMessage: (message) => browser.handle(message),
+		browserState: () => browser.state(),
 		browserPreviews: () => [...browser.previews],
 		mixer: () => mixer.current(),
 		devices: () => devices.current(),

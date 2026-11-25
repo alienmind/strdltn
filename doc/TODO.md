@@ -34,8 +34,10 @@ FM-1 Synths in the Library (it replaced Instruments), with Installed and Availab
 Playground's `index.json` (the maintainer, 2026-11-24, which answers the "what list" part of decision
 13). Every row shows a picture of the firmware's screen; a double click on an Available one installs
 it into `firmware/<id>/`; Insert types a `$:` line; the screen popup runs any of them without sound.
-Waiting for the hand test below. Item 20 (melody and drum-rack line actions) waits for the
-maintainer's go.
+On 2026-11-25 the Browser became one view with three panes (Library, Contents, Reference) and fold
+rules, and the groups moved from Contents into the Library tree (FM-1 Synths > Installed and
+Available). Waiting for the hand test below. Item 20 (melody and drum-rack line actions) waits for
+the maintainer's go.
 
 Next in line:
 
@@ -66,30 +68,30 @@ Next in line:
 ## Next: test by hand
 
 `feat/firmware-marketplace`. Test on **desktop VS Code, the Extension Development Host
-launched with F5**, folder `template/`.
+launched with F5**, folder `template/`. The checks of 2026-11-24 passed; these are about the
+Browser's new panes.
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Library: Plugins, then FM-1 Synths under it | Results shows Installed (OBERVAVE, which the demo caches) and Available (the hub's other firmwares). Each row has a picture of the firmware's screen under its name. The pictures fill in over a minute or two the first time: each firmware is downloaded once (about 1 MB each) and run for a moment |
-| 2 | Click a row | The details pane shows the picture, the description, version, author, license and where it comes from, without a scroll bar for a short description |
-| 3 | Double click an Available row | A notification says it is installed in `firmware/<id>`; the row moves to Installed |
-| 4 | In a song, cursor on an empty line, double click the row from 3, then Play | `$: note("c2 eb2 g2 bb2").s("vibefm1:<id>")` goes in, with no `firmware(...)` line, and it plays beside the other lines |
-| 5 | Insert OBERVAVE (a cached one) into a song that does not load it, then Play | A `firmware('https://...obervave.wasm')` line goes in at the top, the `$:` line at the cursor, both instruments play |
-| 6 | The screen button of an Available row | The screen tab runs it; its button says Install; after Install it says "Insert at the cursor" |
-| 7 | F1 to F6 and the scroll wheel in the screen tab | The firmware's pages and values change |
-| 8 | The Reference view | No Plugins or FM-1 Synths rows there |
+| 1 | Open the side bar | One view, Browser, with three panes from the top: Library, Contents, Reference |
+| 2 | In Library, click Sounds | Library and Reference fold, Contents fills the side bar with the sounds, a flat list with no headings |
+| 3 | Open Library again by its header; Sounds has unfolded: click Soundfonts under it | Only soundfonts in Contents; Library folds again |
+| 4 | Plugins > FM-1 Synths > Available | Only the Available firmwares, with their pictures |
+| 5 | Ctrl+F and type `909` | Library opens with the cursor in the search; Contents' header says Results |
+| 6 | Clear the search | The header says Contents again |
+| 7 | Open Reference by its header | Library and Contents fold, Reference has the height |
+| 8 | Click Functions | Contents alone shows the functions |
+| 9 | Drums, unfold it, hover a bank | The bank's insert button types `.bank("...")` |
 
-`pnpm test:vscode` on 2026-11-24 with this: the step "firmware" all true (44 firmwares in
-the hub's list, 44 pictures made and none failed, AISLING installed by a double click and
-played from `firmware/`, OBERVAVE inserted with its load line once). 37 of 38 files with no
-problem; `examples/09-midi-out.strudel` did not start because the MIDI keyboard "MPK mini 3"
-was not connected (the run of 2026-11-23, with it connected, passed). Pictures:
-`tmp/shots/firmware-*.png`.
+`pnpm test:quick` passed on 2026-11-25 before the last small change (the tree unfolding for a
+filter set by a command): every Browser step showed Contents alone, FM-1 Synths > Installed 1
+row, > Available 50, 52 pictures made, none failed. Three runs after that change did not
+finish: the test window of VS Code closed itself (exit code 0, no error from the extension),
+once in the middle of the Mixer steps, twice within seconds of starting. Not explained yet;
+`pnpm test:vscode` is still to run.
 
-Expected still broken: the README still says Instruments, because `README.md` holds the
-maintainer's own uncommitted changes. An Available firmware that the hub updates gets a new
-picture and a new download (the `?v=` stamp is part of its address); the old copy stays in
-global storage.
+Expected still broken: the README still says Instruments and three views, because
+`README.md` holds the maintainer's own uncommitted changes.
 
 ## Open leads
 

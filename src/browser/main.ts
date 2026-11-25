@@ -1,7 +1,8 @@
-// The page of the Browser's three views. Library and Reference show the categories that
-// pick what is shown (Library also the search and the colors); Results shows the chips,
-// the results and the details. One filter for all three: the host keeps it and hands it to
-// each. See "Browser" in doc/ARCHITECTURE.md.
+// The page of the Browser: one view with three panes, Library, Contents and Reference. Library and Reference are
+// trees that pick what is shown (Library also holds the search and the colors); Contents shows what they pick, a flat
+// list with its chips and details, and is called Results while a search is typed. The panes fold like the sections of
+// a VS Code side bar, but by our rules: picking something shows Contents alone, at full height. One view, because VS
+// Code gives an extension no way to fold one of its views (measured in 1.147). See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
 import { type BrowserFilterState, type BrowserPage, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
 import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, inCategory, opens, parentOf, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
@@ -19,8 +20,6 @@ const post = (message: FromBrowser) => vscode.postMessage(message);
 const MAX_VARIATIONS = 64;
 /** Chips shown per group before "+ more". */
 const CHIPS_SHOWN = 8;
-/** A heading opens by itself when the results are this few, or it is the only one. */
-const OPEN_BY_ITSELF = 600;
 
 type Row =
 	| { type: 'heading'; key: string; label: string; count: number; insert?: string; open: boolean }
@@ -31,14 +30,18 @@ interface Saved {
 	sections: Record<string, boolean>;
 	headings: Record<string, boolean>;
 	chipsOpen: string[];
+	panes?: Record<Pane, boolean>;
+	/** Tree rows the user unfolded: a category id, or `<category>|<group>` is never needed. */
+	tree?: string[];
 }
+
+/** The three panes of the view. */
+type Pane = 'library' | 'contents' | 'reference';
 
 const saved = (vscode.getState() as Saved | undefined) ?? undefined;
 let items: CatalogItem[] = [];
 let user: UserIndex = emptyUserIndex();
 let preview = true;
-/** Which of the three views this page is. Known from `init`. */
-let page: BrowserPage = 'library';
 let filter: BrowserFilterState = { category: 'all', query: '', chips: [] };
 const sections: Record<string, boolean> = saved?.sections ?? { collections: true, library: true, places: false };
 /** Headings the user opened or closed, by category and key. Cleared when the search changes. */
@@ -52,7 +55,10 @@ const selection = new Set<string>();
 let cursor = -1;
 let anchor = -1;
 
-const keep = () => vscode.setState({ sections, headings, chipsOpen: [...chipsOpen] } satisfies Saved);
+const panes: Record<Pane, boolean> = saved?.panes ?? { library: true, contents: true, reference: false };
+/** Categories unfolded in the trees, so their groups show under them. */
+const tree = new Set<string>(saved?.tree ?? []);
+const keep = () => vscode.setState({ sections, headings, chipsOpen: [...chipsOpen], panes, tree: [...tree] } satisfies Saved);
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
 	const node = document.createElement(tag);
 	if (className) node.className = className;
@@ -72,18 +78,40 @@ const button = (name: string, title: string, onClick: (event: MouseEvent) => voi
 const rowKey = (row: Row) => (row.type === 'heading' ? `h:${row.key}` : row.type === 'item' ? row.item.id : `${row.item.id}#${row.index}`);
 const colorVar = (color: number) => `var(--c${color})`;
 const filtered = () => !!(filter.query.trim() || filter.chips.length || filter.color || filter.place || filter.builtin !== undefined);
-/** The items this view picks from: functions in the Reference, everything else in the Library. */
-const ownItems = () => items.filter((item) => pageOf(item) === page);
+/** The items a tree picks from: functions in the Reference, everything else in the Library. */
+const itemsOf = (of: BrowserPage) => items.filter((item) => pageOf(item) === of);
 
 // ---- the page ---------------------------------------------------------------------------
 
 const app = document.getElementById('app')!;
-// Nothing shows before `init` says which view this is.
+// Nothing shows before `init`.
 app.hidden = true;
+
+/** A pane: a header like a VS Code section, and a body. */
+function pane(id: Pane, title: string): { box: HTMLElement; head: HTMLElement; title: HTMLElement; count: HTMLElement; body: HTMLElement } {
+	const box = app.appendChild(el('div', `pane pane-${id}`));
+	const head = box.appendChild(el('div', 'pane-head'));
+	head.tabIndex = 0;
+	head.innerHTML = icon('chevron');
+	const name = head.appendChild(el('span', 'pane-title', title));
+	const count = head.appendChild(el('span', 'pane-count'));
+	head.addEventListener('click', () => togglePane(id));
+	head.addEventListener('keydown', (event) => {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			togglePane(id);
+		}
+	});
+	const body = box.appendChild(el('div', 'pane-body'));
+	return { box, head, title: name, count, body };
+}
+const libraryPane = pane('library', 'Library');
+const contentsPane = pane('contents', 'Contents');
+const referencePane = pane('reference', 'Reference');
 // Music Controls on top of the Library, then the search.
-const controlsBox = app.appendChild(el('div'));
+const controlsBox = libraryPane.body.appendChild(el('div'));
 const showControls = createControls(controlsBox, post);
-const searchbar = app.appendChild(el('div', 'searchbar'));
+const searchbar = libraryPane.body.appendChild(el('div', 'searchbar'));
 const searchBox = searchbar.appendChild(el('div', 'search'));
 searchBox.innerHTML = icon('search');
 const search = searchBox.appendChild(el('input'));
@@ -93,18 +121,50 @@ search.spellcheck = false;
 const clearSearch = searchBox.appendChild(button('close', 'Clear the search (Esc)', () => setQuery('')));
 const previewButton = searchbar.appendChild(button('speaker', '', () => post({ type: 'setPreview', on: !preview })));
 // The colors and the Built-in button, right under the search: they filter like it does.
-const colorbar = app.appendChild(el('div', 'colorbar'));
-const nav = app.appendChild(el('div', 'nav'));
+const colorbar = libraryPane.body.appendChild(el('div', 'colorbar'));
+const nav = libraryPane.body.appendChild(el('div', 'nav'));
 // The user manual of the latest release, at the foot of the Library (the maintainer, 2026-11-22).
-const manual = app.appendChild(el('button', 'manual-link', 'User manual (PDF)'));
+const manual = libraryPane.body.appendChild(el('button', 'manual-link', 'User manual (PDF)'));
 manual.title = 'Opens the user manual of the latest release in your browser';
 manual.addEventListener('click', () => post({ type: 'openManual' }));
-const chips = app.appendChild(el('div', 'chips'));
-const resultbar = app.appendChild(el('div', 'resultbar'));
-const resultsBox = app.appendChild(el('div', 'results'));
+const chips = contentsPane.body.appendChild(el('div', 'chips'));
+const resultbar = contentsPane.body.appendChild(el('div', 'resultbar'));
+const resultsBox = contentsPane.body.appendChild(el('div', 'results'));
 resultsBox.tabIndex = 0;
 const spacer = resultsBox.appendChild(el('div', 'spacer'));
-const details = app.appendChild(el('div', 'details'));
+const details = contentsPane.body.appendChild(el('div', 'details'));
+const referenceNav = referencePane.body.appendChild(el('div', 'nav'));
+
+/**
+ * The fold rules the maintainer asked for (2026-11-25). Opening Reference folds the other two, so it gets the height.
+ * Library and Contents fold and open by their headers.
+ */
+function togglePane(id: Pane): void {
+	panes[id] = !panes[id];
+	if (id === 'reference' && panes.reference) panes.library = panes.contents = false;
+	update();
+}
+
+/** Something was picked in a tree: Contents alone shows it, at full height. */
+function showContents(): void {
+	panes.library = panes.reference = false;
+	panes.contents = true;
+}
+
+function drawPanes(): void {
+	for (const [id, part] of [['library', libraryPane], ['contents', contentsPane], ['reference', referencePane]] as const) {
+		part.box.classList.toggle('open', panes[id]);
+		part.head.setAttribute('aria-expanded', String(panes[id]));
+	}
+	// The pane that takes the height that is left: Contents when it is open, else the one open pane.
+	const grow: Pane | undefined = panes.contents ? 'contents' : panes.reference ? 'reference' : panes.library ? 'library' : undefined;
+	libraryPane.box.classList.toggle('grow', grow === 'library');
+	contentsPane.box.classList.toggle('grow', grow === 'contents');
+	referencePane.box.classList.toggle('grow', grow === 'reference');
+	// Results only while a search is typed; else it shows the contents of what is picked.
+	contentsPane.title.textContent = filter.query.trim() ? 'Results' : 'Contents';
+	contentsPane.count.textContent = String(results.length);
+}
 let menu: HTMLElement | undefined;
 let dialog: HTMLElement | undefined;
 
@@ -130,9 +190,12 @@ resultsBox.addEventListener('scroll', () => drawRows());
 new ResizeObserver(() => drawRows()).observe(resultsBox);
 resultsBox.addEventListener('keydown', onResultsKey);
 
-/** The search field is in the Library. Another view asks the host to put the cursor there. */
+/** The search field is in the Library: the Library opens for it. */
 function focusSearch(): void {
-	if (page !== 'library') return post({ type: 'focusSearch' });
+	if (!panes.library) {
+		panes.library = true;
+		update();
+	}
 	search.focus();
 	search.select();
 }
@@ -140,6 +203,8 @@ function focusSearch(): void {
 function setQuery(query: string): void {
 	search.value = query;
 	if (query === filter.query) return;
+	// What a search finds shows in Contents, under the Library where it is typed.
+	if (query.trim()) panes.contents = true;
 	setFilter({ query });
 }
 
@@ -159,14 +224,15 @@ function update(): void {
 	previewButton.innerHTML = icon(preview ? 'speaker' : 'mute');
 	previewButton.classList.toggle('on', preview);
 	previewButton.title = preview ? 'Preview on click is ON. Press to turn it off' : 'Preview on click is OFF. Press to turn it on';
-	if (page !== 'results') return drawNav();
+	drawNav();
 	const shown = drawChips();
 	results = filterItems(scoped(items, filter), filter, user);
+	drawPanes();
 	buildRows();
 	drawResultbar();
 	drawRows();
 	drawDetails();
-	post({ type: 'state', filter, results: results.length, rows: rows.length, chips: shown });
+	post({ type: 'state', filter, results: results.length, rows: rows.length, chips: shown, panes: { ...panes } });
 }
 
 function section(id: string, title: string, body: (into: HTMLElement) => void): HTMLElement {
@@ -211,12 +277,10 @@ function drawColorbar(): void {
 }
 
 function drawNav(): void {
-	if (page === 'library') drawColorbar();
-	const own = ownItems();
+	drawColorbar();
 	nav.replaceChildren(
-		// One set of colors and saved searches, in the Library. They act on every view.
-		// Saved searches, when there are any. The colors moved under the search field.
-		...(page !== 'library' || !user.searches.length
+		// Saved searches, when there are any. The colors are under the search field.
+		...(!user.searches.length
 			? []
 			: [
 					section('collections', 'Collections', (body) => {
@@ -231,24 +295,66 @@ function drawNav(): void {
 						}
 					}),
 				]),
-		// The categories of this view, without a heading. A click picks one for Results; a
-		// click on the one that is picked goes back to everything.
-		categories((body) => {
-			const allOn = filter.category === 'all' && filter.scope === page;
-			const all = body.appendChild(navRow('all', 'All', own.length, allOn));
-			all.addEventListener('click', () => setFilter(allOn ? { scope: undefined } : { category: 'all', scope: page, chips: [] }));
-			for (const category of CATEGORIES) {
-				if (category.id === 'all') continue;
-				const count = own.filter((item) => inCategory(item.category, category.id)).length;
-				// Plugins and FM-1 Synths show in the Library while empty: FM-1 Synths is where the hub's list loads.
-				if (!count && !(page === 'library' && (category.id === 'plugins' || category.id === 'fm1'))) continue;
-				const on = filter.category === category.id;
-				const row = body.appendChild(navRow(category.icon, category.label, count, on));
-				if (parentOf(category.id)) row.classList.add('child');
-				row.addEventListener('click', () => setFilter(on ? { category: 'all', scope: undefined } : { category: category.id, scope: undefined, chips: [] }));
-			}
-		}),
+		categories((body) => drawTree(body, 'library')),
 	);
+	referenceNav.replaceChildren(categories((body) => drawTree(body, 'reference')));
+}
+
+/**
+ * A tree of the Library or the Reference: All, the categories, the children of a parent category (Plugins > FM-1
+ * Synths), and under each category its groups (Installed and Available, Synths and Soundfonts, the banks, the
+ * folders). A click picks one for Contents, and Contents alone shows; a click on what is picked goes one level up. A
+ * category unfolds when it is picked; its arrow folds it.
+ */
+function drawTree(body: HTMLElement, of: BrowserPage): void {
+	const own = itemsOf(of);
+	const allOn = filter.category === 'all' && filter.scope === of;
+	const all = body.appendChild(navRow('all', 'All', own.length, allOn, 0));
+	all.addEventListener('click', () => pick(allOn ? { category: 'all', scope: undefined } : { category: 'all', scope: of }));
+	for (const category of CATEGORIES) {
+		if (category.id === 'all') continue;
+		const mine = own.filter((item) => inCategory(item.category, category.id));
+		// Plugins and FM-1 Synths show in the Library while empty: FM-1 Synths is where the hub's list loads.
+		if (!mine.length && !(of === 'library' && (category.id === 'plugins' || category.id === 'fm1'))) continue;
+		const parent = parentOf(category.id);
+		if (parent && !tree.has(parent)) continue;
+		const children = CATEGORIES.filter((c) => parentOf(c.id) === category.id);
+		const groups = children.length ? [] : groupsOf(mine);
+		const foldable = children.length > 0 || groups.length > 1;
+		const unfolded = foldable && tree.has(category.id);
+		const on = filter.category === category.id && !filter.group;
+		const row = body.appendChild(navRow(category.icon, category.label, mine.length, on, parent ? 1 : 0, foldable ? unfolded : undefined));
+		row.addEventListener('click', (event) => {
+			if ((event.target as HTMLElement).closest('.twisty')) {
+				if (unfolded) tree.delete(category.id);
+				else tree.add(category.id);
+				return update();
+			}
+			if (foldable) tree.add(category.id);
+			pick(on ? { category: 'all', scope: undefined } : { category: category.id, scope: undefined });
+		});
+		if (!unfolded) continue;
+		for (const group of groups) {
+			const groupOn = filter.category === category.id && filter.group === group.key;
+			const groupRow = body.appendChild(navRow('', group.label, group.items.length, groupOn, parent ? 2 : 1));
+			groupRow.addEventListener('click', () => pick(groupOn ? { category: category.id, scope: undefined } : { category: category.id, group: group.key, scope: undefined }));
+			// A bank's button types `.bank("...")`, as its heading in the results did.
+			if (group.insert) {
+				groupRow.insertBefore(button('insert', `Insert ${group.insert} at the cursor`, () => post({ type: 'insertText', text: group.insert! })), groupRow.lastChild);
+			}
+		}
+	}
+}
+
+/** The groups of a category, in their order: Installed before Available, else by name. */
+function groupsOf(list: CatalogItem[]): { key: string; label: string; insert?: string; items: CatalogItem[] }[] {
+	return groupItems(list, false);
+}
+
+/** A row of a tree was picked: the filter changes, Contents alone shows it. */
+function pick(change: Partial<BrowserFilterState>): void {
+	showContents();
+	setFilter({ group: undefined, chips: [], ...change });
 }
 
 function categories(body: (into: HTMLElement) => void): HTMLElement {
@@ -257,9 +363,13 @@ function categories(body: (into: HTMLElement) => void): HTMLElement {
 	return box;
 }
 
-function navRow(iconName: string, label: string, count: number | undefined, active: boolean): HTMLElement {
+/** A row of a tree. `depth` indents it; `unfolded` gives it an arrow, true when its children show. */
+function navRow(iconName: string, label: string, count: number | undefined, active: boolean, depth = 0, unfolded?: boolean): HTMLElement {
 	const row = el('div', `nav-row${active ? ' active' : ''}`);
-	row.innerHTML = icon(iconName);
+	row.style.paddingLeft = `${4 + depth * 14}px`;
+	const twisty = row.appendChild(el('span', `twisty${unfolded ? ' open' : ''}`));
+	if (unfolded !== undefined) twisty.innerHTML = icon('chevron');
+	if (iconName) row.insertAdjacentHTML('beforeend', icon(iconName));
 	row.appendChild(el('span', 'name', label));
 	if (count !== undefined) row.appendChild(el('span', 'count', String(count)));
 	return row;
@@ -305,8 +415,11 @@ function toggleChip(tag: string, add: boolean): void {
 function drawResultbar(): void {
 	resultbar.replaceChildren();
 	const scopes: Record<BrowserPage, string> = { library: 'Library', reference: 'Reference', results: '' };
-	const where = filter.category !== 'all' ? CATEGORIES.find((c) => c.id === filter.category)?.label : filter.scope ? scopes[filter.scope] : '';
-	const parts = [`${results.length} ${results.length === 1 ? 'result' : 'results'}`, where ? `in ${where}` : ''];
+	const category = filter.category !== 'all' ? CATEGORIES.find((c) => c.id === filter.category)?.label : filter.scope ? scopes[filter.scope] : '';
+	const where = [category, filter.group].filter(Boolean).join(' > ');
+	// "Results" only for a search, as the pane's title: else it is what the tree picked.
+	const noun = filter.query.trim() ? (results.length === 1 ? 'result' : 'results') : results.length === 1 ? 'item' : 'items';
+	const parts = [`${results.length} ${noun}`, where ? `in ${where}` : ''];
 	if (filter.color) parts.push(user.colorNames[filter.color - 1]);
 	if (filter.place) parts.push(PLACES.find((p) => p.id === filter.place)?.label ?? '');
 	if (filter.builtin !== undefined) parts.push(filter.builtin ? 'built in' : 'not built in');
@@ -317,19 +430,16 @@ function drawResultbar(): void {
 	}
 }
 
+/**
+ * Contents: a flat list, in the order of the groups the trees show, with no headings: the groups are in the trees now
+ * (the maintainer, 2026-11-25).
+ */
 function buildRows(): void {
-	const byCategory = filter.category === 'all';
-	const groups = groupItems(results, byCategory);
+	const groups = groupItems(results, filter.category === 'all');
 	rows = [];
-	const many = results.length > OPEN_BY_ITSELF;
 	for (const group of groups) {
-		const key = `${filter.category}|${group.key}`;
-		const open = headings[key] ?? (groups.length === 1 || (!many && (filtered() || groups.length <= 24)));
-		const label = byCategory ? (CATEGORIES.find((c) => c.id === group.key)?.label ?? group.key) : group.label;
-		rows.push({ type: 'heading', key, label, count: group.items.length, insert: group.insert, open });
-		if (!open) continue;
 		for (const item of group.items) {
-			rows.push({ type: 'item', item, depth: 1 });
+			rows.push({ type: 'item', item, depth: 0 });
 			if (item.count && openItems.has(item.id)) {
 				for (let index = 0; index < Math.min(item.count, MAX_VARIATIONS); index++) rows.push({ type: 'variation', item, index, depth: 2 });
 			}
@@ -427,8 +537,8 @@ function drawRow(row: Row, index: number): HTMLElement {
 		node.appendChild(kindIcon);
 		const label = row.type === 'variation' ? variationLabel(item, row.index) : item.label;
 		node.appendChild(el('span', 'label', label));
-		// The bank or folder is said by the heading, unless the headings are categories.
-		const detail = item.detail && (filter.category === 'all' || item.detail !== item.group) ? item.detail : '';
+		// The bank or folder, unless a group is picked in the tree and says it already.
+		const detail = item.detail ?? (!filter.group && item.group !== '.' ? item.group : '');
 		node.appendChild(el('span', 'detail', row.type === 'item' ? [item.count ? String(item.count) : '', detail].filter(Boolean).join('  ') : ''));
 		const squares = node.appendChild(el('span', 'squares'));
 		for (const color of colorsOf(item, user)) squares.appendChild(el('span', 'sq')).style.background = colorVar(color);
@@ -445,7 +555,8 @@ function drawRow(row: Row, index: number): HTMLElement {
 				image.alt = `The screen of ${item.label}`;
 				image.draggable = false;
 			} else picture.appendChild(el('span', '', 'No preview yet'));
-			if (item.available) picture.appendChild(el('span', 'badge', 'Available'));
+			// Said by the badge unless the tree's Available is picked, which says it already.
+			if (item.available && filter.group !== 'Available') picture.appendChild(el('span', 'badge', 'Available'));
 		}
 		if (item.sound) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
 		if (item.available) actions.appendChild(button('install', 'Install into the project (double click)', () => post({ type: 'install', id: item.id })));
@@ -980,18 +1091,10 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 	const message = event.data;
 	switch (message.type) {
 		case 'init':
-			page = message.page;
 			filter = message.filter;
 			items = message.items;
 			user = message.user;
 			preview = message.preview;
-			// Library: search, colors, categories. Reference: its categories. Results:
-			// chips, results, details.
-			searchbar.hidden = colorbar.hidden = controlsBox.hidden = page !== 'library';
-			nav.hidden = page === 'results';
-			manual.hidden = page !== 'library';
-			chips.hidden = resultbar.hidden = resultsBox.hidden = details.hidden = page !== 'results';
-			document.body.dataset.page = page;
 			app.hidden = false;
 			searchbarSync();
 			return update();
@@ -1014,16 +1117,14 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			filter = message.filter;
 			searchbarSync();
 			headings = {};
-			for (const key of message.open ?? []) headings[`${filter.category}|${key}`] = true;
-			update();
-			// Show the first opened heading at the top, for a screenshot.
-			if (page === 'results' && message.open?.length) {
-				const index = rows.findIndex((row) => row.type === 'heading' && row.key === `${filter.category}|${message.open![0]}`);
-				if (index >= 0) {
-					resultsBox.scrollTop = tops[index] ?? index * rowHeight();
-					moveCursor(Math.min(index + 1, rows.length - 1), false);
-				}
+			// A filter set by a command or the test: Contents shows it, and the tree unfolds to it, as a click would.
+			if (message.show) {
+				showContents();
+				const parent = parentOf(filter.category);
+				if (parent) tree.add(parent);
+				if (filter.group || CATEGORIES.some((c) => parentOf(c.id) === filter.category)) tree.add(filter.category);
 			}
+			update();
 			return;
 	}
 });

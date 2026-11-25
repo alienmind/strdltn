@@ -307,6 +307,16 @@ splits the side bar among the expanded views; `initialSize` only sets proportion
 first time, and a webview view has no API to ask for a height. The controls became one
 row at the top of the Library view, which always fits.
 
+## Three views of the Browser
+
+Tried, from 2026-11-21 to 2026-11-25: Library, Reference and Results as three webview views of the side bar, each
+folding and moving on its own. The maintainer found Library and Results confusing next to each other and asked for an
+accordion: a click in the Library shows Results (now Contents) alone at full height, opening Reference folds the other
+two. VS Code cannot do that with views: measured in 1.147, a view of an extension gets only the commands `focus`,
+`toggleVisibility` (which takes it out of the side bar), `removeView` and `resetViewLocation`, and `WebviewView.show()`
+only opens. Nothing folds a view. So the three became panes of one view, with our own headers and fold rules. Lost: the
+panes cannot be dragged apart into other places of VS Code.
+
 ## Songs and Snippets as a view of its own
 
 Tried. From 2026-11-20 to 2026-11-22 the side bar had four views: Library (sounds),

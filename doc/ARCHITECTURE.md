@@ -197,45 +197,37 @@ One run without retries lost every pack until the window was closed.
 
 ## Browser
 
-The side bar is the browser of Ableton Live split into its parts, as three views. It
-replaced four other views: the logo, Files, Sounds and Snippets. A tree cannot draw color
-squares, chips or a search field, and a webview between trees looked out of place (see
-"Snippet cards in a webview" in the drawer), so the side bar is webviews only now. The
-plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
+The side bar is the browser of Ableton Live: one webview view, `strdltn.browser`, named Browser, with three panes.
+It replaced four other views: the logo, Files, Sounds and Snippets. A tree cannot draw color squares, chips or a
+search field, and a webview between trees looked out of place (see "Snippet cards in a webview" in the drawer), so
+the side bar is webviews only now. The plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
 
-**Three views.** Each folds and moves on its own, as vstrudel had separate views. The
-maintainer asked for them on 2026-11-21: one search, one set of colors, one list of
-results. Songs and Snippets was a fourth view until 2026-11-22, when the maintainer asked
-for its categories back in the Library (see "Songs and Snippets as a view of its own" in
-the drawer).
+**Three panes.** From the top, as the maintainer ordered them on 2026-11-25:
 
-| View | id | Shows |
-|---|---|---|
-| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and its categories: All, Sounds, Drums, Samples, Plugins (with FM-1 Synths under it), Render, MIDI, Songs, Snippets |
-| Reference | `strdltn.reference` | Its categories: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
-| Results | `strdltn.results` | The chips, the result bar, the results of all views in one list, and the details pane |
+| Pane | Shows |
+|---|---|
+| Library | Music Controls; the search field; one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; the Library tree: All, Sounds, Drums, Samples, Plugins (with FM-1 Synths under it), Render, MIDI, Songs, Snippets; the link to the manual |
+| Contents | What the trees pick, as a flat list: the chips, the result bar, the rows and the details pane. Its header says Results while a search is typed, else Contents, with the number of rows |
+| Reference | The Reference tree: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
 
-The categories have no heading: the rows start at the top of their view. A click on a
-category picks it for Results; "All" of a view picks everything of that view (the
-filter's `scope`); a click on the row that is picked goes back to everything of every
-view. The Library keeps the view id `strdltn.browser` it had as the whole Browser.
+Each pane has a header drawn as VS Code draws the sections of a side bar, and folds by it. The rules, asked by the
+maintainer: a click on a row of a tree shows Contents alone, at full height (Library and Reference fold); opening
+Reference folds the other two, so it gets the height; Ctrl+F opens the Library for the search; typing a search opens
+Contents under it. An open pane that is not the growing one keeps its own height, at most half the view, and
+scrolls. Until 2026-11-25 these were three views of their own; VS Code gives an extension no way to fold a view (see
+"Three views of the Browser" in the drawer), so these rules need one page.
 
-**One filter.** All three views are the same page (`dist/browser.js`) and the same host
-object: `BrowserView.provider(page)` gives the provider of each, and every page gets
-every item. The host keeps one filter (search text, category, scope, color, built-in,
-chips) for all views and stores it per workspace. A view that changes it sends `filter`
-to the host, which sends it to the other two; the view that made the change already
-shows it, so typing is never undone by an echo. Ctrl+F in a view without the search
-field puts the cursor in the Library's. Colors, tags and saved searches come from the
-one user file.
+**Trees.** A category with children (Plugins > FM-1 Synths), or whose items fall in two or more groups, has an arrow,
+and unfolds when it is picked. Under it are its groups: Installed and Available, Synths and Soundfonts, the banks of
+Drums (with the `.bank("...")` button on hover), the packs of Samples, the folders of Songs. A group is the filter's
+`group`; Contents shows only its rows. A click on the row that is picked goes one level up. Contents has no headings:
+the groups are in the trees, and a row says its group as dim text when no group is picked. "All" of a tree picks
+everything of that tree (the filter's `scope`).
 
-**Results opens itself.** Every change of the filter made in Library or Reference
-expands Results when it is folded, so a click or a search shows its results
-at once (asked by the maintainer on 2026-11-21). The host calls `show(true)` on the
-Results view, which keeps the focus where it is, so typing in the search goes on. A
-Results view that was never opened has no `WebviewView` yet: then its focus command
-opens it and the host puts the cursor back in the search field. Not measured yet whether
-that last case loses a key typed in between.
+**One filter.** One page (`dist/browser.js`) and one host object, `BrowserView`. The host keeps the filter (search
+text, category, group, scope, color, built-in, chips) and stores it per workspace. The page sends each change to the
+host; a filter the host sets (a command, the integration test) comes with `show`, and the page then shows Contents
+alone and unfolds the tree to it, as a click would. Colors, tags and saved searches come from the one user file.
 
 **Built-in.** Places (project, packs, built in) is gone. The maintainer sees where an
 item comes from as one more condition, so the Library has one button under the colors

@@ -489,21 +489,8 @@
 			"strdltn": [
 				{
 					"id": "strdltn.browser",
-					"name": "Library",
-					"type": "webview",
-					"initialSize": 4
-				},
-				{
-					"id": "strdltn.reference",
-					"name": "Reference",
-					"type": "webview",
-					"initialSize": 2
-				},
-				{
-					"id": "strdltn.results",
-					"name": "Results",
-					"type": "webview",
-					"initialSize": 6
+					"name": "Browser",
+					"type": "webview"
 				}
 			],
 			"strdltn-mixer": [

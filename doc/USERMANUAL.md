@@ -75,7 +75,7 @@ extension)". The sound comes out of your browser. MIDI works on desktop VS Code 
 
 | Where | What |
 |---|---|
-| Activity bar, the [str]dltn icon | Opens the side bar with the Library, the Reference and the Results |
+| Activity bar, the [str]dltn icon | Opens the side bar with the Browser: Library, Contents and Reference |
 | Editor area | Your `.strudel` files, in the Strudel editor or the native VS Code editor |
 | Bottom panel, Mixer tab | A strip per part of the song in front |
 | Bottom panel, Devices tab | A panel per firmware synth that plays |
@@ -145,10 +145,12 @@ the song plays.
 
 ## 4. The Library
 
-The [str]dltn icon in the activity bar opens three views. **Library** and **Reference** pick
-what you want to see; **Results** shows it. Each view folds and moves on its own.
+The [str]dltn icon in the activity bar opens the Browser, with three panes. **Library** and
+**Reference** pick what you want to see; **Contents** shows it, and is called **Results** while
+you search. A click on anything in the Library or the Reference shows Contents alone, at full
+height; open the Library again by its header. Opening the Reference folds the other two.
 
-![The Library, the Reference and the Results](manual/browser.png)
+![The Browser: Library, Contents and Reference](manual/browser.png)
 
 ### Music Controls
 
@@ -172,17 +174,20 @@ The row at the top of the Library:
   rows, 0 clears.
 - **Built-in.** Beside the colors: one click shows only what comes with Strudel, a second
   only what does not (your project and the packs your songs load), a third everything.
-- **Collections.** Save a search with the button in the Results, and it becomes a row here.
+- **Collections.** Save a search with the button in Contents, and it becomes a row here.
 - **Categories.** All, Sounds (synths and soundfonts), Drums (by drum machine), Samples,
   Plugins (FM-1 Synths: firmware synths), Render (the audio of your songs), MIDI (your devices),
-  Songs, Snippets. The Reference has Functions: every function of Strudel with its
-  documentation.
+  Songs, Snippets. A category opens into its parts: Sounds into Synths and Soundfonts, Drums
+  into the drum machines, FM-1 Synths into Installed and Available, Songs into folders. Hover a
+  drum machine to insert its `.bank("...")`. The Reference has Functions: every function of
+  Strudel with its documentation.
 
 ![The Reference: every function of Strudel](manual/reference.png)
 
-### Results
+### Contents
 
-- Results are grouped under headings: the drum machine, the folder, the category.
+- One list of what you picked, with no headings: the part it belongs to (the drum machine,
+  the folder) is written after each name.
 - **Tag chips** on top narrow the list. Tags come by themselves from the names (Kick,
   Snare, Hihat for drums; Bass, Pad, Keys for instruments; the maker of a drum machine).
   Ctrl+click a chip to take several of one group.
@@ -461,8 +466,8 @@ s("bd*4, ~ cp ~ cp, [~ oh]*4").bank("RolandTR909")
 | Ctrl+Alt+K | Map a MIDI knob to the slider under the cursor |
 | Ctrl+F, Ctrl+H, Ctrl+G | Find, replace, go to line, in the Strudel editor |
 | Ctrl+D, Ctrl+Shift+L | Select the next match, every match, in the Strudel editor |
-| 1 to 7, 0 | In the Results: color the selected rows, clear |
-| Space, Enter | In the Results: play, insert |
+| 1 to 7, 0 | In Contents: color the selected rows, clear |
+| Space, Enter | In Contents: play, insert |
 
 On a Mac, Cmd in place of Ctrl.
 

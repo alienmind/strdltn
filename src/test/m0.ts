@@ -407,11 +407,12 @@ export async function run(): Promise<void> {
 		steps.browserAll = await api.browserShow({ ...everything, category: 'all' });
 		await sleep(800);
 		await shot('browser');
-		steps.browserSongs = await api.browserShow({ ...everything, category: 'songs' }, ['examples']);
+		// A group picked in the Library tree: Contents shows that subset alone (the maintainer, 2026-11-25).
+		steps.browserSongs = await api.browserShow({ ...everything, category: 'songs', group: 'examples' });
 		await sleep(800);
 		await shot('files-view');
 		const tr909 = api.browserGroups('drums').find((bank) => /^rolandtr909$/i.test(bank));
-		steps.browserDrums = await api.browserShow({ ...everything, category: 'drums' }, tr909 ? [tr909] : []);
+		steps.browserDrums = await api.browserShow({ ...everything, category: 'drums', group: tr909 });
 		await sleep(800);
 		await shot('sounds-view');
 		steps.browserSearch = await api.browserShow({ ...everything, category: 'all', query: '909 bd' });
@@ -731,7 +732,7 @@ export async function run(): Promise<void> {
 				found.installed = await until(() => api.firmware().installed.some((fw) => fw.id === 'obervave'), 60000);
 				await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 				const all = { query: '', chips: [] as string[], color: undefined, place: undefined, scope: undefined, builtin: undefined };
-				await api.browserShow({ ...all, category: 'fm1' }, ['Installed', 'Available']);
+				await api.browserShow({ ...all, category: 'fm1' });
 				found.hubListed = await until(() => api.firmware().hub > 0, 30000);
 				found.hub = api.firmware().hub;
 				found.hubError = api.firmware().hubError;
@@ -742,8 +743,17 @@ export async function run(): Promise<void> {
 				const first = api.firmware().available.slice(0, 3);
 				found.picturesOfFirst = await until(() => ['obervave', ...first].every((id) => api.firmware().pictures.includes(`firmware:${id}`) || api.firmware().picturesFailed.some((f) => f.startsWith(`firmware:${id}:`))), 180000);
 				await sleep(800);
-				found.results = await api.browserShow({ ...all, category: 'fm1' }, ['Installed', 'Available']);
+				found.results = await api.browserShow({ ...all, category: 'fm1' });
 				await shot('firmware-library');
+				// The groups of FM-1 Synths are in the Library tree; picking one shows only its rows.
+				found.installedGroup = await api.browserShow({ ...all, category: 'fm1', group: 'Installed' });
+				found.availableGroup = await api.browserShow({ ...all, category: 'fm1', group: 'Available' });
+				await shot('firmware-available');
+				// The Library opened again (Ctrl+F does that), with the tree unfolded to FM-1 Synths > Available.
+				await vscode.commands.executeCommand('strdltn.focusSearch');
+				await sleep(800);
+				found.treeShown = api.browserState();
+				await shot('firmware-tree');
 
 				// The screen popup: frames painted, with the firmware run on the page's thread and no sound.
 				api.firmwareScreen('obervave');
@@ -889,7 +899,7 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('strdltn.play');
 		await until(() => has('editor', demo, 'report:'), 30000);
 		const tr909doc = api.browserGroups('drums').find((bank) => /^rolandtr909$/i.test(bank));
-		await api.browserShow({ query: '', chips: [], color: undefined, place: undefined, scope: undefined, builtin: undefined, category: 'drums' }, tr909doc ? [tr909doc] : []);
+		await api.browserShow({ query: '', chips: [], color: undefined, place: undefined, scope: undefined, builtin: undefined, category: 'drums', group: tr909doc });
 		await api.mixerShow(['bass']);
 		const kick = api.mixer().model?.chains.findIndex((chain) => chain.name === 'kick') ?? -1;
 		if (kick >= 0) api.mixerReveal(kick);

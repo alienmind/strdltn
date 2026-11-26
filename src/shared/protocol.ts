@@ -110,7 +110,11 @@ export type ToWebview =
 	/** The slider whose number starts at `from` waits for a CC (its knob button is red); undefined: none waits. */
 	| { type: 'knobLearning'; from?: number }
 	/** Answer to `wantEmuWasm`: webview URL of the cached fm1-emu `fm1_web.wasm`, if available. */
-	| { type: 'emuWasm'; url?: string };
+	| { type: 'emuWasm'; url?: string }
+	/** Toggle the Master output safety limiter (`DynamicsCompressorNode`) on `destinationGain`. */
+	| { type: 'limiter'; on: boolean }
+	/** Jump the running scheduler to `cycle`. */
+	| { type: 'seek'; cycle: number };
 
 /** The editing actions of the Strudel editor that VS Code's keys reach through our commands. */
 export type EditorAction = 'find' | 'replace' | 'gotoLine' | 'selectNextMatch' | 'selectAllMatches';
@@ -172,7 +176,9 @@ export type FromWebview =
 	/** Something (a Browser synth/sound/firmware or plain text) was dropped onto the Strudel editor at `offset`. */
 	| { type: 'dropItem'; id?: string; index?: number; text?: string; offset: number }
 	/** Engine asks the host to fetch/cache `fm1_web.wasm` on demand for `.fwsc` playback. */
-	| { type: 'wantEmuWasm' };
+	| { type: 'wantEmuWasm' }
+	/** Live scheduler clock snapshot for the Browser Transport HUD (`BAR / BEAT` and arrangement progress). */
+	| { type: 'clock'; cycle: number; cps: number; at: number };
 
 export interface TextChange {
 	from: number;

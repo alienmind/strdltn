@@ -479,9 +479,17 @@ Strudel's default (`cps = 0.5` in cyclist.mjs of @strudel/core 1.2.6). Typing a 
 Enter writes `setcpm(<bpm>/4)`, upstream's own form for BPM, in place of the call or as the
 first statement after the header comments (`tempoEdit`). A double click takes the call
 out, line and all. A tempo that is not plain arithmetic (a slider) disables the box. The
-row is built once and updated in place, so a redraw while typing keeps the field. In a
-narrow side bar it wraps onto two lines.
-Record and record automation come here later (`doc/NEW_FEATURES.md` section 9).
+row is built once and updated in place, so a redraw while typing keeps the field.
+**Beat-Synced Transport HUD & Master Safety Limiter (`src/browser/controls.ts`, `src/shared/controls.ts`).**
+Play, Stop, Record, Record Automation (placeholder), and Render sit in a recessed `.transport-pill`
+alongside Undo, Redo, and a toggleable **LIM** button (`strdltn.masterLimiter` in `globalState`)
+that inserts a brickwall `DynamicsCompressorNode` (`threshold -1.5 dB`, `ratio 20`) on
+`destinationGain`. Below the pill: a live `BAR.BEAT` readout (`tabular-nums`) and 4-dot beat LEDs
+interpolated at 60 fps from engine `clock` snapshots (`scheduler.now()`, `scheduler.cps`), a **BPM**
+button with 4-tap Tap Tempo (`tapTempoBpm`) and vertical drag on the BPM input (`Shift` for 0.1 steps),
+an active-song status sub-row (green playing / red error or recording / gray stopped), and a clickable
+`arrange()` / `// @length` section progress bar (`parseArrangement`) that seeks the running scheduler.
+Record automation comes here later (`doc/NEW_FEATURES.md` section 9).
 
 **Layout.** Top to bottom: clickable 4px track-color bar (`// @color <name>`), header with fold arrow, 6px pulsing note-activity LED, and strip name, the peak of the level meter, the gain fader on its segmented stereo meter (or custom recessed vertical sub-faders when unfolded, center-out bipolar for `pan`), harmonized M (amber `#e5a00d`) and S (vivid blue `#3794ff`) buttons, the track-colored pump scope with soft vertical gradient fill and the gain's value overlaid, and the jack with color-coded plugged collar. Utility actions (`Expand`, `Collapse`, `Save Colors`, `MIDI Mappings`, `Reset MIDI`, `MIDI Routing`) live in a horizontal top Mixer toolbar. Crossing sidechain cables render a dark under-stroke halo, pill-backed orbit labels, and briefly pulse when the ducking chain fires (`frame.level > 0.2`).
 

@@ -197,6 +197,12 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 		case 'sliderValue':
 			moveSlider(message.index, message.from, message.value);
 			break;
+		case 'limiter':
+			setMasterLimiter(message.on);
+			break;
+		case 'seek':
+			seekCycle(message.cycle);
+			break;
 	}
 });
 
@@ -308,6 +314,8 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			rememberKnobs(mirror.code);
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
 			showErrorToast(undefined);
+			syncMasterLimiter();
+			postClock();
 			post({ type: 'evaluated' });
 		},
 		onToggle: (started: boolean) => {
@@ -316,6 +324,9 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			if (!started) {
 				stopFm1Transport();
 				midiStopped();
+			} else {
+				syncMasterLimiter();
+				postClock();
 			}
 			sendLevels();
 			postState();
@@ -1316,6 +1327,83 @@ function noteHit(hap: any, at: number): void {
 }
 
 /** About 20 times a second while the song plays: each chain's level, decayed and lifted by the notes that sounded. */
+let lastClockSent = 0;
+function postClock(): void {
+	const scheduler = mirror?.repl?.scheduler;
+	if (!scheduler?.started) return;
+	const cycle = typeof scheduler.now === 'function' ? Number(scheduler.now()) : 0;
+	const cps = Number(scheduler.cps ?? 0.5);
+	if (!Number.isFinite(cycle) || !Number.isFinite(cps) || cps <= 0) return;
+	lastClockSent = Date.now();
+	post({ type: 'clock', cycle, cps, at: lastClockSent });
+}
+
+function seekCycle(cycle: number): void {
+	const scheduler = mirror?.repl?.scheduler;
+	if (!scheduler?.started || !Number.isFinite(cycle)) return;
+	const ctx = strudelWebaudio.getAudioContext();
+	scheduler.num_cycles_at_cps_change = Math.max(0, cycle);
+	scheduler.seconds_at_cps_change = ctx.currentTime;
+	postClock();
+}
+
+// Optional brickwall Master output safety limiter (`DynamicsCompressorNode`) on superdough's `destinationGain`.
+let limiterWanted = false;
+let limiterNode: DynamicsCompressorNode | undefined;
+let limiterSource: AudioNode | undefined;
+
+function setMasterLimiter(on: boolean): void {
+	limiterWanted = on;
+	syncMasterLimiter();
+}
+
+function syncMasterLimiter(): void {
+	const context = strudelWebaudio.getAudioContext();
+	if (context instanceof OfflineAudioContext) return;
+	const tap = (strudelWebaudio.getSuperdoughAudioController() as any)?.output?.destinationGain as AudioNode | undefined;
+	if (!tap) return;
+	if (limiterWanted) {
+		if (limiterSource === tap && limiterNode && limiterNode.context === context) return;
+		try {
+			tap.disconnect(context.destination);
+		} catch {
+			// Not directly connected.
+		}
+		let limiter: DynamicsCompressorNode;
+		if (!limiterNode || limiterNode.context !== context) {
+			limiter = (context as AudioContext).createDynamicsCompressor();
+			limiter.threshold.value = -1.5;
+			limiter.knee.value = 3;
+			limiter.ratio.value = 20;
+			limiter.attack.value = 0.002;
+			limiter.release.value = 0.06;
+			limiterNode = limiter;
+		} else {
+			limiter = limiterNode;
+		}
+		try {
+			tap.connect(limiter);
+			limiter.connect((context as AudioContext).destination);
+			limiterSource = tap;
+		} catch {
+			// Context closed or mid-render.
+		}
+	} else if (limiterSource === tap && limiterNode) {
+		try {
+			tap.disconnect(limiterNode);
+			limiterNode.disconnect();
+		} catch {
+			// Already disconnected.
+		}
+		try {
+			tap.connect(context.destination);
+		} catch {
+			// Already connected.
+		}
+		limiterSource = undefined;
+	}
+}
+
 function sendLevels(): void {
 	if (!mirror?.repl?.scheduler?.started) {
 		clearInterval(levelTimer);
@@ -1326,6 +1414,8 @@ function sendLevels(): void {
 	}
 	levelTimer ??= setInterval(() => {
 		if (!mirror?.repl?.scheduler?.started) return sendLevels();
+		syncMasterLimiter();
+		if (Date.now() - lastClockSent >= 400) postClock();
 		const now = strudelWebaudio.getAudioContext().currentTime;
 		const decay = levelTime ? Math.pow(0.5, (now - levelTime) / HALF_LIFE) : 0;
 		levelTime = now;
@@ -1674,7 +1764,12 @@ async function renderSong(cycles: number): Promise<void> {
 		renderingNow = false;
 		setMidiMuted(false);
 		try {
-			tap?.connect(context.destination);
+			if (limiterWanted && limiterNode) {
+				limiterSource = undefined;
+				syncMasterLimiter();
+			} else {
+				tap?.connect(context.destination);
+			}
 		} catch {
 			// The context went away meanwhile.
 		}

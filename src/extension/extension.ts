@@ -190,6 +190,14 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	};
 	const knobs = new KnobLearn(midi, output, evaluateIfPlaying, toggleChain);
 	context.subscriptions.push(knobs);
+	const LIMITER_KEY = 'strdltn.masterLimiter';
+	let limiterOn = context.globalState.get<boolean>(LIMITER_KEY, false);
+	const setMasterLimiter = (on: boolean) => {
+		limiterOn = on;
+		void context.globalState.update(LIMITER_KEY, on);
+		for (const session of sessions) session.setLimiter(on);
+	};
+
 	const mixer = new MixerView(context, output, {
 		reveal: (document, offset) => void revealOffset(document, offset),
 		moveSlider: (document, index, from, value) => {
@@ -211,6 +219,13 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			return { recording: of.some((s) => s.recording), rendering: of.some((s) => s.rendering) };
 		},
 		controls: (state) => browser.setControls(state),
+		setLimiter: setMasterLimiter,
+		limiterEnabled: () => limiterOn,
+		hasError: (document) => [...sessions].some((s) => s.document === document && !!s.error),
+		seek: (document, cycle) => {
+			const session = [...sessions].find((s) => s.document === document && s.ready);
+			session?.seek(cycle);
+		},
 		dropItem: (document, info) => dropOntoDocument(document, lf(document.getText()).length, info),
 	});
 	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
@@ -243,6 +258,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		},
 		// Every engine loads the same packs, so the list of the engine that spoke last is the list.
 		onScopes: (document, scopes) => mixer.setScopes(document, scopes),
+		onClock: (document, clock) => mixer.setClock(document, clock),
+		limiterEnabled: () => limiterOn,
 		onSliderLive: (document, from, value) => mixer.sliderLive(document, from, value),
 		onKnobGhost: (document, from, value) => mixer.knobGhost(document, from, value),
 		onKnobLearn: (document, from, toggle) => knobs.learn(document, from, toggle),

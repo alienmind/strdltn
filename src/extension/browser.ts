@@ -477,6 +477,8 @@ export class BrowserView {
 				if (message.action === 'stop') this.post({ type: 'stopPreview' });
 				return this.actions.control(message);
 			case 'tempo':
+			case 'limiter':
+			case 'seek':
 				return this.actions.control(message);
 			case 'dragItem':
 				this.lastDrag = { id: message.id, index: message.index, at: Date.now() };

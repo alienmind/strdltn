@@ -14,20 +14,6 @@ either reflects the code or writes clean, undoable Strudel code that plays ident
 
 ---
 
-## 2. Beat-Synced Transport HUD & Master Safety Limiter (`UX-2`)
-
-- **Browser Controls transport (`src/browser/controls.ts`):**
-  - Recessed pill container around `Play / Stop / Rec / Render`.
-  - Live `BAR / BEAT` counter and 4-dot beat pulse LEDs synced to `scheduler.now()`.
-  - **Tap Tempo** (clicking the `BPM` label 4 times) and **vertical drag on BPM** (like
-    Ableton's BPM box) alongside direct typing.
-  - Compact active-song sub-row with live status dot (green = playing, red = error/recording,
-    gray = stopped) and clickable `arrange()` / `@length` section progress bar.
-- **Master Output Safety Limiter:** Optional toggleable soft-clipper / brickwall limiter
-  (`DynamicsCompressorNode`) on `destinationGain` to prevent harsh clipping during live sets.
-
----
-
 ## 3. Browser Upgrades: Hot-Swap, Synths Gallery, Songs as Files & Tutorial (`UX-4`, `UX-10`, `#5`, `#6d`)
 
 ### In-Place Sound Hot-Swap (`UX-4`)
@@ -390,7 +376,7 @@ undoable Strudel mini-notation back into the song (Spikes Q1-Q2).
 
 | Batch | Scope | Effort | Spikes / Dependencies |
 |---|---|---|---|
-| **Batch A (Active: `feat/ui-overhaul`)** | Visual UX/UI Overhaul (`UX-2` Beat-Synced Transport HUD, `UX-10` Full-Screen Synths Gallery, `UX-5` Welcome Screen with screenshots, `UX-6` Devices SVG Rotary Knobs/Param Search/Bezel) | 2-3 sessions | None (pure visual/ergonomic wins; no deep DAW spikes) |
+| **Batch A (Active: `feat/ui-overhaul`)** | Visual UX/UI Overhaul (`UX-10` Full-Screen Synths Gallery, `UX-5` Welcome Screen with screenshots, `UX-6` Devices SVG Rotary Knobs/Param Search/Bezel) | 2-3 sessions | None (pure visual/ergonomic wins; no deep DAW spikes) |
 | **Batch B (Interactive Tools)** | `UX-4` In-Place Sound Hot-Swap + `#6d` Interactive Minigame Tutorial (`rustlings` for Strudel + Hardcore Mode) + `#5` Songs as Files & Places + `UX-6` Runtime (per-firmware stream FX bus like `djf`, `.vp()`, `vibe_host_store`, `.midi("vibefm1:...")`, cache clear) | 2-3 sessions | Decision 14/19 |
 | **Batch C1 (Track DSP UI)** | `UX-7` Per-Chain Effect Rack (`src/shared/rack.ts`) + `UX-8` Visual Filter Curve & Live FFT | 3-4 sessions | Existing `chains.ts` & `meterOrbits()` |
 | **Batch C2 (Mixer MIDI & DJ)** | `#6b` Mixer Stacks + `DAW-5` Mixer MIDI strips/cables + `DAW-8` DJ Two-Deck Suite & Split-Mono Cue | 3-4 sessions | Spikes J1, J2, J4 |

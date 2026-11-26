@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { assignMissingColorEdits, colorEdit, duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, scopeEdit, tempoEdit, unduckEdits } from '../shared/chains';
-import type { ControlsState, FromControls, TransportAction } from '../shared/controls';
+import { type ClockSnapshot, type ControlsState, type FromControls, parseArrangement, type TransportAction } from '../shared/controls';
 import { removeKnobEdits } from '../shared/knob';
 import type { FromMixer, ToMixer } from '../shared/mixer';
 import { diffText, type ScopeFrame } from '../shared/protocol';
@@ -27,6 +27,14 @@ export interface MixerActions {
 	busy(document: vscode.TextDocument): { recording: boolean; rendering: boolean };
 	/** What Music Controls show changed. */
 	controls(state: ControlsState): void;
+	/** Master safety limiter toggled in Controls. */
+	setLimiter?(on: boolean): void;
+	/** Whether the Master safety limiter is currently enabled. */
+	limiterEnabled?(): boolean;
+	/** Whether the active document currently has an evaluation error. */
+	hasError?(document: vscode.TextDocument): boolean;
+	/** Seeks the active document's playing engine to `cycle`. */
+	seek?(document: vscode.TextDocument, cycle: number): void;
 	/** A Browser item was dropped onto the Mixer to append as a new chain. */
 	dropItem?(document: vscode.TextDocument, info: { id?: string; index?: number; text?: string }): Promise<void>;
 }
@@ -144,6 +152,15 @@ export class MixerView implements Surface {
 	 */
 	control(message: FromControls): void {
 		if (message.type === 'tempo') return void this.setTempo(message.bpm);
+		if (message.type === 'limiter') {
+			this.actions.setLimiter?.(message.on);
+			this.sendControls();
+			return;
+		}
+		if (message.type === 'seek') {
+			if (this.document) this.actions.seek?.(this.document, message.cycle);
+			return;
+		}
 		if (!this.document) return;
 		if (message.action === 'undo' || message.action === 'redo') return void this.stepHistory(message.action);
 		this.actions.transport(this.document, message.action);
@@ -186,19 +203,35 @@ export class MixerView implements Surface {
 		this.sendControls();
 	}
 
-	/** What Music Controls show. Sent on every change of the song, its model or its playing. */
+	/** Latest scheduler clock snapshot of the active song for the Browser Transport HUD. */
+	private clock?: ClockSnapshot;
+
+	setClock(document: vscode.TextDocument, clock: ClockSnapshot): void {
+		if (document !== this.document) return;
+		this.clock = clock;
+		this.sendControls();
+	}
+
+	/** What Music Controls show. Sent on every change of the song, its model, clock, or playing state. */
 	private sendControls(): void {
 		const song = this.document?.uri.path.split('/').pop();
 		const busy = this.document ? this.actions.busy(this.document) : { recording: false, rendering: false };
 		const stack = this.document ? this.stackOf(this.document) : undefined;
+		const arrangement = this.document ? parseArrangement(lf(this.document.getText())) : { sections: [] };
+		const hasError = !!this.error || (this.document ? !!this.actions.hasError?.(this.document) : false);
 		this.actions.controls({
 			song,
 			known: !!this.model,
 			tempo: this.model?.tempo && { bpm: this.model.tempo.bpm },
 			playing: this.playing,
+			error: hasError,
 			...busy,
 			canUndo: stack?.canUndo() ?? false,
 			canRedo: stack?.canRedo() ?? false,
+			clock: this.playing ? this.clock : undefined,
+			lengthCycles: arrangement.lengthCycles,
+			sections: arrangement.sections,
+			limiter: this.actions.limiterEnabled?.() ?? false,
 		});
 	}
 
@@ -361,6 +394,7 @@ export class MixerView implements Surface {
 	setPlaying(document: vscode.TextDocument, on: boolean): void {
 		if (document !== this.document) return;
 		this.playing = on;
+		if (!on) this.clock = undefined;
 		this.post({ type: 'playing', on });
 		this.sendControls();
 	}

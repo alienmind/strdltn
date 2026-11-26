@@ -11,7 +11,7 @@ Target: **desktop VS Code, Extension Development Host launched with F5**, worksp
 
 | # | Area | Do this | Should happen |
 |---|---|---|---|
-| 1 | Controls layout | Open the Browser side bar and inspect the top Controls pane | BPM box is centered in the transport row; Back/Forward history arrows sit on the right side of the search bar |
+| 1 | Beat-Synced Transport HUD & Master Limiter (`UX-2`) | Play `demo.strudel` (which has `// @length` / `arrange()`), watch `BAR.BEAT` + 4 beat LEDs, click the `BPM` label 4 times (Tap Tempo), drag the BPM box vertically, click the arrangement progress bar, and toggle `LIM` | Play/Stop/Rec/Render sit in a recessed pill; `BAR.BEAT` and 4 beat LEDs pulse on the beat; Tap Tempo and vertical BPM drag write `setcpm(...)`; song status dot reflects playing/stopped/error; clicking the arrangement bar seeks playback; `LIM` toggles the Master output safety limiter |
 | 2 | All-synth previews (no song) | Close all `.strudel` tabs, open `Sounds > Synths`, and single-click `sine`, `sawtooth`, `supersaw`, `gm_acoustic_bass`, `zzfx` | Each plays a 1-loop preview at 120 BPM (2 s), fades out smoothly over 0.5 s, and stops cleanly; clicking Stop cuts it off at once |
 | 3 | Effect drag into editor | Open a song, play it, and drag an effect function (`lpf` or `room` from `Reference > Functions`) onto an existing `$name:` chain line in the Strudel editor | Appends `.lpf(800)` or `.room(0.4)` onto that chain without breaking playback |
 | 4 | Drag onto Mixer | Drag any synth, drum, sample, or FM-1 synth from the Browser and drop it onto the Mixer strip area | Mixer strip area highlights with a dashed outline while dragging; dropping appends a new playable `$name:` strip at the bottom of the song |

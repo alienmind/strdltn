@@ -42,6 +42,10 @@ export interface SessionHost {
 	onDrop?(document: vscode.TextDocument, offset: number, info: { id?: string; index?: number; text?: string }): Promise<void>;
 	/** Engine asks for the cached `fm1_web.wasm` file so it can emulate `.fwsc` firmwares. */
 	onWantEmuWasm?(): Promise<vscode.Uri | undefined>;
+	/** Live scheduler clock snapshot while playing, for the Browser Transport HUD. */
+	onClock?(document: vscode.TextDocument, clock: { cycle: number; cps: number; at: number }): void;
+	/** Initial Master safety limiter state sent when a webview becomes ready. */
+	limiterEnabled?(): boolean;
 }
 
 /** The settings `strdltn.editor.*`. An empty font and a size of 0 mean: as the VS Code editor. */
@@ -184,6 +188,16 @@ export class Session {
 		this.post({ type: 'insert', text, bare, argument, bank });
 	}
 
+	/** Enables or disables the Master safety limiter (`DynamicsCompressorNode`) on this engine. */
+	setLimiter(on: boolean): void {
+		if (this.ready) this.post({ type: 'limiter', on });
+	}
+
+	/** Seeks the running scheduler to `cycle`. */
+	seek(cycle: number): void {
+		if (this.ready) this.post({ type: 'seek', cycle });
+	}
+
 	private packsTimer: ReturnType<typeof setTimeout> | undefined;
 	/** After an edit, wait until the typing stops. A half typed `samples('github:...` is not a pack. */
 	private sendPacksSoon(): void {
@@ -292,6 +306,7 @@ export class Session {
 				this.sync = new SyncHost(lf(this.document.getText()), this.sync.version + 1);
 				this.writes = new DocumentWrites(this.sync.text);
 				this.post({ type: 'init', text: this.sync.text, version: this.sync.version, mode: this.mode, samples, firmware, settings: editorSettings() });
+				if (this.host.limiterEnabled?.()) this.post({ type: 'limiter', on: true });
 				this.ready = true;
 				this.host.onState(this);
 				void this.sendPacks();
@@ -338,6 +353,9 @@ export class Session {
 				break;
 			case 'scopes':
 				this.host.onScopes?.(this.document, message.scopes);
+				break;
+			case 'clock':
+				this.host.onClock?.(this.document, { cycle: message.cycle, cps: message.cps, at: message.at });
 				break;
 			case 'sliderLive':
 				this.host.onSliderLive?.(this.document, message.from, message.value);

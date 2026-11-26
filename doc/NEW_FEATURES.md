@@ -460,14 +460,13 @@ undoable Strudel mini-notation back into the song (Spikes Q1-Q2).
 
 ---
 
-## 12. Recommended Execution Waves
+## 12. Recommended Execution Batches
 
-| Wave | Scope | Effort | Spikes / Dependencies |
+| Batch | Scope | Effort | Spikes / Dependencies |
 |---|---|---|---|
-| **Wave 1** | `UX-1`: Track Colors (`// @color`) + Visual Polish Pass (Mixer, Editor, Stage) | 1-2 sessions | None |
-| **Wave 2** | `UX-2` Transport HUD & Limiter + `UX-11` Two-Column Browser (Results on Right) + `UX-3` Waveforms/Breadcrumbs + `UX-4` Hot-Swap + `#3b` Bank/Short-Name Insert + `#5b` `.strdltn/tmp/` Migration | 1-2 sessions | None |
-| **Wave 3** | `UX-5` Welcome Screen + `UX-10` Full-Screen Synths Gallery + `UX-6` Devices Rotary Knobs & Firmware Stream FX Bus + `#6d` Interactive Minigame Tutorial | 2-3 sessions | Optional W1-W4 if adding video clips |
-| **Wave 4** | `UX-7` Per-Chain Effect Rack (`src/shared/rack.ts`) + `UX-8` Visual Filter Curve & Live FFT | 3-4 sessions | Existing `chains.ts` & `meterOrbits()` |
-| **Wave 5** | `DAW-5` Mixer MIDI strips/cables + `DAW-8` DJ Two-Deck Suite & Split-Mono Cue | 3-4 sessions | Spikes J1, J2, J4 |
-| **Wave 6** | `DAW-9/10` Recording, Arrangement & Session Matrix + `DAW-11` Sequencing/Slicer/LFO + `UX-9` Macros | 4-6 sessions | Spikes A1-A3, Q1-Q2 |
-| **Wave 7** | `DAW-6` Shared Browser Engine + `DAW-7` Browser Page Engine (Codespaces WebMIDI) | Largest | Spikes E1-E5 |
+| **Batch A (Active: `feat/ui-overhaul`)** | Low-hanging fruits (`#3b` Bank/Short-Name Insert, `#5b` `.strdltn/tmp/` Migration) + Visual UX/UI Overhaul (`UX-1` Track Colors & Mixer/Editor/Stage Polish, `UX-11` Two-Column Browser with Results on Right, `UX-3` Waveforms & Breadcrumbs, `UX-2` Beat-Synced Transport HUD, `UX-10` Full-Screen Synths Gallery, `UX-5` Welcome Screen with screenshots, `UX-6` Devices SVG Rotary Knobs/Param Search/Bezel) | 2-3 sessions | None (pure visual/ergonomic wins; no deep DAW spikes) |
+| **Batch B (Interactive Tools)** | `UX-4` In-Place Sound Hot-Swap + `#6d` Interactive Minigame Tutorial (`rustlings` for Strudel + Hardcore Mode) + `#5` Songs as Files & Places + `UX-6` Runtime (per-firmware stream FX bus like `djf`, `.vp()`, `vibe_host_store`, `.midi("vibefm1:...")`, cache clear) | 2-3 sessions | Decision 14/19 |
+| **Batch C1 (Track DSP UI)** | `UX-7` Per-Chain Effect Rack (`src/shared/rack.ts`) + `UX-8` Visual Filter Curve & Live FFT | 3-4 sessions | Existing `chains.ts` & `meterOrbits()` |
+| **Batch C2 (Mixer MIDI & DJ)** | `#6b` Mixer Stacks + `DAW-5` Mixer MIDI strips/cables + `DAW-8` DJ Two-Deck Suite & Split-Mono Cue | 3-4 sessions | Spikes J1, J2, J4 |
+| **Batch C3 (Arrangement & Sequencing)** | `DAW-9/10` Recording, Arrangement & Session Matrix + `DAW-11` Sequencing/Slicer/LFO + `UX-9` Macros + `#17`/`#18` MIDI Clips | 4-6 sessions | Spikes A1-A3, Q1-Q2 |
+| **Batch C4 (Engine Architecture)** | `DAW-6` Shared Browser Engine + `DAW-7` Browser Page Engine (Codespaces WebMIDI) | Largest | Spikes E1-E5 |

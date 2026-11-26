@@ -14,26 +14,13 @@ either reflects the code or writes clean, undoable Strudel code that plays ident
 
 ---
 
-## 3. Browser Upgrades: Hot-Swap, Synths Gallery, Songs as Files & Tutorial (`UX-4`, `UX-10`, `#5`, `#6d`)
+## 3. Browser Upgrades: Hot-Swap, Songs as Files & Tutorial (`UX-4`, `#5`, `#6d`)
 
 ### In-Place Sound Hot-Swap (`UX-4`)
 
 - Ableton `Q`-style workflow: lock the Browser to the `s("...")` or `.bank("...")` token under
   the cursor (reusing `src/shared/context.ts` + `SyncHost`), then step `Up`/`Down` in the
   Browser to swap sounds live inside the playing mix. `Enter` keeps, `Esc` reverts in one undo.
-
-### Full-Screen Synths Gallery Tab (`UX-10` - maintainer 2026-11-26)
-
-- **Expand into main editor area:** Add an expand/pop-out button in the Browser's **Synths**
-  / **Plugins > FM-1 Synths** header (plus command `strdltn: Open Synths Gallery`) that opens
-  a full-size VS Code editor-area webview tab occupying the same main space as the `.strudel`
-  editor. The tab is optional and closable anytime without interrupting playback or the
-  sidebar Browser.
-- **Spacious visual grid:** Show all synths and FM-1 firmwares (Installed and Available) in a
-  responsive multi-column card grid with large centered screen previews, technology badges
-  (`WASM`, `FWSC`, `MIDI`, synth/oscillator categories), search box, `Runtime/...` /
-  `Repo/...` / tag filter chips, single-click audio preview, **Install** / **Download all**,
-  **Insert** into the active song, and **Screen** / **Editor** actions.
 
 ### Songs as Files & Custom Places (`#5`)
 

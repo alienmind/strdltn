@@ -25,7 +25,8 @@ import { parseSnippet, setSnippetTags } from '../shared/snippet';
 import type { SongList } from './files';
 import type { SnippetLibrary } from './snippets';
 import type { ControlsState, FromControls } from '../shared/controls';
-import { DEFAULT_PREVIEW_BPM, previewCycleSeconds, previewPlan } from '../shared/preview';
+import type { GalleryTab } from '../shared/gallery';
+import { DEFAULT_PREVIEW_BPM, previewCycleSeconds, type PreviewPlan, previewPlan } from '../shared/preview';
 import { setPage } from './surface';
 
 /** The file in the root of the project that keeps the colors, tags and saved searches. */
@@ -67,6 +68,8 @@ export interface BrowserActions {
 	previewMidi(portHint: string, durationMs: number): Promise<string | undefined>;
 	/** FM-1 Synths is in sight: read the hub's list and make the pictures that are missing. */
 	wantFirmware(): void;
+	/** Opens the optional Full-Screen Synths Gallery editor tab (UX-10). */
+	openGallery?(tab?: GalleryTab): void;
 }
 
 const FILTER_KEY = 'strdltn.browserFilter';
@@ -103,6 +106,9 @@ export class BrowserView {
 	private user: UserIndex = readUserIndex(undefined);
 	private preview: boolean;
 	private pushTimer?: ReturnType<typeof setTimeout>;
+	/** Listeners notified when catalog items or user tags change (e.g. Synths Gallery tab). */
+	private readonly itemsListeners = new Set<() => void>();
+	private readonly userListeners = new Set<(user: UserIndex) => void>();
 	/** Last item dragged from the Browser, so cross-webview drops work even if Chromium strips custom MIME data. */
 	private lastDrag?: { id: string; index?: number; at: number };
 
@@ -204,6 +210,73 @@ export class BrowserView {
 		return this.items;
 	}
 
+	/** Subscribes to catalog item rebuilds (used by the Full-Screen Synths Gallery tab). */
+	onDidChangeItems(listener: () => void): vscode.Disposable {
+		this.itemsListeners.add(listener);
+		return { dispose: () => this.itemsListeners.delete(listener) };
+	}
+
+	/** Subscribes to user index updates (colors, tags, saved searches). */
+	onDidChangeUser(listener: (user: UserIndex) => void): vscode.Disposable {
+		this.userListeners.add(listener);
+		return { dispose: () => this.userListeners.delete(listener) };
+	}
+
+	/** Current user index snapshot. */
+	userIndex(): UserIndex {
+		return this.user;
+	}
+
+	/** Returns all catalog items with firmware preview image URIs resolved for an arbitrary webview (e.g. Synths Gallery). */
+	itemsFor(webview: vscode.Webview): CatalogItem[] {
+		const mapped = Object.fromEntries(Object.entries(this.images).map(([id, uri]) => [id, webview.asWebviewUri(uri).toString()]));
+		return this.items.map((item) => {
+			if (item.kind !== 'firmware') return item;
+			const id = item.id.slice('firmware:'.length);
+			return mapped[id] ? { ...item, image: mapped[id] } : item;
+		});
+	}
+
+	/** Plays an item preview for an external webview (Synths Gallery), returning a PreviewPlan when standalone preview is needed. */
+	async playForWebview(id: string, webview: vscode.Webview, index?: number): Promise<PreviewPlan | undefined> {
+		const item = this.item(id);
+		if (!item?.sound) return undefined;
+		const variation = index ?? item.index ?? 0;
+		const bpm = this.controls?.tempo?.bpm ?? DEFAULT_PREVIEW_BPM;
+		const duration = previewCycleSeconds({ bpm });
+		if (item.kind === 'firmware' && item.runtime === 'hardware') {
+			const fwId = item.id.slice('firmware:'.length);
+			const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === fwId);
+			const sent = await this.actions.previewMidi(profile?.defaultPort ?? 'FM-1', Math.round(duration * 1000));
+			if (sent) this.output.appendLine(`browser: preview ${item.label} -> MIDI ${sent}`);
+			else void vscode.window.setStatusBarMessage(`strdltn: connect ${profile?.defaultPort ?? 'M-VAVE FM-1'} over MIDI to preview ${item.label}`, 4000);
+			return undefined;
+		}
+		if (this.actions.playing()) {
+			if (item.kind !== 'firmware' || item.index !== undefined) {
+				this.actions.preview(item.sound, variation);
+				return undefined;
+			}
+		}
+		if (item.kind === 'firmware') {
+			const fwId = item.id.slice('firmware:'.length);
+			const file = await this.actions.firmwareFile(fwId);
+			if (!file) return undefined;
+			if (item.runtime === 'fwsc') {
+				const emu = await this.actions.emuWasmFile();
+				if (!emu) return undefined;
+				const workletUrl = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'fm1-worklet.js')).toString();
+				return { kind: 'fm1', id: fwId, url: webview.asWebviewUri(file).toString(), emuUrl: webview.asWebviewUri(emu).toString(), workletUrl, bpm, duration };
+			}
+			const workletUrl = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'vibe-worklet.js')).toString();
+			return { kind: 'firmware', id: fwId, url: webview.asWebviewUri(file).toString(), workletUrl, bpm, duration };
+		}
+		const plan = previewPlan(this.sounds.find((sound) => sound.name === item.sound), variation);
+		if (plan) return { ...plan, duration };
+		this.actions.preview(item.sound, variation);
+		return undefined;
+	}
+
 	/** Stops any standalone preview playing in the Browser view. */
 	stopPreview(): void {
 		this.post({ type: 'stopPreview' });
@@ -253,7 +326,10 @@ export class BrowserView {
 		this.items = [...soundItems(this.sounds), ...firmwareItems(this.firmware, availableFirmware(this.hub, this.firmware), engine, images, fm1Engine), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
 		// A pack loads hundreds of sounds one by one, and each change would send 2000 items.
 		clearTimeout(this.pushTimer);
-		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
+		this.pushTimer = setTimeout(() => {
+			this.post({ type: 'items', items: this.items });
+			for (const listener of this.itemsListeners) listener();
+		}, 150);
 	}
 
 	/** The MIDI ports of the machine, from the MIDI bridge. Empty in a Codespace, where the host cannot see them. */
@@ -485,6 +561,8 @@ export class BrowserView {
 				return;
 			case 'openManual':
 				return void vscode.env.openExternal(vscode.Uri.parse(MANUAL_URL));
+			case 'openGallery':
+				return this.actions.openGallery?.(message.tab);
 			case 'log':
 				this.output.appendLine(`browser: ${message.message}`);
 				if (message.message.startsWith('preview:')) this.previews.push(message.message);
@@ -564,10 +642,12 @@ export class BrowserView {
 			this.user = readUserIndex(undefined);
 		}
 		this.post({ type: 'user', user: this.user });
+		for (const listener of this.userListeners) listener(this.user);
 	}
 
 	private async saveUser(): Promise<void> {
 		this.post({ type: 'user', user: this.user });
+		for (const listener of this.userListeners) listener(this.user);
 		const uri = this.indexUri();
 		if (!uri) return void (await this.context.workspaceState.update(INDEX_FILE, JSON.parse(writeUserIndex(this.user))));
 		await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(writeUserIndex(this.user)));

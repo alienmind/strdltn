@@ -112,6 +112,15 @@ const builds = [
 	},
 	{
 		...shared,
+		// The Full-Screen Synths Gallery editor tab (UX-10). Its CSS lands in dist/gallery.css.
+		entryPoints: ['src/gallery/main.ts'],
+		outfile: 'dist/gallery.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
+	{
+		...shared,
 		// Loaded with audioWorklet.addModule() from beside webview.js. A worklet scope has no modules to import.
 		entryPoints: ['src/webview/vibe/worklet.ts'],
 		outfile: 'dist/vibe-worklet.js',

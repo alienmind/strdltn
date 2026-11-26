@@ -158,6 +158,11 @@
 				"title": "strdltn: Flash .fwsc firmware to M-VAVE FM-1 hardware (experimental)..."
 			},
 			{
+				"command": "strdltn.openSynthsGallery",
+				"title": "strdltn: Open Synths Gallery",
+				"icon": "$(layout-grid)"
+			},
+			{
 				"command": "strdltn.openStage",
 				"title": "strdltn: Open stage",
 				"icon": "$(open-preview)"

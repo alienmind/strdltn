@@ -1,6 +1,7 @@
 // Messages between the extension host and the Browser's views. Both sides import this file.
 import type { CatalogItem, CategoryId, PlaceId, SavedSearch, UserIndex } from './catalog.ts';
 import type { ControlsState, FromControls } from './controls.ts';
+import type { GalleryTab } from './gallery.ts';
 import type { PreviewPlan } from './preview.ts';
 
 /**
@@ -111,4 +112,6 @@ export type FromBrowser =
 	/** The user started dragging a Browser row, so a cross-webview drop can resolve the item even if MIME is stripped. */
 	| { type: 'dragItem'; id: string; index?: number }
 	/** "User manual (PDF)": the PDF of the latest release, in the user's browser. */
-	| { type: 'openManual' };
+	| { type: 'openManual' }
+	/** Expands Synths / FM-1 Synths into the full-screen editor-area Synths Gallery tab (UX-10). */
+	| { type: 'openGallery'; tab?: GalleryTab };

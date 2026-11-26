@@ -7,6 +7,7 @@ import type { SoundInfo } from '../shared/protocol';
 import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
 import { FirmwareCache, FirmwareLibrary } from './firmware';
+import { SynthsGallery } from './gallery';
 import { FirmwareScreen } from './screen';
 import { FirmwareMarket } from './market';
 import { firmwareLoadEdit, HARDWARE_FM1_PROFILES, hardwareFirmwareCode, type InstalledFirmware, midimapLoadEdit } from '../shared/firmware';
@@ -142,14 +143,40 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		emuWasmFile: () => market.emuWasmFile().catch(() => undefined),
 		previewMidi: (portHint, durationMs) => midi.previewNote(portHint, durationMs),
 		wantFirmware: () => market.want(),
+		openGallery: (tab) => gallery.open(tab),
 	});
 	const market = new FirmwareMarket(context, firmwareLibrary, browser, output);
 	context.subscriptions.push(market);
 	const nativeFm1 = new NativeFm1Host(context, firmwareLibrary, market, output);
 	const fm1Flasher = new Fm1Flasher(context, context.asAbsolutePath('dist'), firmwareLibrary, market, midi, output);
+	let nativeRunningIds: string[] = [];
+	const gallery = new SynthsGallery(context, output, {
+		itemsFor: (webview) => browser.itemsFor(webview),
+		user: () => browser.userIndex(),
+		nativeRunning: () => nativeRunningIds,
+		flashEnabled: () => vscode.workspace.getConfiguration('strdltn').get<boolean>('experimental.fm1Flash', false),
+		wantFirmware: () => market.want(),
+		playForWebview: (id, webview) => browser.playForWebview(id, webview),
+		insert: (id) => browser.handle({ type: 'insert', id }),
+		copy: (id) => browser.handle({ type: 'copy', id }),
+		install: (id) => browser.handle({ type: 'install', id }),
+		installAll: (ids) => browser.handle({ type: 'installAll', ids }),
+		showScreen: (id) => void browser.handle({ type: 'screen', id }),
+		openEditor: (id) => void browser.handle({ type: 'openEditor', id }),
+		runNative: (id) => browser.handle({ type: 'runNative', id }),
+		manageRepos: () => browser.handle({ type: 'manageRepos' }),
+		flashHardware: (id) => browser.handle({ type: 'flashHardware', id }),
+	});
 	context.subscriptions.push(
+		gallery,
+		browser.onDidChangeItems(() => gallery.refreshItems()),
+		browser.onDidChangeUser((user) => gallery.setUser(user)),
 		nativeFm1,
-		nativeFm1.onDidChange((ids) => browser.setNativeRunning(ids)),
+		nativeFm1.onDidChange((ids) => {
+			nativeRunningIds = ids;
+			browser.setNativeRunning(ids);
+			gallery.setNativeRunning(ids);
+		}),
 	);
 	// The popup's Insert does what the Library row's does.
 	const screen = new FirmwareScreen(
@@ -372,12 +399,14 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// that plays in another tab, so the key always ends a sound you hear.
 		vscode.commands.registerCommand('strdltn.stop', () => {
 			browser.stopPreview();
+			gallery.stopPreview();
 			midi.stopPreview();
 			const front = frontSession();
 			(front?.started ? front : (playingElsewhere() ?? front))?.stop();
 		}),
 		vscode.commands.registerCommand('strdltn.stopAll', () => {
 			browser.stopPreview();
+			gallery.stopPreview();
 			midi.stopPreview();
 			sessions.forEach((s) => s.stop());
 		}),
@@ -513,9 +542,12 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.commands.registerCommand('strdltn.manageFirmwareRepos', () => market.manageRepos()),
 		vscode.commands.registerCommand('strdltn.installAllFirmwares', () => market.installAll()),
 		vscode.commands.registerCommand('strdltn.flashFm1Hardware', (id?: string) => fm1Flasher.flash(typeof id === 'string' ? id : undefined)),
+		vscode.commands.registerCommand('strdltn.openSynthsGallery', () => gallery.open('all')),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('strdltn.experimental.fm1Flash')) {
-				browser.setFlashEnabled(vscode.workspace.getConfiguration('strdltn').get<boolean>('experimental.fm1Flash', false));
+				const on = vscode.workspace.getConfiguration('strdltn').get<boolean>('experimental.fm1Flash', false);
+				browser.setFlashEnabled(on);
+				gallery.setFlashEnabled(on);
 			}
 		}),
 		vscode.commands.registerCommand('strdltn.showVersion', () => vscode.window.showInformationMessage(identity)),

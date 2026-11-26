@@ -36,6 +36,8 @@ export const ICONS: Record<string, string> = {
 	install: svg('<path d="M8 1.5v8M4.8 6.5L8 9.7l3.2-3.2"/><path d="M2.5 10.5v3h11v-3"/>'),
 	// A plug: the Plugins category.
 	plugin: svg('<path d="M5.5 1.5v3M10.5 1.5v3"/><path d="M3.5 4.5h9v3a4.5 4.5 0 0 1-9 0z"/><path d="M8 12v2.5"/>'),
+	// Pop-out grid: open Full-Screen Synths Gallery tab.
+	gallery: svg('<rect x="2" y="2" width="4.5" height="4.5" rx=".8"/><rect x="2" y="9.5" width="4.5" height="4.5" rx=".8"/><rect x="9.5" y="9.5" width="4.5" height="4.5" rx=".8"/><path d="M9.5 2h4.5v4.5M14 2l-4.5 4.5"/>'),
 	save: svg('<path d="M3.5 2.5h7l2 2v9h-9z"/><path d="M5.5 2.5v3h4v-3M5.5 13.5v-4h5v4"/>'),
 };
 

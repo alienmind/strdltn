@@ -1490,3 +1490,26 @@ svg {
 	text-decoration: underline;
 	color: var(--vscode-textLink-activeForeground, #3794ff);
 }
+
+.info-btn.gallery-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+}
+
+.info-btn.gallery-btn svg {
+	width: 11px;
+	height: 11px;
+}
+
+.resultbar .gallery-open {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.resultbar .gallery-open svg {
+	width: 12px;
+	height: 12px;
+}

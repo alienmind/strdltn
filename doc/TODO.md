@@ -36,11 +36,10 @@ No blocking spikes; mostly visual, layout, and ergonomic improvements in the exi
 
 | Order | ID | What | Pointer |
 |---|---|---|---|
-| 1 | UX-10 | **Full-Screen Synths Gallery Tab**: optional, closable main-editor-area webview tab opened from Synths / FM-1 Synths with a spacious multi-column card grid, large centered screen previews, filter chips, single-click audition, install/download all, and insert | `doc/NEW_FEATURES.md` section 3 |
-| 8 | UX-5 | **Colorful First-Install Welcome Screen**: Eclipse-style onboarding tab (`Welcome to [str]dltn Live[code]`) using existing screenshots (skip video clips for now), "Play the demo song" / "Try it" actions, **"Import clean DAW Profile"** (`template/strdltn.code-profile`), and "Do not show me this again" checkbox | `doc/NEW_FEATURES.md` section 4 |
-| 9 | UX-12 | **Clean DAW Profile, View Auto-Hide & `.strudel` File Association**: importable `template/strdltn.code-profile` (hides Ports/Comments/Debug Console, created), Welcome Screen import button, auto-hide `Mixer`/`Devices` on non-`.strudel` files via `strdltn.isStrudelFile` `when` clause, and Windows `.strudel` `code --profile "Strudel"` launch docs | `doc/NEW_FEATURES.md` section 4 |
-| 10 | UX-6 (UI) | **Devices Rotary Knob Grid, Param Search & Display Bezel**: replace raw `<input type="range">` bars in Devices with SVG rotary arc knobs, prefix auto-grouping + param search for large synths, and hardware bezel/soft-key polish | `doc/NEW_FEATURES.md` section 5 |
-| 11 | 19 | **Rename `template/` to `music/`**: move `template/` -> `music/` and refactor all code, scripts, launch configs, tests, and docs pointing to it (run as its own clean commit once parallel edits settle) | `doc/NEW_FEATURES.md` section 4 |
+| 1 | UX-5 | **Colorful First-Install Welcome Screen**: Eclipse-style onboarding tab (`Welcome to [str]dltn Live[code]`) using existing screenshots (skip video clips for now), "Play the demo song" / "Try it" actions, **"Import clean DAW Profile"** (`template/strdltn.code-profile`), and "Do not show me this again" checkbox | `doc/NEW_FEATURES.md` section 4 |
+| 2 | UX-12 | **Clean DAW Profile, View Auto-Hide & `.strudel` File Association**: importable `template/strdltn.code-profile` (hides Ports/Comments/Debug Console, created), Welcome Screen import button, auto-hide `Mixer`/`Devices` on non-`.strudel` files via `strdltn.isStrudelFile` `when` clause, and Windows `.strudel` `code --profile "Strudel"` launch docs | `doc/NEW_FEATURES.md` section 4 |
+| 3 | UX-6 (UI) | **Devices Rotary Knob Grid, Param Search & Display Bezel**: replace raw `<input type="range">` bars in Devices with SVG rotary arc knobs, prefix auto-grouping + param search for large synths, and hardware bezel/soft-key polish | `doc/NEW_FEATURES.md` section 5 |
+| 4 | 19 | **Rename `template/` to `music/`**: move `template/` -> `music/` and refactor all code, scripts, launch configs, tests, and docs pointing to it (run as its own clean commit once parallel edits settle) | `doc/NEW_FEATURES.md` section 4 |
 
 ### Batch B - Interactive Tools & Browser Power Features (After Batch A)
 

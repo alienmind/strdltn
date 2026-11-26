@@ -578,6 +578,15 @@ function drawTree(body: HTMLElement, of: BrowserPage): void {
 		const unfolded = foldable && tree.has(category.id);
 		const on = filter.category === category.id && !filter.group;
 		const row = body.appendChild(navRow(category.icon, category.label, mine.length, on, parent ? 1 : 0, foldable ? unfolded : undefined));
+		if (category.id === 'sounds' || category.id === 'plugins' || category.id === 'fm1') {
+			const galleryBtn = button(
+				'gallery',
+				'Open Full-Screen Synths Gallery tab',
+				() => post({ type: 'openGallery', tab: category.id === 'sounds' ? 'synths' : 'fm1' }),
+				'info-btn gallery-btn',
+			);
+			row.insertBefore(galleryBtn, row.lastChild);
+		}
 		if (category.id === 'plugins' || category.id === 'fm1') {
 			if (category.id === 'plugins') {
 				const reposBtn = el('button', 'info-btn repos-btn', '+');
@@ -719,6 +728,12 @@ function drawResultbar(): void {
 		const clearCrumb = crumb.appendChild(el('button', 'crumb-clear', '\u00d7'));
 		clearCrumb.title = 'Clear category/group filter';
 		clearCrumb.addEventListener('click', () => setFilter({ category: 'all', scope: undefined, group: undefined }));
+	}
+	if (filter.category === 'sounds' || filter.category === 'fm1' || filter.category === 'plugins') {
+		const galleryBtn = resultbar.appendChild(el('button', 'elsewhere gallery-open'));
+		galleryBtn.innerHTML = `${icon('gallery')}<span>Gallery</span>`;
+		galleryBtn.title = 'Open Synths & FM-1 Gallery in a full-size editor tab';
+		galleryBtn.addEventListener('click', () => post({ type: 'openGallery', tab: filter.category === 'sounds' ? 'synths' : 'fm1' }));
 	}
 	const installable = results.filter((item) => item.kind === 'firmware' && item.available && !item.externalUrl);
 	if (installable.length > 0 && (filter.category === 'fm1' || filter.category === 'plugins' || filter.query.trim())) {

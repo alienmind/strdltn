@@ -170,8 +170,9 @@ How a visual or a slider on the stage gets its name, first rule that fits:
 3. the comment above the line: `// Rolling hihat` is "Rolling hihat";
 4. the code itself, cut short.
 
-The native editor also shows the knob buttons, left of the line numbers. Right click a line
-number for "Map a MIDI knob to this line's slider".
+The native editor shows the same three aligned **M / S / C** line action badges beside the
+line numbers. Hover a badge for one-click **M** (Mute), **S** (Solo) and **C** (MIDI Capture)
+links, or right click a line number for the same actions.
 
 The stage's place is the setting `strdltn.stage.position`.
 

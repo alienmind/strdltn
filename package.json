@@ -101,8 +101,16 @@
 				"title": "strdltn: Map a MIDI knob to the slider at the cursor"
 			},
 			{
+				"command": "strdltn.muteChainLine",
+				"title": "strdltn: Mute / Unmute chain (M)"
+			},
+			{
+				"command": "strdltn.soloChainLine",
+				"title": "strdltn: Solo / Unsolo chain (S)"
+			},
+			{
 				"command": "strdltn.knobLearnLine",
-				"title": "Map a MIDI knob to this line's slider"
+				"title": "strdltn: MIDI Capture (C) for this line's slider"
 			},
 			{
 				"command": "strdltn.editor.find",
@@ -197,6 +205,14 @@
 		"menus": {
 			"editor/lineNumber/context": [
 				{
+					"command": "strdltn.muteChainLine",
+					"when": "editorLangId == strudel"
+				},
+				{
+					"command": "strdltn.soloChainLine",
+					"when": "editorLangId == strudel"
+				},
+				{
 					"command": "strdltn.knobLearnLine",
 					"when": "editorLangId == strudel"
 				}
@@ -242,6 +258,14 @@
 				},
 				{
 					"command": "strdltn.knobLearnLine",
+					"when": "false"
+				},
+				{
+					"command": "strdltn.muteChainLine",
+					"when": "false"
+				},
+				{
+					"command": "strdltn.soloChainLine",
 					"when": "false"
 				},
 				{

@@ -58,6 +58,8 @@ export interface StrdltnApi {
 	browserShow(filter: Partial<BrowserFilterState>, open?: string[]): Promise<unknown>;
 	/** What the Browser's page reported last: the filter, the counts, which panes are open. */
 	browserState(): unknown;
+	/** Opens and folds the Browser's panes and selects a row by item id. For the pictures of the manual. */
+	browserStage(panes: Record<string, boolean>, select?: string): Promise<unknown>;
 	/** Handles a message as if the Browser had sent it: a click on a row, a color. */
 	browserMessage(message: FromBrowser): Promise<void>;
 	/** The previews the Browser played without the engine. */
@@ -175,7 +177,17 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const evaluateIfPlaying = (document: vscode.TextDocument) => {
 		for (const session of sessions) if (session.document === document && session.ready && session.started) session.play();
 	};
-	const knobs = new KnobLearn(context, midi, output, evaluateIfPlaying);
+	const toggleChain = async (document: vscode.TextDocument, chain: number, button: 'mute' | 'solo') => {
+		const text = lf(document.getText());
+		const change = labelEdit(text, chain, button);
+		if (!change) return;
+		const from = lineColumn(text, change.from);
+		const to = lineColumn(text, change.to);
+		const edit = new vscode.WorkspaceEdit();
+		edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+		if (await vscode.workspace.applyEdit(edit)) evaluateIfPlaying(document);
+	};
+	const knobs = new KnobLearn(midi, output, evaluateIfPlaying, toggleChain);
 	context.subscriptions.push(knobs);
 	const mixer = new MixerView(context, output, {
 		reveal: (document, offset) => void revealOffset(document, offset),
@@ -233,16 +245,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		onSliderLive: (document, from, value) => mixer.sliderLive(document, from, value),
 		onKnobGhost: (document, from, value) => mixer.knobGhost(document, from, value),
 		onKnobLearn: (document, from, toggle) => knobs.learn(document, from, toggle),
-		onToggleChain: async (document, chain, button) => {
-			const text = lf(document.getText());
-			const change = labelEdit(text, chain, button);
-			if (!change) return;
-			const from = lineColumn(text, change.from);
-			const to = lineColumn(text, change.to);
-			const edit = new vscode.WorkspaceEdit();
-			edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
-			if (await vscode.workspace.applyEdit(edit)) evaluateIfPlaying(document);
-		},
+		onToggleChain: toggleChain,
 		onDrop: (document, offset, info) => dropOntoDocument(document, offset, info),
 		onWantEmuWasm: () => market.emuWasmFile().catch(() => undefined),
 		onDevices: (session, list) => devices.setDevices(session, list),
@@ -432,11 +435,31 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			const native = vscode.window.activeTextEditor;
 			if (isStrudel(native)) return knobs.learnAtOffset(native.document, native.document.offsetAt(native.selection.active));
 		}),
-		// The line number menu of the native editor (a right click on a line number).
+		// The line number menu and M / S / C hover links of the native editor.
 		vscode.commands.registerCommand('strdltn.knobLearnLine', async (arg?: { lineNumber: number; uri: vscode.Uri }) => {
 			if (!arg) return;
 			const document = await vscode.workspace.openTextDocument(arg.uri);
-			return knobs.learnLine(document, arg.lineNumber - 1);
+			return knobs.learnLine(document, arg.lineNumber - 1, true);
+		}),
+		vscode.commands.registerCommand('strdltn.knobLearnAtLine', async (arg?: { uri: string; from: number; toggle?: boolean }) => {
+			if (!arg) return;
+			const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(arg.uri));
+			return knobs.learn(document, arg.from, arg.toggle ?? true);
+		}),
+		vscode.commands.registerCommand('strdltn.toggleChainLine', async (arg?: { uri: string; chain: number; button: 'mute' | 'solo' }) => {
+			if (!arg) return;
+			const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(arg.uri));
+			return toggleChain(document, arg.chain, arg.button);
+		}),
+		vscode.commands.registerCommand('strdltn.muteChainLine', async (arg?: { lineNumber: number; uri: vscode.Uri }) => {
+			if (!arg) return;
+			const document = await vscode.workspace.openTextDocument(arg.uri);
+			return knobs.toggleChainAtLine(document, arg.lineNumber - 1, 'mute');
+		}),
+		vscode.commands.registerCommand('strdltn.soloChainLine', async (arg?: { lineNumber: number; uri: vscode.Uri }) => {
+			if (!arg) return;
+			const document = await vscode.workspace.openTextDocument(arg.uri);
+			return knobs.toggleChainAtLine(document, arg.lineNumber - 1, 'solo');
 		}),
 		...(['find', 'replace', 'gotoLine', 'selectNextMatch', 'selectAllMatches'] as const).map((action) =>
 			vscode.commands.registerCommand(`strdltn.editor.${action}`, () => frontEditor()?.editorAction(action)),
@@ -947,6 +970,11 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		},
 		browserMessage: (message) => browser.handle(message),
 		browserState: () => browser.state(),
+		browserStage: async (panes, select) => {
+			browser.stage({ panes, select });
+			await new Promise((resolve) => setTimeout(resolve, 600));
+			return browser.state();
+		},
 		browserPreviews: () => [...browser.previews],
 		mixer: () => mixer.current(),
 		devices: () => devices.current(),

@@ -21,7 +21,7 @@ Target: **desktop VS Code, Extension Development Host launched with F5**, worksp
 | # | Area | Do this | Should happen |
 |---|---|---|---|
 | 5 | Unnamed synth strip naming | Add `$: note("c2 eb2 g2 bb2").s("vibefm1:obervave")` (no `$name:` label) to a song and check the Mixer | Strip is named `obervave` (picked from the synth/instrument) instead of `note("...")` |
-| 6 | Editor M / S / C line actions | Open `demo.strudel` in the Strudel editor and inspect the gutter left of line numbers; hover and click `M`, `S`, and `C` | Three aligned columns (`M`, `S`, `C`) with hover tooltips; `M` mutes the chain, `S` solos it, `C` starts MIDI learn on a slider line; non-action lines keep empty gaps |
+| 6 | Editor M / S / C line actions (Strudel and native) | Open `demo.strudel` in the Strudel editor, then switch to the native VS Code editor (`Ctrl+Alt+M`), and test `M`, `S`, and `C` in both | Both editors show the same three aligned `M`, `S`, `C` badges (no old rotary knob icon); in Strudel click `M`/`S`/`C` directly; in native VS Code hover the `M`/`S`/`C` badges for clickable action links or right-click the line number; active colors match (blue M, yellow S, green C mapped, red C listening) |
 
 ## Unified Plugins > FM-1 Synths and Repositories
 

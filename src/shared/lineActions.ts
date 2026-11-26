@@ -96,3 +96,47 @@ export function lineActionMap(code: string): Map<number, LineAction> {
 
 	return map;
 }
+
+/**
+ * Stable visual state key for a line's M / S / C badge trio, used to cache native VS Code
+ * editor decorations across edits. Returns `'empty'` for lines with no actions.
+ */
+export function lineActionStateKey(action: LineAction | undefined, learning = false): string {
+	if (!action || (action.chain === undefined && action.sliderFrom === undefined)) return 'empty';
+	const m = action.chain === undefined ? '_' : action.muted ? '1' : '0';
+	const s = action.chain === undefined ? '_' : action.solo ? '1' : '0';
+	const c = action.sliderFrom === undefined ? '_' : learning ? '2' : action.cc === undefined ? '0' : '1';
+	return `m${m}-s${s}-c${c}`;
+}
+
+/**
+ * Renders the 3-column aligned M / S / C badge strip (49x15 px) matching the Strudel editor's
+ * `.strdltn-act-row` CSS (`15px 15px 15px`, 2px gap). Absent slots stay transparent so every
+ * line keeps identical horizontal alignment.
+ */
+export function lineActionSvg(action: LineAction | undefined, learning = false): string {
+	const parts: string[] = [];
+	const pill = (x: number, label: 'M' | 'S' | 'C', fill: string, stroke: string, text: string) => {
+		parts.push(
+			`<rect x="${x + 0.5}" y="0.5" width="14" height="14" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="1"/>` +
+				`<text x="${x + 7.5}" y="10.8" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="9.5" font-weight="700" fill="${text}">${label}</text>`,
+		);
+	};
+	const offFill = 'rgba(128,128,128,0.14)';
+	const offStroke = 'rgba(128,128,128,0.32)';
+	const offText = '#8b949e';
+
+	if (action?.chain !== undefined) {
+		if (action.muted) pill(0, 'M', '#3794ff', '#3794ff', '#ffffff');
+		else pill(0, 'M', offFill, offStroke, offText);
+		if (action.solo) pill(17, 'S', '#d29922', '#d29922', '#111111');
+		else pill(17, 'S', offFill, offStroke, offText);
+	}
+	if (action?.sliderFrom !== undefined) {
+		if (learning) pill(34, 'C', '#f85149', '#f85149', '#ffffff');
+		else if (action.cc !== undefined) pill(34, 'C', '#3fb950', '#3fb950', '#111111');
+		else pill(34, 'C', offFill, offStroke, offText);
+	}
+
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="49" height="15" viewBox="0 0 49 15">${parts.join('')}</svg>`;
+}

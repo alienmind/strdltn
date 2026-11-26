@@ -206,7 +206,7 @@ alongside a `.strudel` file:
 
 ---
 
-## 4. Colorful First-Install Welcome Screen (`UX-5`)
+## 4. Colorful First-Install Welcome Screen (`UX-5`), Clean DAW Profile (`UX-12`) & `template/` -> `music/` (`#19`)
 
 Requested by the maintainer (2026-11-22 and updated 2026-11-26): an Eclipse/IDE-style colorful
 **Welcome Screen** webview tab (`Welcome to [str]dltn Live[code]`) shown automatically once on
@@ -223,6 +223,35 @@ first install, plus command `strdltn: Open Welcome Screen` to re-open anytime.
 - **Optional clip spikes (W1-W4):** W1 (VP9 `.webm` playback in Electron webview), W2 (total
   clip size impact on `.vsix`), W3 (first-start version state), W4 (short VS Code walkthrough
   pointing to our Welcome tab).
+
+### Clean DAW Profile & Auto-Hiding Views (`UX-12` - maintainer 2026-11-26)
+
+VS Code has no extension API to hide or restore built-in bottom panel tabs (`Ports`,
+`Comments`, `Debug Console`) per file type, and Profiles are scoped per workspace/window.
+We combine three supported mechanisms instead:
+
+1. **Importable `template/strdltn.code-profile` + Welcome Screen action:** `template/strdltn.code-profile`
+   (already committed) ships a clean `"Strudel"` DAW profile (`[str]dltn` enabled, `files.autoSave: off`
+   for `.strudel`/`markdown`, `Ports`/`Comments`/`Debug Console`/`Test Results` unpinned,
+   `Mixer` and `Devices` pinned first). Add an **"Import clean DAW Profile"** button/card in
+   `UX-5` Welcome Screen and document `Profiles: Import Profile...` in `README.md` / `doc/USERMANUAL.md`.
+2. **Auto-hide our own panels on non-`.strudel` files:** Maintain a `strdltn.isStrudelFile`
+   context key on active-editor changes so `Mixer` and `Devices` automatically hide on code
+   files and reappear + focus `Mixer` when a `.strudel` file is active (behind an optional
+   setting, default on).
+3. **Folder binding & Windows `.strudel` launch:** Document binding a music folder with
+   `code --profile "Strudel" <folder>` and optional Windows `.strudel` file association
+   (`code --profile "Strudel" "%1"`).
+
+### Rename `template/` to `music/` (`#19` - maintainer 2026-11-26)
+
+- Move `template/` to `music/` (making the repo's music folder self-describing and cleanly
+  bindable to the `"Strudel"` VS Code Profile) and refactor all ~19 referencing files
+  (`.gitignore`, `.vscode/launch.json`, `AGENTS.md`, `CLAUDE.md`, `.github/instructions/strudel.instructions.md`,
+  `README.md`, `doc/*.md`, `scripts/build-reference.mjs`, `scripts/build-tutorial.mjs`,
+  `scripts/smoke/smoke.html`, `src/shared/chains.ts`, `src/shared/chains.test.ts`, and
+  `.strudel` comments). Run as its own clean commit when no parallel edits are touching `src/`
+  or `template/`.
 
 ---
 

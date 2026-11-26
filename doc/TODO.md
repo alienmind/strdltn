@@ -36,8 +36,7 @@ No blocking spikes; mostly visual, layout, and ergonomic improvements in the exi
 
 | Order | ID | What | Pointer |
 |---|---|---|---|
-| 1 | 3b | **Bank + short name separate on Browser insert**: emit `s("bd").bank("RolandTR909")` instead of `s("RolandTR909_bd")` | `doc/NEW_FEATURES.md` section 3 |
-| 2 | 5b | **Unify workspace temp files under `.strdltn/tmp/`**: migrate workspace scratch/temp artifacts out of root `tmp/` into `.strdltn/tmp/` | `doc/NEW_FEATURES.md` section 3 |
+| 1 | 5b | **Unify workspace temp files under `.strdltn/tmp/`**: migrate workspace scratch/temp artifacts out of root `tmp/` into `.strdltn/tmp/` | `doc/NEW_FEATURES.md` section 3 |
 | 3 | UX-1 | **Track Colors (`// @color <name>`) + Visual Polish Pass**: auto-assigned track colors across Mixer, editor gutter, and Devices; shared CSS tokens & `tabular-nums`; custom recessed sub-faders; segmented LED meters with peak-hold tick; amber M / blue S; chain activity LED; cable halos & ducking pulse; top Mixer toolbar replacing rotated vertical text; glassmorphic `#unlock` & frosted Stage dock; inline error toast | `doc/NEW_FEATURES.md` section 1 |
 | 4 | UX-11 | **Two-Column Browser Layout (Results to the Right)**: move the packed Results/Contents pane into a second column right of Library (Ableton-style split with draggable divider + narrow-sidebar fallback) | `doc/NEW_FEATURES.md` section 3 |
 | 5 | UX-3 | **Browser Waveform Sparklines, Trim Handles & Breadcrumbs**: 40px waveform `<canvas>` with playhead & `.begin()`/`.end()` trim handles, animated previewing-row mini-EQ indicator, removable `.resultbar` breadcrumb pill | `doc/NEW_FEATURES.md` section 3 |

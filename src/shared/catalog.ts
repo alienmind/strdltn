@@ -507,13 +507,13 @@ const PITCHED = new Set(['synth', 'soundfont', 'wavetable', 'firmware']);
  *   drum machine      s("bd").bank("RolandTR909")
  *   synth, soundfont  note("c3").s("sawtooth")
  */
-export function soundCode(item: CatalogItem, index?: number): { code: string; name: string } | undefined {
+export function soundCode(item: CatalogItem, index?: number): { code: string; name: string; short?: string; bank?: string } | undefined {
 	if (item.kind !== 'sound' || !item.sound) return undefined;
 	const variation = index === undefined ? undefined : (item.variations?.[index] ?? String(index));
 	const name = variation === undefined ? item.sound : `${item.sound}:${variation}`;
 	if (item.bank) {
 		const short = variation === undefined ? item.label : `${item.label}:${variation}`;
-		return { code: `s("${short}").bank("${item.bank}")`, name };
+		return { code: `s("${short}").bank("${item.bank}")`, name, short, bank: item.bank };
 	}
 	if (PITCHED.has(item.soundType ?? '')) return { code: `note("c3").s("${name}")`, name };
 	return { code: `s("${name}")`, name };

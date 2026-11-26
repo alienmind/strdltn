@@ -13,7 +13,7 @@ import * as strudelSoundfonts from '@strudel/soundfonts';
 import * as strudelTonal from '@strudel/tonal';
 import { getWidgetID, transpiler } from '@strudel/transpiler';
 import * as strudelWebaudio from '@strudel/webaudio';
-import { chooseInsert, type InsertArgument, visualLabel } from '../shared/context';
+import { chooseInsertEdits, type InsertArgument, visualLabel } from '../shared/context';
 import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
 import { DROP_MIME } from '../shared/drop';
@@ -131,7 +131,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			void preview(message.name, message.index);
 			break;
 		case 'insert':
-			insert(message.text, message.bare, message.argument);
+			insert(message.text, message.bare, message.argument, message.bank);
 			break;
 		case 'editorAction':
 			if (mirror && mode === 'editor') {
@@ -615,10 +615,19 @@ function applyFromHost(changes: unknown): void {
 	mirror.editor.dispatch({ changes, annotations: [fromHost.of(true), Transaction.addToHistory.of(false)] });
 }
 
-function insert(text: string, bare?: string, argument?: InsertArgument): void {
+function insert(text: string, bare?: string, argument?: InsertArgument, bank?: string): void {
 	if (!mirror) return;
 	const state = mirror.editor.state;
-	mirror.editor.dispatch(state.replaceSelection(chooseInsert(state.doc.toString(), state.selection.main.from, text, bare, argument)));
+	const sel = state.selection.main;
+	const changes = chooseInsertEdits(state.doc.toString(), sel.from, sel.to, text, bare, argument, bank);
+	if (changes.length === 1 && changes[0].from === sel.from && changes[0].to === sel.to) {
+		mirror.editor.dispatch(state.replaceSelection(changes[0].insert));
+	} else {
+		const primary = changes.find((c) => c.from === sel.from && c.to === sel.to);
+		const deltaBefore = changes.filter((c) => c.to <= sel.from).reduce((sum, c) => sum + c.insert.length - (c.to - c.from), 0);
+		const anchor = sel.from + deltaBefore + (primary ? primary.insert.length : 0);
+		mirror.editor.dispatch({ changes, selection: { anchor }, userEvent: 'input' });
+	}
 	mirror.editor.focus();
 }
 

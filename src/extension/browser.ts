@@ -39,8 +39,8 @@ export interface BrowserActions {
 	playing(): boolean;
 	/** Play, Stop or BPM of Music Controls, for the song the Mixer shows. */
 	control(message: FromControls): void;
-	/** `bare` goes in instead when the cursor is inside a string. */
-	insert(text: string, bare?: string, argument?: InsertArgument): Promise<void>;
+	/** `bare` goes in instead when the cursor is inside a string. `bank` adds/updates `.bank("...")` inside `s("...")`. */
+	insert(text: string, bare?: string, argument?: InsertArgument, bank?: string): Promise<void>;
 	/** As insert, and a cached firmware's `firmware('<url>')` line at the top of the song when it has none. */
 	insertFirmware(text: string, bare: string, url?: string): Promise<void>;
 	/** Inserts a real FM-1 hardware MIDI profile line plus its `midimaps(...)` definition. */
@@ -366,7 +366,7 @@ export class BrowserView {
 				}
 				if (item.kind === 'sound') {
 					const sound = soundCode(item, message.index);
-					if (sound) return this.actions.insert(sound.code, sound.name);
+					if (sound) return this.actions.insert(sound.code, sound.short ?? sound.name, undefined, sound.bank);
 					return;
 				}
 				// A device's name alone when the cursor is in a string: `.midi('|')`.

@@ -2,7 +2,7 @@
 // When a label in the stage is wrong, add the code that produced it here first.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { chooseInsert, insideString, sliderLabel, visualLabel } from './context.ts';
+import { chooseInsert, chooseInsertEdits, insideString, sliderLabel, visualLabel } from './context.ts';
 
 // `<>` marks the position in the examples. It is not valid in the places we put it, so it cannot be confused with code.
 /** The label of the visual whose call ends at the mark. */
@@ -105,4 +105,25 @@ test('a MIDI device typed into the empty parentheses of its call is the name in 
 	// Not inside another call, and not inside parentheses that hold something.
 	assert.equal(at('$: note("c").gain(|)'), ".midi('M-VAVE FM-1')");
 	assert.equal(at('$: note("c").midi(|1)'), ".midi('M-VAVE FM-1')");
+});
+
+test('banked sound inserted inside s("...") inserts short name and adds or updates .bank()', () => {
+	const apply = (src: string, short: string, bank: string) => {
+		const pos = src.indexOf('|');
+		const code = src.replace('|', '');
+		const edits = chooseInsertEdits(code, pos, pos, `s("${short}").bank("${bank}")`, short, undefined, bank);
+		let out = code;
+		for (const e of [...edits].sort((a, b) => b.from - a.from)) out = out.slice(0, e.from) + e.insert + out.slice(e.to);
+		return out;
+	};
+	// Adds .bank() when missing on the chain.
+	assert.equal(apply('$drums: s("bd |").gain(0.8)', 'sd', 'RolandTR909'), '$drums: s("bd sd").bank("RolandTR909").gain(0.8)');
+	// Keeps existing matching .bank() without duplicating it.
+	assert.equal(apply('$drums: s("bd |").bank("RolandTR909").gain(0.8)', 'sd', 'RolandTR909'), '$drums: s("bd sd").bank("RolandTR909").gain(0.8)');
+	// Updates a different .bank() on the same multiline chain.
+	assert.equal(apply('$drums: s("bd |")\n  .gain(0.8)\n  .bank("RolandTR808")', 'cp:2', 'RolandTR909'), '$drums: s("bd cp:2")\n  .gain(0.8)\n  .bank("RolandTR909")');
+	// Inside .bank("|"), inserts only the bank name.
+	assert.equal(apply('$drums: s("bd").bank("|")', 'bd', 'RolandTR909'), '$drums: s("bd").bank("RolandTR909")');
+	// Outside a string, emits the full s("...").bank("...") call.
+	assert.equal(apply('|', 'bd', 'RolandTR909'), 's("bd").bank("RolandTR909")');
 });

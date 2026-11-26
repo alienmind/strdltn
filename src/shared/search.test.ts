@@ -107,8 +107,8 @@ test('results under their headings: the bank, with its .bank() button', () => {
 
 test('insert as code: s() with .bank(), a note for pitched sounds', () => {
 	const code = (id: string, index?: number) => soundCode(items.find((item) => item.id === id)!, index);
-	assert.deepEqual(code('sound:rolandtr909_bd'), { code: 's("bd").bank("rolandtr909")', name: 'rolandtr909_bd' });
-	assert.deepEqual(code('sound:rolandtr909_bd', 2), { code: 's("bd:2").bank("rolandtr909")', name: 'rolandtr909_bd:2' });
+	assert.deepEqual(code('sound:rolandtr909_bd'), { code: 's("bd").bank("rolandtr909")', name: 'rolandtr909_bd', short: 'bd', bank: 'rolandtr909' });
+	assert.deepEqual(code('sound:rolandtr909_bd', 2), { code: 's("bd:2").bank("rolandtr909")', name: 'rolandtr909_bd:2', short: 'bd:2', bank: 'rolandtr909' });
 	assert.deepEqual(code('sound:kick'), { code: 's("kick")', name: 'kick' });
 	assert.deepEqual(code('sound:sawtooth'), { code: 'note("c3").s("sawtooth")', name: 'sawtooth' });
 	assert.deepEqual(code('sound:gm_acoustic_bass', 1), { code: 'note("c3").s("gm_acoustic_bass:1")', name: 'gm_acoustic_bass:1' });

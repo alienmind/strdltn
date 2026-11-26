@@ -80,8 +80,8 @@ export type ToWebview =
 	| { type: 'play' }
 	| { type: 'stop' }
 	| { type: 'preview'; name: string; index: number }
-	/** `bare` replaces `text` when the cursor is inside a string: the name alone, not a call. */
-	| { type: 'insert'; text: string; bare?: string; argument?: InsertArgument }
+	/** `bare` replaces `text` when the cursor is inside a string: the name alone, not a call. `bank` adds/updates `.bank("...")` when inserting inside `s("...")`. */
+	| { type: 'insert'; text: string; bare?: string; argument?: InsertArgument; bank?: string }
 	/** Puts the cursor at an offset of the code, from a click on a strip of the Mixer. */
 	| { type: 'select'; offset: number }
 	/**

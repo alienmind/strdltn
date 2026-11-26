@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { CatalogItem } from './catalog.ts';
-import { dropEdit, dropLine, uniqueLabel } from './drop.ts';
+import { dropEdit, dropEdits, dropLine, uniqueLabel } from './drop.ts';
 
 function item(over: Partial<CatalogItem>): CatalogItem {
 	return {
@@ -74,4 +74,28 @@ test('dropping fwsc and hardware FM-1 profiles generates fm1: and midi() lines',
 
 	const hw = dropLine(item({ id: 'firmware:shrub-midi', kind: 'firmware', label: 'SHRUB', category: 'fm1', runtime: 'hardware' }), '', undefined, { midiPort: 'M-VAVE FM-1' });
 	assert.equal(hw.line, `$shrub_midi: note("c3 eb3 g3 bb3").midi('M-VAVE FM-1').midimap('shrub-midi')`);
+});
+
+test('dropping a banked drum sound inside s("...") inserts short name and adds/updates .bank()', () => {
+	const apply = (src: string, drum: CatalogItem, index?: number) => {
+		const pos = src.indexOf('|');
+		const code = src.replace('|', '');
+		const edits = dropEdits(drum, code, pos, index);
+		let out = code;
+		for (const e of [...edits].sort((a, b) => b.from - a.from)) out = out.slice(0, e.from) + e.insert + out.slice(e.to);
+		return out;
+	};
+	const sd909 = item({
+		id: 'sound:RolandTR909_sd',
+		label: 'sd',
+		category: 'drums',
+		bank: 'RolandTR909',
+		sound: 'RolandTR909_sd',
+		insert: 'RolandTR909_sd',
+		soundType: 'sample',
+		tags: ['Drums/Snare'],
+	});
+	assert.equal(apply('$d: s("bd |").gain(0.8)', sd909), '$d: s("bd sd").bank("RolandTR909").gain(0.8)');
+	assert.equal(apply('$d: s("bd |").bank("RolandTR808")', sd909, 1), '$d: s("bd sd:1").bank("RolandTR909")');
+	assert.equal(apply('$d: s("bd |").bank("RolandTR909")', sd909), '$d: s("bd sd").bank("RolandTR909")');
 });

@@ -4,7 +4,7 @@
 // - Anywhere else: a complete, playable `$name:` line on its own line so existing code is never broken.
 import { readChains } from './chains.ts';
 import { type CatalogItem, soundCode } from './catalog.ts';
-import { insideString } from './context.ts';
+import { chooseInsertEdits, insideString, type InsertEdit } from './context.ts';
 import { firmwareIdFromUrl, HARDWARE_FM1_PROFILES } from './firmware.ts';
 
 /** Custom MIME type carried by Browser row drags alongside `text/plain`. */
@@ -81,7 +81,7 @@ export function dropLine(
 	existingCode = '',
 	index?: number,
 	options?: { midiPort?: string },
-): { line: string; bare: string } {
+): { line: string; bare: string; bank?: string } {
 	if (item.kind === 'firmware') {
 		const id = item.id.startsWith('firmware:') ? item.id.slice('firmware:'.length) : firmwareIdFromUrl(item.label);
 		const label = uniqueLabel(id, existingCode);
@@ -110,16 +110,18 @@ export function dropLine(
 		const sound = soundCode(item, index);
 		const name = sound?.name ?? item.insert ?? item.label;
 		const variation = index !== undefined ? `:${index}` : '';
+		const short = `${item.label}${variation}`;
+		const bare = item.bank ? (sound?.short ?? short) : name;
 		if (item.category === 'drums') {
 			const bank = item.bank ? `.bank("${item.bank}")` : '';
-			const short = `${item.label}${variation}`;
-			if (tags.has('Drums/Kick')) return { line: `${uniqueLabel('kick', existingCode)}: s("${short}*4")${bank}.gain(slider(0.9, 0, 1))`, bare: name };
-			if (tags.has('Drums/Snare') || tags.has('Drums/Clap')) return { line: `${uniqueLabel('snare', existingCode)}: s("~ ${short} ~ ${short}")${bank}.gain(slider(0.8, 0, 1))`, bare: name };
-			if (tags.has('Drums/Hihat')) return { line: `${uniqueLabel('hats', existingCode)}: s("[~ ${short}]*4")${bank}.gain(slider(0.6, 0, 1))`, bare: name };
-			return { line: `${uniqueLabel(item.label, existingCode)}: s("${short}(3,8)")${bank}.gain(slider(0.7, 0, 1))`, bare: name };
+			if (tags.has('Drums/Kick')) return { line: `${uniqueLabel('kick', existingCode)}: s("${short}*4")${bank}.gain(slider(0.9, 0, 1))`, bare, bank: item.bank };
+			if (tags.has('Drums/Snare') || tags.has('Drums/Clap')) return { line: `${uniqueLabel('snare', existingCode)}: s("~ ${short} ~ ${short}")${bank}.gain(slider(0.8, 0, 1))`, bare, bank: item.bank };
+			if (tags.has('Drums/Hihat')) return { line: `${uniqueLabel('hats', existingCode)}: s("[~ ${short}]*4")${bank}.gain(slider(0.6, 0, 1))`, bare, bank: item.bank };
+			return { line: `${uniqueLabel(item.label, existingCode)}: s("${short}(3,8)")${bank}.gain(slider(0.7, 0, 1))`, bare, bank: item.bank };
 		}
 		if (item.category === 'samples') {
-			return { line: `${uniqueLabel(item.label, existingCode)}: s("${item.label}${variation}").gain(slider(0.8, 0, 1))`, bare: name };
+			const bank = item.bank ? `.bank("${item.bank}")` : '';
+			return { line: `${uniqueLabel(item.label, existingCode)}: s("${short}")${bank}.gain(slider(0.8, 0, 1))`, bare, bank: item.bank };
 		}
 		const target = `${item.label}${variation}`;
 		if (tags.has('Sounds/Bass') || /bass/i.test(item.label)) {
@@ -138,21 +140,22 @@ export function dropLine(
 }
 
 /**
- * Computes the exact edit (`from`, `to`, `insert`) to drop an item at `offset` in `\n`-normalized `code`.
- * - Inside a string: inserts only the bare name at `offset`.
+ * Computes the edit(s) (`from`, `to`, `insert`) to drop an item at `offset` in `\n`-normalized `code`.
+ * - Inside a string: inserts the short/bare name at `offset`, and for banked sounds inside `s("...")` adds or
+ *   updates `.bank("...")` on the chain.
  * - Effect function dropped onto an existing chain: appends the effect call directly to the end of that chain.
  * - Otherwise: places the full line on its own line without splitting existing code.
  */
-export function dropEdit(
+export function dropEdits(
 	item: CatalogItem,
 	code: string,
 	offset: number,
 	index?: number,
 	options?: { midiPort?: string },
-): { from: number; to: number; insert: string } {
+): InsertEdit[] {
 	const pos = Math.max(0, Math.min(code.length, offset));
-	const { line, bare } = dropLine(item, code, index, options);
-	if (insideString(code, pos)) return { from: pos, to: pos, insert: bare };
+	const { line, bare, bank } = dropLine(item, code, index, options);
+	if (insideString(code, pos)) return chooseInsertEdits(code, pos, pos, line, bare, item.argument, bank);
 	// Dropping an effect function (e.g. `lpf`, `room`, `delay`) onto an existing chain appends it to that chain's spine.
 	if (item.kind === 'function' && EFFECT_CALLS[item.label]) {
 		const model = readChains(code);
@@ -161,13 +164,24 @@ export function dropEdit(
 			const lineEndIdx = code.indexOf('\n', pos);
 			const lineEnd = lineEndIdx < 0 ? code.length : lineEndIdx;
 			const target = model.chains.find((c) => c.from <= lineEnd && c.to >= lineStart);
-			if (target) return { from: target.to, to: target.to, insert: EFFECT_CALLS[item.label] };
+			if (target) return [{ from: target.to, to: target.to, insert: EFFECT_CALLS[item.label] }];
 		}
 	}
 	const lineStart = code.lastIndexOf('\n', pos - 1) + 1;
 	const lineEndIdx = code.indexOf('\n', pos);
 	const lineEnd = lineEndIdx < 0 ? code.length : lineEndIdx;
 	const currentLine = code.slice(lineStart, lineEnd);
-	if (!currentLine.trim()) return { from: lineStart, to: lineEnd, insert: line };
-	return { from: lineEnd, to: lineEnd, insert: `\n${line}` };
+	if (!currentLine.trim()) return [{ from: lineStart, to: lineEnd, insert: line }];
+	return [{ from: lineEnd, to: lineEnd, insert: `\n${line}` }];
+}
+
+/** Single-edit convenience wrapper over `dropEdits` for callers and tests expecting one edit. */
+export function dropEdit(
+	item: CatalogItem,
+	code: string,
+	offset: number,
+	index?: number,
+	options?: { midiPort?: string },
+): InsertEdit {
+	return dropEdits(item, code, offset, index, options)[0];
 }

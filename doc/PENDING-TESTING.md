@@ -15,6 +15,7 @@ Target: **desktop VS Code, Extension Development Host launched with F5**, worksp
 | 2 | All-synth previews (no song) | Close all `.strudel` tabs, open `Sounds > Synths`, and single-click `sine`, `sawtooth`, `supersaw`, `gm_acoustic_bass`, `zzfx` | Each plays a 1-loop preview at 120 BPM (2 s), fades out smoothly over 0.5 s, and stops cleanly; clicking Stop cuts it off at once |
 | 3 | Effect drag into editor | Open a song, play it, and drag an effect function (`lpf` or `room` from `Reference > Functions`) onto an existing `$name:` chain line in the Strudel editor | Appends `.lpf(800)` or `.room(0.4)` onto that chain without breaking playback |
 | 4 | Drag onto Mixer | Drag any synth, drum, sample, or FM-1 synth from the Browser and drop it onto the Mixer strip area | Mixer strip area highlights with a dashed outline while dragging; dropping appends a new playable `$name:` strip at the bottom of the song |
+| 5 | Banked sound insert/drop (`#3b`) | In `Drums > RolandTR909`, insert and drag `sd` both onto a blank line and inside an existing `s("bd ")` string (with and without `.bank("RolandTR808")`) | Blank line emits `s("sd").bank("RolandTR909")` (or full `$snare:` line on drag); inside `s("bd ")` inserts `sd` and adds or updates `.bank("RolandTR909")` in one undo step |
 
 ## Mixer and Editor
 

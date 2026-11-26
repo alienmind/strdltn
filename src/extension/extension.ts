@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { BROWSER_VIEW, type BrowserFilterState, type FromBrowser } from '../shared/browser';
 import { CATEGORIES } from '../shared/catalog';
-import { chooseInsert, type InsertArgument } from '../shared/context';
-import { DROP_MIME, dropEdit } from '../shared/drop';
+import { chooseInsertEdits, type InsertArgument } from '../shared/context';
+import { DROP_MIME, dropEdits } from '../shared/drop';
 import type { SoundInfo } from '../shared/protocol';
 import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
@@ -126,7 +126,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		preview: (name, index) => previewSound(name, index),
 		playing: () => [...sessions].some((s) => s.started),
 		control: (message) => mixer.control(message),
-		insert: (text, bare, argument) => insertText(text, bare, argument),
+		insert: (text, bare, argument, bank) => insertText(text, bare, argument, bank),
 		insertFirmware: (text, bare, url) => insertFirmware(text, bare, url),
 		insertHardware: (id) => insertHardware(id),
 		showScreen: (id) => void screen.show(id),
@@ -388,7 +388,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 				const text = lf(document.getText());
 				const offset = textOffset(text, position);
 				const midiPort = item.kind === 'firmware' && item.runtime === 'hardware' ? midi.findOutput('fm-1') : undefined;
-				const change = dropEdit(item, text, offset, resolved.index, { midiPort });
+				const changes = dropEdits(item, text, offset, resolved.index, { midiPort });
 				const edit = new vscode.WorkspaceEdit();
 				if (item.kind === 'firmware' && item.runtime === 'hardware') {
 					const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === item.id.slice('firmware:'.length));
@@ -404,9 +404,11 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 						edit.insert(document.uri, new vscode.Position(p.line, p.character), load.text);
 					}
 				}
-				const from = lineColumn(text, change.from);
-				const to = lineColumn(text, change.to);
-				edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+				for (const change of changes) {
+					const from = lineColumn(text, change.from);
+					const to = lineColumn(text, change.to);
+					edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+				}
 				const drop = new vscode.DocumentDropEdit('');
 				drop.additionalEdit = edit;
 				return drop;
@@ -648,7 +650,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		}
 		const fresh = lf(document.getText());
 		const midiPort = item.kind === 'firmware' && item.runtime === 'hardware' ? midi.findOutput('fm-1') : undefined;
-		const change = dropEdit(item, fresh, offset, resolved.index, { midiPort });
+		const changes = dropEdits(item, fresh, offset, resolved.index, { midiPort });
 		const edit = new vscode.WorkspaceEdit();
 		if (item.kind === 'firmware' && item.runtime === 'hardware') {
 			const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === item.id.slice('firmware:'.length));
@@ -664,9 +666,11 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 				edit.insert(document.uri, new vscode.Position(p.line, p.character), load.text);
 			}
 		}
-		const from = lineColumn(fresh, change.from);
-		const to = lineColumn(fresh, change.to);
-		edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+		for (const change of changes) {
+			const from = lineColumn(fresh, change.from);
+			const to = lineColumn(fresh, change.to);
+			edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+		}
 		if (await vscode.workspace.applyEdit(edit)) {
 			evaluateIfPlaying(document);
 		}
@@ -705,30 +709,37 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	 * Inserts at the cursor of whichever editor the user is working in. The Strudel
 	 * editor is a webview, so `activeTextEditor` is undefined while it is the active tab.
 	 */
-	async function insertText(text: string, bare?: string, argument?: InsertArgument): Promise<void> {
+	async function insertText(text: string, bare?: string, argument?: InsertArgument, bank?: string): Promise<void> {
 		const strudel = activeEditorSession();
 		const native = vscode.window.activeTextEditor;
-		if (strudel) return strudel.insert(text, bare, argument);
+		if (strudel) return strudel.insert(text, bare, argument, bank);
+		const applyNative = async (editor: vscode.TextEditor, selections: readonly vscode.Selection[]) => {
+			const code = lf(editor.document.getText());
+			const seen = new Set<string>();
+			const edits = selections
+				.flatMap((selection) => chooseInsertEdits(code, textOffset(code, selection.start), textOffset(code, selection.end), text, bare, argument, bank))
+				.filter((e) => {
+					const key = `${e.from}:${e.to}:${e.insert}`;
+					if (seen.has(key)) return false;
+					seen.add(key);
+					return true;
+				});
+			await editor.edit((builder) => {
+				for (const e of edits) {
+					const from = lineColumn(code, e.from);
+					const to = lineColumn(code, e.to);
+					builder.replace(new vscode.Range(from.line, from.character, to.line, to.character), e.insert);
+				}
+			});
+		};
 		// Only into a Strudel file. A click in the Sounds view (before the Browser) while a
 		// markdown file had the focus typed sound names into it, and nobody saw it happen.
-		if (isStrudel(native)) {
-			const code = native.document.getText();
-			await native.edit((builder) =>
-				native.selections.forEach((selection) => {
-					builder.replace(selection, chooseInsert(code, native.document.offsetAt(selection.start), text, bare, argument));
-				}),
-			);
-			return;
-		}
+		if (isStrudel(native)) return applyNative(native, native.selections);
 		const last = lastSession('editor');
-		if (last) return last.insert(text, bare, argument);
+		if (last) return last.insert(text, bare, argument, bank);
 		// A tab of ours is in front (the firmware screen), and the song is in the native editor beside it.
 		const visible = vscode.window.visibleTextEditors.find(isStrudel);
-		if (visible) {
-			const code = visible.document.getText();
-			await visible.edit((builder) => builder.replace(visible.selection, chooseInsert(code, visible.document.offsetAt(visible.selection.start), text, bare, argument)));
-			return;
-		}
+		if (visible) return applyNative(visible, [visible.selection]);
 		void vscode.window.showInformationMessage('Open a .strudel file to insert into.');
 	}
 

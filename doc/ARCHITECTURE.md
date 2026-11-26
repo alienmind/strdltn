@@ -369,19 +369,22 @@ test: "preview: bd:0 on beat 2" while the stage played. Whether it is heard on t
 is for the hand test.
 
 **Insert as code.** A sound is inserted as the code that plays it (`soundCode` in
-`src/shared/catalog.ts`): `s("bd")`, `s("bd:3")`, `s("bd").bank("rolandtr909")` for a
-drum machine sound, `note("c3").s("sawtooth")` for a synth, a soundfont or a wavetable,
+`src/shared/catalog.ts`): `s("bd")`, `s("bd:3")`, `s("bd").bank("RolandTR909")` for a
+banked drum/sample sound, `note("c3").s("sawtooth")` for a synth, a soundfont or a wavetable,
 which make no sound without a note, and `note("c3").s("vibefm1:obervave")` for a firmware.
-When the cursor is inside a string of its line (`insideString` in
-`src/shared/context.ts`), only the name goes in: `s("bd hh <>")` gets `sd`, not a call.
+When the cursor is inside a string of its line (`chooseInsertEdits` in `src/shared/context.ts`
+and `dropEdits` in `src/shared/drop.ts`), only the short/bare name goes in: `s("bd hh <>")`
+gets `sd`, not a call. For banked sounds inserted or dropped inside `s("...")` or `sound("...")`,
+the short name goes into the string and `.bank("<bank>")` is added or updated on the enclosing
+chain spine in the same undo step; inside `.bank("<>")` only the bank name goes in.
 The host decides that for the native editor, the webview for the Strudel editor, from
 the same function. Copy gives the name.
 
 **Inserting** goes to the Strudel editor when it is the active tab, and to the native
 editor when that shows a Strudel file. `window.activeTextEditor` is undefined while the
 Strudel editor is active, because it is a webview. Nothing is inserted into a file of
-another language. A sound is always typed by its full name (`RolandTR909_bd`), which is
-valid anywhere.
+another language. Banked drum and sample sounds emit the short name with `.bank("...")`
+separately instead of concatenated `<bank>_<sound>`.
 
 **The sound list.** superdough keeps every sound it can play in `soundMap`. The webview
 sends that list to the host after loading and again whenever it changes (300 ms after

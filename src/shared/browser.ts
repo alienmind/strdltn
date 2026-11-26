@@ -82,6 +82,8 @@ export type FromBrowser =
 	| { type: 'openEditor'; id: string }
 	/** Launches or stops a `.fwsc` firmware (or SHRUB) in native `fm1-live` (240 MHz JIT). */
 	| { type: 'runNative'; id: string }
+	/** Opens the firmware repositories manager (view/add custom repo URLs). */
+	| { type: 'manageRepos' }
 	/** Installs an Available firmware into the project. */
 	| { type: 'install'; id: string }
 	/** Turns one color on or off for the items. `color` 0 clears every color. */

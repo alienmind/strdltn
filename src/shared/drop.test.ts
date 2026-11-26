@@ -72,6 +72,6 @@ test('dropping fwsc and hardware FM-1 profiles generates fm1: and midi() lines',
 	const fwsc = dropLine(item({ id: 'firmware:felucca', kind: 'firmware', label: 'Felucca', category: 'fm1', runtime: 'fwsc' }), '');
 	assert.equal(fwsc.line, '$felucca: note("c3 eb3 g3 bb3").s("fm1:felucca").gain(slider(0.8, 0, 1))');
 
-	const hw = dropLine(item({ id: 'firmware:shrub', kind: 'firmware', label: 'SHRUB', category: 'fm1', runtime: 'hardware' }), '', undefined, { midiPort: 'M-VAVE FM-1' });
-	assert.equal(hw.line, `$shrub: note("c3 eb3 g3 bb3").midi('M-VAVE FM-1').midimap('shrub')`);
+	const hw = dropLine(item({ id: 'firmware:shrub-midi', kind: 'firmware', label: 'SHRUB', category: 'fm1live', runtime: 'hardware' }), '', undefined, { midiPort: 'M-VAVE FM-1' });
+	assert.equal(hw.line, `$shrub_midi: note("c3 eb3 g3 bb3").midi('M-VAVE FM-1').midimap('shrub-midi')`);
 });

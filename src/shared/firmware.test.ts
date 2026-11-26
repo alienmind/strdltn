@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
 	availableFirmware,
+	DEFAULT_FIRMWARE_REPOS,
 	findFirmwareUrls,
 	firmwareCode,
 	firmwareFileName,
@@ -12,8 +13,10 @@ import {
 	hardwareFirmwareCode,
 	mergeHubFirmwares,
 	midimapLoadEdit,
+	parseCustomRepos,
 	parseHubCatalog,
 	parseHubIndex,
+	parseRepoPayload,
 } from './firmware.ts';
 
 const A = 'https://raw.githubusercontent.com/Vibe-FM-SDK/vibe-fm-sdk/main/firmwares/obervave.wasm';
@@ -164,15 +167,45 @@ test('mergeHubFirmwares prefers VIBE .wasm over .fwsc when both exist for the sa
 });
 
 test('hardwareFirmwareCode and midimapLoadEdit generate and deduplicate MIDI profile lines', () => {
-	const shrub = HARDWARE_FM1_PROFILES.find((p) => p.id === 'shrub')!;
+	const shrub = HARDWARE_FM1_PROFILES.find((p) => p.id === 'shrub-midi')!;
 	assert.deepEqual(hardwareFirmwareCode(shrub, 'M-VAVE FM-1 0'), {
-		code: `$shrub: note("c2 eb2 g2 bb2").midi('M-VAVE FM-1 0').midimap('shrub')`,
+		code: `$shrub_midi: note("c2 eb2 g2 bb2").midi('M-VAVE FM-1 0').midimap('shrub-midi')`,
 		name: 'M-VAVE FM-1 0',
 	});
 	const song = '// @title jam\n$: s("bd")';
 	const edit = midimapLoadEdit(song, shrub);
 	assert.ok(edit);
 	const withMap = insertAt(song, edit);
-	assert.equal(withMap, `// @title jam\nmidimaps({ 'shrub': { cutoff: 74, macro1: 16, macro2: 17, macro3: 18, macro4: 19 } })\n$: s("bd")`);
+	assert.equal(withMap, `// @title jam\nmidimaps({ 'shrub-midi': { cutoff: 74, macro1: 16, macro2: 17, macro3: 18, macro4: 19 } })\n$: s("bd")`);
 	assert.equal(midimapLoadEdit(withMap, shrub), undefined);
+});
+
+test('built-in repositories include The Firmware Hub and external SHRUB on shrub.audio', () => {
+	const shrubRepo = DEFAULT_FIRMWARE_REPOS.find((r) => r.id === 'shrub-audio');
+	assert.ok(shrubRepo);
+	const entries = parseRepoPayload(shrubRepo);
+	assert.equal(entries.length, 1);
+	assert.equal(entries[0].id, 'shrub');
+	assert.equal(entries[0].externalUrl, 'https://shrub.audio/');
+	assert.equal(entries[0].editor, 'https://shrub.audio/editor/');
+	assert.equal(entries[0].repo, 'shrub.audio');
+});
+
+test('parseCustomRepos and parseRepoPayload handle JSON catalogs, direct firmware URLs, and external pages', () => {
+	const repos = parseCustomRepos([
+		'https://example.com/my-catalog.json',
+		{ name: 'Cool Synth', url: 'https://coolsynth.audio/' },
+		'https://cdn.example.com/custom-vibe.wasm',
+		'not-a-url',
+	]);
+	assert.equal(repos.length, 3);
+	assert.equal(repos[0].kind, 'auto');
+	assert.equal(repos[1].kind, 'external');
+	assert.equal(repos[1].name, 'Cool Synth');
+	const extEntries = parseRepoPayload(repos[1]);
+	assert.equal(extEntries[0].externalUrl, 'https://coolsynth.audio/');
+	assert.equal(extEntries[0].repo, 'Cool Synth');
+	const wasmEntries = parseRepoPayload(repos[2]);
+	assert.equal(wasmEntries[0].runtime, 'vibe');
+	assert.equal(wasmEntries[0].id, 'custom');
 });

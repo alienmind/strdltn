@@ -50,12 +50,12 @@ test('every word must match, in the name, the text or a tag', () => {
 test('categories and places', () => {
 	assert.deepEqual(find('', { category: 'drums' }), ['sound:rolandtr909_bd', 'sound:rolandtr909_sd', 'sound:linndrum_bd']);
 	assert.deepEqual(find('', { category: 'fm1' }), ['firmware:obervave', 'firmware:sloop', 'firmware:echofield-vibe']);
-	assert.deepEqual(find('', { category: 'fm1live' }), ['firmware:shrub', 'firmware:fm1-stock', 'firmware:felucca']);
-	// Plugins, the parent, shows both parallel children (FM-1 Synths + FM-1 Live).
+	assert.deepEqual(find('', { category: 'fm1live' }), ['firmware:shrub-midi', 'firmware:fm1-stock', 'firmware:felucca']);
+	// Plugins, the parent, shows both parallel children (VIBE FM (.wasm) + FM-1 Firmware (.fwsc)).
 	assert.deepEqual(find('', { category: 'plugins' }), [
 		'firmware:obervave',
 		'firmware:sloop',
-		'firmware:shrub',
+		'firmware:shrub-midi',
 		'firmware:fm1-stock',
 		'firmware:echofield-vibe',
 		'firmware:felucca',

@@ -116,7 +116,7 @@ export class NativeFm1Host implements vscode.Disposable {
 
 	/** Finds or prompts for the `.fwsc` package to run natively. Never redistributes proprietary SHRUB. */
 	private async resolveFwsc(id: string): Promise<string | undefined> {
-		if (id === 'shrub') {
+		if (id === 'shrub' || id === 'shrub-midi') {
 			const installed = this.library.all().find((fw) => fw.runtime === 'fwsc' && (fw.id.includes('shrub') || isShrubFileName(fw.path)));
 			if (installed) {
 				const uri = this.library.file(installed.id);

@@ -86,10 +86,17 @@ export class FirmwareMarket implements vscode.Disposable {
 		return availableFirmware(this.hub.all(), this.library.all());
 	}
 
-	/** Installs a firmware of the hub into the project's firmware folder, from the copy its picture was made from. */
+	/** Installs a firmware of a repository into the project's firmware folder, or opens its external website (e.g. SHRUB). */
 	async install(id: string): Promise<void> {
 		const fw = this.available().find((f) => f.id === id);
 		if (!fw) return;
+		if (fw.externalUrl) {
+			await vscode.env.openExternal(vscode.Uri.parse(fw.externalUrl));
+			void vscode.window.showInformationMessage(
+				`Opened ${fw.name} (${fw.repo ?? fw.externalUrl}). Download the .fwsc file and drop it in firmware/, or click Run Native.`,
+			);
+			return;
+		}
 		try {
 			const bytes = await vscode.window.withProgress(
 				{ location: vscode.ProgressLocation.Notification, title: `Installing ${fw.name}...` },
@@ -112,7 +119,7 @@ export class FirmwareMarket implements vscode.Disposable {
 		const file = this.library.file(id);
 		if (own && file) return { firmware: own, file };
 		const hub = this.available().find((f) => f.id === id);
-		if (!hub) return undefined;
+		if (!hub || hub.externalUrl) return undefined;
 		return { firmware: { ...hub, available: true }, file: await this.previews.hubFile(hub.url) };
 	}
 
@@ -123,7 +130,7 @@ export class FirmwareMarket implements vscode.Disposable {
 
 	/** Opens the companion web editor for a firmware (or the built-in SHRUB panel when its setting is enabled). */
 	openEditor(id: string): void {
-		if (id === 'shrub' && vscode.workspace.getConfiguration('strdltn').get<boolean>(SHRUB_SETTING, false)) {
+		if ((id === 'shrub' || id === 'shrub-midi') && vscode.workspace.getConfiguration('strdltn').get<boolean>(SHRUB_SETTING, false)) {
 			ShrubPanel.show(this.context);
 			return;
 		}
@@ -132,6 +139,56 @@ export class FirmwareMarket implements vscode.Disposable {
 			this.library.all().find((f) => f.id === id)?.editor ??
 			this.available().find((f) => f.id === id)?.editor;
 		if (url) void vscode.env.openExternal(vscode.Uri.parse(url));
+	}
+
+	/** Interactive repository manager: inspect built-in repos (Firmware Hub, shrub.audio) and add/remove custom URLs. */
+	async manageRepos(): Promise<void> {
+		const config = vscode.workspace.getConfiguration('strdltn');
+		const custom = config.get<(string | { name?: string; url: string })[]>('firmware.repositories', []);
+		const items: (vscode.QuickPickItem & { action: 'add' | 'open' | 'remove'; url?: string; index?: number })[] = [
+			{ label: '$(add) Add firmware repository URL...', description: 'JSON catalog, direct .wasm/.fwsc URL, or external synth page', action: 'add' },
+			...this.hub.repos().map((r) => ({
+				label: `$(globe) ${r.name}`,
+				description: r.id.startsWith('custom-') ? 'Custom repository (click to remove)' : 'Built-in repository (click to open)',
+				detail: r.url,
+				action: (r.id.startsWith('custom-') ? 'remove' : 'open') as 'open' | 'remove',
+				url: r.homepage ?? r.url,
+			})),
+		];
+		const picked = await vscode.window.showQuickPick(items, {
+			title: 'FM-1 Firmware Repositories',
+			placeHolder: 'Built-in repositories (The Firmware Hub, shrub.audio) and custom URLs',
+		});
+		if (!picked) return;
+		if (picked.action === 'open' && picked.url) {
+			await vscode.env.openExternal(vscode.Uri.parse(picked.url));
+			return;
+		}
+		if (picked.action === 'add') {
+			const url = await vscode.window.showInputBox({
+				title: 'Add Firmware Repository URL',
+				prompt: 'Enter a catalog JSON URL (index.json / catalog.json), a direct .wasm/.fwsc URL, or an external synth page (https://...)',
+				placeHolder: 'https://example.com/catalog.json',
+				validateInput: (v) => (/^https?:\/\/\S+$/i.test(v.trim()) ? undefined : 'Must start with http:// or https://'),
+			});
+			if (!url) return;
+			const name = await vscode.window.showInputBox({
+				title: 'Repository Name (optional)',
+				prompt: 'Leave blank to use the hostname',
+				placeHolder: 'My FM-1 Repo',
+			});
+			const entry = name?.trim() ? { name: name.trim(), url: url.trim() } : url.trim();
+			await config.update('firmware.repositories', [...custom, entry], vscode.ConfigurationTarget.Global);
+			await this.hub.reload();
+			void vscode.window.showInformationMessage(`strdltn: added firmware repository ${name?.trim() || url.trim()}.`);
+			return;
+		}
+		if (picked.action === 'remove' && picked.detail) {
+			const next = custom.filter((entry) => (typeof entry === 'string' ? entry.trim() : entry.url.trim()) !== picked.detail);
+			await config.update('firmware.repositories', next, vscode.ConfigurationTarget.Global);
+			await this.hub.reload();
+			void vscode.window.showInformationMessage(`strdltn: removed firmware repository ${picked.detail}.`);
+		}
 	}
 
 	dispose(): void {

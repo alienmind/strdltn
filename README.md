@@ -40,18 +40,19 @@ You can either use the specialized panels OR keep writing code OR a mix of both.
 > ### M-VAVE FM-1, VIBE FM (.wasm) and real FM-1 (.fwsc) firmwares
 >
 > **Got an FM-1, or want its synths in software?** [str]dltn Live[code] organizes FM-1
-> plugins into two parallel categories under **Plugins** (hover or click the `?` info icon
-> beside them for a quick comparison popover):
+> plugins into two parallel categories under **Plugins** (hover or click `?` for a
+> comparison popover, or click `+` to manage firmware repositories):
 >
-> - **Plugins > FM-1 Synths (`WASM`).** Open-source VIBE FM `.wasm` builds from
+> - **Plugins > VIBE FM (.wasm) (`WASM`).** Open-source VIBE FM builds from
 >   [The Firmware Hub](https://thefirmwarehub.com) running directly inside Strudel's engine
 >   (`s("vibefm1:obervave")`) with ~1% CPU, sample-accurate timing, live screen thumbnails,
 >   Screen popup, and Devices tab controls (desktop & Codespaces).
-> - **Plugins > FM-1 Live (`FWSC` / `MIDI` / Native JIT).** Real unmodified M-VAVE FM-1
->   hardware firmwares (~280+ Hub `.fwsc` synths plus **SHRUB** and **M-VAVE FM-1 Stock**):
->   launch **Run Native** (`fm1-live` 240 MHz JIT on Windows, macOS, Linux — zero dropouts
->   for SHRUB), emulate lighter `.fwsc` synths in-editor (`s("fm1:<id>")`), or play a real
->   M-VAVE FM-1 over desktop MIDI with built-in CC maps and SHRUB's **Editor...** button.
+> - **Plugins > FM-1 Firmware (.fwsc) (`FWSC` / `EXT` / `MIDI`).** Real unmodified M-VAVE
+>   FM-1 hardware firmwares (~280+ Hub `.fwsc` synths, **SHRUB** listed via external
+>   repository `shrub.audio`, **M-VAVE FM-1 Stock**, plus any custom repository URLs in
+>   `strdltn.firmware.repositories`): launch **Run Native** (`fm1-live` 240 MHz JIT on
+>   Windows, macOS, Linux — zero dropouts for SHRUB), emulate lighter `.fwsc` synths
+>   in-editor (`s("fm1:<id>")`), or play a real M-VAVE FM-1 over desktop MIDI.
 >
 > See `examples/07-vibefm1-obervave.strudel` and `examples/09-midi-out.strudel`.
 

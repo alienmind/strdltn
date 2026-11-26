@@ -92,12 +92,12 @@ export interface HardwareFirmwareProfile {
 /** Built-in FM-1 hardware MIDI profiles shown alongside VIBE `.wasm` and `.fwsc` firmwares. */
 export const HARDWARE_FM1_PROFILES: HardwareFirmwareProfile[] = [
 	{
-		id: 'shrub',
-		name: 'SHRUB (FM-1 Hardware)',
+		id: 'shrub-midi',
+		name: 'SHRUB (FM-1 Hardware MIDI)',
 		author: 'Xfer Records',
 		license: 'Proprietary (hardware MIDI)',
 		description:
-			'Xfer SHRUB on a real M-VAVE FM-1 over desktop MIDI (cutoff CC 74, macros CC 16-19). Closed firmware: plays zero-dropout via MIDI; you can also drop your own SHRUB .fwsc in firmware/.',
+			'Play Xfer SHRUB on a real M-VAVE FM-1 over desktop MIDI (cutoff CC 74, macros CC 16-19). Or get SHRUB .fwsc from shrub.audio and click Run Native for 240 MHz JIT emulation.',
 		defaultPort: 'M-VAVE FM-1',
 		midimap: { cutoff: 74, macro1: 16, macro2: 17, macro3: 18, macro4: 19 },
 		editor: 'https://shrub.audio/editor/',
@@ -156,12 +156,29 @@ export function midimapLoadEdit(text: string, profile: HardwareFirmwareProfile):
 export const HUB_INDEX = 'https://play.thefirmwarehub.com/firmware/index.json';
 /** The Firmware Hub's full catalog of real FM-1 `.fwsc` firmwares. */
 export const HUB_CATALOG = 'https://thefirmwarehub.com/catalog.json';
+/** Xfer Records SHRUB official page (external marketplace listing; never redistributed). */
+export const SHRUB_HOME = 'https://shrub.audio/';
 /** MIT fm1-emu web emulator wasm (github.com/joakimeriksson/fm1-emu), fetched on demand into global storage. */
 export const FM1_EMU_WASM_URL = 'https://joakimeriksson.github.io/fm1-emu/fm1_web.wasm';
 
-/** A firmware of the hub's list that can be installed. */
+/** A firmware marketplace repository: official Hub, external vendor page (e.g. SHRUB), or user URL. */
+export interface FirmwareRepo {
+	id: string;
+	name: string;
+	/** `index`: VIBE `.wasm` array; `catalog`: `{ firmwares: [...] }` `.fwsc` catalog; `external`: external page; `auto`: detect from URL/JSON. */
+	kind: 'index' | 'catalog' | 'external' | 'auto';
+	url: string;
+	homepage?: string;
+	/** Curated entries for `external` repositories (like SHRUB) that open the vendor's website instead of direct-downloading. */
+	entries?: HubFirmware[];
+}
+
+/** User-configured repository entry in `strdltn.firmware.repositories` (plain URL or `{ name?, url, kind? }`). */
+export type CustomFirmwareRepo = string | { name?: string; url: string; kind?: FirmwareRepo['kind'] };
+
+/** A firmware of a repository that can be installed or opened externally. */
 export interface HubFirmware {
-	/** The hub's id (`echofield-vibe` or `felucca`). Installed as `firmware/<id>/`. */
+	/** The firmware's id (`echofield-vibe`, `felucca`, `shrub`). Installed as `firmware/<id>/`. */
 	id: string;
 	name: string;
 	version?: string;
@@ -170,9 +187,13 @@ export interface HubFirmware {
 	description?: string;
 	/** `vibe` for VIBE `.wasm` builds, `fwsc` for real FM-1 `.fwsc` update packages. */
 	runtime?: FirmwareRuntime;
-	/** The `.wasm` or `.fwsc`, absolute. */
+	/** The `.wasm`, `.fwsc`, or external page URL, absolute. */
 	url: string;
-	/** Expected SHA-256 hex digest when `catalog.json` provides one. */
+	/** When set, clicking Install / double-clicking opens this external website instead of downloading directly (e.g. SHRUB). */
+	externalUrl?: string;
+	/** Name of the repository that listed this firmware (e.g. "The Firmware Hub", "shrub.audio"). */
+	repo?: string;
+	/** Expected SHA-256 hex digest when a catalog provides one. */
 	sha256?: string;
 	/** Companion web editor URL, if the firmware has one. */
 	editor?: string;
@@ -180,15 +201,130 @@ export interface HubFirmware {
 	playUrl?: string;
 	/** The firmware's cheat sheet, a page on the hub. */
 	cheat?: string;
-	/** The hub's own order: 0 first. */
+	/** Order within its repository: 0 first. */
 	order: number;
+}
+
+/** Built-in firmware repositories: The Firmware Hub (VIBE + FM-1) and SHRUB (external link to shrub.audio). */
+export const DEFAULT_FIRMWARE_REPOS: FirmwareRepo[] = [
+	{
+		id: 'thefirmwarehub-vibe',
+		name: 'The Firmware Hub',
+		kind: 'index',
+		url: HUB_INDEX,
+		homepage: 'https://thefirmwarehub.com/',
+	},
+	{
+		id: 'thefirmwarehub-fwsc',
+		name: 'The Firmware Hub',
+		kind: 'catalog',
+		url: HUB_CATALOG,
+		homepage: 'https://thefirmwarehub.com/',
+	},
+	{
+		id: 'shrub-audio',
+		name: 'shrub.audio',
+		kind: 'external',
+		url: SHRUB_HOME,
+		homepage: SHRUB_HOME,
+		entries: [
+			{
+				id: 'shrub',
+				name: 'SHRUB',
+				author: 'Xfer Records',
+				license: 'Proprietary (get from shrub.audio)',
+				description:
+					'Xfer Records wavetable synth firmware for M-VAVE FM-1. Closed-source: click Get on shrub.audio to download SHRUB.fwsc, then drop it in firmware/ or click Run Native for 240 MHz JIT emulation.',
+				runtime: 'fwsc',
+				url: SHRUB_HOME,
+				externalUrl: SHRUB_HOME,
+				repo: 'shrub.audio',
+				editor: 'https://shrub.audio/editor/',
+				order: 0,
+			},
+		],
+	},
+];
+
+/** Normalizes user-configured `strdltn.firmware.repositories` entries into `FirmwareRepo` descriptors. */
+export function parseCustomRepos(entries: unknown): FirmwareRepo[] {
+	if (!Array.isArray(entries)) return [];
+	const out: FirmwareRepo[] = [];
+	const seen = new Set<string>();
+	for (const raw of entries) {
+		const url = typeof raw === 'string' ? raw.trim() : raw && typeof raw === 'object' && typeof (raw as { url?: unknown }).url === 'string' ? (raw as { url: string }).url.trim() : '';
+		if (!url || !/^https?:\/\//i.test(url)) continue;
+		let parsed: URL;
+		try {
+			parsed = new URL(url);
+		} catch {
+			continue;
+		}
+		if (seen.has(parsed.href)) continue;
+		seen.add(parsed.href);
+		const customName = raw && typeof raw === 'object' && typeof (raw as { name?: unknown }).name === 'string' ? (raw as { name: string }).name.trim() : '';
+		const customKind = raw && typeof raw === 'object' ? (raw as { kind?: FirmwareRepo['kind'] }).kind : undefined;
+		const name = customName || parsed.hostname.replace(/^www\./, '');
+		const kind: FirmwareRepo['kind'] =
+			customKind && ['index', 'catalog', 'external', 'auto'].includes(customKind)
+				? customKind
+				: /\.json(\?|$)/i.test(parsed.pathname)
+					? 'auto'
+					: /\.(wasm|fwsc)(\?|$)/i.test(parsed.pathname)
+						? 'auto'
+						: 'external';
+		const id = `custom-${parsed.hostname.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${out.length + 1}`;
+		out.push({ id, name, kind, url: parsed.href, homepage: `${parsed.origin}/` });
+	}
+	return out;
+}
+
+/**
+ * Turns a single direct `.wasm`, `.fwsc`, or external web page URL repo into a marketplace entry, or parses a
+ * JSON repository (supporting VIBE `index.json`, Firmware Hub `catalog.json`, or a `{ entries: [...] }` list).
+ */
+export function parseRepoPayload(repo: FirmwareRepo, json?: unknown): HubFirmware[] {
+	if (repo.entries?.length) return repo.entries.map((e) => ({ ...e, repo: e.repo ?? repo.name }));
+	if (json !== undefined) {
+		if (repo.kind === 'index' || Array.isArray(json)) return parseHubIndex(json, repo.url, repo.name);
+		if (repo.kind === 'catalog' || (json && typeof json === 'object' && 'firmwares' in (json as object))) {
+			return parseHubCatalog(json, repo.url, repo.name);
+		}
+		if (json && typeof json === 'object' && Array.isArray((json as { entries?: unknown[] }).entries)) {
+			return parseHubCatalog({ firmwares: (json as { entries: unknown[] }).entries }, repo.url, repo.name);
+		}
+	}
+	if (/\.wasm(\?|$)/i.test(repo.url)) {
+		const id = firmwareIdFromUrl(repo.url) || repo.id;
+		return [{ id, name: repo.name || id.toUpperCase(), runtime: 'vibe', url: repo.url, repo: repo.name, order: 50 }];
+	}
+	if (/\.fwsc(\?|$)/i.test(repo.url)) {
+		const id = firmwareIdFromUrl(repo.url) || repo.id;
+		return [{ id, name: repo.name || id.toUpperCase(), runtime: 'fwsc', url: repo.url, repo: repo.name, order: 100 }];
+	}
+	if (repo.kind === 'external') {
+		const hostId = repo.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-|-$/g, '') || repo.id;
+		return [
+			{
+				id: hostId,
+				name: repo.name,
+				description: `External FM-1 firmware repository: ${repo.url}. Open the page to download, then place the file in firmware/.`,
+				runtime: 'fwsc',
+				url: repo.url,
+				externalUrl: repo.url,
+				repo: repo.name,
+				order: 20,
+			},
+		];
+	}
+	return [];
 }
 
 /**
  * Reads the Playground's `index.json` (fields measured on 2026-11-22, ARCHITECTURE "The hub's catalogs"). Leniently:
  * an entry without an id or a `.wasm` is left out, and unknown fields are ignored.
  */
-export function parseHubIndex(json: unknown, base = HUB_INDEX): HubFirmware[] {
+export function parseHubIndex(json: unknown, base = HUB_INDEX, repo = 'The Firmware Hub'): HubFirmware[] {
 	if (!Array.isArray(json)) return [];
 	const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
 	const list: HubFirmware[] = [];
@@ -215,6 +351,7 @@ export function parseHubIndex(json: unknown, base = HUB_INDEX): HubFirmware[] {
 			description: text(e.description),
 			runtime: 'vibe',
 			url,
+			repo,
 			cheat: cheat ? new URL(cheat, new URL('/', base)).toString() : undefined,
 			order: typeof e.order === 'number' ? e.order : 50,
 		});
@@ -226,7 +363,7 @@ export function parseHubIndex(json: unknown, base = HUB_INDEX): HubFirmware[] {
  * Reads `thefirmwarehub.com/catalog.json` (real FM-1 `.fwsc` update packages, ~281 firmwares plus stock).
  * Leniently skips entries without an id or `.fwsc` package.
  */
-export function parseHubCatalog(json: unknown, base = HUB_CATALOG): HubFirmware[] {
+export function parseHubCatalog(json: unknown, base = HUB_CATALOG, repo = 'The Firmware Hub'): HubFirmware[] {
 	if (!json || typeof json !== 'object') return [];
 	const root = json as Record<string, unknown>;
 	const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
@@ -238,10 +375,13 @@ export function parseHubCatalog(json: unknown, base = HUB_CATALOG): HubFirmware[
 		const e = entry as Record<string, unknown>;
 		const id = text(e.id)?.toLowerCase();
 		const pkg = text(e.pkg);
-		if (!id || !/^[a-z0-9._-]+$/.test(id) || !pkg || !/\.fwsc(\?|$)/i.test(pkg)) continue;
+		const externalUrl = text(e.externalUrl) ?? text(e.page);
+		const hasPkg = !!pkg && /\.fwsc(\?|$)/i.test(pkg);
+		const hasExt = !!externalUrl && /^https?:\/\//i.test(externalUrl);
+		if (!id || !/^[a-z0-9._-]+$/.test(id) || (!hasPkg && !hasExt)) continue;
 		let url: string;
 		try {
-			url = new URL(pkg, new URL('/', base)).toString();
+			url = hasPkg ? new URL(pkg!, new URL('/', base)).toString() : externalUrl!;
 		} catch {
 			continue;
 		}
@@ -257,6 +397,8 @@ export function parseHubCatalog(json: unknown, base = HUB_CATALOG): HubFirmware[
 			description: text(e.what) ?? text(e.description),
 			runtime: 'fwsc',
 			url,
+			...(hasExt && !hasPkg ? { externalUrl } : {}),
+			repo,
 			sha256: text(e.sha256),
 			editor: editor && /^https?:\/\//.test(editor) ? editor : undefined,
 			playUrl: playUrl && /^https?:\/\//.test(playUrl) ? playUrl : undefined,

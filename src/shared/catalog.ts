@@ -16,11 +16,11 @@ export const CATEGORIES = [
 	{ id: 'drums', label: 'Drums', icon: 'drum' },
 	{ id: 'samples', label: 'Samples', icon: 'sample' },
 	// Plugins, as in Live: one child per kind of plugin, more kinds to come (the maintainer, 2026-11-24).
-	// FM-1 Synths holds native VIBE FM (.wasm) builds; FM-1 Live holds real FM-1 (.fwsc) firmwares and Hardware/Native
-	// profiles (SHRUB, FM-1 Stock) run via fm1-live JIT, fm1-emu wasm, or desktop MIDI.
+	// VIBE FM (.wasm) holds VIBE FM platform builds; FM-1 Firmware (.fwsc) holds real unmodified FM-1 hardware
+	// firmwares (including SHRUB from shrub.audio, Hub .fwsc catalog, and Hardware MIDI profiles).
 	{ id: 'plugins', label: 'Plugins', icon: 'plugin' },
-	{ id: 'fm1', label: 'FM-1 Synths', icon: 'firmware', parent: 'plugins' },
-	{ id: 'fm1live', label: 'FM-1 Live', icon: 'firmware', parent: 'plugins' },
+	{ id: 'fm1', label: 'VIBE FM (.wasm)', icon: 'firmware', parent: 'plugins' },
+	{ id: 'fm1live', label: 'FM-1 Firmware (.fwsc)', icon: 'firmware', parent: 'plugins' },
 	// The audio of songs: renders and recordings, next to their song. See src/shared/render.ts.
 	{ id: 'renders', label: 'Render', icon: 'render' },
 	// The MIDI ports of the machine, from the extension host (src/extension/midi.ts). Desktop only.
@@ -101,6 +101,10 @@ export interface CatalogItem {
 	runtime?: FirmwareRuntime;
 	/** Companion web editor URL for a firmware (e.g. SHRUB's `shrub.audio/editor/`). */
 	editorUrl?: string;
+	/** External download/product URL for non-redistributable firmwares (e.g. `https://shrub.audio/`). */
+	externalUrl?: string;
+	/** Name of the firmware repository that provided this marketplace entry. */
+	repo?: string;
 }
 
 /** What the user gave the items, kept in `strdltn.index.json` of the project. */
@@ -325,14 +329,15 @@ export function firmwareItems(
 		if (!known || (known.from === 'cache' && fw.from === 'folder')) byId.set(fw.id, fw);
 	}
 	const describe = (fw: { name: string; version?: string; author?: string }) => [fw.version && `v${fw.version.replace(/^v/i, '')}`, fw.author].filter(Boolean).join('  ') || undefined;
-	const tagsOf = (fw: { author?: string; runtime?: FirmwareRuntime }) => [
+	const tagsOf = (fw: { author?: string; runtime?: FirmwareRuntime; repo?: string }) => [
 		'Source/Firmware',
 		'Sounds/Synth',
 		RUNTIME_TAGS[fw.runtime ?? 'vibe'],
+		...(fw.repo ? [`Repo/${fw.repo}`] : []),
 		...(fw.author ? [`Maker/${fw.author}`] : []),
 	];
-	const textOf = (fw: { id: string; name: string; author?: string; license?: string; description?: string; runtime?: FirmwareRuntime }) =>
-		[fw.id, fw.name, fw.author ?? '', fw.license ?? '', fw.description ?? '', fw.runtime ?? 'vibe', 'firmware vibe fm fm-1 synth plugin'].join(' ').toLowerCase();
+	const textOf = (fw: { id: string; name: string; author?: string; license?: string; description?: string; runtime?: FirmwareRuntime; repo?: string }) =>
+		[fw.id, fw.name, fw.author ?? '', fw.license ?? '', fw.description ?? '', fw.runtime ?? 'vibe', fw.repo ?? '', 'firmware vibe fm fm-1 synth plugin'].join(' ').toLowerCase();
 	const own: CatalogItem[] = [...byId.values()]
 		.sort((a, b) => a.name.localeCompare(b.name))
 		.map((fw) => {
@@ -425,17 +430,20 @@ export function firmwareItems(
 				soundType: 'firmware',
 				runtime,
 				editorUrl: fw.editor,
+				externalUrl: fw.externalUrl,
+				repo: fw.repo,
 				available: true,
 				description: fw.description,
 				code: snippet.code,
 				fields: [
 					{ name: 'id once installed', value: snippet.name },
-					{ name: 'runtime', value: runtime === 'fwsc' ? 'FM-1 .fwsc (fm1-emu)' : 'VIBE FM (.wasm)' },
+					{ name: 'runtime', value: runtime === 'fwsc' ? 'FM-1 .fwsc (fm1-live / fm1-emu)' : 'VIBE FM (.wasm)' },
+					...(fw.repo ? [{ name: 'repository', value: fw.repo }] : []),
 					...(fw.version ? [{ name: 'version', value: fw.version }] : []),
 					...(fw.author ? [{ name: 'author', value: fw.author }] : []),
 					...(fw.license ? [{ name: 'license', value: fw.license }] : []),
 					...(fw.editor ? [{ name: 'editor', value: fw.editor }] : []),
-					{ name: 'from', value: fw.url },
+					{ name: fw.externalUrl ? 'get from' : 'from', value: fw.externalUrl ?? fw.url },
 					...(fw.cheat ? [{ name: 'cheat sheet', value: fw.cheat }] : []),
 				],
 				url: fw.url,

@@ -98,7 +98,7 @@ test('pane collapse and tree twisty changes are tracked and restored across seri
 
 test('describeSnapshot formats labels for Back and Forward tooltips', () => {
 	assert.equal(describeSnapshot(snap()), 'All');
-	assert.equal(describeSnapshot(snap({ filter: { category: 'fm1', group: 'Available', query: '', chips: [] } })), 'FM-1 Synths > Available');
+	assert.equal(describeSnapshot(snap({ filter: { category: 'fm1', group: 'Available', query: '', chips: [] } })), 'VIBE FM (.wasm) > Available');
 	assert.equal(describeSnapshot(snap({ filter: { category: 'drums', query: '909', chips: [] } })), '"909" in Drums');
 	assert.equal(describeSnapshot(snap({ panes: { controls: true, library: false, contents: false, reference: true } })), 'Reference');
 });

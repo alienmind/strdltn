@@ -216,11 +216,12 @@ where it is meanwhile.
   Must show: Live 480x320 firmware displays, F1 to F6 soft keys underneath, parameter sliders on the right, and fold/maximize/pop-out header buttons.
 -->
 
-Under **Plugins**, two parallel categories separate the two FM-1 worlds (hover or click `?`
-for a built-in comparison popover): **FM-1 Synths** holds lightweight VIBE `.wasm` builds
-(`s("vibefm1:<id>")`, live screen thumbnails and Devices tab panels), while **FM-1 Live**
-holds real FM-1 `.fwsc` firmwares (`s("fm1:<id>")` or native 240 MHz JIT via **Run Native**)
-and Hardware MIDI profiles (**SHRUB** with CC 74/16-19 + **Editor...**, and **FM-1 Stock**).
+Under **Plugins**, two parallel categories separate the two FM-1 ecosystems (hover or click
+`?` for a comparison popover, or `+` to add custom firmware repositories by URL):
+**VIBE FM (.wasm)** holds lightweight VIBE `.wasm` builds (`s("vibefm1:<id>")`, live screen
+thumbnails and Devices tab panels), while **FM-1 Firmware (.fwsc)** holds real FM-1 `.fwsc`
+firmwares from The Firmware Hub and external repositories like **SHRUB (`shrub.audio`)**
+(run via **Run Native** 240 MHz JIT, in-editor `s("fm1:<id>")`, or desktop Hardware MIDI).
 
 ### Sounds and Browser
 

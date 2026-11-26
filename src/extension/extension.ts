@@ -132,6 +132,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		runNative: async (id) => {
 			await nativeFm1.toggle(id);
 		},
+		manageRepos: () => market.manageRepos(),
 		install: (id) => market.install(id),
 		firmwareFile: async (id) => (await market.screenSource(id))?.file,
 		emuWasmFile: () => market.emuWasmFile().catch(() => undefined),
@@ -465,6 +466,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			if (chosen) await nativeFm1.toggle(chosen.id);
 		}),
 		vscode.commands.registerCommand('strdltn.stopNativeFm1', () => nativeFm1.stopAll()),
+		vscode.commands.registerCommand('strdltn.manageFirmwareRepos', () => market.manageRepos()),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('strdltn.experimental.shrubEditor')) ShrubPanel.settingChanged();
 		}),

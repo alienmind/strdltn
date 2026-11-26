@@ -51,6 +51,8 @@ export interface BrowserActions {
 	openEditor(id: string): void;
 	/** Starts or stops native `fm1-live` (240 MHz JIT) for SHRUB or any `.fwsc` firmware. */
 	runNative(id: string): Promise<void>;
+	/** Opens the firmware repository manager (built-in Hub, shrub.audio, and custom URLs). */
+	manageRepos(): Promise<void>;
 	/** Installs a firmware of the hub into the project. */
 	install(id: string): Promise<void>;
 	/** Local file of a firmware (installed or cached from the hub) for standalone Browser preview. */
@@ -377,6 +379,9 @@ export class BrowserView {
 				if (item?.kind === 'firmware') await this.actions.runNative(item.id.slice('firmware:'.length));
 				return;
 			}
+			case 'manageRepos':
+				await this.actions.manageRepos();
+				return;
 			case 'insertSong': {
 				const item = this.item(message.id);
 				const uri = item?.kind === 'song' && item.path ? this.songs.uri(item.path) : undefined;

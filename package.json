@@ -143,6 +143,10 @@
 				"title": "strdltn: Stop native FM-1 emulator"
 			},
 			{
+				"command": "strdltn.manageFirmwareRepos",
+				"title": "strdltn: Manage FM-1 firmware repositories..."
+			},
+			{
 				"command": "strdltn.openStage",
 				"title": "strdltn: Open stage",
 				"icon": "$(open-preview)"
@@ -389,6 +393,11 @@
 					"type": "string",
 					"default": "",
 					"description": "Optional path to a local fm1-live executable (github.com/joakimeriksson/fm1-emu), e.g. for Intel Macs or custom builds."
+				},
+				"strdltn.firmware.repositories": {
+					"type": "array",
+					"default": [],
+					"description": "Additional FM-1 firmware repository URLs shown alongside The Firmware Hub and shrub.audio. Each entry can be a catalog JSON URL, a direct .wasm/.fwsc URL, an external synth webpage URL, or { \"name\": \"...\", \"url\": \"...\" }."
 				},
 				"strdltn.experimental.shrubEditor": {
 					"type": "boolean",

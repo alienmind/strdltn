@@ -248,7 +248,7 @@ function closePopover(): void {
 
 /**
  * Opens an explanatory popover comparing the parallel plugin categories:
- * FM-1 Synths (VIBE .wasm) vs FM-1 Live (real .fwsc / native fm1-live JIT / Hardware MIDI).
+ * VIBE FM (.wasm) vs FM-1 Firmware (.fwsc), plus firmware repositories.
  */
 function openPluginPopover(anchorEl: HTMLElement, focus: 'plugins' | 'fm1' | 'fm1live', pin: boolean): void {
 	clearTimeout(popoverHideTimer);
@@ -258,10 +258,10 @@ function openPluginPopover(anchorEl: HTMLElement, focus: 'plugins' | 'fm1' | 'fm
 	const box = document.body.appendChild(el('div', 'plugin-popover'));
 	popover = box;
 	box.innerHTML =
-		`<div class="pop-head"><span>FM-1 Plugin Categories</span>${pin ? '<button class="pop-close" title="Close (Esc)">&times;</button>' : ''}</div>` +
+		`<div class="pop-head"><span>FM-1 Plugin Categories &amp; Repositories</span>${pin ? '<button class="pop-close" title="Close (Esc)">&times;</button>' : ''}</div>` +
 		`<div class="pop-card${focus === 'fm1' ? ' active' : ''}">` +
-			`<div class="pop-title"><span class="badge runtime runtime-vibe">WASM</span><strong>FM-1 Synths (VIBE)</strong></div>` +
-			`<p>Open-source synths compiled from source to WebAssembly (<code>s("vibefm1:&lt;id&gt;")</code>).</p>` +
+			`<div class="pop-title"><span class="badge runtime runtime-vibe">WASM</span><strong>VIBE FM (.wasm)</strong></div>` +
+			`<p>Open-source synths compiled for the VIBE FM platform (<code>s("vibefm1:&lt;id&gt;")</code>).</p>` +
 			`<ul>` +
 				`<li>Ultra-light (~1% CPU), sample-accurate inside Strudel's mix</li>` +
 				`<li>Live screen thumbnails, Screen popup &amp; Devices panel</li>` +
@@ -269,17 +269,23 @@ function openPluginPopover(anchorEl: HTMLElement, focus: 'plugins' | 'fm1' | 'fm
 			`</ul>` +
 		`</div>` +
 		`<div class="pop-card${focus === 'fm1live' ? ' active' : ''}">` +
-			`<div class="pop-title"><span class="badge runtime runtime-fwsc">FWSC</span><span class="badge runtime runtime-hardware">MIDI</span><strong>FM-1 Live (Native / .fwsc)</strong></div>` +
-			`<p>Real unmodified M-VAVE FM-1 hardware firmwares (~280+ Hub synths plus <strong>SHRUB</strong> &amp; <strong>FM-1 Stock</strong>).</p>` +
+			`<div class="pop-title"><span class="badge runtime runtime-fwsc">FWSC</span><span class="badge runtime runtime-hardware">MIDI</span><strong>FM-1 Firmware (.fwsc)</strong></div>` +
+			`<p>Real unmodified M-VAVE FM-1 hardware firmwares (~280+ Hub synths, <strong>SHRUB</strong> via <code>shrub.audio</code>, and <strong>FM-1 Stock</strong>).</p>` +
 			`<ul>` +
-				`<li><strong>Run Native</strong>: launches <code>fm1-live</code> (240 MHz native JIT on Windows, macOS, Linux) — zero dropouts for SHRUB</li>` +
+				`<li><strong>Run Native</strong>: launches <code>fm1-live</code> (240 MHz JIT on Windows, macOS, Linux) - zero dropouts for SHRUB</li>` +
 				`<li><strong>In-editor .fwsc</strong>: plays lighter firmwares (e.g. Felucca) directly via <code>s("fm1:&lt;id&gt;")</code></li>` +
 				`<li><strong>Hardware MIDI</strong>: plays a real M-VAVE FM-1 with built-in CC maps &amp; web editor link</li>` +
 			`</ul>` +
-		`</div>`;
+		`</div>` +
+		`<div class="pop-foot"><button class="chip more pop-repos" title="View built-in repos (The Firmware Hub, shrub.audio) or add a custom repository URL">Manage repositories...</button></div>`;
 	box.querySelector('.pop-close')?.addEventListener('click', (e) => {
 		e.stopPropagation();
 		closePopover();
+	});
+	box.querySelector('.pop-repos')?.addEventListener('click', (e) => {
+		e.stopPropagation();
+		closePopover();
+		post({ type: 'manageRepos' });
 	});
 	box.addEventListener('mouseenter', () => clearTimeout(popoverHideTimer));
 	box.addEventListener('mouseleave', () => {
@@ -476,8 +482,17 @@ function drawTree(body: HTMLElement, of: BrowserPage): void {
 		const on = filter.category === category.id && !filter.group;
 		const row = body.appendChild(navRow(category.icon, category.label, mine.length, on, parent ? 1 : 0, foldable ? unfolded : undefined));
 		if (category.id === 'plugins' || category.id === 'fm1' || category.id === 'fm1live') {
+			if (category.id === 'plugins') {
+				const reposBtn = el('button', 'info-btn repos-btn', '+');
+				reposBtn.title = 'Manage firmware repositories (The Firmware Hub, shrub.audio, or add custom URLs)';
+				reposBtn.addEventListener('click', (event) => {
+					event.stopPropagation();
+					post({ type: 'manageRepos' });
+				});
+				row.insertBefore(reposBtn, row.lastChild);
+			}
 			const info = el('button', 'info-btn', '?');
-			info.title = 'Compare FM-1 Synths (VIBE WASM) vs FM-1 Live (Native / .fwsc / MIDI)';
+			info.title = 'Compare VIBE FM (.wasm) vs FM-1 Firmware (.fwsc) and repositories';
 			info.addEventListener('mouseenter', () => openPluginPopover(row, category.id as 'plugins' | 'fm1' | 'fm1live', false));
 			info.addEventListener('mouseleave', () => {
 				if (!popoverPinned) popoverHideTimer = setTimeout(() => closePopover(), 180);
@@ -728,16 +743,23 @@ function drawRow(row: Row, index: number): HTMLElement {
 				image.draggable = false;
 			} else {
 				picture.appendChild(
-					el('span', '', item.runtime === 'hardware' ? 'FM-1 MIDI' : item.runtime === 'fwsc' ? 'FM-1 .fwsc' : 'No preview yet'),
+					el('span', '', item.externalUrl ? (item.repo ?? 'External') : item.runtime === 'hardware' ? 'FM-1 MIDI' : item.runtime === 'fwsc' ? 'FM-1 .fwsc' : 'No preview yet'),
 				);
 			}
-			const runtimeLabel = item.runtime === 'hardware' ? 'MIDI' : item.runtime === 'fwsc' ? 'FWSC' : 'WASM';
+			const runtimeLabel = item.externalUrl ? 'EXT' : item.runtime === 'hardware' ? 'MIDI' : item.runtime === 'fwsc' ? 'FWSC' : 'WASM';
 			picture.appendChild(el('span', `badge runtime runtime-${item.runtime ?? 'vibe'}`, runtimeLabel));
 			// Said by the badge unless the tree's Available is picked, which says it already.
 			if (item.available && filter.group !== 'Available') picture.appendChild(el('span', 'badge', 'Available'));
 		}
-		if (item.sound) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
-		if (item.available) actions.appendChild(button('install', 'Install into the project (double click)', () => post({ type: 'install', id: item.id })));
+		if (item.sound && !item.externalUrl) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
+		if (item.available)
+			actions.appendChild(
+				button(
+					item.externalUrl ? 'open' : 'install',
+					item.externalUrl ? `Get from ${item.repo ?? item.externalUrl} (double click)` : 'Install into the project (double click)',
+					() => post({ type: 'install', id: item.id }),
+				),
+			);
 		else if (opens(item)) actions.appendChild(button('open', item.kind === 'render' ? 'Play' : 'Open', () => post({ type: 'open', id: item.id })));
 		else actions.appendChild(button('insert', 'Insert at the cursor (Enter)', () => post({ type: 'insert', id: item.id, index: index_ })));
 		// A song's code, without its header, at the cursor, as a snippet's (DAW-PLAN "Insert a song").
@@ -746,7 +768,7 @@ function drawRow(row: Row, index: number): HTMLElement {
 		if (item.kind === 'function' && item.code) actions.appendChild(button('snippet', 'Insert an example', () => post({ type: 'insertText', text: item.code! })));
 		// The firmware's display, run in a popup without sound (VIBE .wasm firmwares only).
 		if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') actions.appendChild(button('screen', 'Show the screen', () => post({ type: 'screen', id: item.id })));
-		if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.runtime === 'fwsc')) {
+		if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.id === 'firmware:shrub-midi' || (item.runtime === 'fwsc' && !item.externalUrl))) {
 			const fwId = item.id.slice('firmware:'.length);
 			const running = nativeRunning.has(fwId);
 			actions.appendChild(
@@ -830,8 +852,8 @@ function drawDetails(): void {
 		dot.addEventListener('click', () => post({ type: 'color', ids: targets.map((target) => target.id), color, on: !on }));
 	}
 	if (item.available) {
-		const install = collect.appendChild(el('button', 'chip more', 'Install'));
-		install.title = 'Install it into the firmware folder of the project';
+		const install = collect.appendChild(el('button', 'chip more', item.externalUrl ? `Get on ${item.repo ?? 'web'}...` : 'Install'));
+		install.title = item.externalUrl ? `Open ${item.externalUrl} to download` : 'Install it into the firmware folder of the project';
 		install.addEventListener('click', () => post({ type: 'install', id: item.id }));
 	}
 	if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') {
@@ -839,7 +861,7 @@ function drawDetails(): void {
 		screen.title = "Show the firmware's display, run without sound";
 		screen.addEventListener('click', () => post({ type: 'screen', id: item.id }));
 	}
-	if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.runtime === 'fwsc')) {
+	if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.id === 'firmware:shrub-midi' || (item.runtime === 'fwsc' && !item.externalUrl))) {
 		const fwId = item.id.slice('firmware:'.length);
 		const running = nativeRunning.has(fwId);
 		const nativeBtn = collect.appendChild(el('button', `chip ${running ? 'on' : 'more'}`, running ? 'Stop Native' : 'Run Native'));

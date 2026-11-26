@@ -1,20 +1,28 @@
+import { createHash } from 'node:crypto';
 import * as vscode from 'vscode';
-import { HUB_CATALOG, HUB_INDEX, type HubFirmware, mergeHubFirmwares, parseHubCatalog, parseHubIndex } from '../shared/firmware';
+import {
+	DEFAULT_FIRMWARE_REPOS,
+	type FirmwareRepo,
+	type HubFirmware,
+	mergeHubFirmwares,
+	parseCustomRepos,
+	parseRepoPayload,
+} from '../shared/firmware';
 
-/** The lists are read at most once a day, as the hub asks of apps for its catalog.json (kb/#catalog). */
+/** Remote JSON repositories are refreshed at most once a day, as The Firmware Hub asks (kb/#catalog). */
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * The firmwares of The Firmware Hub: both VIBE FM `.wasm` builds (`play.thefirmwarehub.com/firmware/index.json`) and
- * real FM-1 `.fwsc` firmwares (`thefirmwarehub.com/catalog.json`), deduplicated so VIBE `.wasm` wins whenever both
- * exist. Both lists are cached once a day in global storage so offline use keeps working.
+ * Loads firmware marketplace repositories: built-in repos (The Firmware Hub VIBE index & FM-1 .fwsc catalog, plus
+ * external vendor repos like SHRUB on shrub.audio) combined with user-configured URLs in
+ * `strdltn.firmware.repositories`. Remote JSON catalogs are cached once a day in global storage for offline use.
  */
 export class HubCatalog implements vscode.Disposable {
 	private list: HubFirmware[] = [];
 	private readonly changed = new vscode.EventEmitter<HubFirmware[]>();
 	readonly onDidChange = this.changed.event;
-	private readonly vibeFile: vscode.Uri;
-	private readonly catalogFile: vscode.Uri;
+	private readonly repoDir: vscode.Uri;
+	private readonly configSub: vscode.Disposable;
 	private loading?: Promise<void>;
 	readAt?: number;
 	error?: string;
@@ -24,65 +32,96 @@ export class HubCatalog implements vscode.Disposable {
 		private readonly output: vscode.OutputChannel,
 		private readonly userAgent: string,
 	) {
-		this.vibeFile = vscode.Uri.joinPath(context.globalStorageUri, 'firmware', 'hub-index.json');
-		this.catalogFile = vscode.Uri.joinPath(context.globalStorageUri, 'firmware', 'hub-catalog.json');
+		this.repoDir = vscode.Uri.joinPath(context.globalStorageUri, 'firmware', 'repos');
+		this.configSub = vscode.workspace.onDidChangeConfiguration((event) => {
+			if (event.affectsConfiguration('strdltn.firmware.repositories')) void this.reload();
+		});
 	}
 
 	all(): HubFirmware[] {
 		return this.list;
 	}
 
-	/** Loads kept copies, and refreshes any copy that is a day old or missing. Once at a time. */
-	load(): Promise<void> {
-		return (this.loading ??= this.read().finally(() => (this.loading = undefined)));
+	/** All active repositories: built-in defaults plus user-configured custom URLs. */
+	repos(): FirmwareRepo[] {
+		const raw = vscode.workspace.getConfiguration('strdltn').get<unknown>('firmware.repositories', []);
+		return [...DEFAULT_FIRMWARE_REPOS, ...parseCustomRepos(raw)];
 	}
 
-	private async read(): Promise<void> {
-		const [vibe, fwsc] = await Promise.all([
-			this.readOne(this.vibeFile, HUB_INDEX, parseHubIndex, 'VIBE index'),
-			this.readOne(this.catalogFile, HUB_CATALOG, parseHubCatalog, 'FM-1 catalog'),
-		]);
-		const merged = mergeHubFirmwares(vibe.list, fwsc.list);
-		const readAt = Math.max(vibe.readAt ?? 0, fwsc.readAt ?? 0) || Date.now();
-		this.error = vibe.error ?? fwsc.error;
+	/** Loads kept copies, and refreshes any copy that is a day old or missing. Once at a time. */
+	load(): Promise<void> {
+		return (this.loading ??= this.read(false).finally(() => (this.loading = undefined)));
+	}
+
+	/** Forces a reload of repositories (e.g. after adding/removing a custom repo URL). */
+	reload(): Promise<void> {
+		this.loading = undefined;
+		return (this.loading = this.read(true).finally(() => (this.loading = undefined)));
+	}
+
+	private async read(forceCustom: boolean): Promise<void> {
+		const repos = this.repos();
+		const results = await Promise.all(repos.map((repo) => this.readRepo(repo, forceCustom && repo.id.startsWith('custom-'))));
+		const vibe: HubFirmware[] = [];
+		const fwsc: HubFirmware[] = [];
+		let latestRead = 0;
+		let firstError: string | undefined;
+		for (const res of results) {
+			if (res.readAt && res.readAt > latestRead) latestRead = res.readAt;
+			if (res.error && !firstError) firstError = res.error;
+			for (const fw of res.list) {
+				if (fw.runtime === 'fwsc') fwsc.push(fw);
+				else vibe.push(fw);
+			}
+		}
+		const merged = mergeHubFirmwares(vibe, fwsc);
+		this.error = firstError;
 		this.list = merged;
-		this.readAt = readAt;
+		this.readAt = latestRead || Date.now();
 		this.changed.fire(merged);
 	}
 
-	private async readOne(
-		file: vscode.Uri,
-		url: string,
-		parse: (json: unknown) => HubFirmware[],
-		label: string,
-	): Promise<{ list: HubFirmware[]; readAt?: number; error?: string }> {
+	private cacheFileFor(url: string): vscode.Uri {
+		const key = createHash('sha256').update(url).digest('hex').slice(0, 16);
+		return vscode.Uri.joinPath(this.repoDir, `${key}.json`);
+	}
+
+	private async readRepo(repo: FirmwareRepo, force: boolean): Promise<{ list: HubFirmware[]; readAt?: number; error?: string }> {
+		// External links (e.g. SHRUB) and direct .wasm/.fwsc file URLs need no JSON fetch.
+		if (repo.entries?.length || repo.kind === 'external' || /\.(wasm|fwsc)(\?|$)/i.test(repo.url)) {
+			return { list: parseRepoPayload(repo), readAt: Date.now() };
+		}
+		const file = this.cacheFileFor(repo.url);
 		let kept: { readAt: number; json: unknown } | undefined;
-		try {
-			kept = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(file)));
-		} catch {
-			// Never read yet.
+		if (!force) {
+			try {
+				kept = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(file)));
+			} catch {
+				// Never read yet.
+			}
+			if (kept && Date.now() - kept.readAt < DAY_MS) {
+				return { list: parseRepoPayload(repo, kept.json), readAt: kept.readAt };
+			}
 		}
-		if (kept && Date.now() - kept.readAt < DAY_MS) {
-			return { list: parse(kept.json), readAt: kept.readAt };
-		}
 		try {
-			const response = await fetch(url, { headers: { 'User-Agent': this.userAgent, Accept: 'application/json' } });
+			const response = await fetch(repo.url, { headers: { 'User-Agent': this.userAgent, Accept: 'application/json' } });
 			if (!response.ok) throw new Error(`${response.status}`);
 			const json = await response.json();
 			const readAt = Date.now();
-			await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(file, '..'));
+			await vscode.workspace.fs.createDirectory(this.repoDir);
 			await vscode.workspace.fs.writeFile(file, new TextEncoder().encode(JSON.stringify({ readAt, json })));
-			const list = parse(json);
-			this.output.appendLine(`[firmware] ${label} lists ${list.length} firmwares`);
+			const list = parseRepoPayload(repo, json);
+			this.output.appendLine(`[firmware] repo "${repo.name}" (${repo.url}) lists ${list.length} firmwares`);
 			return { list, readAt };
 		} catch (error) {
 			const msg = (error as Error).message;
-			this.output.appendLine(`[firmware] ${label} could not be read (${msg})${kept ? ', using cached copy' : ''}`);
-			return { list: kept ? parse(kept.json) : [], readAt: kept?.readAt, error: msg };
+			this.output.appendLine(`[firmware] repo "${repo.name}" could not be read (${msg})${kept ? ', using cached copy' : ''}`);
+			return { list: kept ? parseRepoPayload(repo, kept.json) : [], readAt: kept?.readAt, error: msg };
 		}
 	}
 
 	dispose(): void {
+		this.configSub.dispose();
 		this.changed.dispose();
 	}
 }

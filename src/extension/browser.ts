@@ -207,6 +207,11 @@ export class BrowserView {
 		this.post({ type: 'nativeRunning', ids });
 	}
 
+	/** Toggles experimental hardware flashing buttons in the Browser UI. */
+	setFlashEnabled(on: boolean): void {
+		this.post({ type: 'flashEnabled', on });
+	}
+
 	/** Resolves a dropped item by its MIME id, falling back to the last Browser drag within 15 seconds. */
 	resolveDrop(id?: string, index?: number): { item: CatalogItem; index?: number } | undefined {
 		if (id) {
@@ -266,7 +271,7 @@ export class BrowserView {
 	 */
 	private setFilter(filter: BrowserFilterState, from?: BrowserPage, show = false): void {
 		this.filter = filter;
-		if (filter.category === 'plugins' || filter.category === 'fm1' || filter.category === 'fm1live') this.actions.wantFirmware();
+		if (filter.category === 'plugins' || filter.category === 'fm1') this.actions.wantFirmware();
 		void this.context.workspaceState.update(FILTER_KEY, filter);
 		for (const [page, view] of this.views) if (page !== from) void view.webview.postMessage({ type: 'filter', filter, show } satisfies ToBrowser);
 	}
@@ -286,8 +291,9 @@ export class BrowserView {
 			case 'ready': {
 				// The first view: the pictures get their webview URLs now.
 				if (Object.keys(this.images).length && !this.items.some((item) => item.image)) this.rebuild();
-				if (this.filter.category === 'plugins' || this.filter.category === 'fm1' || this.filter.category === 'fm1live') this.actions.wantFirmware();
-				this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter }, page);
+				if (this.filter.category === 'plugins' || this.filter.category === 'fm1') this.actions.wantFirmware();
+				const flashEnabled = vscode.workspace.getConfiguration('strdltn').get<boolean>('experimental.fm1Flash', false);
+				this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter, flashEnabled }, page);
 				if (page === 'library' && this.controls) this.post({ type: 'controls', state: this.controls }, page);
 				return;
 			}

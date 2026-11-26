@@ -236,7 +236,7 @@ The **Controls** pane at the top of the Browser holds:
   only what does not (your project and the packs your songs load), a third everything.
 - **Collections.** Save a search with the button in Contents, and it becomes a row here.
 - **Categories.** All, Sounds (Synths, Soundfonts, Wavetables), Drums (by drum machine),
-  Samples, Plugins (FM-1 Synths: Installed, Hardware (MIDI), Available), Render (the audio
+  Samples, Plugins (FM-1 Synths: Installed, Available), Render (the audio
   of your songs), MIDI (your devices), Songs, Snippets. A category opens into its parts.
   Hover a drum machine to insert its `.bank("...")`. The Reference has Functions: every
   function of Strudel with its documentation.
@@ -451,36 +451,38 @@ follows once you play.
   raises VS Code's priority while MIDI plays. It is off by default because it raises every
   other extension too.
 
-## 8. VIBE FM (.wasm), FM-1 Firmware (.fwsc) and the Devices panel
+## 8. FM-1 Synths and the Devices panel
 
-Under **Plugins** in the Browser, two parallel categories separate the two FM-1 ecosystems
-(hover or click **`?`** on `Plugins`, `VIBE FM (.wasm)`, or `FM-1 Firmware (.fwsc)` for the
-comparison popover, and click **`+`** on `Plugins` or run **strdltn: Manage FM-1 firmware
-repositories...** to inspect built-in repos or add custom repository URLs):
+Under **Plugins > FM-1 Synths** in the Browser, every FM-1 synth is listed in one unified
+category divided into **Installed** and **Available** (hover or click **`?`** on `Plugins`
+or `FM-1 Synths` for the technology guide, and click **`+`** or run **strdltn: Manage FM-1
+firmware repositories...** to inspect built-in repos or add custom repository URLs). Every
+row carries a technology badge and can be filtered with `Runtime/...` and `Repo/...` chips:
 
-- **Plugins > VIBE FM (.wasm) (`WASM` badge):** open-source VIBE FM `.wasm` builds played as
+- **`WASM` (VIBE FM `.wasm`):** open-source VIBE FM `.wasm` builds played as
   `s("vibefm1:<id>")` (from `firmware/` or `firmware('https://.../name.wasm')`). `.progNum(55)`
-  picks a sound, and `s("vibefm1:<obervave sloop>")` switches per step. Grouped into
-  **Installed** and **Available**; each row shows a live screen thumbnail and opens the
-  interactive **Screen** popup without sound.
-- **Plugins > FM-1 Firmware (.fwsc) (`FWSC`, `EXT`, and `MIDI` badges):** real unmodified
-  M-VAVE FM-1 hardware firmwares grouped into **Installed**, **Hardware (MIDI)** (**SHRUB
-  (FM-1 Hardware MIDI)** and **M-VAVE FM-1 Stock**), and **Available** (~280+ `.fwsc`
-  firmwares from **The Firmware Hub**, **SHRUB** listed via external link to `shrub.audio`,
-  plus any custom repository URLs in `strdltn.firmware.repositories`). Run them three ways:
-  click **Run Native** to launch `fm1-live` natively at 240 MHz JIT on Windows, macOS, or
-  Linux (recommended for SHRUB, using your own `SHRUB.fwsc` with persistent flash saves),
-  emulate lighter `.fwsc` synths directly inside Strudel (`s("fm1:<id>")` via `fm1-emu`),
-  target a real M-VAVE FM-1 over desktop MIDI (`.midi('<port>').midimap('<id>')`), or click
-  **Flash to FM-1...** (or run **strdltn: Flash .fwsc firmware to M-VAVE FM-1 hardware...**)
-  to flash any `.fwsc` directly onto your connected FM-1 over USB-MIDI SysEx. Flashing
-  automatically pauses Strudel's MIDI bridge, probes your hardware identity, checks model
-  compatibility (FM-1 vs SMK-37), asks for confirmation, shows live progress, and supports
-  resuming an interrupted OTA update.
-- **Repositories and chips:** Selecting **Plugins** shows both categories together with
-  `Runtime/...` and `Repo/...` filter chips (`Repo/The Firmware Hub`, `Repo/shrub.audio`,
-  plus custom repos). Clicking Install on an external-repo item like SHRUB opens its
-  download page (`shrub.audio`) in your browser.
+  picks a sound, and `s("vibefm1:<obervave sloop>")` switches per step. Each row shows a
+  live screen thumbnail and opens the interactive **Screen** popup without sound.
+- **`FWSC` (FM-1 Firmware `.fwsc`):** real unmodified M-VAVE FM-1 hardware firmwares (~280+
+  from **The Firmware Hub**, local `.fwsc` files in `firmware/`, plus any custom repository
+  URLs in `strdltn.firmware.repositories`). Click **Run Native** to launch `fm1-live`
+  natively at 240 MHz JIT on Windows, macOS, or Linux (recommended for SHRUB, using your own
+  `SHRUB.fwsc` with persistent flash saves), or emulate lighter `.fwsc` synths directly
+  inside Strudel (`s("fm1:<id>")` via `fm1-emu`).
+- **`EXT` (External repositories):** external repositories such as `shrub.audio` (listing
+  **SHRUB**) link directly to their official download page when clicked.
+- **`MIDI` (Hardware MIDI):** built-in profiles (**SHRUB (FM-1 Hardware MIDI)** and
+  **M-VAVE FM-1 Stock**) listed under **Installed** to target a real M-VAVE FM-1 over
+  desktop MIDI (`.midi('<port>').midimap('<id>')`), with `Editor...` opening web editors
+  like `https://shrub.audio/editor/` in your external browser.
+- **Experimental hardware flashing (USE AT YOUR OWN RISK):** enabling
+  `strdltn.experimental.fm1Flash` (off by default) reveals **Flash to FM-1...** and the
+  command **strdltn: Flash .fwsc firmware to M-VAVE FM-1 hardware...** to flash `.fwsc`
+  packages onto a connected FM-1 over USB-MIDI SysEx (pausing Strudel's MIDI bridge,
+  verifying hardware model, asking for confirmation, and supporting OTA resume). Flashing
+  hardware firmware is experimental; the `[str]dltn Live[code]` authors take **no
+  responsibility** for bricked, corrupted, or damaged hardware. Use entirely at your own
+  risk.
 
 ![Plugins > FM-1 Synths in the Browser showing Installed, Hardware (MIDI) with SHRUB, and Available VIBE WASM and FWSC firmwares](manual/fm1-synths.png)
 <!-- SCREENSHOT SPEC: doc/manual/fm1-synths.png
@@ -606,6 +608,8 @@ On a Mac, Cmd in place of Ctrl.
 | `strdltn.render.mp3Bitrate` | Quality of the `.mp3` of Record and Render |
 | `strdltn.midi.debug` | Write every MIDI message to the Output |
 | `strdltn.midi.highPriority` | Raise VS Code's priority while MIDI plays |
+| `strdltn.firmware.repositories` | Custom FM-1 firmware repository URLs shown in `Plugins > FM-1 Synths` |
+| `strdltn.experimental.fm1Flash` | Experimental (off by default, USE AT YOUR OWN RISK): enable USB-MIDI SysEx flashing to M-VAVE FM-1 hardware. No responsibility for damaged hardware |
 
 ## 14. When something goes wrong
 

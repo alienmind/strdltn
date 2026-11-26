@@ -43,9 +43,13 @@ for all sounds, synths, soundfonts and FM-1 firmwares both with and without an o
 drag-and-drop from the Browser into the editor (playable `$name:` lines, bare names inside strings,
 and effect drops appended onto existing chains) and onto the Mixer to append new strips; and (4)
 real FM-1 `.fwsc` firmwares (`thefirmwarehub.com/catalog.json` + on-demand `fm1-emu` `fm1:<id>`
-AudioWorklet + local `.fwsc` drop-in) and Hardware MIDI profiles (SHRUB with CC 74/16-19 + editor
-link, and FM-1 Stock) alongside VIBE `.wasm` synths. All four are built and waiting for the hand
-test below. Item 20 (melody and drum-rack line actions) waits for the maintainer's go.
+AudioWorklet + native `fm1-live` runner + local `.fwsc` drop-in), custom firmware repositories
+(`shrub.audio` external link + user URLs), Hardware MIDI profiles, and experimental USB-MIDI
+SysEx flashing (`strdltn.experimental.fm1Flash`, off by default, use at your own risk) unified
+under one `Plugins > FM-1 Synths` category (`Installed` / `Available`) with technology badges
+and `Runtime/...` / `Repo/...` tag chips. Experimental SHRUB panel special-casing was removed
+so SHRUB behaves as a regular synth. Pending manual checks live in `docs/PENDING-TESTING.md`.
+Item 20 (melody and drum-rack line actions) waits for the maintainer's go.
 
 Next in line:
 
@@ -54,7 +58,7 @@ Next in line:
 | 19 | Line actions: a gutter left of the line numbers, in the Strudel editor and the native editor, with a knob button on every line that has a slider. A click captures the next knob (MIDI learn). Lines without an action keep an empty gap, so everything stays aligned; more line actions will come. The same knob button on every fader of the Mixer. Replaces Ctrl+Alt+K as the main way to learn a knob, which the maintainer finds too convoluted. On `feat/knobs`: the maintainer wants this branch to close with every MIDI feature in it (2026-11-22). See "Line actions" | Built on `feat/knobs`, waiting for the hand test |
 | 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Ctrl+F and Ctrl+G passed the hand test; Ctrl+H, Ctrl+D, Ctrl+Shift+L built, waiting for it. Keys CodeMirror takes first do not follow a rebinding yet |
 | 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with MIDI learn. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Built on `feat/knobs`, waiting for the hand test |
-| 16 | A welcome tab on first start: each small feature as a short silent clip, zoomed in, made with the promo's pipeline, with a "Try it" button per card | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
+| 16 | Welcome screen on first install: colorful Eclipse-style welcome tab shown once on first start, explaining the main features with visual screenshots (and optional short clips / "Try it" actions) plus a "Do not show me this again" checkbox (updated by the maintainer on 2026-11-26) | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
 | 17 | Render a pattern to MIDI: a `.mid` file of a song or a chain, and later into the piano roll | Planned, not built. See "MIDI clips: render and record" in `doc/DAW-PLAN.md` |
 | 18 | Record MIDI into a pattern, as Ableton does: arm, play a keyboard while the song plays, the notes written into the song | Planned, not built. Same section |
 | 20 | More line actions: a melody button on every line that plays notes, which opens a piano roll fitted to that line and records notes from a MIDI keyboard, quantized to the tempo; and a drum rack button on every drum line, a grid of pads as Live's Drum Rack, each pad mapped to a note, with a record button per rack (the maintainer, 2026-11-22). Goes with items 18 and 7 | To plan, not designed. See "Line actions: melody and drums" |
@@ -75,22 +79,9 @@ Next in line:
 
 ## Next: test by hand
 
-`feat/firmware-marketplace`. Test on **desktop VS Code, the Extension Development Host
-launched with F5**, folder `template/`. The previous Controls/history/Undo/preview/basic-drag round
-passed; these checks cover the full all-synth previews, effect & Mixer drag-and-drop, and real FM-1
-`.fwsc` + Hardware MIDI profiles.
-
-| # | Do this | Should happen |
-|---|---------|---------------|
-| 1 | Close all `.strudel` tabs, open Sounds > Synths, and single-click several synths (`sine`, `sawtooth`, `supersaw`, `gm_acoustic_bass`, `zzfx`) | Every synth plays a single-click preview for 1 loop at 120 BPM (2 s), fades out smoothly over 0.5 s, and stops cleanly |
-| 2 | Open a song, play it, and drag an effect function (e.g. `lpf` or `room` from Reference > Functions) onto an existing `$name:` chain line in the Strudel editor | Appends `.lpf(800)` or `.room(0.4)` onto that chain without breaking it |
-| 3 | Drag any synth, drum, sample, or FM-1 synth from the Browser and drop it onto the Mixer strip area | The Mixer strip area highlights with a dashed outline while dragging, and dropping appends a new playable `$name:` strip at the bottom of the song |
-| 4 | In Library, open Plugins > FM-1 Synths | Shows three groups: Installed, Hardware (MIDI), and Available, with color-coded `WASM`, `FWSC`, and `MIDI` badges and `Runtime/...` filter chips |
-| 5 | Open Hardware (MIDI) and click SHRUB (FM-1 Hardware) | Details show CC 74 cutoff, macros CC 16-19, and an Editor button; clicking Editor opens `shrub.audio/editor/` (or the SHRUB panel if `strdltn.experimental.shrubEditor` is on); single-click sends a preview note if an FM-1 is connected over MIDI |
-| 6 | Drag SHRUB (FM-1 Hardware) into a song (editor or Mixer) | Inserts `midimaps({ 'shrub': { cutoff: 74, macro1: 16, macro2: 17, macro3: 18, macro4: 19 } })` at the top (once) and `$shrub: note("c2 eb2 g2 bb2").midi('<port>').midimap('shrub').gain(slider(...))` |
-| 7 | Open Available, filter by the `Runtime/FM-1 Emulated` chip, and single-click an `.fwsc` synth (e.g. Felucca) | Downloads `fm1_web.wasm` (once) and the `.fwsc`, previews for 1 loop + smooth fade-out, and disposes cleanly |
-| 8 | Drag or double-click an Available `.fwsc` synth to install and insert it, then play the song | Installs `<id>.fwsc` into `firmware/<id>/` (verifying SHA-256), moves it to Installed, inserts `s("fm1:<id>")`, and plays in time with the song |
-| 9 | (Optional, if you have a local `.fwsc` like `SHRUB-V1.11.fwsc`) Drop it into `template/firmware/shrub-local/` | Appears under Installed with the `FWSC` badge without restarting VS Code |
+The live manual testing checklist now lives in `docs/PENDING-TESTING.md` so multiple features
+can be batched into a single test run. Update it on every feature change and remove items once
+verified.
 
 `pnpm test:quick` passed on 2026-11-25 before the last small change (the tree unfolding for a
 filter set by a command): every Browser step showed Contents alone, FM-1 Synths > Installed 1
@@ -98,9 +89,6 @@ row, > Available 50, 52 pictures made, none failed. Three runs after that change
 finish: the test window of VS Code closed itself (exit code 0, no error from the extension),
 once in the middle of the Mixer steps, twice within seconds of starting. Not explained yet;
 `pnpm test:vscode` is still to run.
-
-Expected still broken: the README still says Instruments and three views, because
-`README.md` holds the maintainer's own uncommitted changes.
 
 ## Open leads
 
@@ -140,7 +128,7 @@ it.
 | 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
 | 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com)? The hub's rules for app makers (`thefirmwarehub.com/kb/#catalog`, read 2026-11-22) offer only `catalog.json`, which lists FM-1 `.fwsc` packages we cannot play, and say: download from the makers' releases, not from the hub. The Playground's `index.json`, which has the VIBE FM builds, is not mentioned. Tell the author that we read it once a day with a User-Agent and download the `.wasm` from the Playground? | The maintainer chose `index.json` on 2026-11-24, and FM-1 Synths reads it. Nothing sent yet |
 | 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
-| 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. The SHRUB editor panel stays as an experiment behind its setting; the fm1-emu way stays open. Its editor cannot reach a real FM-1 from VS Code: a webview has no MIDI, and a frame of another site cannot be given ours. In a browser ("Open in browser") it can, if VS Code does not hold the FM-1's port: a Windows MIDI port opens in one program at a time |
+| 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. On 2026-11-26 the experimental SHRUB panel and setting were removed so SHRUB is treated as a regular synth in `Plugins > FM-1 Synths` (external `shrub.audio` repo link + Hardware MIDI profile + native `fm1-live` runner for user-supplied `SHRUB.fwsc`). Its web editor opens in the external browser |
 | 16 | The wave editor (item 11) builds on AudioMass, which is not on npm and has no releases or tags. How does it come in? | Answered 2026-11-22: from the maintainer's fork `alienmind/AudioMass`, pinned to a tag we make there. The tag `strdltn-1` is made. See "Wave editor" |
 | 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Answered 2026-11-22: behind a setting, off. Built on `feat/open-snippets` as `strdltn.midi.highPriority`, passed the hand test |
 

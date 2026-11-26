@@ -149,6 +149,7 @@ const navButtons = searchbar.appendChild(el('div', 'nav-buttons'));
 const backButton = navButtons.appendChild(button('back', 'Back (Alt+Left)', () => goBack(), 'nav-button'));
 const forwardButton = navButtons.appendChild(button('forward', 'Forward (Alt+Right)', () => goForward(), 'nav-button'));
 let nativeRunning = new Set<string>();
+let flashEnabled = false;
 // The colors and the Built-in button, right under the search: they filter like it does.
 const colorbar = controlsPane.body.appendChild(el('div', 'colorbar'));
 const nav = libraryPane.body.appendChild(el('div', 'nav'));
@@ -247,10 +248,10 @@ function closePopover(): void {
 }
 
 /**
- * Opens an explanatory popover comparing the parallel plugin categories:
- * VIBE FM (.wasm) vs FM-1 Firmware (.fwsc), plus firmware repositories.
+ * Opens an explanatory popover describing the FM-1 synth technologies (WASM, FWSC, MIDI),
+ * native JIT / hardware flashing options, and firmware repositories.
  */
-function openPluginPopover(anchorEl: HTMLElement, focus: 'plugins' | 'fm1' | 'fm1live', pin: boolean): void {
+function openPluginPopover(anchorEl: HTMLElement, pin: boolean): void {
 	clearTimeout(popoverHideTimer);
 	if (popover && popoverPinned && !pin) return;
 	closePopover();
@@ -258,24 +259,18 @@ function openPluginPopover(anchorEl: HTMLElement, focus: 'plugins' | 'fm1' | 'fm
 	const box = document.body.appendChild(el('div', 'plugin-popover'));
 	popover = box;
 	box.innerHTML =
-		`<div class="pop-head"><span>FM-1 Plugin Categories &amp; Repositories</span>${pin ? '<button class="pop-close" title="Close (Esc)">&times;</button>' : ''}</div>` +
-		`<div class="pop-card${focus === 'fm1' ? ' active' : ''}">` +
+		`<div class="pop-head"><span>FM-1 Synth Technologies &amp; Repositories</span>${pin ? '<button class="pop-close" title="Close (Esc)">&times;</button>' : ''}</div>` +
+		`<div class="pop-card">` +
 			`<div class="pop-title"><span class="badge runtime runtime-vibe">WASM</span><strong>VIBE FM (.wasm)</strong></div>` +
-			`<p>Open-source synths compiled for the VIBE FM platform (<code>s("vibefm1:&lt;id&gt;")</code>).</p>` +
-			`<ul>` +
-				`<li>Ultra-light (~1% CPU), sample-accurate inside Strudel's mix</li>` +
-				`<li>Live screen thumbnails, Screen popup &amp; Devices panel</li>` +
-				`<li>Works on desktop VS Code and GitHub Codespaces</li>` +
-			`</ul>` +
+			`<p>Open-source synths compiled to WebAssembly (<code>s("vibefm1:&lt;id&gt;")</code>). ~1% CPU, sample-accurate inside Strudel's mix, live screens &amp; Devices panel (desktop + Codespaces).</p>` +
 		`</div>` +
-		`<div class="pop-card${focus === 'fm1live' ? ' active' : ''}">` +
-			`<div class="pop-title"><span class="badge runtime runtime-fwsc">FWSC</span><span class="badge runtime runtime-hardware">MIDI</span><strong>FM-1 Firmware (.fwsc)</strong></div>` +
-			`<p>Real unmodified M-VAVE FM-1 hardware firmwares (~280+ Hub synths, <strong>SHRUB</strong> via <code>shrub.audio</code>, and <strong>FM-1 Stock</strong>).</p>` +
-			`<ul>` +
-				`<li><strong>Run Native</strong>: launches <code>fm1-live</code> (240 MHz JIT on Windows, macOS, Linux) - zero dropouts for SHRUB</li>` +
-				`<li><strong>In-editor .fwsc</strong>: plays lighter firmwares (e.g. Felucca) directly via <code>s("fm1:&lt;id&gt;")</code></li>` +
-				`<li><strong>Hardware MIDI</strong>: plays a real M-VAVE FM-1 with built-in CC maps &amp; web editor link</li>` +
-			`</ul>` +
+		`<div class="pop-card">` +
+			`<div class="pop-title"><span class="badge runtime runtime-fwsc">FWSC</span><strong>Real FM-1 Firmware (.fwsc)</strong></div>` +
+			`<p>Unmodified M-VAVE FM-1 hardware packages (Hub catalog, <strong>SHRUB</strong> via <code>shrub.audio</code>, or local drop-in). Play in-editor (<code>s("fm1:&lt;id&gt;")</code>), click <strong>Run Native</strong> for 240 MHz JIT (zero dropouts for SHRUB), or click <strong>Flash to FM-1...</strong> to flash hardware over USB-MIDI.</p>` +
+		`</div>` +
+		`<div class="pop-card">` +
+			`<div class="pop-title"><span class="badge runtime runtime-hardware">MIDI</span><strong>Hardware MIDI Profiles</strong></div>` +
+			`<p>Ready-made CC maps (e.g. SHRUB CC 74 / 16-19, FM-1 Stock) targeting a physical M-VAVE FM-1 over desktop MIDI. Filter everything using the <strong>Runtime</strong> and <strong>Repo</strong> chips.</p>` +
 		`</div>` +
 		`<div class="pop-foot"><button class="chip more pop-repos" title="View built-in repos (The Firmware Hub, shrub.audio) or add a custom repository URL">Manage repositories...</button></div>`;
 	box.querySelector('.pop-close')?.addEventListener('click', (e) => {
@@ -471,8 +466,8 @@ function drawTree(body: HTMLElement, of: BrowserPage): void {
 	for (const category of CATEGORIES) {
 		if (category.id === 'all') continue;
 		const mine = own.filter((item) => inCategory(item.category, category.id));
-		// Plugins, FM-1 Synths, and FM-1 Live show in the Library while empty: hub lists load on first open.
-		if (!mine.length && !(of === 'library' && (category.id === 'plugins' || category.id === 'fm1' || category.id === 'fm1live'))) continue;
+		// Plugins and FM-1 Synths show in the Library while empty: repositories load on first open.
+		if (!mine.length && !(of === 'library' && (category.id === 'plugins' || category.id === 'fm1'))) continue;
 		const parent = parentOf(category.id);
 		if (parent && !tree.has(parent)) continue;
 		const children = CATEGORIES.filter((c) => parentOf(c.id) === category.id);
@@ -481,7 +476,7 @@ function drawTree(body: HTMLElement, of: BrowserPage): void {
 		const unfolded = foldable && tree.has(category.id);
 		const on = filter.category === category.id && !filter.group;
 		const row = body.appendChild(navRow(category.icon, category.label, mine.length, on, parent ? 1 : 0, foldable ? unfolded : undefined));
-		if (category.id === 'plugins' || category.id === 'fm1' || category.id === 'fm1live') {
+		if (category.id === 'plugins' || category.id === 'fm1') {
 			if (category.id === 'plugins') {
 				const reposBtn = el('button', 'info-btn repos-btn', '+');
 				reposBtn.title = 'Manage firmware repositories (The Firmware Hub, shrub.audio, or add custom URLs)';
@@ -492,15 +487,15 @@ function drawTree(body: HTMLElement, of: BrowserPage): void {
 				row.insertBefore(reposBtn, row.lastChild);
 			}
 			const info = el('button', 'info-btn', '?');
-			info.title = 'Compare VIBE FM (.wasm) vs FM-1 Firmware (.fwsc) and repositories';
-			info.addEventListener('mouseenter', () => openPluginPopover(row, category.id as 'plugins' | 'fm1' | 'fm1live', false));
+			info.title = 'FM-1 synth technologies (WASM, FWSC, MIDI) and repositories';
+			info.addEventListener('mouseenter', () => openPluginPopover(row, false));
 			info.addEventListener('mouseleave', () => {
 				if (!popoverPinned) popoverHideTimer = setTimeout(() => closePopover(), 180);
 			});
 			info.addEventListener('click', (event) => {
 				event.stopPropagation();
 				if (popover && popoverPinned) closePopover();
-				else openPluginPopover(row, category.id as 'plugins' | 'fm1' | 'fm1live', true);
+				else openPluginPopover(row, true);
 			});
 			row.insertBefore(info, row.lastChild);
 		}
@@ -688,7 +683,7 @@ function drawRows(): void {
 /** What an empty Results says. An empty FM-1 Synths says how a firmware gets there. */
 function emptyText(): string {
 	if (!items.length) return 'Loading...';
-	if ((filter.category === 'fm1' || filter.category === 'fm1live' || filter.category === 'plugins') && !items.some((item) => item.kind === 'firmware'))
+	if ((filter.category === 'fm1' || filter.category === 'plugins') && !items.some((item) => item.kind === 'firmware'))
 		return 'Loading the list of The Firmware Hub... Without a network, put a VIBE FM (.wasm) or real FM-1 (.fwsc) firmware in a firmware folder of the project.';
 	return 'Nothing matches. Clear the search or the filters.';
 }
@@ -870,9 +865,9 @@ function drawDetails(): void {
 			: 'Run natively in fm1-live (240 MHz JIT on Windows, macOS, Linux)';
 		nativeBtn.addEventListener('click', () => post({ type: 'runNative', id: item.id }));
 	}
-	if (item.kind === 'firmware' && (item.runtime === 'fwsc' || item.runtime === 'hardware')) {
+	if (flashEnabled && item.kind === 'firmware' && (item.runtime === 'fwsc' || item.runtime === 'hardware')) {
 		const flashBtn = collect.appendChild(el('button', 'chip more', 'Flash to FM-1...'));
-		flashBtn.title = 'Flash this .fwsc firmware directly to a connected M-VAVE FM-1 over USB-MIDI SysEx (desktop only)';
+		flashBtn.title = 'Experimental (use at your own risk): flash this .fwsc firmware to a connected M-VAVE FM-1 over USB-MIDI SysEx';
 		flashBtn.addEventListener('click', () => post({ type: 'flashHardware', id: item.id }));
 	}
 	if (item.kind === 'firmware' && item.editorUrl) {
@@ -1090,8 +1085,8 @@ function menuFor(row: Row): MenuEntry[] {
 		const running = nativeRunning.has(item.id.slice('firmware:'.length));
 		entries.push({ label: running ? 'Stop native fm1-live' : 'Run natively (fm1-live)', run: () => post({ type: 'runNative', id: item.id }) });
 	}
-	if (item.kind === 'firmware' && (item.runtime === 'fwsc' || item.runtime === 'hardware')) {
-		entries.push({ label: 'Flash to FM-1 hardware...', run: () => post({ type: 'flashHardware', id: item.id }) });
+	if (flashEnabled && item.kind === 'firmware' && (item.runtime === 'fwsc' || item.runtime === 'hardware')) {
+		entries.push({ label: 'Flash to FM-1 hardware (experimental)...', run: () => post({ type: 'flashHardware', id: item.id }) });
 	}
 	if (item.kind === 'firmware' && item.editorUrl) entries.push({ label: 'Open synth editor', run: () => post({ type: 'openEditor', id: item.id }) });
 	entries.push({ label: opens(item) ? 'Copy the path' : item.kind === 'snippet' ? 'Copy the code' : 'Copy the name', run: () => post({ type: 'copy', id: item.id, index }) });
@@ -1262,6 +1257,7 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			items = message.items;
 			user = message.user;
 			preview = message.preview;
+			flashEnabled = !!message.flashEnabled;
 			app.hidden = false;
 			searchbarSync();
 			initialized = true;
@@ -1286,6 +1282,9 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			return stopPreview();
 		case 'nativeRunning':
 			nativeRunning = new Set(message.ids);
+			return update();
+		case 'flashEnabled':
+			flashEnabled = message.on;
 			return update();
 		case 'filter':
 			filter = message.filter;

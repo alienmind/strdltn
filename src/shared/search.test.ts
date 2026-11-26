@@ -49,9 +49,15 @@ test('every word must match, in the name, the text or a tag', () => {
 
 test('categories and places', () => {
 	assert.deepEqual(find('', { category: 'drums' }), ['sound:rolandtr909_bd', 'sound:rolandtr909_sd', 'sound:linndrum_bd']);
-	assert.deepEqual(find('', { category: 'fm1' }), ['firmware:obervave', 'firmware:sloop', 'firmware:echofield-vibe']);
-	assert.deepEqual(find('', { category: 'fm1live' }), ['firmware:shrub-midi', 'firmware:fm1-stock', 'firmware:felucca']);
-	// Plugins, the parent, shows both parallel children (VIBE FM (.wasm) + FM-1 Firmware (.fwsc)).
+	assert.deepEqual(find('', { category: 'fm1' }), [
+		'firmware:obervave',
+		'firmware:sloop',
+		'firmware:shrub-midi',
+		'firmware:fm1-stock',
+		'firmware:echofield-vibe',
+		'firmware:felucca',
+	]);
+	// Plugins, the parent, shows what FM-1 Synths holds.
 	assert.deepEqual(find('', { category: 'plugins' }), [
 		'firmware:obervave',
 		'firmware:sloop',
@@ -123,19 +129,20 @@ test('a firmware row: its own line, a test note by its position in the engine, I
 });
 
 test('a group picked in the tree: only its rows', () => {
-	assert.deepEqual(find('', { category: 'fm1', group: 'Available' }), ['firmware:echofield-vibe']);
-	assert.deepEqual(find('', { category: 'fm1', group: 'Installed' }), ['firmware:obervave', 'firmware:sloop']);
+	assert.deepEqual(find('', { category: 'fm1', group: 'Available' }), ['firmware:echofield-vibe', 'firmware:felucca']);
+	assert.deepEqual(find('', { category: 'fm1', group: 'Installed' }), ['firmware:obervave', 'firmware:sloop', 'firmware:shrub-midi', 'firmware:fm1-stock']);
 	assert.deepEqual(find('', { category: 'drums', group: 'linndrum' }), ['sound:linndrum_bd']);
 });
 
-test('Installed before Hardware (MIDI) before Available, whatever the names', () => {
+test('Installed before Available, whatever the names', () => {
 	const groups = groupItems(items.filter((item) => item.kind === 'firmware'), false);
-	assert.deepEqual(groups.map((g) => g.label), ['Installed', 'Hardware (MIDI)', 'Available']);
+	assert.deepEqual(groups.map((g) => g.label), ['Installed', 'Available']);
 });
 
 test('categories of earlier versions', () => {
 	assert.equal(knownCategory('instruments'), 'fm1');
 	assert.equal(knownCategory('firmware'), 'fm1');
+	assert.equal(knownCategory('fm1live'), 'fm1');
 	assert.equal(knownCategory('drums'), 'drums');
 	assert.equal(knownCategory('nonsense'), 'all');
 });

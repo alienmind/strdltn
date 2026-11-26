@@ -14,6 +14,7 @@ import type { MidiBridge } from './midi';
 import type { FlashWorkerInput, FlashWorkerMessage } from './fm1-flash-worker';
 
 const SHRUB_PATH_KEY = 'strdltn.shrub.fwscPath';
+export const FLASH_SETTING = 'experimental.fm1Flash';
 
 export class Fm1Flasher {
 	private busy = false;
@@ -29,6 +30,12 @@ export class Fm1Flasher {
 
 	/** Flashes a marketplace/installed firmware by id, or prompts for a local `.fwsc` file when `id` is omitted. */
 	async flash(id?: string): Promise<void> {
+		if (!vscode.workspace.getConfiguration('strdltn').get<boolean>(FLASH_SETTING, false)) {
+			void vscode.window.showWarningMessage(
+				'strdltn: hardware flashing is an experimental feature (use at your own risk). Enable strdltn.experimental.fm1Flash in Settings first.',
+			);
+			return;
+		}
 		if (vscode.env.remoteName) {
 			void vscode.window.showWarningMessage('strdltn: hardware flashing over USB-MIDI works on desktop VS Code only.');
 			return;

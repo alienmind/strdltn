@@ -5,7 +5,6 @@ import type { BrowserView } from './browser';
 import type { FirmwareLibrary } from './firmware';
 import { HubCatalog } from './hub';
 import { FirmwarePreviews, type PreviewJob, previewKey } from './previews';
-import { SHRUB_SETTING, ShrubPanel } from './shrub';
 
 /**
  * The marketplace of FM-1 Synths: the firmwares installed in the project (FirmwareLibrary), the hub's list (HubCatalog),
@@ -21,7 +20,7 @@ export class FirmwareMarket implements vscode.Disposable {
 	readonly installed: string[] = [];
 
 	constructor(
-		private readonly context: vscode.ExtensionContext,
+		context: vscode.ExtensionContext,
 		private readonly library: FirmwareLibrary,
 		private readonly browser: BrowserView,
 		private readonly output: vscode.OutputChannel,
@@ -128,12 +127,8 @@ export class FirmwareMarket implements vscode.Disposable {
 		return this.previews.emuWasmFile();
 	}
 
-	/** Opens the companion web editor for a firmware (or the built-in SHRUB panel when its setting is enabled). */
+	/** Opens the companion web editor URL for any firmware that declares one (e.g. SHRUB's shrub.audio/editor/). */
 	openEditor(id: string): void {
-		if ((id === 'shrub' || id === 'shrub-midi') && vscode.workspace.getConfiguration('strdltn').get<boolean>(SHRUB_SETTING, false)) {
-			ShrubPanel.show(this.context);
-			return;
-		}
 		const url =
 			HARDWARE_FM1_PROFILES.find((p) => p.id === id)?.editor ??
 			this.library.all().find((f) => f.id === id)?.editor ??

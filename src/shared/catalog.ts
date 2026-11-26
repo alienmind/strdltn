@@ -16,11 +16,10 @@ export const CATEGORIES = [
 	{ id: 'drums', label: 'Drums', icon: 'drum' },
 	{ id: 'samples', label: 'Samples', icon: 'sample' },
 	// Plugins, as in Live: one child per kind of plugin, more kinds to come (the maintainer, 2026-11-24).
-	// VIBE FM (.wasm) holds VIBE FM platform builds; FM-1 Firmware (.fwsc) holds real unmodified FM-1 hardware
-	// firmwares (including SHRUB from shrub.audio, Hub .fwsc catalog, and Hardware MIDI profiles).
+	// FM-1 Synths unifies all FM-1 technologies (VIBE .wasm, real .fwsc, Hardware MIDI) into Installed and Available,
+	// flagged with badges and filterable by Runtime/... and Repo/... tag chips.
 	{ id: 'plugins', label: 'Plugins', icon: 'plugin' },
-	{ id: 'fm1', label: 'VIBE FM (.wasm)', icon: 'firmware', parent: 'plugins' },
-	{ id: 'fm1live', label: 'FM-1 Firmware (.fwsc)', icon: 'firmware', parent: 'plugins' },
+	{ id: 'fm1', label: 'FM-1 Synths', icon: 'firmware', parent: 'plugins' },
 	// The audio of songs: renders and recordings, next to their song. See src/shared/render.ts.
 	{ id: 'renders', label: 'Render', icon: 'render' },
 	// The MIDI ports of the machine, from the extension host (src/extension/midi.ts). Desktop only.
@@ -129,7 +128,7 @@ export interface SavedSearch {
 
 /** A category kept from an earlier version: Instruments and Firmware are FM-1 Synths now, and an unknown one is All. */
 export function knownCategory(id: unknown): CategoryId {
-	if (id === 'instruments' || id === 'firmware') return 'fm1';
+	if (id === 'instruments' || id === 'firmware' || id === 'fm1live') return 'fm1';
 	return CATEGORIES.some((c) => c.id === id) ? (id as CategoryId) : 'all';
 }
 
@@ -350,7 +349,7 @@ export function firmwareItems(
 				kind: 'firmware',
 				label: fw.name,
 				detail: describe(fw),
-				category: runtime === 'vibe' ? 'fm1' : 'fm1live',
+				category: 'fm1',
 				place: 'project',
 				group: 'Installed',
 				groupRank: 0,
@@ -386,10 +385,10 @@ export function firmwareItems(
 			kind: 'firmware',
 			label: profile.name,
 			detail: profile.author,
-			category: 'fm1live',
+			category: 'fm1',
 			place: 'builtin',
-			group: 'Hardware (MIDI)',
-			groupRank: 1,
+			group: 'Installed',
+			groupRank: 0,
 			tags: tagsOf({ author: profile.author, runtime: 'hardware' }),
 			text: `${textOf({ ...profile, runtime: 'hardware' })} midi hardware`.toLowerCase(),
 			insert: snippet.code,
@@ -420,10 +419,10 @@ export function firmwareItems(
 				kind: 'firmware',
 				label: fw.name,
 				detail: describe(fw),
-				category: runtime === 'vibe' ? 'fm1' : 'fm1live',
+				category: 'fm1',
 				place: 'packs',
 				group: 'Available',
-				groupRank: 2,
+				groupRank: 1,
 				tags: tagsOf({ ...fw, runtime }),
 				text: textOf({ ...fw, runtime }),
 				sound: runtime === 'fwsc' ? 'fm1' : 'vibefm1',

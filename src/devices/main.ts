@@ -20,17 +20,14 @@ const H = 320;
 const BUTTON = 3;
 const ENCODER = 4;
 const VE_DATA = 6;
-const SHRUB_URL = 'https://shrub.audio/editor/';
 
 interface Saved {
 	/** Panels folded, by `<id>@<orbit>`: the same firmware on the same orbit stays folded in the next song or session. */
 	folded: string[];
-	shrubFolded?: boolean;
 }
 const saved = (vscode.getState() as Saved | undefined) ?? { folded: [] };
 const folded = new Set(saved.folded);
-let shrubFolded = !!saved.shrubFolded;
-const keep = () => vscode.setState({ folded: [...folded], shrubFolded } satisfies Saved);
+const keep = () => vscode.setState({ folded: [...folded] } satisfies Saved);
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
 	const node = document.createElement(tag);
@@ -63,11 +60,10 @@ const row = app.appendChild(el('div', 'panels'));
 const panels = new Map<string, Panel>();
 const id = (d: { engine: string; key: string }) => `${d.engine}/${d.key}`;
 let devices: ViewDevice[] = [];
-/** What this page is, from the host: a tab with one device (`only`), the devices in tabs (`out`), SHRUB on. */
-let page: { only?: string; out: string[]; shrub: boolean } = { out: [], shrub: false };
-/** The panel that fills the view, by `<engine>/<key>`, or 'shrub'. */
+/** What this page is, from the host: a tab with one device (`only`), the devices in tabs (`out`). */
+let page: { only?: string; out: string[] } = { out: [] };
+/** The panel that fills the view, by `<engine>/<key>`. */
 let maximized: string | undefined;
-let shrub: HTMLElement | undefined;
 
 window.addEventListener('message', (event: MessageEvent<ToDevices>) => {
 	const message = event.data;
@@ -100,8 +96,6 @@ function refresh(): void {
 		panel.root.classList.toggle('max', maximized === key);
 		setDrawing(panel, visible(panel));
 	}
-	shrub?.classList.toggle('folded', shrubFolded);
-	shrub?.classList.toggle('max', maximized === 'shrub');
 	app.classList.toggle('maximized', !!maximized);
 	report();
 }
@@ -125,10 +119,9 @@ function show(): void {
 		known?.root.remove();
 		const panel = build(device);
 		panels.set(key, panel);
-		row.insertBefore(panel.root, shrub ?? null);
+		row.appendChild(panel.root);
 	}
-	showShrub(page.shrub && !page.only);
-	empty.hidden = list.length > 0 || !!shrub;
+	empty.hidden = list.length > 0;
 	refresh();
 }
 
@@ -234,38 +227,6 @@ function build(device: ViewDevice): Panel {
 	});
 	root.appendChild(body);
 	return { device, root, canvas, image, knobs, frames: 0, drawing: false };
-}
-
-/**
- * The SHRUB editor (Xfer's site) as a panel, behind the setting strdltn.experimental.shrubEditor. It is its own synth:
- * its sound is not in our mix. Folded, it is hidden with CSS and not removed, so its unsaved patches stay.
- */
-function showShrub(on: boolean): void {
-	if (!on) {
-		shrub?.remove();
-		shrub = undefined;
-		if (maximized === 'shrub') maximized = undefined;
-		return;
-	}
-	if (shrub) return;
-	shrub = row.appendChild(el('section', 'panel shrub'));
-	header(shrub, 'SHRUB', 'Xfer, its own sound, not in the mix', {
-		fold: () => {
-			shrubFolded = !shrubFolded;
-			keep();
-			refresh();
-		},
-		max: () => {
-			maximized = maximized === 'shrub' ? undefined : 'shrub';
-			refresh();
-		},
-		out: () => post({ type: 'takeOutShrub' }),
-	});
-	const body = shrub.appendChild(el('div', 'body'));
-	const frame = body.appendChild(el('iframe'));
-	frame.src = SHRUB_URL;
-	frame.allow = 'autoplay';
-	frame.title = 'SHRUB editor';
 }
 
 function format(param: DeviceParam, v: number): string {

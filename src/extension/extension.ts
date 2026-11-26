@@ -21,7 +21,6 @@ import { MixerView } from './mixer';
 import { Place } from './surface';
 import { lf, lineColumn } from '../shared/sync';
 import { formatBytes, PackCache, type CacheUsage } from './packs';
-import { ShrubPanel } from './shrub';
 import { Session, type SessionHost } from './session';
 import { saveAudio } from './render';
 import { DEFAULT_RENDER_CYCLES, renderCycles } from '../shared/render';
@@ -452,7 +451,6 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			const found = snippets.find(snippet.name);
 			if (found) return insertText(found.code);
 		}),
-		vscode.commands.registerCommand('strdltn.openShrubEditor', () => ShrubPanel.show(context)),
 		vscode.commands.registerCommand('strdltn.runNativeFm1', async (id?: string) => {
 			if (typeof id === 'string' && id) {
 				await nativeFm1.toggle(id);
@@ -472,7 +470,9 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.commands.registerCommand('strdltn.manageFirmwareRepos', () => market.manageRepos()),
 		vscode.commands.registerCommand('strdltn.flashFm1Hardware', (id?: string) => fm1Flasher.flash(typeof id === 'string' ? id : undefined)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
-			if (event.affectsConfiguration('strdltn.experimental.shrubEditor')) ShrubPanel.settingChanged();
+			if (event.affectsConfiguration('strdltn.experimental.fm1Flash')) {
+				browser.setFlashEnabled(vscode.workspace.getConfiguration('strdltn').get<boolean>('experimental.fm1Flash', false));
+			}
 		}),
 		vscode.commands.registerCommand('strdltn.showVersion', () => vscode.window.showInformationMessage(identity)),
 	);

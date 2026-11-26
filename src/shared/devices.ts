@@ -45,17 +45,16 @@ export type ToDevices =
 	| { type: 'devices'; devices: ViewDevice[] }
 	/**
 	 * What this page is. `only`: a tab with one device taken out of the view (`<engine>/<key>`). `out`: in the view, the
-	 * devices that are in a tab now. `shrub`: the SHRUB editor panel is on (setting strdltn.experimental.shrubEditor).
+	 * devices that are in a tab now.
 	 */
-	| { type: 'page'; only?: string; out: string[]; shrub: boolean }
+	| { type: 'page'; only?: string; out: string[] }
 	/** A display frame: 480 x 320 RGB565, row by row, and the parameters' values now. */
 	| { type: 'frame'; engine: string; key: string; px: Uint8Array; values: number[] };
 
 export type FromDevices =
 	| { type: 'ready' }
 	| ({ type: 'request'; engine: string } & DeviceRequest)
-	/** Take a device out of the view into an editor tab. For SHRUB, its own tab. */
+	/** Take a device out of the view into an editor tab. */
 	| { type: 'takeOut'; engine: string; key: string }
-	| { type: 'takeOutShrub' }
 	| { type: 'state'; panels: { key: string; open: boolean; frames: number }[] }
 	| { type: 'log'; message: string };

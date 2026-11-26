@@ -47,7 +47,7 @@ export const scoped = (items: CatalogItem[], filter: BrowserFilterState): Catalo
 	filter.scope && filter.category === 'all' ? items.filter((item) => pageOf(item) === filter.scope) : items;
 
 export type ToBrowser =
-	| { type: 'init'; page: BrowserPage; items: CatalogItem[]; user: UserIndex; preview: boolean; filter: BrowserFilterState }
+	| { type: 'init'; page: BrowserPage; items: CatalogItem[]; user: UserIndex; preview: boolean; filter: BrowserFilterState; flashEnabled?: boolean }
 	| { type: 'items'; items: CatalogItem[] }
 	| { type: 'user'; user: UserIndex }
 	| { type: 'preview'; on: boolean }
@@ -60,6 +60,8 @@ export type ToBrowser =
 	| { type: 'stopPreview' }
 	/** Firmwares currently running in native `fm1-live` (e.g. `['shrub']`). */
 	| { type: 'nativeRunning'; ids: string[] }
+	/** Experimental setting `strdltn.experimental.fm1Flash` changed. */
+	| { type: 'flashEnabled'; on: boolean }
 	/** The filter changed in another view, or by a command. `open` opens headings in Results, for the integration test. */
 	| { type: 'filter'; filter: BrowserFilterState; show?: boolean };
 

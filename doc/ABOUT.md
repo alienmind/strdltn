@@ -216,14 +216,17 @@ where it is meanwhile.
   Must show: Live 480x320 firmware displays, F1 to F6 soft keys underneath, parameter sliders on the right, and fold/maximize/pop-out header buttons.
 -->
 
-Under **Plugins**, two parallel categories separate the two FM-1 ecosystems (hover or click
-`?` for a comparison popover, or `+` to add custom firmware repositories by URL):
-**VIBE FM (.wasm)** holds lightweight VIBE `.wasm` builds (`s("vibefm1:<id>")`, live screen
-thumbnails and Devices tab panels), while **FM-1 Firmware (.fwsc)** holds real FM-1 `.fwsc`
-firmwares from The Firmware Hub and external repositories like **SHRUB (`shrub.audio`)**
-(run via **Run Native** 240 MHz JIT, in-editor `s("fm1:<id>")`, desktop Hardware MIDI, or
-click **Flash to FM-1...** to flash `.fwsc` packages directly to your connected FM-1 over
-USB-MIDI SysEx).
+Under **Plugins > FM-1 Synths**, all FM-1 synths live in one unified category divided into
+**Installed** and **Available** (hover or click `?` for a technology guide, or `+` to add
+custom firmware repositories by URL). Every row is flagged with its technology badge and
+filterable via `Runtime/...` and `Repo/...` chips: **WASM** (VIBE `.wasm` builds played as
+`s("vibefm1:<id>")` with live screen thumbnails and Devices tab panels), **FWSC** (real
+FM-1 `.fwsc` firmwares from The Firmware Hub and custom repos, run via **Run Native**
+240 MHz JIT or in-editor `s("fm1:<id>")`), **EXT** (external synth repositories like
+`shrub.audio` for SHRUB), and **MIDI** (Hardware MIDI profiles for a real M-VAVE FM-1).
+Experimental USB-MIDI SysEx flashing to hardware is off by default behind
+`strdltn.experimental.fm1Flash` - use at your own risk; the authors take no responsibility
+for bricked or damaged hardware.
 
 ### Sounds and Browser
 

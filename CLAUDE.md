@@ -1,5 +1,7 @@
 # CLAUDE.md - working rules for agents in this repo
 
+@AGENTS.md
+
 This file is enough to start work in a new session. The first part, "Handover", is
 about this project and is kept current. Everything after it is house rules that would
 fit any project.
@@ -97,6 +99,11 @@ What to know about the real test:
   or merging superseded ones, and removing items once verified) without tying entries to a
   branch name, so the file carries cleanly across merges and the maintainer can batch many
   feature branches into a single manual test pass.
+- **Stay harness-agnostic.** Canonical AI assistant rules live in `AGENTS.md` and `CLAUDE.md`
+  (and `template/AGENTS.md` + `template/.agents/skills/` for music projects). Any
+  harness-specific file (`GEMINI.md`, `.github/copilot-instructions.md`,
+  `.github/instructions/*.instructions.md`, `.claude/skills/*`) must stay a thin `@`
+  reference with no duplicated rules.
 
 ### What VS Code does that is easy to forget
 

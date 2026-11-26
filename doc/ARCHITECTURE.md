@@ -790,18 +790,17 @@ on both sides:
 
 | File | Read by | Says |
 |---|---|---|
-| `AGENTS.md` (root) | Agents that read `AGENTS.md` | A request about music edits the open `.strudel` file. A request about the tool follows `CLAUDE.md` |
-| `.github/instructions/strudel.instructions.md` | Copilot, for files that match `applyTo: "**/*.strudel"` | The same, with an example, and where the guide to the language is |
-| `template/AGENTS.md` | Agents in a music project made from the template | The rules for a song, the folders, and a short guide to Strudel |
-| `template/.github/copilot-instructions.md` | Copilot in a music project | A short version, pointing at `template/AGENTS.md` |
-| `template/.github/instructions/strudel.instructions.md` | Copilot in a music project, for `**/*.strudel` | The same as the root one, with paths from the root of the music project |
+| `AGENTS.md` (root) | Canonical entry point for all agents | Routes music requests to `template/AGENTS.md` and extension requests to `CLAUDE.md` |
+| `CLAUDE.md` (root) | Canonical extension working rules (starts with `@AGENTS.md`) | Handover, build/test commands, standing instructions, and doc lifecycle rules |
+| `GEMINI.md`, `.github/copilot-instructions.md`, `.github/instructions/strudel.instructions.md` | Harness-specific shims at repo root | Thin `@` references to `AGENTS.md` (and `template/AGENTS.md` for `**/*.strudel`) with no duplicated rules |
+| `template/AGENTS.md` | Canonical guide in a music project made from the template | Full rules for a song, the folders, and a short guide to Strudel |
+| `template/.agents/skills/strudel-midi/SKILL.md` | Canonical harness-agnostic MIDI skill | How to read MIDI devices/CCs, write MIDI patterns, and map sliders to knobs |
+| `template/CLAUDE.md`, `template/GEMINI.md`, `template/.github/copilot-instructions.md`, `template/.github/instructions/strudel.instructions.md`, `template/.claude/skills/strudel-midi/SKILL.md` | Harness-specific shims in a music project | Thin `@` references to `template/AGENTS.md` or `template/.agents/skills/strudel-midi/SKILL.md` (keeping required YAML frontmatter where a harness needs it) |
 
-The template needs its own copy of the `.strudel` instructions. Seen by the maintainer:
-with `template/` open as its own folder, Copilot's agent asked for permission to read
-`.github/instructions/strudel.instructions.md` of the repo above it, and only answered
-well after it got it. A music project made from the template has no such repo above it,
-so everything an assistant needs has to be inside the project. The two copies say the
-same thing and differ in their paths. Change both together.
+The template needs its own self-contained copy of the shims because a music project made from
+the template has no parent repo above it (seen by the maintainer with Copilot asking permission
+to read the parent folder). Keeping all actual content in `AGENTS.md`, `CLAUDE.md`,
+`template/AGENTS.md`, and `template/.agents/skills/` ensures zero drift across harnesses.
 
 `template/AGENTS.md` says what a request about music means (edit the open song, the
 smallest change, keep the rest), how a song is written (one `$name:` pattern per part),

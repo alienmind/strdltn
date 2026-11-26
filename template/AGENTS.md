@@ -15,6 +15,7 @@ the `.strudel` file that is open.
 - Do not touch the editor, the extension, its settings or any other tooling to answer a
   request about music. If a request can only be met by changing the tool, say so and
   stop.
+- Everything needed is inside this project. Do not look outside its folder.
 - Make the smallest change that does what was asked. Keep the rest of the song as it is,
   with its names, its comments and its order.
 - Say in one or two lines what was added and how to hear it (Ctrl+Enter plays).
@@ -113,7 +114,7 @@ In this order, before writing new code:
    the names in one line.
 
 For MIDI (a controller, knobs, a synth, CC numbers, sliders on knobs), read
-`.claude/skills/strudel-midi/SKILL.md` first.
+`.agents/skills/strudel-midi/SKILL.md` first.
 
 ## Do not guess
 

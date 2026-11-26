@@ -59,13 +59,14 @@ and finished items are deleted from both files and consolidated into `doc/ARCHIT
 
 | ID | What | State / Pointer |
 |---|---|---|
-| UX-1 | **Track Colors (`// @color <name>`) + Visual Polish Pass**: auto-assigned track colors across Mixer, editor gutter, and Devices; custom sub-faders; LED meters; amber M / blue S; activity LED; cable halos & pulse; top Mixer toolbar; `tabular-nums`; frosted `#unlock` & Stage dock; inline error toast | Wave 1. Decision 24 answered. See `doc/NEW_FEATURES.md` section 1 |
+| UX-1 | **Track Colors (`// @color <name>`) + Visual Polish Pass**: auto-assigned track colors across Mixer, editor gutter, and Devices; custom sub-faders; LED meters; amber M / blue S; activity LED; cable halos & pulse; top Mixer toolbar; `tabular-nums`; frosted `#unlock` & Stage dock; inline error toast | Wave 1. See `doc/NEW_FEATURES.md` section 1 |
 | UX-2 | **Beat-Synced Transport HUD & Master Safety Limiter**: `BAR / BEAT` counter, 4-dot beat LEDs, Tap Tempo, vertical BPM drag, active-song status row, `arrange()` progress bar, toggleable Master brickwall limiter | Wave 2. See `doc/NEW_FEATURES.md` section 2 |
 | UX-3 | **Browser Waveform Sparklines, Trim Handles & Breadcrumbs**: 40px waveform `<canvas>` with playhead & `.begin()`/`.end()` trim, previewing-row EQ indicator, removable `.resultbar` breadcrumb pill | Wave 2. See `doc/NEW_FEATURES.md` section 3 |
+| UX-11 | **Two-Column Browser Layout (Results to the Right)**: move the packed Results/Contents pane to a second column right of Library (Ableton-style split with draggable divider + narrow fallback) | Wave 2. See `doc/NEW_FEATURES.md` section 3 |
 | UX-4 | **In-Place Sound Hot-Swap ("Live Audition in the Mix")**: Ableton `Q`-style lock to `s("...")`/`.bank("...")` under cursor with live `Up`/`Down` audition | Wave 2. See `doc/NEW_FEATURES.md` section 3 |
 | UX-10 | **Full-Screen Synths Gallery Tab**: expand the Synths / FM-1 Synths explorer into a closable main-editor-area webview tab with a multi-column card grid, large previews, filters, audition, install, and insert | Wave 3. See `doc/NEW_FEATURES.md` section 3 |
 | UX-5 | **Welcome Screen on First Install**: colorful Eclipse-style welcome tab with visual screenshots, "Try it" actions, and "Do not show me this again" checkbox | Wave 3. See `doc/NEW_FEATURES.md` section 4 (spikes W1-W4 for optional clips) |
-| UX-6 | **Devices Rotary Knob Grid, Parameter Search & `.vp()` / Firmware Store**: SVG rotary arc knobs, prefix auto-grouping, param search, `.vp(id, value)`, `vibe_host_store` persistence | Wave 3. See `doc/NEW_FEATURES.md` section 5 |
+| UX-6 | **Devices Rotary Knobs, Param Search, Firmware Stream FX Bus & `.vp()` / Store**: SVG rotary arc knobs, prefix auto-grouping, param search, per-firmware `lpf`/`hpf`/`pan`/`gain`/`room`/`delay` bus (like `djf`), `.vp(id, value)`, `vibe_host_store` persistence, `.midi("vibefm1:...")`, firmware cache clear | Wave 3. See `doc/NEW_FEATURES.md` section 5 |
 
 ### Tactile Track Instruments, DJ Suite and DAW Phases
 
@@ -86,9 +87,11 @@ and finished items are deleted from both files and consolidated into `doc/ARCHIT
 
 | ID | What | State / Pointer |
 |---|---|---|
+| 3b | **Bank + short name separate on Browser insert**: emit `s("bd").bank("RolandTR909")` instead of `s("RolandTR909_bd")` | Planned (2026-11-26). See `doc/NEW_FEATURES.md` section 3 |
 | 5 | **Songs as files in the Browser & custom Places folders**: `+` Create new track, F2 rename, Delete, Reveal, `strdltn.browser.folders` | Planned. See `doc/NEW_FEATURES.md` section 3 |
+| 5b | **Unify workspace temp files under `.strdltn/tmp/`**: migrate local model weights and other workspace scratch artifacts out of root `tmp/` into `.strdltn/tmp/` | Planned (2026-11-26). See `doc/NEW_FEATURES.md` section 3 |
 | 6b | **Stacks in the Mixer**: `stack(...)` foldable group strips | Designed. See `doc/NEW_FEATURES.md` section 7 |
-| 6d | **Interactive Minigame Reference Tutorial**: playable coding minigame with comment-guided `.strudel` stages, floating assistant HUD with **Verify** + concrete feedback, persistent red background on fail until fixed, Web Audio SFX, scores/streaks/ranks, and timed **Hardcore Mode** | Planned (Decision 23 + 2026-11-26). See `doc/NEW_FEATURES.md` section 3 |
+| 6d | **Interactive Minigame Reference Tutorial (`rustlings` for Strudel)**: playable coding minigame with comment-guided `.strudel` stages, floating assistant HUD with **Verify** + concrete feedback, persistent red background on fail until fixed, Web Audio SFX, scores/streaks/ranks, and timed **Hardcore Mode** | Planned (2026-11-26). See `doc/NEW_FEATURES.md` section 3 |
 | 10 | **Import sample packs from file system**: drag OS files/folders, `patchbay` classification rules | Not designed. See "Importing sample packs" below |
 | 11 | **Wave editor panel**: built on `github:alienmind/AudioMass#strdltn-1` (Decision 16) | Not designed. See "Wave editor" below |
 | 14 | **Strudel editor keybindings**: Ctrl+H, Ctrl+D, Ctrl+Shift+L built; CodeMirror-owned defaults still ignore rebindings | Partial. See "Keybindings in the Strudel editor" below |
@@ -134,113 +137,33 @@ it.
 
 ## Decisions waiting for the maintainer
 
-| # | Question | What we did meanwhile |
+Only genuinely open decisions live here. Decided and shipped items are deleted and recorded in
+`doc/ARCHITECTURE.md` or turned into concrete tasks in `doc/NEW_FEATURES.md`.
+
+| # | Question | What we do meanwhile |
 |---|---|---|
-| 1 | Snippet header: is the form `// @title`, `@category`, `@details`, `@tags`, `@by`, `@credits` right, and the nine categories? | Built it this way |
-| 3 | A sound in a bank types its full name (`RolandTR909_bd`). Or should it type the short name (`bd`) and leave the bank to the button? | Full name |
-| 5 | The cache for remote packs is `.strdltn/cache/` in the workspace, not `tmp/`. A dot folder that ignores itself for git seemed safer than a folder a project may already use. OK? | `.strdltn/cache/` |
-| 6 | A pack is copied whole. `github:eddyflux/crate` is 367 files and 175 MB. Copy everything, or only the files a song has played? | Everything, up to 600 files |
-| 7 | MIDI: build the desktop bridge now, knowing it cannot work in Codespaces? | Not built |
-| 8 | Sound across a mode switch (see "Open design questions") | Sound stops |
-| 9 | Default editor for `.strudel`: the Strudel editor, or the native one with the stage? | Answered 2026-11-22: the Strudel editor, never the native one (item 13) |
-| 10 | Marketplace: publisher id and token (see "Publishing") | Waiting |
-| 11 | Should the test screenshots keep the title "[Extension Development Host]"? The debug text in the corner is gone, the status bar item replaced it | Kept |
-| 12 | `algorave` examples by other people without a license (Switch Angel, Art Haus, the cover versions): we wrote our own versions and name them in `@credits`. Copy the originals too? | Not copied |
-| 13 | Firmware Hub: write to the hub's author (zven@thefirmwarehub.com)? The hub's rules for app makers (`thefirmwarehub.com/kb/#catalog`, read 2026-11-22) offer only `catalog.json`, which lists FM-1 `.fwsc` packages we cannot play, and say: download from the makers' releases, not from the hub. The Playground's `index.json`, which has the VIBE FM builds, is not mentioned. Tell the author that we read it once a day with a User-Agent and download the `.wasm` from the Playground? | The maintainer chose `index.json` on 2026-11-24, and FM-1 Synths reads it. Nothing sent yet |
-| 14 | Firmware Hub: a hap's own effects (`room`, `delay`, `lpf`, `pan`, `gain`) do not reach a firmware, only the orbit's (`djf`, ducking). Fine, or worth the work below? | As it is |
-| 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. On 2026-11-26 the experimental SHRUB panel and setting were removed so SHRUB is treated as a regular synth in `Plugins > FM-1 Synths` (external `shrub.audio` repo link + Hardware MIDI profile + native `fm1-live` runner for user-supplied `SHRUB.fwsc`). Its web editor opens in the external browser |
-| 16 | The wave editor (item 11) builds on AudioMass, which is not on npm and has no releases or tags. How does it come in? | Answered 2026-11-22: from the maintainer's fork `alienmind/AudioMass`, pinned to a tag we make there. The tag `strdltn-1` is made. See "Wave editor" |
-| 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Answered 2026-11-22: behind a setting, off. Built on `feat/open-snippets` as `strdltn.midi.highPriority`, passed the hand test |
-| 18 | SHRUB native WASM (`https://shrub.audio/play` -> `/sim/shrub_sim.wasm`, measured 2026-11-26): true compiled WASM (`ss_boot`/`ss_render`/`ss_midi`/`ss_lcd`, zero imports, ~0.4% CPU), NOT emulated, marked `Copyright (C) 2026 Xfer Records. All rights reserved.` | Maintainer requested direct runtime download labeled `SHRUB (WASM)` inside the existing `VibeCore` (`vibefm1`) engine (never bundled in `.vsix`). Built on `feat/firmware-marketplace` |
+| 8 | **Sound across a mode switch:** switching Strudel <-> native editor stops sound today (solved by `DAW-6` Shared Browser Engine in Wave 7). Keep stopping until `DAW-6`? | Sound stops |
+| 10 | **VS Code Marketplace publishing:** `package.json` currently has placeholder `"publisher": "strdltn"` and releases ship only as `.vsix` files on GitHub Releases. Do you want to publish on the official Microsoft VS Code Marketplace (which requires registering a real Publisher ID and adding a `VSCE_PAT` GitHub secret), or stay on GitHub Releases `.vsix` for now? | GitHub Releases `.vsix` only |
+| 11 | **Test screenshot title:** should integration-test screenshots keep the title `"[Extension Development Host]"`? | Kept |
+| 14 | **Firmware stream effects like `djf`:** we can route `lpf`, `hpf`, `pan`, `gain`, `room`, and `delay` for every `vibefm1` / `fm1` firmware using the same continuous-stream bus pattern as `djf` (one persistent FX chain + orbit reverb/delay sends per `id@orbit`, zero chord-doubling). Build this in Wave 3 (`UX-6`)? | Ready to build (see `doc/NEW_FEATURES.md` section 5) |
+| 19 | **Devices knob editing (`UX-6`):** should turning a knob in Devices change sound only + offer "Copy `.vp(...)`" (recommended), or write `.vp()` directly into the code? | Sound only + Copy |
+| 20 | **DJ deck defaults (`DAW-8`):** start decks at neutral EQ/faders each session, or remember last deck state in `strdltn.index.json`? | Neutral |
+| 21 | **DJ deck EQ (`DAW-8`):** full-kill isolator EQ or shelving EQ? | Full-kill isolator |
+| 22 | **Automation recording (`DAW-9`):** add an optional toggle to also record untried typing for code-writing video replay? | Off by default |
 
+## MIDI (remaining)
 
-## MIDI
+Desktop MIDI bridge (`@julusian/midi` worker, `.midi()`, `midin()`, `midikeys()`, `midimaps()`,
+`defaultmidimap()`, Library MIDI category, MIDI knobs on sliders, `09-midi-out.strudel`) is
+shipped and documented in `doc/ARCHITECTURE.md`. What remains:
 
-### What we measured
-
-- A webview may not use WebMIDI ("Midi has been disabled in this document by
-  permissions policy"). So Strudel's own `.midi()`, `midin()` and `midikeys()` cannot
-  work inside [str]dltn Live[code], on desktop or in Codespaces.
-- A native MIDI module, `@julusian/midi` 3.9.0 (MIT), loads in the runtime the extension
-  host uses (Electron 42 as Node). It ships prebuilt binaries for Windows, macOS and
-  Linux, about 2.2 MB together, so nothing is compiled on install.
-- It lists outputs and inputs. On the maintainer's machine it showed the output
-  "Microsoft GS Wavetable Synth" and the input "Vienna Instruments MIDI". The M-Vave was
-  not in the list at that moment.
-- Sending a message takes 0.05 ms (the first one 41 ms).
-- A timer in that runtime on Windows fires late: 10 ms in the middle, 16 ms at the 95th
-  percentile, 80 ms at worst. A note sent from a plain timer would be audibly off.
-
-### What follows
-
-- Desktop is possible: devices are listed and played from the extension host. The
-  webview gets its own `.midi()` that posts each note with its time to the host.
-- The host must not use a plain timer to send. Spike S5 (2026-11-21) passed the 2 ms bar:
-  a worker thread that sleeps with `Atomics.wait` to 17 ms before a note and spins from
-  there sent to the UMC404HD at most 0.45 ms late in 1000 notes, with high process
-  priority. Numbers and traps in "MIDI" in `doc/ARCHITECTURE.md`. Open: whether we may
-  raise the priority of the whole extension host (without it, outliers of 20 to 80 ms),
-  and the CPU the spin costs on a dense song.
-- Codespaces is not possible this way: the extension host is remote and cannot see a
-  device on the user's machine. No design yet.
-
-### What to build
-
-Built on `feat/midi` (2026-11-21): the bridge, `.midi()`, `midin()`, `midikeys()`,
-`midimaps()`, `defaultmidimap()`, notes off on stop, and `examples/09-midi-out.strudel`
-(ARCHITECTURE "MIDI"). Measured end to end through loopMIDI; not tested by hand with a
-device yet ("Next: test by hand"). Left, in this order:
-
-1. Built 2026-11-22: the MIDI category of the Library, outputs and inputs, kept current.
-   Left: in a Codespace it is empty, and should say that devices need desktop.
-2. The MIDI strips, the "midi" jack and the MIDI cables of the Mixer; MIDI learn on
-   faders, mute and solo (`doc/NEW_FEATURES.md` section 7).
-3. In Codespaces the MIDI category says that devices need desktop. Today `midin()` there
-   fails after 5 s with "MIDI works on desktop VS Code only"; not tried in a Codespace.
-4. The demo with its `midin` lines back in, for the maintainer's MPK mini 3.
-5. Mappings set up in the side bar, so a song needs no setup code: which CC of which
-   controller drives what, and which control of a synth is which CC. Strudel already
-   has the pieces to target (`midimaps`, `defaultmidimap`, `midin`), see below.
-
-### How Strudel uses MIDI
-
-From the upstream documentation (`learn/input-output`) and `@strudel/midi`. This is what
-the bridge has to offer under the same names.
-
-Sending:
-
-| Call | Does |
-|---|---|
-| `.midi(output?, options?)` | Sends the pattern to a device, by name or number. Without a name, the first output |
-| options | `isController` (no notes, only controls), `latencyMs` (default 34, to line MIDI up with the audio), `midichannel` (1 to 16), `midimap`, `midiport` |
-| `.midiport(name)` | Picks the device, and can be a pattern that switches between devices |
-| `.midichan(n)` | Picks the channel. Default 1 |
-| `.ccn(n).ccv(v)` or `.control([n, v])` | Sends a control change. `ccv` is 0 to 1 |
-| `.progNum(n)` | Program change, to switch presets |
-| `.midibend(v)`, `.miditouch(v)` | Pitch bend (-1 to 1) and aftertouch (0 to 1) |
-| `.sysex(id, data)` | System exclusive bytes |
-| `midicmd("clock*48,<start stop>/2")` | MIDI clock and transport |
-
-Mapping names to control changes, so a song says `lpf` and the synth gets CC 74:
-
-| Call | Does |
-|---|---|
-| `defaultmidimap({ lpf: 74 })` | The map used when a pattern names none |
-| `midimaps({ mysynth: { lpf: 74 } })` | Named maps, picked with `.midimap('mysynth')` |
-| `midimaps({ mysynth: { lpf: { ccn: 74, min: 0, max: 20000, exp: 0.5 } } })` | The same with a range and a curve |
-| `midimaps('github:user/repo')` | Loads `midimap.json` from a repository |
-
-Receiving:
-
-| Call | Does |
-|---|---|
-| `const cc = await midin('MPK mini 3')` | Opens a controller. `cc(1)` is a pattern with the last value of CC 1, 0 to 1. `cc(1, 2)` only listens on channel 2 |
-| `cc(7).range(0, 5)` | The usual way to scale a knob |
-| `const kb = await midikeys('KeyStep')` | Opens a keyboard. `kb()` is a pattern of the notes being played, with velocity |
-
-The maintainer's `demo.strudel` was written for an "MPK mini 3" with eight knobs as a
-mixer. Its `midin` lines are commented out and sliders stand in for the knobs. When the
-bridge exists, that file is the first test.
+1. **Codespaces notice in Library:** in a Codespace the MIDI category is empty and should show
+   a clear note that hardware MIDI requires desktop VS Code (or `DAW-7` Browser Page Engine).
+2. **MIDI routing in the Mixer (`DAW-5`):** MIDI device strips, purple MIDI cables, `[ ALL | CHAINS | MIDI ]`
+   view switch, and MIDI learn on mute/solo (`doc/NEW_FEATURES.md` section 7).
+3. **Demo `midin` lines:** optional preset/example with `midin` lines for the maintainer's MPK mini 3.
+4. **Sidebar MIDI mappings:** configure controller CCs and synth maps in the UI without hand-written
+   setup code (`midimaps`, `defaultmidimap`, `midin`).
 
 ## Importing sample packs
 
@@ -286,157 +209,6 @@ gets a new tag `strdltn-<n>` on the fork. Expected, not tested: pnpm takes it as
 and saving replaced by messages to the host. First spike: load AudioMass in a webview,
 open a WAV from the workspace, save one back.
 
-## Firmware Hub
-
-The goal: play the firmwares of The Firmware Hub (thefirmwarehub.com) as instruments in
-a song, in time with the rest of it. A Firmware view in the side bar lists them, and a
-click puts one in the song. This is a cheaper and better route than "Plugins on Strudel
-channels" and "Native VST3 on desktop" below: the firmwares are already wasm, built from
-source, and they run in a browser.
-
-How it works today, and what was measured, is under "Firmware" in `doc/ARCHITECTURE.md`.
-In short: a `.wasm` in the workspace's `firmware/` folder plays as
-`note("c2 eb2").s("vibefm1:<id>")`, through our own AudioWorklet host, with notes on their
-exact frame and the song's tempo and play state passed on. Tested in Chrome, not yet in
-VS Code.
-
-### What we know about the hub
-
-Read from the hub's pages on 2026-11-20. Not tested.
-
-- The hub builds each FM-1 firmware from its own source into a VIBE FM firmware: one
-  `.wasm` and a `firmware.json`, packed in a `.zip` (for example
-  `thefirmwarehub.com/fw/vibe/boom-native-vibe.zip`). Each zip carries its license and
-  source.
-- Licenses: most firmwares are GPL-3.0, some MPL-2.0, M-VAVE's own V15 is Apache-2.0. The
-  SDK is Apache-2.0. The VIBE FM VST and the browser emulator are closed, all rights
-  reserved: we may not copy, embed or host them. [str]dltn Live[code] is AGPL-3.0.
-- The Playground (`play.thefirmwarehub.com/?fw=<id>`) reads its list from
-  `firmware/index.json` on that host. We could not fetch it from our sandbox, so its
-  shape and its CORS headers are unknown. The hub documents no public catalog API.
-
-### Steps left
-
-| # | Step | Done when |
-|---|---|---|
-| 1 | Catalog: done 2026-11-22, see "The hub's catalogs" in `doc/ARCHITECTURE.md`. What we may use waits for decision 13 | |
-| 2 | The hub's catalog in the host: fetched and kept for a day, works offline from the last copy. A firmware picked from it goes through `firmware(url)` and the cache that exists, with a SHA-256 check when the catalog has one | `pnpm test:unit` covers the unpack and the cache paths |
-| 3 | Check the transport with a firmware that has its own sequencer (SLOOP) | It follows play, stop and `setcps` |
-| 4 | `.vp()` for parameters by their id, through `VIBE_EV_PARAM`. `VibeCore` already reads the list and has the event | A slider moves a firmware parameter |
-| 5 | Replaced by "Firmware Marketplace" below. Was: the Firmware view: groups "In this project" and the hub's list by device; name, version, author, license; a click types `s("vibefm1:<id>")` and starts the download; buttons for the hub page, the cheat sheet, the parameters and a test note; a filter box; "Add firmware..." for a `.zip` or `.wasm` from disk | The hand test of the view passes |
-| 7 | `.midi("vibefm1:...")`, once the webview's own `.midi()` from "MIDI" exists: names that start with `vibefm1:` go to the firmware, CCs and `midimaps` work too | Code written for an FM-1 over MIDI plays the firmware |
-| 8 | Store: `vibe_host_store` writes go to `.strdltn/firmware-store/<id>/` through the host, and come back on load | Save a sound in a firmware, reload, it is there |
-| 9 | A snippet in `lib/` for a firmware part | |
-| 10 | README and `doc/ABOUT.md`, once the view exists | |
-| 11 | Later: the 480 x 320 display in the stage, from `vibe_wasm_draw` at 30 fps | |
-
-### Firmware Marketplace
-
-The plan for the next branch, asked by the maintainer on 2026-11-22: a place to find the
-hub's firmwares, download them, have them by name and add them to the code. It takes the
-place of step 5 above (the Firmware view) and grows steps 2 and 9.
-
-Built (2026-11-24): Plugins > FM-1 Synths in the Library, with two groups. **Installed** is
-the firmwares in `firmware/` folders of the project and in the cache. **Available** is the
-Playground's `index.json` (the maintainer chose it on 2026-11-24, as the hub's own
-catalog.json has no VIBE FM builds), read at most once a day. Each row shows a picture of the
-firmware's screen. A double click on Available installs it into `firmware/<id>/` with a
-`firmware.json`; Insert types `$: note("c2 eb2 g2 bb2").s("vibefm1:<id>")`, and the song's
-`firmware('<url>')` line for a cached one. How it works: ARCHITECTURE, "FM-1 Synths".
-
-Left:
-
-- No SHA-256 check: `index.json` has none.
-- Not decided: whether the snippet should carry `.progNum()`. We left it out, because a
-  program number means something else in each firmware and a program change reloads a sound.
-- An Available firmware's copy in global storage is never deleted, also after an update of
-  the hub. A "clear" command, as for the sample packs, would do it.
-- More kinds of plugins under Plugins (the maintainer, 2026-11-24): none designed yet.
-
-Native VIBE firmwares (6 on 2026-11-22, `thefirmwarehub.com/fw/natives.json`) publish
-their `.wasm`, a `.zip`, sometimes `SHA256SUMS` and a screenshot on their own GitHub
-releases. That would follow the hub's rule "download from the makers' releases", but covers
-only those 6, not the 35 converted ones, which exist only on the Playground.
-
-### Effects on a firmware
-
-A hap's effects need the sound to pass through the hap's own chain. A firmware is one
-stream, so today it skips that chain. One way to try: per hap, return a gain node fed
-from the firmware's output and gated by the hap's duration, the way superdough's own
-`bus` sound works. Then `room`, `lpf`, `pan` apply. The cost: two overlapping haps on
-the same firmware pass its whole output twice, so a chord is three times as loud. Maybe
-right for monophonic lines only. Decision 14.
-
-### Risks and open questions
-
-- Firmwares built with two flows (`VIBE_PARALLEL_AUDIO`) or worker jobs (`VIBE_JOBS`,
-  shared memory, `--enable-multi-thread`) may expect a host that calls draw and jobs on
-  other threads. OBERVAVE plays without either. To check with a firmware that uses jobs.
-- A firmware that traps stops for good and logs "firmware ... stopped". It starts again
-  only with a reload of the webview.
-- Some firmwares make sound on their own (a sequencer that plays from start). A stopped
-  song sends "play off", but a firmware may ignore it.
-- A firmware is GPL-3.0: we download it at run time and never ship it inside the `.vsix`.
-  The examples in `template/` load it from GitHub, they do not contain it.
-- Named patches, `vibefm1:shrub:lead` was asked for. Strudel reads a second colon as gain
-  (`bd:3:0.5`, checked: `vibefm1:shrub:lead_saw` gives `gain: "lead_saw"`). `.progNum()`
-  works today. A name needs each firmware's list of program names, which the wasm does
-  not give a host. A firmware could put it in `firmware.json`; ask on the SDK issues.
-
-### SHRUB
-
-SHRUB is Xfer's wavetable synth for the FM-1 (`shrub.audio`, closed-source, "All rights
-reserved"). All three runtime paths are now integrated in `Plugins > FM-1 Synths` (never
-bundled in the `.vsix`; downloaded on demand from `shrub.audio` by the user):
-
-1. **`SHRUB (WASM)` (`s("vibefm1:shrub-wasm")`):** natively compiled WebAssembly build from
-   `https://shrub.audio/sim/shrub_sim.wasm` (731 KB, ~0.013 ms/block = ~0.4% CPU, live 240x240
-   RGB565 screen upscaled into Devices & Screen popup, Master/Cutoff/Macro sliders), auto-detected
-   inside `VibeCore` (`src/webview/vibe/core.ts`).
-2. **`SHRUB` (`.fwsc` + `Run Native`):** direct download from `https://shrub.audio/editor/firmware/SHRUB.fwsc`
-   for native `fm1-live` 240 MHz JIT or experimental hardware flashing (`strdltn.experimental.fm1Flash`).
-   Note: emulating `SHRUB.fwsc` in WebAssembly (`fm1-emu`) ran at 0.76x real-time and trips the
-   real-time overload guard cleanly; use `SHRUB (WASM)` or `Run Native` instead.
-3. **`SHRUB (FM-1 Hardware MIDI)`:** plays a physical FM-1 over desktop MIDI with CC 74 cutoff
-   and CC 16-19 macros, plus `Editor...` opening `https://shrub.audio/editor/` externally.
-   (The old experimental `strdltn.experimental.shrubEditor` iframe panel was removed on 2026-11-26.)
-
-### Coverage of the hub's firmwares
-
-Asked by the maintainer on 2026-11-21, for later: for every firmware of the hub, know how it
-can play here, and test it. Started, then put aside for fm1-emu. What we know, read on
-2026-11-21:
-
-- `thefirmwarehub.com/catalog.json`: 281 FM-1 firmwares, each with `source` (all on GitHub),
-  `lic` (233 GPL-3.0, 36 MPL-2.0, 6 MIT), the `.fwsc` package (`pkg`, `sha256`) and the
-  author's own emulator page (`play`). Also SMK-37 firmwares and M-VAVE's stock package.
-- `play.thefirmwarehub.com/firmware/index.json`: the 43 VIBE FM builds the Playground plays.
-  35 of them are hub firmwares; 8 exist only for VIBE FM (VALVE, BOOM, HALO, PLAYER, VOX,
-  DOOM, Performance Garden, KRACHT). `thefirmwarehub.com/fw/natives.json` lists the native
-  ones with their repos. `index.json` sends no CORS header, `natives.json` does since
-  2026-11-22 (see "The hub's catalogs" in ARCHITECTURE).
-- A VIBE FM build is either converted (the hub's `thefirmwarehub.com/convert` compiles the
-  unchanged source against an imitated FM-1, 8 ms buffer) or native (the author ports to the
-  SDK, 4 ms). Both need source. See the SDK's `FROM-FM1.md`.
-- A scan of the 281 repos through the GitHub API: 260 in C, 5 Rust, 31 forks, none
-  archived; 42 have VIBE FM files, 58 a `.wasm` in the tree, 6 no license file.
-
-The plan when it comes back: a script that joins the two catalogs and, per firmware, says
-which way plays it (VIBE FM build, convertible from source, fm1-emu only), and a test that
-loads each VIBE FM build in `VibeCore` in Node, plays a note and checks for sound and no
-trap. Coverage of the wasm builds cannot be ensured by us: it depends on the authors and
-the hub's converter. Only an emulator of the chip covers every `.fwsc`.
-
-### Two ways to play a firmware
-
-The maintainer decided on 2026-11-21: `vibefm1` stays. A firmware with a VIBE FM build (wasm
-compiled from its source) plays there: light, and on time. An emulator like fm1-emu would be a
-second way, only for firmwares that exist only as a `.fwsc` (SHRUB, M-VAVE's own), because
-emulating the chip costs CPU and may add latency. Its worklet runs up to 1024 frames ahead of
-the audio (`AHEAD_FRAMES` in its `web/worklet.js`), about 21 ms at 48 kHz, and its plugin
-reports a delay to the DAW for that reason; expected from the code, not measured here.
-
-
 ## Sound card
 
 Spike S6 ran on 2026-11-22 (ARCHITECTURE "Measured"): VS Code refuses the microphone to a
@@ -458,93 +230,6 @@ Seen by the maintainer the same day: with SHRUB on it, the FM-1 is not listed as
 card; with the stock firmware it is, and works. So SHRUB's firmware seems to leave out the
 USB audio. For later: a spike with another firmware on the FM-1 (stock, or one of the
 hub's), and asking Xfer again (decision 15) whether SHRUB can keep the FM-1's USB audio.
-
-## Sliders on knobs
-
-The maintainer asked (2026-11-22) that every slider work with MIDI too: a slider on screen
-that a knob of a controller also moves, by a CC the user maps by clicking the slider's
-number. The point is to play with physical knobs. In their words, an overlay of
-`slider()` that we put in the code as a snippet and that takes both the CC and the
-slider, if possible. Not designed, not tried. What upstream allows (read in
-`@strudel/transpiler` and `@strudel/codemirror` 1.3.0):
-
-- Only a call named exactly `slider` becomes the widget. The transpiler rewrites it to
-  `sliderWithID(id, value, min, max)`, the id being the offset of its first argument;
-  the widget reads value, min, max and step (the 4th argument). More arguments are
-  ignored.
-- The live value is `sliderValues[id]`, which a `cm-slider` message to the window
-  sets, as a drag does. So a CC can move a slider without any change upstream.
-
-The way the maintainer chose (2026-11-22): the song defines the function itself, from a
-snippet we insert at the top the first time a knob is used, so the song stays standard
-Strudel and runs on strudel.cc too:
-
-```
-const knobs = await midin('MPK mini 3')
-register('knob', (ccn, pat) => ...)   // the slider or CC ccn, whichever moved last
-$bass: note("c2*8").lpf(slider(800, 200, 4000).knob(74))
-```
-
-- The `slider(...)` call stays where it is used: only a call written `slider` gets the
-  widget, and its id is the offset of its first argument, so a `knob()` that called
-  `slider()` inside would give every knob the same one. Hence a method on the slider,
-  made with `register` (as the demo's `acid`).
-- On strudel.cc the knob changes the sound; the widget and the number do not follow.
-- In [str]dltn more follows: our `sliderWithID` marks the pattern with its id, a CC
-  posts `cm-slider` for that id (the widget moves) and writes the number in the code as
-  the Mixer's fader does. A click on the number starts MIDI learn: the next CC that moves
-  is written into `.knob(...)`.
-
-Answered by the maintainer on 2026-11-22:
-
-- Pickup, not last-moved-wins: a knob takes over only once it passes the slider's value,
-  so touching a knob that sits elsewhere does not make the sound jump.
-- No device name in the snippet: it listens to every MIDI input, so the song runs on a
-  machine with another controller, and plays without knobs on one with none. Our
-  `midin()` takes the first input when no name is given and throws when there is no
-  input at all (`openInput()` in `src/webview/midi.ts`), so the snippet cannot be a plain
-  `midin()`. Upstream's `midin()` without a name: not read yet.
-- A knob writes the number in the code as the Mixer's fader does, at most every 150 ms.
-- The snippet goes in once, at the top, the first time a knob is used.
-
-Built on `feat/knobs`, waiting for the hand test (ARCHITECTURE "Sliders on knobs"). One
-change from the design above: on strudel.cc the knob does nothing, it does not change
-the sound. The snippet cannot use `midin()` (see above), and a knob there would not know
-the slider's range.
-
-## Line actions
-
-Asked by the maintainer on 2026-11-22, high priority after `feat/knobs`. A column of
-buttons left of the line numbers, one per line that has an action, an empty gap on the
-others so everything stays aligned. The first action is a knob button on every line with
-a `slider(...)`: a click captures the next knob, as Ctrl+Alt+K does now. More actions
-will come in the same column. It must work in both the Strudel editor and the native
-editor. Lines are not contiguous on screen: inline scopes and other widgets sit between
-them, and the button belongs beside its line number, not beside the widget.
-
-- Strudel editor: a CodeMirror `gutter()` of our own, added with `Prec.highest` so it
-  comes before upstream's line numbers, with a `lineMarker` per line that holds a slider
-  and `domEventHandlers` for the click. CodeMirror lays a gutter out per line block, so a
-  block widget between two lines leaves a gap in the gutter, as the picture of the
-  maintainer wants. Expected, not tried.
-- Native editor: VS Code's glyph margin is left of the line numbers, and a decoration
-  with `gutterIconPath` draws an icon there. The API gives no click on it. Spike first:
-  does a click in the glyph margin move the cursor or the selection
-  (`onDidChangeTextEditorSelection` with `kind == Mouse`), so the click can be told from
-  it? Fallbacks, in order: the line number context menu (`editor/lineNumber/context`, a
-  right click), then a CodeLens above the line. Neither is a button in the gutter.
-- The icon: a small knob drawn by us, in the theme's colors. A knob already mapped shows
-  its CC.
-- The Mixer too (the maintainer, 2026-11-22): the same knob button on every fader of every
-  strip. A click captures the next knob for the slider behind that fader. The fader knows
-  where its slider's number starts (`MixerSlider.from`), so the host asks the page for
-  MIDI learn at that place, and `knobEdits` puts `.knob(cc)` on the slider call itself,
-  wherever it is written: inline in the chain, or in `const KICK_VOL = slider(...)` when the
-  chain uses a constant. A fader already mapped shows its CC. Must work with the song in
-  the native editor too, so learn has to work on the stage, not only in the Strudel
-  editor.
-- Same rules as now: `sliderAt` for the slider of the line (the first one when a line has
-  two; open: a button per slider then?), `knobEdits` for the edit.
 
 ## Line actions: melody and drums
 
@@ -689,7 +374,7 @@ planned yet.
 - A snippet is a whole file. Several snippets in one file are not possible.
 - Inline completion of Copilot does not read the instruction files. Only Chat and agents
   do.
-- The Songs of the Browser have no button to play a song and none to create one.
+- The Songs of the Browser have no button to create/rename/delete a song (`#5`).
 - The Browser is a webview: a screen reader gets no list roles from it yet, and its
   keyboard handling is our own (arrows, Enter, Space, 1 to 7). Not tested with a reader.
 - The tags of samples come from their names. 20 of the 1649 sounds on the maintainer's
@@ -726,7 +411,7 @@ column says, then delete the spike. None of these is started unless it says so.
 | # | Question | How | Record | Write the answer in |
 |---|---|---|---|---|
 | S1 | How fast does a small model run in the webview on the maintainer's machine, on the GPU and on the CPU? | Load one model with transformers.js in the webview through `pnpm test:vscode`. Run it once with WebGPU and once with WebAssembly. Start with Gemma 3 270M, then 1B, then a code model (CodeGemma 2B or Qwen2.5-Coder 1.5B) | Tokens per second, time to the first token, memory, size of the download, and whether our Content Security Policy needs a new rule | "Measured" in `doc/ARCHITECTURE.md`, and "Which model" below |
-| S2 | Can the weights be served from `tmp/strdltn-models/` through `asWebviewUri`, or does the runtime insist on its own download? | Same spike as S1, with the files fetched by the extension host first | Works or not, and what had to be configured | "Local model" below |
+| S2 | Can the weights be served from `.strdltn/tmp/models/` through `asWebviewUri`, or does the runtime insist on its own download? | Same spike as S1, with the files fetched by the extension host first | Works or not, and what had to be configured | "Local model" below |
 | S3 | Does a completion extension with a local server complete `.strudel` files? | Install llama.cpp (or Ollama) on the host and `llama.vscode` (or Continue) in the test profile. Type in a `.strudel` file in the native editor | Whether it offers anything, whether it needs `.strudel` mapped to JavaScript, tokens per second on the CPU | "Completion from another extension" below |
 | S4 | Do local reference files change what stock completion offers? | With Copilot on, type the start of a rare function in a `.strudel` file, first without and then with a reference file open in another tab, then with it only on disk | What was offered in each of the three cases | "Strudel's documentation as local examples" below |
 | S7 | Does the pack cache work in Codespaces? | Open `examples/05-coastline.strudel` in a Codespace | Whether the files arrive in `.strdltn/cache/` and play from there | "Measured" in `doc/ARCHITECTURE.md` |
@@ -763,7 +448,7 @@ network, and that also works when the project is opened in a container.
 Said on 2026-11-20. These are settled, do not ask again.
 
 - The plan below is wanted. It moved from "noted for later" to planned.
-- Model files are cached under `tmp/` of the workspace, which git ignores.
+- Model files are cached under `.strdltn/tmp/models/` of the workspace (unified under `.strdltn/` on 2026-11-26), which git ignores.
 - The size of the model is whatever the maintainer's machine runs well. That machine is
   an Intel Core Ultra 7 258V (8 cores) with an Intel Arc 140V built-in GPU and 31.5 GB
   of memory. The GPU has no memory of its own, it shares the system's.
@@ -814,7 +499,7 @@ time to first token, and the memory used. Proposed bar: completion needs 20 toke
 second or more to feel like typing. Expected, not measured: 1B to 2B models pass on this
 GPU, 4B is usable for chat, and on the CPU only the smallest ones pass.
 
-The weights are downloaded once by the extension host into `tmp/strdltn-models/` and
+The weights are downloaded once by the extension host into `.strdltn/tmp/models/` and
 given to the webview through `asWebviewUri`, the way the pack cache works. That keeps
 them out of the browser's own storage, which a webview does not keep reliably.
 
@@ -885,7 +570,7 @@ Possible, with these pieces. None of it is tested.
 | Piece | Today | Needed |
 |---|---|---|
 | The extension | Installed from a `.vsix` | Nothing |
-| Our own model | Not built | Weights in `tmp/strdltn-models/`, fetched once |
+| Our own model | Not built | Weights in `.strdltn/tmp/models/`, fetched once |
 | The model server for another extension | Not set up | llama.cpp or Ollama on the host, reached from the container as `host.docker.internal`, or a second container with the weights in a volume |
 | The completion extension itself | Installed from the Marketplace | Installed once while online, or its `.vsix` kept in the image |
 | Default sounds | Maps from the network at every start, audio on first play | Kept in the cache like remote packs |
@@ -904,9 +589,7 @@ outside the container, on the real GPU. Docker is installed here. Ollama is not.
   the user.
 - How to tell a good completion from a bad one. A small set of Strudel lines with the
   end cut off, scored by whether the result evaluates.
-- The pack cache is in `.strdltn/cache/` and the models go to `tmp/`. One place would
-  be simpler. See decision 5.
-- Whether the weights in `tmp/` are shared between projects or downloaded for each one.
+- Whether the weights in `.strdltn/tmp/models/` are shared between projects or downloaded for each one.
 
 ### Order of work
 
@@ -941,11 +624,6 @@ banks. A photo by somebody else needs a license that allows it, so the plan is o
 drawings (SVG), one per device. Open: who draws them, how true to the device they must
 be, and whether a drawing of a commercial product needs anything from its maker. A first
 step is five or six of the best known machines, to see the size and the style.
-
-**Help and tutorials inside VS Code.** A structured manual beside the code: every
-function with its parameters and examples, and the Strudel tutorial. The text exists now
-in `template/reference/`, made for AI assistants. What is left is a view that shows it,
-with each example as a snippet that can be played.
 
 **Plugins on Strudel channels.** Load an audio plugin with something like
 `.vst("name")` and insert it on that pattern's orbit. In the Strudel editor the call

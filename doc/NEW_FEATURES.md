@@ -21,7 +21,7 @@ native `<input type="range">`, monochrome mixer strips, bare `#unlock` overlay).
 into a tactile instrument without adding a UI framework or breaking VS Code light/dark/high-contrast
 theme harmony.
 
-### Track Colors (`// @color <name>` - Decision 24 answered)
+### Track Colors (`// @color <name>`)
 
 Each chain gets a color kept in the song as a normalized comment on the line directly above
 the chain (other comment lines may sit between them; an empty line breaks the link):
@@ -33,9 +33,9 @@ $kick: s("bd*4").gain(KICK_VOL)
 
 - Value is a curated Ableton-inspired 12-16 palette name (lowercase) or `#rrggbb`, fixed across
   themes so Mixer, editor gutter, Devices, and later Session/Arrangement match.
-- **Auto-assign (Decision 24):** A chain without `// @color` gets the next unused palette color
-  written above it via the same versioned edit as faders. Picking a color from a strip header
-  color swatch updates or removes that single comment line in one undo step.
+- **Auto-assign:** A chain without `// @color` gets the next unused palette color written
+  above it via the same versioned edit as faders. Picking a color from a strip header color
+  swatch updates or removes that single comment line in one undo step.
 - Parsed by `readChains()` into `MixerChain.color` so every view shares one source of truth.
 - **Where it shows:**
   - **Mixer:** 3px top accent bar on each strip header, subtle tinted hover/selected glow,
@@ -97,7 +97,18 @@ $kick: s("bd*4").gain(KICK_VOL)
 
 ---
 
-## 3. Browser Upgrades: Waveforms, Hot-Swap, Full-Screen Synths Gallery, Songs as Files & Tutorial (`UX-3`, `UX-4`, `UX-10`, `#5`, `#6d`)
+## 3. Browser Upgrades: Two-Column Results, Waveforms, Hot-Swap, Synths Gallery, Bank Insertion, `.strdltn/tmp/`, Songs as Files & Tutorial (`UX-3`, `UX-4`, `UX-10`, `UX-11`, `#3b`, `#5`, `#5b`, `#6d`)
+
+### Two-Column Browser Layout: Results to the Right (`UX-11` - maintainer 2026-11-26)
+
+- **Side-by-side Ableton-style columns (`src/browser/main.ts`, `browser.css`):** Move the
+  **Results / Contents** pane out of the stacked vertical accordion and place it **to the
+  right of Library as a second column** (with a draggable vertical splitter between Library
+  on the left and Results + Details on the right, keeping Controls pinned across the top and
+  Reference collapsible).
+- **Responsive fallback:** When the sidebar is narrowed below a comfortable threshold,
+  gracefully collapse back to stacked/toggle layout (or let the user widen the sidebar) so
+  Results always have room to breathe without vertical cramping.
 
 ### Waveform Sparklines, Trim Handles & Breadcrumbs (`UX-3`)
 
@@ -126,6 +137,21 @@ $kick: s("bd*4").gain(KICK_VOL)
   `Repo/...` / tag filter chips, single-click audio preview, **Install** / **Download all**,
   **Insert** into the active song, and **Screen** / **Editor** actions.
 
+### Bank Name + Short Name Separation (`#3b` - maintainer 2026-11-26)
+
+- Change Browser insert and drag-to-insert for banked drum/sample sounds so they emit the
+  short name plus `.bank("...")` separately (for example `s("bd").bank("RolandTR909")`)
+  instead of concatenated `s("RolandTR909_bd")`, matching idiomatic Strudel style and making
+  `.bank()` swaps effortless. Inside an existing `s("...")` string, insert the short name
+  (`bd`) and add/update `.bank("...")` when needed.
+
+### Unify Workspace Temp & Cache Folders under `.strdltn/` (`#5b` - maintainer 2026-11-26)
+
+- Keep remote sample/firmware caches in `.strdltn/cache/` and migrate all other workspace
+  temporary artifacts (scratch files, local model weights, temporary test/export outputs)
+  from root `tmp/` into `.strdltn/tmp/` (with `.strdltn/.gitignore` ignoring `*`) so user
+  workspaces never collide with a project's own `tmp/` folder.
+
 ### Songs as Files & Custom Places (`#5`)
 
 Make the Browser's Songs category work like the Explorer for `.strudel` files:
@@ -140,11 +166,11 @@ Make the Browser's Songs category work like the Explorer for `.strudel` files:
 - Open questions: Reveal in Explorer vs OS File Explorer vs both; empty header vs starter beat
   in new track; whether `lib/` snippets share the same create/rename/remove menu.
 
-### Interactive Minigame Reference Tutorial (`#6d` - Decision 23 answered + maintainer 2026-11-26)
+### Interactive Minigame Reference Tutorial (`#6d` - maintainer 2026-11-26)
 
 Upgrade the Reference Tutorial from static Markdown into an **interactive Strudel coding
-minigame** - a playable, sound-driven live-coding coach that runs alongside a `.strudel`
-file:
+minigame - like `rustlings` for Rust, but live and sound-driven for Strudel** - running
+alongside a `.strudel` file:
 
 - **Lesson & level source (`dist/tutorial.json`):** Extend `scripts/build-tutorial.mjs`
   (which already fetches Strudel's AGPL MDX workshop and learn docs at the pinned commit) and
@@ -215,7 +241,11 @@ first install, plus command `strdltn: Open Welcome Screen` to re-open anytime.
 
 ---
 
-## 5. Devices Rotary Knob Grid, Param Search & `.vp()` / Firmware Store (`UX-6`)
+## 5. Devices Rotary Knob Grid, Param Search & Remaining Firmware Runtime (`UX-6`)
+
+Firmware Hub discovery, install, batch download, VIBE `.wasm`, `SHRUB (WASM)`, `.fwsc`
+(`fm1-emu` and native `fm1-live`), Hardware MIDI profiles, and Devices live screens/soft keys
+are **already shipped** (see `doc/ARCHITECTURE.md`). Only these enhancements remain unbuilt:
 
 - **SVG rotary arc knobs (`src/devices/main.ts`, `devices.css`):** Replace stacked raw
   `<input type="range">` bars with a compact grid of SVG rotary knobs (vertical drag,
@@ -225,11 +255,19 @@ first install, plus command `strdltn: Open Welcome Screen` to re-open anytime.
   (`OSC`, `FLT`, `ENV`, `FX`) for large synths like OBERVAVE (236 parameters).
 - **Display bezel & soft keys:** Subtle hardware bezel around the 480x320 `<canvas>`, tactile
   F1-F6 alignment, and subtle active-LED glow on note hits.
-- **`.vp()` & persistent store:** Wire `.vp(id, val)` through `VIBE_EV_PARAM` so sliders in code
-  automate firmware parameters; persist `vibe_host_store` writes in
-  `.strdltn/firmware-store/<id>/` (also `.midi("vibefm1:...")` routing if desired).
-- Open decision (10): turning a knob in Devices changes sound only + "Copy as code" (recommended)
-  vs writing `.vp()` directly into code.
+- **Per-firmware continuous stream FX bus (same pattern as `djf`, Decision 14):** Insert one
+  persistent Web Audio FX chain per firmware instance (`id@orbit`) right before
+  `orbit.summingNode` (`worklet -> hpf -> lpf -> pan -> gain -> orbit.summingNode`, plus
+  persistent `roomSend -> orbit.getReverb()` and `delaySend -> orbit.getDelay()` taps),
+  scheduling `setValueAtTime` from each hap in `trigger()` (and in offline render). Works for
+  both `vibefm1` and `fm1` with zero stream duplication / chord-doubling.
+- **`.vp()` automation, persistent store & `.midi("vibefm1:...")`:** Wire `.vp(id, val)`
+  through `VIBE_EV_PARAM` so sliders in code automate firmware parameters; persist
+  `vibe_host_store` writes in `.strdltn/firmware-store/<id>/`; route `.midi("vibefm1:...")`
+  (CCs + `midimaps`) to running VIBE firmwares; add a "Clear firmware cache" command for
+  global storage; and verify transport sync on a self-sequencing firmware (SLOOP).
+- Open decision (19 in `doc/TODO.md`): turning a knob in Devices changes sound only + "Copy as
+  code" (recommended) vs writing `.vp()` directly into code.
 
 ---
 
@@ -331,8 +369,8 @@ Adds a fourth Mixer view `[ ALL | CHAINS | MIDI | DECKS ]` for live DJing betwee
   and Codespaces.
 - **Messages:** `clock {cps, cycle, wallTime}`, `deck {gain, xfade, eq, filter}`,
   `tempo {cps, keep}`, `nudge {factor, ms}`, `startAt {wallTime}`.
-- **Open decisions:** Decision 16 (start deck settings at neutral vs remember in
-  `strdltn.index.json`); Decision 17 (isolator kill EQ vs shelving EQ).
+- **Open decisions (in `doc/TODO.md`):** Decision 20 (start deck settings at neutral vs
+  remember in `strdltn.index.json`); Decision 21 (isolator kill EQ vs shelving EQ).
 
 ---
 
@@ -347,8 +385,8 @@ Adds a fourth Mixer view `[ ALL | CHAINS | MIDI | DECKS ]` for live DJing betwee
 - Saved beside the song as `<song>.arrangement.json` (plain git-friendly file; song `.strudel`
   stays pure Strudel). Supports count-in, punch-in over a bar range, and cycle-accurate playback
   (evaluating code ahead by measured lead time, Spikes A1-A2).
-- Open decision (19): optional "record untried typing" for code-writing video replay (off by
-  default).
+- Open decision (22 in `doc/TODO.md`): optional "record untried typing" for code-writing video
+  replay (off by default).
 
 ### Arrangement View & Live Session Clip Matrix (`DAW-10` - Phase 10)
 
@@ -356,7 +394,7 @@ Adds a fourth Mixer view `[ ALL | CHAINS | MIDI | DECKS ]` for live DJing betwee
   evaluation marks, one lane per chain (showing active bars; deleting a range inserts a
   mute/unmute pair), foldable slider automation curve lanes (drag points, pencil draw, snap to
   step), deck lanes, range copy/paste, and **Export to plain Strudel** via `arrange([bars, part])`
-  and value patterns (Spike A3, Decision 18).
+  and value patterns (Spike A3).
 - **Live Session Clip Matrix:** Compact Ableton Session View grid where columns are `$chain:`
   tracks and rows are scenes/sections auto-detected from `arrange()` / `pick()` / `mask()` (or
   recorded snapshots), with quantized next-bar launch countdown.
@@ -408,11 +446,11 @@ undoable Strudel mini-notation back into the song (Spikes Q1-Q2).
   dedicated Web Worker (matching `m4l-gugelhupf`).
 - Editors and Stage become lightweight views receiving highlight/draw events through the host.
 - **Unlocks:** sound continues seamlessly across Strudel <-> native editor switches, one audio
-  unlock per VS Code window, exact shared clock across decks, and Stage dock/float (Decision 22).
+  unlock per VS Code window, exact shared clock across decks, and Stage dock/float.
 - **Gated by spikes:** E1 (hidden webview audio/timers), E2 (remote highlighting/drawing in
   editor), E4 (worker evaluation + superdough timing), E5 (long-lived `AudioContext` stability).
 
-### Engine as a Browser Page (`DAW-7` - Phase 7, Decision 7)
+### Engine as a Browser Page (`DAW-7` - Phase 7)
 
 - Serve the engine bundle + workspace files from a small host server and connect editor, Browser,
   and Mixer over WebSocket.
@@ -427,8 +465,8 @@ undoable Strudel mini-notation back into the song (Spikes Q1-Q2).
 | Wave | Scope | Effort | Spikes / Dependencies |
 |---|---|---|---|
 | **Wave 1** | `UX-1`: Track Colors (`// @color`) + Visual Polish Pass (Mixer, Editor, Stage) | 1-2 sessions | None |
-| **Wave 2** | `UX-2` Transport HUD & Limiter + `UX-3` Waveforms/Breadcrumbs + `UX-4` Hot-Swap | 1-2 sessions | None |
-| **Wave 3** | `UX-5` Colorful First-Install Welcome Screen + `UX-6` Devices Rotary Knobs & Param Search | 1-2 sessions | Optional W1-W4 if adding video clips |
+| **Wave 2** | `UX-2` Transport HUD & Limiter + `UX-11` Two-Column Browser (Results on Right) + `UX-3` Waveforms/Breadcrumbs + `UX-4` Hot-Swap + `#3b` Bank/Short-Name Insert + `#5b` `.strdltn/tmp/` Migration | 1-2 sessions | None |
+| **Wave 3** | `UX-5` Welcome Screen + `UX-10` Full-Screen Synths Gallery + `UX-6` Devices Rotary Knobs & Firmware Stream FX Bus + `#6d` Interactive Minigame Tutorial | 2-3 sessions | Optional W1-W4 if adding video clips |
 | **Wave 4** | `UX-7` Per-Chain Effect Rack (`src/shared/rack.ts`) + `UX-8` Visual Filter Curve & Live FFT | 3-4 sessions | Existing `chains.ts` & `meterOrbits()` |
 | **Wave 5** | `DAW-5` Mixer MIDI strips/cables + `DAW-8` DJ Two-Deck Suite & Split-Mono Cue | 3-4 sessions | Spikes J1, J2, J4 |
 | **Wave 6** | `DAW-9/10` Recording, Arrangement & Session Matrix + `DAW-11` Sequencing/Slicer/LFO + `UX-9` Macros | 4-6 sessions | Spikes A1-A3, Q1-Q2 |

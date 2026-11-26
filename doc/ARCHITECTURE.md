@@ -68,10 +68,12 @@ extension host (Node, may be remote)          webview (browser)
 | `src/shared/diagnostic.ts` | The rules that find the place of an evaluation error in the code. `diagnostic.test.ts` holds the cases. |
 | `src/shared/protocol.ts` | Message types and `diffText`, used by both sides. |
 | `src/webview/main.ts` | Creates `StrudelMirror`, syncs text, handles play and stop, fills the stage dock. |
-| `src/extension/firmware.ts` | Lists the VIBE FM firmwares in the `firmware/` folder, and caches the ones songs load from an address. See "Firmware" |
-| `src/extension/shrub.ts` | Experimental mockup, behind `strdltn.experimental.shrubEditor`: SHRUB's web editor in a tab. See "SHRUB editor panel" |
-| `src/shared/firmware.ts` | Finds the addresses of `firmware(...)` in a song. `firmware.test.ts` holds the cases |
-| `src/webview/vibe/core.ts` | Hosts one firmware `.wasm` and renders its sound. No Web Audio in it, so the tests run it. `core.test.ts` holds the cases |
+| `src/extension/firmware.ts` | Lists workspace firmwares (`firmware/`), installs `.wasm`/`.fwsc` packages, and caches URL-loaded firmwares. See "Firmware" |
+| `src/extension/nativeFm1.ts` | Manages native `fm1-live` JIT binary download/bundling and child-process execution for `.fwsc` firmwares |
+| `src/extension/fm1Flasher.ts`, `fm1-flash-worker.ts` | Experimental USB-MIDI SysEx firmware flasher for M-VAVE FM-1 hardware (`strdltn.experimental.fm1Flash`, off by default) |
+| `src/shared/lineActions.ts` | Shared `M` / `S` / `C` line-control model aligned across both the Strudel editor gutter and the native VS Code editor |
+| `src/shared/firmware.ts` | Finds `firmware(...)` addresses, defines `DEFAULT_FIRMWARE_REPOS` (including `SHRUB (WASM)` and `SHRUB.fwsc`), and hardware MIDI profiles. `firmware.test.ts` holds the cases |
+| `src/webview/vibe/core.ts` | Hosts one VIBE `.wasm` or auto-detected `ss_*` native WASM (e.g. `SHRUB (WASM)`) and renders audio + LCD frames. `core.test.ts` holds the cases |
 | `src/webview/vibe/worklet.ts` | The AudioWorklet processor around `core.ts`. Built as `dist/vibe-worklet.js` |
 | `src/webview/vibe/index.ts` | Registers the instrument `vibefm1`, picks the firmware of each hap, sends it notes, clock and transport |
 | `src/webview/fm1/worklet.ts` | AudioWorklet processor for real FM-1 `.fwsc` packages on `fm1_web.wasm` (`fm1-emu`). Built as `dist/fm1-worklet.js` |
@@ -1105,10 +1107,10 @@ others under Available. `FirmwareMarket` (`src/extension/market.ts`) keeps the i
 
 | Part | What |
 |---|---|
-| `HubCatalog` | Reads both `index.json` of the Playground (VIBE `.wasm` builds) and `thefirmwarehub.com/catalog.json` (real FM-1 `.fwsc` packages), at most once a day with User-Agent `strdltn/<version> (VS Code extension; +https://github.com/alienmind/strdltn)`, kept in global storage (`firmware/hub-index.json` and `firmware/hub-catalog.json`) for offline use. `mergeHubFirmwares` joins them so lightweight VIBE `.wasm` wins when both exist and `.fwsc` fills in the rest |
-| `FirmwarePreviews` | A PNG of each VIBE `.wasm` firmware's screen. A worker thread (`dist/preview-worker.cjs`) runs the firmware 1.5 s without sound, draws every 37 blocks and keeps the last frame that is not one flat colour; ended after 20 s. `.fwsc` entries skip VIBE screenshot rendering. Also downloads and caches `fm1_web.wasm` (`FM1_EMU_WASM_URL`, MIT, `fm1-emu`) on demand into `firmware/files/` so it is never bundled in the `.vsix` |
-| Install | A double click or Enter on an Available row, the install button, or Install in the screen popup: `FirmwareLibrary.install` writes `<firmware folder>/<id>/<id>.wasm` (or `<id>.fwsc`, verifying SHA-256 when `catalog.json` provides one) and a `firmware.json` with the hub's fields at the root of the first workspace folder. A song finds it there and plays `.wasm` as `vibefm1:<id>` or `.fwsc` as `fm1:<id>` with no `firmware()` line. `template/firmware/` is in `.gitignore` |
-| Hardware MIDI profiles | `HARDWARE_FM1_PROFILES` (`src/shared/firmware.ts`) lists real FM-1 hardware firmwares played over desktop MIDI: SHRUB (Xfer Records, cutoff CC 74 + macros CC 16-19, `shrub.audio/editor/`) and M-VAVE FM-1 Stock (cutoff CC 2). Inserting or dropping auto-detects a connected FM-1 MIDI output port (`MidiBridge.findOutput`), adds `midimaps(...)` via `midimapLoadEdit`, and inserts `$<id>: note(...).midi('<port>').midimap('<id>')`. Clicking "Editor..." opens the SHRUB panel if `strdltn.experimental.shrubEditor` is on, or opens the companion editor URL externally |
+| `HubCatalog` | Reads `index.json` of the Playground (VIBE `.wasm` builds), `thefirmwarehub.com/catalog.json` (real FM-1 `.fwsc` packages), and configured `strdltn.firmware.repositories` (defaulting to `shrub-audio` with direct `SHRUB (WASM)` at `https://shrub.audio/sim/shrub_sim.wasm` and `SHRUB.fwsc` at `https://shrub.audio/editor/firmware/SHRUB.fwsc`), at most once a day with User-Agent `strdltn/<version> (VS Code extension; +https://github.com/alienmind/strdltn)`, kept in global storage for offline use. `mergeHubFirmwares` joins them so lightweight VIBE `.wasm` wins when both exist and `.fwsc` fills in the rest |
+| `FirmwarePreviews` | Preloads lightweight Hub/SHRUB screen thumbnails (~2-7 KB) for every firmware without downloading its binary, centered in the Browser card; also generates local PNGs for VIBE `.wasm` firmwares via `dist/preview-worker.cjs` and downloads/caches `fm1_web.wasm` (`FM1_EMU_WASM_URL`, MIT, `fm1-emu`) on demand into `firmware/files/` so no firmware or emulator binary is bundled in the universal `.vsix` |
+| Install & Batch Download | A double click, Enter, row Install button, Screen popup Install, or batch **Download all (N)** (`strdltn.installAllFirmwares`): `FirmwareLibrary.install` downloads directly in Node (no browser window) and writes `<firmware folder>/<id>/<id>.wasm` (or `<id>.fwsc`, verifying SHA-256 when provided) plus `firmware.json`. Songs play `.wasm` as `vibefm1:<id>` (including `vibefm1:shrub-wasm`, auto-detected via `ss_*` exports in `VibeCore` with ~48 ms boot fast-forward and ~0.4% CPU, upscaling its 240x240 RGB565 `ss_lcd()` into 480x320) or `.fwsc` as `fm1:<id>` (pre-compiled `fm1_web.wasm`, sliced boot budget, real-time overload circuit breaker, NaN clamping, and `pruneFm1()` on eval/stop so a heavy `.fwsc` can never stall or mute Strudel audio) or via native `fm1-live` (`Run Native`). `template/firmware/` is in `.gitignore` |
+| Hardware MIDI profiles & Experimental Flash | `HARDWARE_FM1_PROFILES` (`src/shared/firmware.ts`) lists real FM-1 hardware firmwares played over desktop MIDI: SHRUB (Xfer Records, cutoff CC 74 + macros CC 16-19, `shrub.audio/editor/`) and M-VAVE FM-1 Stock (cutoff CC 2). Inserting or dropping auto-detects a connected FM-1 MIDI output port (`MidiBridge.findOutput`), adds `midimaps(...)` via `midimapLoadEdit`, and inserts `$<id>: note(...).midi('<port>').midimap('<id>')`. Clicking "Editor..." opens the companion editor URL externally. Direct USB-MIDI SysEx hardware flashing (`src/extension/fm1Flasher.ts`) is gated off by default behind `strdltn.experimental.fm1Flash` |
 
 Measured on 2026-11-24 in `pnpm test:quick` (VS Code 1.147, Windows 11): the list had 44 firmwares; all 44
 pictures were made, none failed, in the time the test waits (under 3 minutes, with the downloads). The first rows of
@@ -1229,8 +1231,7 @@ Render in the Library.
 The Devices view is a tab of the bottom panel beside the Mixer (`strdltn.devices`, in its own container
 `strdltn-devices`). It shows one panel per firmware copy that plays: one per firmware and orbit, as `vibefm1` runs
 them. A panel has the firmware's own display, six soft keys F1 to F6 under it, and the parameters the firmware
-declared (`vibe_wasm_param_info`) as sliders beside it. Built on 2026-11-21 on `feat/devices`; phase 4 steps 1 to 4
-of `doc/DAW-PLAN.md`.
+declared (`vibe_wasm_param_info`) as sliders beside it. Built on 2026-11-21 on `feat/devices`.
 
 The firmware runs in the AudioWorklet of the engine that plays the song; the view is another webview. So:
 
@@ -1256,39 +1257,17 @@ engine; only its picture moves. The host keeps, per copy, the page that asked to
 stays in flight per copy wherever it is shown. In the view, a panel that is in a tab says so; unfolding it brings
 the picture back to the view, and the tab stops getting frames. A tab whose copy ends closes itself.
 
-**SHRUB.** With the setting `strdltn.experimental.shrubEditor` on, the view ends with a SHRUB panel: Xfer's editor
-(`https://shrub.audio/editor/`) in a frame, the same CSP as the mockup tab (`frame-src https://shrub.audio`). It is
-its own synth, not in our mix. Folded, it is hidden with CSS and not removed, so its unsaved patches stay. Its take
-out opens the mockup tab ("SHRUB editor panel" below). Phase 4 step 6.
+**SHRUB (historical note):** The experimental `strdltn.experimental.shrubEditor` iframe panel (`src/extension/shrub.ts`) was removed on 2026-11-26 once SHRUB gained full integration under `Plugins > FM-1 Synths` (`SHRUB (WASM)`, `SHRUB.fwsc` + `Run Native`, and Hardware MIDI profile with external `Editor...` link).
 
 Checked by hand on 2026-11-21 in a development host on Windows, with `template/examples/07-vibefm1-obervave.strudel`
 playing: OBERVAVE's panels for orbits 2 and 3 in view, each with its own display ("56 DEEP BASS", "44 DARK PAD")
 and its parameter values moving; the panel of orbit 4 is off to the right and was not looked at. Picture: `doc/screenshot-devices.png`. The maintainer's hand test of the same day passed: all three panels, the
 wheel, F3 and F4 (PRG- and PRG+), a parameter slider, fold and unfold. Maximize and take out were then checked in a
 development host with clicks sent through DevTools, from screenshots: one panel fills the view; the tab shows the
-whole screen while the view's panel says "in a tab" and the other panels keep drawing. The SHRUB panel was seen with
-the setting on, its frame blank because shrub.audio did not answer from that machine that evening. The integration
+whole screen while the view's panel says "in a tab" and the other panels keep drawing. The integration
 test records the copies, the frames that reached the view and a picture while `07-vibefm1-obervave.strudel` plays
 (`steps.devices`, `tmp/shots/devices.png`). Not checked: a Codespace.
 
-## SHRUB editor panel
-
-An experimental mockup, to see how the SHRUB web editor would look inside VS Code. Off unless the setting
-`strdltn.experimental.shrubEditor` is on; then the command "strdltn: Open SHRUB editor (experimental)" shows in the
-palette and in the title bar of the Browser. Turning the setting off closes the tab. The tab is a `WebviewPanel` with
-a toolbar and an `iframe` of `https://shrub.audio/editor/`. Its CSP allows frames from that origin only, and scripts only
-with its nonce. `retainContextWhenHidden` keeps the editor's page, and its unsaved patches, while the tab is hidden.
-"Open in browser" goes through `vscode.env.openExternal`. "Use in song" is disabled: it marks where a VIBE FM build of
-SHRUB would connect.
-
-Measured on 2026-11-21 (spike F3), desktop VS Code 1.147 on Windows 11, with the editor in a frame of a webview view in
-the bottom panel and the mockup's CSP. shrub.audio sends no `X-Frame-Options` and no `frame-ancestors`, and the whole
-editor loads in the frame: tabs, oscillators, keyboard. Its `AudioContext` is created at the first click on a key,
-suspended, and runs right after it: on a real mouse press sent to the frame through DevTools, an analyser on its output
-read an RMS of 0.31, at 4% render capacity. The window was muted (`--mute-audio`), so this proves the graph renders,
-not that the speakers played. The click must be inside SHRUB's frame. A mouse press sent to the VS Code window at the
-same spot reached the frame in one of three runs; one sent to the frame's own DevTools target always did. Why it stays
-a mockup is in the drawer.
 ## Status bar
 
 One item on the right of the status bar says what the song in front does. It replaced a

@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import type { DeviceInfo, FromDevices, ToDevices, ViewDevice } from '../shared/devices';
 import type { Session } from './session';
-import { SHRUB_SETTING } from './shrub';
 import { setPage } from './surface';
 
 /** A page of the Devices bundle: the view in the bottom panel, or a tab with one device taken out (`only`). */
@@ -34,13 +33,7 @@ export class DevicesView implements vscode.WebviewViewProvider {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly output: vscode.OutputChannel,
-	) {
-		context.subscriptions.push(
-			vscode.workspace.onDidChangeConfiguration((event) => {
-				if (event.affectsConfiguration(`strdltn.${SHRUB_SETTING}`)) this.sendPages();
-			}),
-		);
-	}
+	) {}
 
 	resolveWebviewView(view: vscode.WebviewView): void {
 		const page = this.open(view.webview);
@@ -77,7 +70,7 @@ export class DevicesView implements vscode.WebviewViewProvider {
 	private open(webview: vscode.Webview, only?: string, panel?: vscode.WebviewPanel): Page {
 		const page: Page = { webview, only, panel };
 		this.pages.add(page);
-		setPage(this.context, webview, 'devices', { csp: ['frame-src https://shrub.audio'] });
+		setPage(this.context, webview, 'devices');
 		webview.onDidReceiveMessage((message: FromDevices) => this.handle(page, message));
 		return page;
 	}
@@ -129,8 +122,6 @@ export class DevicesView implements vscode.WebviewViewProvider {
 			}
 			case 'takeOut':
 				return this.takeOut(message.engine, message.key);
-			case 'takeOutShrub':
-				return void vscode.commands.executeCommand('strdltn.openShrubEditor');
 			case 'state':
 				if (!page.only) this.lastState = message;
 				return;
@@ -171,8 +162,7 @@ export class DevicesView implements vscode.WebviewViewProvider {
 
 	private sendPage(page: Page): void {
 		const out = [...this.pages].flatMap((p) => (p.only ? [p.only] : []));
-		const shrub = vscode.workspace.getConfiguration('strdltn').get<boolean>(SHRUB_SETTING, false);
-		void page.webview.postMessage({ type: 'page', only: page.only, out, shrub } satisfies ToDevices);
+		void page.webview.postMessage({ type: 'page', only: page.only, out } satisfies ToDevices);
 	}
 }
 

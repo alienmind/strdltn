@@ -5,13 +5,13 @@ import * as vscode from 'vscode';
  * strict CSP. The same for a view in a side bar or the bottom panel and for an editor tab,
  * since both hand over a `vscode.Webview`.
  */
-export function setPage(context: vscode.ExtensionContext, webview: vscode.Webview, name: string, more: { roots?: vscode.Uri[]; csp?: string[] } = {}): void {
+export function setPage(context: vscode.ExtensionContext, webview: vscode.Webview, name: string, more: { roots?: vscode.Uri[]; csp?: string[]; script?: string[] } = {}): void {
 	const dist = vscode.Uri.joinPath(context.extensionUri, 'dist');
 	webview.options = { enableScripts: true, localResourceRoots: [dist, ...(more.roots ?? [])] };
 	const nonce = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
 	const script = webview.asWebviewUri(vscode.Uri.joinPath(dist, `${name}.js`));
 	const style = webview.asWebviewUri(vscode.Uri.joinPath(dist, `${name}.css`));
-	const csp = [`default-src 'none'`, `script-src 'nonce-${nonce}'`, `style-src ${webview.cspSource} 'unsafe-inline'`, `img-src ${webview.cspSource} data:`, ...(more.csp ?? [])].join('; ');
+	const csp = [`default-src 'none'`, `script-src 'nonce-${nonce}'${(more.script ?? []).map((source) => ` ${source}`).join('')}`, `style-src ${webview.cspSource} 'unsafe-inline'`, `img-src ${webview.cspSource} data:`, ...(more.csp ?? [])].join('; ');
 	webview.html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <meta name="viewport" content="width=device-width, initial-scale=1">

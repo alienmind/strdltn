@@ -155,6 +155,44 @@ export class MidiBridge implements vscode.Disposable {
 		});
 	}
 
+	/** Finds a connected MIDI output whose name contains `hint` (case-insensitive). */
+	findOutput(hint: string): string | undefined {
+		const needle = hint.toLowerCase();
+		return this.ports?.outputs.find((name) => name.toLowerCase().includes(needle));
+	}
+
+	/** Sends a single time-limited preview note (A3 / MIDI 57) to a real hardware synth over MIDI. */
+	private previewTimer?: ReturnType<typeof setTimeout>;
+	async previewNote(portHint: string, durationMs: number): Promise<string | undefined> {
+		this.stopPreview();
+		const ports = await this.listPorts();
+		const needle = portHint.toLowerCase();
+		const port = ports?.outputs.find((name) => name.toLowerCase().includes(needle));
+		if (!port) return undefined;
+		const now = epochNow();
+		this.send({
+			type: 'send',
+			source: 'browser-preview',
+			events: [
+				{ port, bytes: [0x90, 57, 100], at: now + 10 },
+				{ port, bytes: [0x80, 57, 0], at: now + 10 + Math.max(150, durationMs) },
+			],
+		});
+		this.previewTimer = setTimeout(() => {
+			this.previewTimer = undefined;
+		}, durationMs + 100);
+		return port;
+	}
+
+	/** Stops any active hardware MIDI preview note immediately. */
+	stopPreview(): void {
+		if (this.previewTimer) {
+			clearTimeout(this.previewTimer);
+			this.previewTimer = undefined;
+		}
+		if (this.worker) this.send({ type: 'panic', source: 'browser-preview' });
+	}
+
 	/** For the integration test: how many events went out and how late. */
 	/** MIDI bytes to an output at once, outside any song. For the video's capture (`midiSend` of the test API). */
 	async sendNow(port: string, bytes: number[]): Promise<boolean> {
@@ -169,6 +207,25 @@ export class MidiBridge implements vscode.Disposable {
 			this.statsWaiting.push(resolve);
 			this.send({ type: 'stats' });
 		});
+	}
+
+	/** Temporarily closes all MIDI ports by terminating the MIDI worker (needed on Windows before exclusive SysEx flashing). */
+	async suspend(): Promise<void> {
+		this.stopPreview();
+		const worker = this.worker;
+		if (!worker) return;
+		this.send({ type: 'panic' });
+		this.worker = undefined;
+		await new Promise((r) => setTimeout(r, 60));
+		await worker.terminate().catch(() => undefined);
+		this.applyPriority();
+		await new Promise((r) => setTimeout(r, 120));
+		this.output.appendLine('[midi] bridge suspended for hardware firmware flashing');
+	}
+
+	/** Restarts the MIDI worker after hardware flashing completes. */
+	resume(): void {
+		if (!vscode.env.remoteName) void this.listPorts();
 	}
 
 	dispose(): void {

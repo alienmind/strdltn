@@ -46,6 +46,11 @@ button:disabled { cursor: default; opacity: .35; }
 	overflow: auto;
 	min-height: 0;
 }
+.strips.drop-ready {
+	outline: 2px dashed var(--vscode-focusBorder, #007fd4);
+	outline-offset: -4px;
+	background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 8%, transparent);
+}
 .strips.old .strip { opacity: .55; }
 .empty { padding: 8px 0; color: var(--vscode-descriptionForeground); }
 

@@ -1,20 +1,26 @@
 import * as vscode from 'vscode';
-import { type BrowserFilterState, type FromBrowser, viewOf } from '../shared/browser';
+import { BROWSER_VIEW, type BrowserFilterState, type FromBrowser } from '../shared/browser';
 import { CATEGORIES } from '../shared/catalog';
 import { chooseInsert, type InsertArgument } from '../shared/context';
+import { DROP_MIME, dropEdit } from '../shared/drop';
 import type { SoundInfo } from '../shared/protocol';
 import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
-import { FirmwareCache } from './firmware';
+import { FirmwareCache, FirmwareLibrary } from './firmware';
+import { FirmwareScreen } from './screen';
+import { FirmwareMarket } from './market';
+import { firmwareLoadEdit, HARDWARE_FM1_PROFILES, hardwareFirmwareCode, type InstalledFirmware, midimapLoadEdit } from '../shared/firmware';
+import { labelEdit } from '../shared/chains';
 import { DevicesView } from './devices';
 import { KnobLearn } from './knobs';
 import { MidiBridge } from './midi';
+import { Fm1Flasher } from './fm1Flasher';
+import { NativeFm1Host } from './nativeFm1';
 import type { MidiPorts } from '../shared/midi';
 import { MixerView } from './mixer';
 import { Place } from './surface';
 import { lf, lineColumn } from '../shared/sync';
 import { formatBytes, PackCache, type CacheUsage } from './packs';
-import { ShrubPanel } from './shrub';
 import { Session, type SessionHost } from './session';
 import { saveAudio } from './render';
 import { DEFAULT_RENDER_CYCLES, renderCycles } from '../shared/render';
@@ -48,14 +54,33 @@ export interface StrdltnApi {
 	browserFind(filter: Partial<BrowserFilterState>): string[];
 	/** The headings of a category in the Browser: the banks of Drums, the folders of Songs. */
 	browserGroups(category: BrowserFilterState['category']): string[];
-	/** Sets what the Browser shows, and returns what it reports back. */
+	/** Sets what the Browser shows, as a click in a tree would, and returns what it reports back. */
 	browserShow(filter: Partial<BrowserFilterState>, open?: string[]): Promise<unknown>;
+	/** What the Browser's page reported last: the filter, the counts, which panes are open. */
+	browserState(): unknown;
+	/** Opens and folds the Browser's panes and selects a row by item id. For the pictures of the manual. */
+	browserStage(panes: Record<string, boolean>, select?: string): Promise<unknown>;
 	/** Handles a message as if the Browser had sent it: a click on a row, a color. */
 	browserMessage(message: FromBrowser): Promise<void>;
 	/** The previews the Browser played without the engine. */
 	browserPreviews(): string[];
 	/** The Mixer's model of the song in front. */
 	mixer(): ReturnType<MixerView['current']>;
+	/** The firmwares of the Library's Firmware category, and what the screen popup reports. */
+	firmware(): {
+		installed: InstalledFirmware[];
+		hub: number;
+		hubError?: string;
+		/** The ids under Available, in the Library's order. */
+		available: string[];
+		pictures: string[];
+		picturesMade: string[];
+		picturesFailed: string[];
+		installs: string[];
+		screen: ReturnType<FirmwareScreen['current']>;
+	};
+	/** Opens the screen popup of an installed firmware, as its button in the Library does. */
+	firmwareScreen(id: string | undefined): void;
 	/** The firmware copies the Devices view lists, the frames passed on, and what its page reports. */
 	devices(): ReturnType<DevicesView['current']>;
 	/** Unfolds the named strips of the Mixer, folds the others, and returns what it reports. */
@@ -91,6 +116,8 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const sessions = new Set<Session>();
 	const packs = new PackCache(output);
 	const firmwareCache = new FirmwareCache(output);
+	const firmwareLibrary = new FirmwareLibrary(firmwareCache);
+	context.subscriptions.push(firmwareLibrary);
 	const midi = new MidiBridge(context.asAbsolutePath('dist'), output);
 	context.subscriptions.push(midi);
 	const snippets = new SnippetLibrary();
@@ -100,7 +127,39 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		playing: () => [...sessions].some((s) => s.started),
 		control: (message) => mixer.control(message),
 		insert: (text, bare, argument) => insertText(text, bare, argument),
+		insertFirmware: (text, bare, url) => insertFirmware(text, bare, url),
+		insertHardware: (id) => insertHardware(id),
+		showScreen: (id) => void screen.show(id),
+		openEditor: (id) => market.openEditor(id),
+		runNative: async (id) => {
+			await nativeFm1.toggle(id);
+		},
+		manageRepos: () => market.manageRepos(),
+		flashHardware: (id) => fm1Flasher.flash(id),
+		install: (id) => market.install(id),
+		installAll: (ids) => market.installAll(ids),
+		firmwareFile: async (id) => (await market.screenSource(id))?.file,
+		emuWasmFile: () => market.emuWasmFile().catch(() => undefined),
+		previewMidi: (portHint, durationMs) => midi.previewNote(portHint, durationMs),
+		wantFirmware: () => market.want(),
 	});
+	const market = new FirmwareMarket(context, firmwareLibrary, browser, output);
+	context.subscriptions.push(market);
+	const nativeFm1 = new NativeFm1Host(context, firmwareLibrary, market, output);
+	const fm1Flasher = new Fm1Flasher(context, context.asAbsolutePath('dist'), firmwareLibrary, market, midi, output);
+	context.subscriptions.push(
+		nativeFm1,
+		nativeFm1.onDidChange((ids) => browser.setNativeRunning(ids)),
+	);
+	// The popup's Insert does what the Library row's does.
+	const screen = new FirmwareScreen(
+		context,
+		(id) => market.screenSource(id),
+		output,
+		(id) => void browser.handle({ type: 'insert', id: `firmware:${id}` }),
+		(id) => market.install(id),
+	);
+	void firmwareLibrary.refresh();
 	// The MIDI category of the Browser: the ports of this machine, kept current by the worker (it reads them every 2 s).
 	// Only where the extension host runs on the user's machine: in a Codespace it would list the cloud machine's.
 	context.subscriptions.push(midi.onPorts((ports) => browser.setMidiPorts(ports)));
@@ -119,7 +178,17 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const evaluateIfPlaying = (document: vscode.TextDocument) => {
 		for (const session of sessions) if (session.document === document && session.ready && session.started) session.play();
 	};
-	const knobs = new KnobLearn(context, midi, output, evaluateIfPlaying);
+	const toggleChain = async (document: vscode.TextDocument, chain: number, button: 'mute' | 'solo') => {
+		const text = lf(document.getText());
+		const change = labelEdit(text, chain, button);
+		if (!change) return;
+		const from = lineColumn(text, change.from);
+		const to = lineColumn(text, change.to);
+		const edit = new vscode.WorkspaceEdit();
+		edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+		if (await vscode.workspace.applyEdit(edit)) evaluateIfPlaying(document);
+	};
+	const knobs = new KnobLearn(midi, output, evaluateIfPlaying, toggleChain);
 	context.subscriptions.push(knobs);
 	const mixer = new MixerView(context, output, {
 		reveal: (document, offset) => void revealOffset(document, offset),
@@ -142,6 +211,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			return { recording: of.some((s) => s.recording), rendering: of.some((s) => s.rendering) };
 		},
 		controls: (state) => browser.setControls(state),
+		dropItem: (document, info) => dropOntoDocument(document, lf(document.getText()).length, info),
 	});
 	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
 	// The Devices view keeps no page while hidden: a hidden page draws nothing, and the worklet stops at the frame it
@@ -176,6 +246,9 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		onSliderLive: (document, from, value) => mixer.sliderLive(document, from, value),
 		onKnobGhost: (document, from, value) => mixer.knobGhost(document, from, value),
 		onKnobLearn: (document, from, toggle) => knobs.learn(document, from, toggle),
+		onToggleChain: toggleChain,
+		onDrop: (document, offset, info) => dropOntoDocument(document, offset, info),
+		onWantEmuWasm: () => market.emuWasmFile().catch(() => undefined),
 		onDevices: (session, list) => devices.setDevices(session, list),
 		onFrame: (session, key, px, values) => devices.frame(session, key, px, values),
 		onAudio: async (session, kind, wav, info) => {
@@ -252,8 +325,6 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// The Browser keeps its page while hidden, so its filters and open headings survive a
 		// switch to another side bar.
 		vscode.window.registerWebviewViewProvider('strdltn.browser', browser.provider('library'), { webviewOptions: { retainContextWhenHidden: true } }),
-		vscode.window.registerWebviewViewProvider('strdltn.reference', browser.provider('reference'), { webviewOptions: { retainContextWhenHidden: true } }),
-		vscode.window.registerWebviewViewProvider('strdltn.results', browser.provider('results'), { webviewOptions: { retainContextWhenHidden: true } }),
 		// The Mixer keeps its page too, so its strips stay unfolded behind the Terminal tab.
 		vscode.window.registerWebviewViewProvider('strdltn.mixer', mixerPlace, { webviewOptions: { retainContextWhenHidden: true } }),
 		vscode.window.registerWebviewViewProvider('strdltn.devices', devices),
@@ -283,10 +354,64 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// Stop is for the song in front. With nothing playing there, it is for the song
 		// that plays in another tab, so the key always ends a sound you hear.
 		vscode.commands.registerCommand('strdltn.stop', () => {
+			browser.stopPreview();
+			midi.stopPreview();
 			const front = frontSession();
 			(front?.started ? front : (playingElsewhere() ?? front))?.stop();
 		}),
-		vscode.commands.registerCommand('strdltn.stopAll', () => sessions.forEach((s) => s.stop())),
+		vscode.commands.registerCommand('strdltn.stopAll', () => {
+			browser.stopPreview();
+			midi.stopPreview();
+			sessions.forEach((s) => s.stop());
+		}),
+		// Dropping a synth, firmware, drum or snippet from the Browser onto the native VS Code editor.
+		vscode.languages.registerDocumentDropEditProvider('strudel', {
+			async provideDocumentDropEdits(document, position, dataTransfer) {
+				const mime = dataTransfer.get(DROP_MIME);
+				let id: string | undefined;
+				let index: number | undefined;
+				if (mime) {
+					try {
+						const parsed = JSON.parse(await mime.asString()) as { id?: string; index?: number };
+						id = parsed.id;
+						index = parsed.index;
+					} catch {
+						// Fall back to lastDrag below.
+					}
+				}
+				const resolved = browser.resolveDrop(id, index);
+				if (!resolved) return undefined;
+				const { item } = resolved;
+				if (item.kind === 'firmware' && item.available) {
+					await market.install(item.id.slice('firmware:'.length));
+				}
+				const text = lf(document.getText());
+				const offset = textOffset(text, position);
+				const midiPort = item.kind === 'firmware' && item.runtime === 'hardware' ? midi.findOutput('fm-1') : undefined;
+				const change = dropEdit(item, text, offset, resolved.index, { midiPort });
+				const edit = new vscode.WorkspaceEdit();
+				if (item.kind === 'firmware' && item.runtime === 'hardware') {
+					const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === item.id.slice('firmware:'.length));
+					const mapLoad = profile ? midimapLoadEdit(text, profile) : undefined;
+					if (mapLoad) {
+						const p = lineColumn(text, mapLoad.offset);
+						edit.insert(document.uri, new vscode.Position(p.line, p.character), mapLoad.text);
+					}
+				} else if (item.kind === 'firmware' && !item.available && item.runtime !== 'fwsc' && item.url) {
+					const load = firmwareLoadEdit(text, item.url);
+					if (load) {
+						const p = lineColumn(text, load.offset);
+						edit.insert(document.uri, new vscode.Position(p.line, p.character), load.text);
+					}
+				}
+				const from = lineColumn(text, change.from);
+				const to = lineColumn(text, change.to);
+				edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+				const drop = new vscode.DocumentDropEdit('');
+				drop.additionalEdit = edit;
+				return drop;
+			},
+		}),
 		// The click on the status bar item.
 		vscode.commands.registerCommand('strdltn.togglePlay', () => {
 			const session = frontSession() ?? (isStrudel(vscode.window.activeTextEditor) ? undefined : playingElsewhere());
@@ -311,11 +436,31 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			const native = vscode.window.activeTextEditor;
 			if (isStrudel(native)) return knobs.learnAtOffset(native.document, native.document.offsetAt(native.selection.active));
 		}),
-		// The line number menu of the native editor (a right click on a line number).
+		// The line number menu and M / S / C hover links of the native editor.
 		vscode.commands.registerCommand('strdltn.knobLearnLine', async (arg?: { lineNumber: number; uri: vscode.Uri }) => {
 			if (!arg) return;
 			const document = await vscode.workspace.openTextDocument(arg.uri);
-			return knobs.learnLine(document, arg.lineNumber - 1);
+			return knobs.learnLine(document, arg.lineNumber - 1, true);
+		}),
+		vscode.commands.registerCommand('strdltn.knobLearnAtLine', async (arg?: { uri: string; from: number; toggle?: boolean }) => {
+			if (!arg) return;
+			const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(arg.uri));
+			return knobs.learn(document, arg.from, arg.toggle ?? true);
+		}),
+		vscode.commands.registerCommand('strdltn.toggleChainLine', async (arg?: { uri: string; chain: number; button: 'mute' | 'solo' }) => {
+			if (!arg) return;
+			const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(arg.uri));
+			return toggleChain(document, arg.chain, arg.button);
+		}),
+		vscode.commands.registerCommand('strdltn.muteChainLine', async (arg?: { lineNumber: number; uri: vscode.Uri }) => {
+			if (!arg) return;
+			const document = await vscode.workspace.openTextDocument(arg.uri);
+			return knobs.toggleChainAtLine(document, arg.lineNumber - 1, 'mute');
+		}),
+		vscode.commands.registerCommand('strdltn.soloChainLine', async (arg?: { lineNumber: number; uri: vscode.Uri }) => {
+			if (!arg) return;
+			const document = await vscode.workspace.openTextDocument(arg.uri);
+			return knobs.toggleChainAtLine(document, arg.lineNumber - 1, 'solo');
 		}),
 		...(['find', 'replace', 'gotoLine', 'selectNextMatch', 'selectAllMatches'] as const).map((action) =>
 			vscode.commands.registerCommand(`strdltn.editor.${action}`, () => frontEditor()?.editorAction(action)),
@@ -330,9 +475,29 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			const found = snippets.find(snippet.name);
 			if (found) return insertText(found.code);
 		}),
-		vscode.commands.registerCommand('strdltn.openShrubEditor', () => ShrubPanel.show(context)),
+		vscode.commands.registerCommand('strdltn.runNativeFm1', async (id?: string) => {
+			if (typeof id === 'string' && id) {
+				await nativeFm1.toggle(id);
+				return;
+			}
+			const picks = [
+				{ label: 'SHRUB (native fm1-live JIT)', id: 'shrub', description: 'Run your SHRUB .fwsc natively at 240 MHz' },
+				...firmwareLibrary
+					.all()
+					.filter((fw) => fw.runtime === 'fwsc')
+					.map((fw) => ({ label: fw.name, id: fw.id, description: `Installed .fwsc (${fw.path})` })),
+			];
+			const chosen = await vscode.window.showQuickPick(picks, { placeHolder: 'Choose an FM-1 .fwsc firmware to run natively in fm1-live' });
+			if (chosen) await nativeFm1.toggle(chosen.id);
+		}),
+		vscode.commands.registerCommand('strdltn.stopNativeFm1', () => nativeFm1.stopAll()),
+		vscode.commands.registerCommand('strdltn.manageFirmwareRepos', () => market.manageRepos()),
+		vscode.commands.registerCommand('strdltn.installAllFirmwares', () => market.installAll()),
+		vscode.commands.registerCommand('strdltn.flashFm1Hardware', (id?: string) => fm1Flasher.flash(typeof id === 'string' ? id : undefined)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
-			if (event.affectsConfiguration('strdltn.experimental.shrubEditor')) ShrubPanel.settingChanged();
+			if (event.affectsConfiguration('strdltn.experimental.fm1Flash')) {
+				browser.setFlashEnabled(vscode.workspace.getConfiguration('strdltn').get<boolean>('experimental.fm1Flash', false));
+			}
 		}),
 		vscode.commands.registerCommand('strdltn.showVersion', () => vscode.window.showInformationMessage(identity)),
 	);
@@ -453,6 +618,81 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		void vscode.window.showInformationMessage(`Sample pack cache deleted: ${formatBytes(usage.bytes)}.`);
 	}
 
+	/** Converts a VS Code line/character position into a `\n`-normalized character offset. */
+	function textOffset(lfText: string, position: vscode.Position): number {
+		let offset = 0;
+		for (let line = 0; line < position.line && offset < lfText.length; line++) {
+			const next = lfText.indexOf('\n', offset);
+			if (next < 0) return lfText.length;
+			offset = next + 1;
+		}
+		return Math.min(lfText.length, offset + position.character);
+	}
+
+	/** Expands a dragged Browser item into a full playable line at `offset` in the Strudel editor, installing Available firmwares automatically. */
+	async function dropOntoDocument(document: vscode.TextDocument, offset: number, info: { id?: string; index?: number; text?: string }): Promise<void> {
+		const resolved = browser.resolveDrop(info.id, info.index);
+		const text = lf(document.getText());
+		if (!resolved) {
+			if (!info.text) return;
+			const p = lineColumn(text, Math.max(0, Math.min(text.length, offset)));
+			const edit = new vscode.WorkspaceEdit();
+			edit.insert(document.uri, new vscode.Position(p.line, p.character), info.text);
+			await vscode.workspace.applyEdit(edit);
+			return;
+		}
+		const { item } = resolved;
+		if (item.kind === 'firmware' && item.available) {
+			await market.install(item.id.slice('firmware:'.length));
+			await Promise.all([...sessions].map((s) => s.refreshFirmware()));
+		}
+		const fresh = lf(document.getText());
+		const midiPort = item.kind === 'firmware' && item.runtime === 'hardware' ? midi.findOutput('fm-1') : undefined;
+		const change = dropEdit(item, fresh, offset, resolved.index, { midiPort });
+		const edit = new vscode.WorkspaceEdit();
+		if (item.kind === 'firmware' && item.runtime === 'hardware') {
+			const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === item.id.slice('firmware:'.length));
+			const mapLoad = profile ? midimapLoadEdit(fresh, profile) : undefined;
+			if (mapLoad) {
+				const p = lineColumn(fresh, mapLoad.offset);
+				edit.insert(document.uri, new vscode.Position(p.line, p.character), mapLoad.text);
+			}
+		} else if (item.kind === 'firmware' && !item.available && item.runtime !== 'fwsc' && item.url) {
+			const load = firmwareLoadEdit(fresh, item.url);
+			if (load) {
+				const p = lineColumn(fresh, load.offset);
+				edit.insert(document.uri, new vscode.Position(p.line, p.character), load.text);
+			}
+		}
+		const from = lineColumn(fresh, change.from);
+		const to = lineColumn(fresh, change.to);
+		edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+		if (await vscode.workspace.applyEdit(edit)) {
+			evaluateIfPlaying(document);
+		}
+	}
+
+	/** Inserts a real FM-1 hardware MIDI profile line plus its `midimaps(...)` header when missing. */
+	async function insertHardware(id: string): Promise<void> {
+		const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === id);
+		if (!profile) return;
+		const port = midi.findOutput('fm-1') ?? profile.defaultPort;
+		const snippet = hardwareFirmwareCode(profile, port);
+		const native = vscode.window.activeTextEditor;
+		const target = activeEditorSession()?.document ?? (isStrudel(native) ? native.document : lastSession()?.document);
+		if (target) {
+			const text = lf(target.getText());
+			const mapLoad = midimapLoadEdit(text, profile);
+			if (mapLoad) {
+				const p = lineColumn(text, mapLoad.offset);
+				const edit = new vscode.WorkspaceEdit();
+				edit.insert(target.uri, new vscode.Position(p.line, p.character), mapLoad.text);
+				await vscode.workspace.applyEdit(edit);
+			}
+		}
+		await insertText(snippet.code, snippet.name);
+	}
+
 	function previewSound(name: string, index: number): void {
 		const session = activeEditorSession() ?? lastSession();
 		// Samples and plain waves play in the Browser without this. What is left needs the
@@ -482,7 +722,41 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		}
 		const last = lastSession('editor');
 		if (last) return last.insert(text, bare, argument);
+		// A tab of ours is in front (the firmware screen), and the song is in the native editor beside it.
+		const visible = vscode.window.visibleTextEditors.find(isStrudel);
+		if (visible) {
+			const code = visible.document.getText();
+			await visible.edit((builder) => builder.replace(visible.selection, chooseInsert(code, visible.document.offsetAt(visible.selection.start), text, bare, argument)));
+			return;
+		}
 		void vscode.window.showInformationMessage('Open a .strudel file to insert into.');
+	}
+
+	/** The song an insert goes into, picked as insertText picks it. */
+	function insertTarget(): vscode.TextDocument | undefined {
+		const native = vscode.window.activeTextEditor;
+		return (activeEditorSession() ?? (isStrudel(native) ? undefined : lastSession('editor')))?.document ?? (isStrudel(native) ? native.document : vscode.window.visibleTextEditors.find(isStrudel)?.document);
+	}
+
+	/**
+	 * A firmware's line at the cursor. A cached firmware plays only in a song that loads it, so when the song has no
+	 * `firmware('<url>')` for it, that line goes in first, at the top (firmwareLoadEdit). Both editors follow a
+	 * WorkspaceEdit, and the cursor moves with the text above it, so the line at the cursor still lands where it was.
+	 */
+	async function insertFirmware(text: string, bare: string, url?: string): Promise<void> {
+		const document = insertTarget();
+		if (url && document) {
+			const code = lf(document.getText());
+			const load = firmwareLoadEdit(code, url);
+			if (load) {
+				const at = lineColumn(code, load.offset);
+				const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+				const edit = new vscode.WorkspaceEdit();
+				edit.insert(document.uri, new vscode.Position(at.line, at.character), load.text.replace(/\n/g, eol));
+				await vscode.workspace.applyEdit(edit);
+			}
+		}
+		return insertText(text, bare);
 	}
 
 	/**
@@ -687,20 +961,37 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		browserCounts: () => Object.fromEntries(CATEGORIES.map(({ id }) => [id, browser.find({ category: id }).length])),
 		browserFind: (filter) => browser.find(filter).map((item) => item.id),
 		browserGroups: (category) => [...new Set(browser.find({ category }).map((item) => item.group))].sort(),
-		browserShow: async (filter, open) => {
-			// The filter is the same in every view; Results shows what it picks.
-			await vscode.commands.executeCommand(viewOf('results') + '.focus');
+		browserShow: async (filter) => {
+			await vscode.commands.executeCommand(`${BROWSER_VIEW}.focus`);
 			// A view opened for the first time needs a moment before it takes messages.
 			for (let i = 0; i < 20 && !browser.state(); i++) await new Promise((resolve) => setTimeout(resolve, 250));
-			browser.show(filter, open);
+			browser.show({ group: undefined, ...filter });
 			// The webview reports what it shows after it has drawn.
 			await new Promise((resolve) => setTimeout(resolve, 600));
 			return browser.state();
 		},
 		browserMessage: (message) => browser.handle(message),
+		browserState: () => browser.state(),
+		browserStage: async (panes, select) => {
+			browser.stage({ panes, select });
+			await new Promise((resolve) => setTimeout(resolve, 600));
+			return browser.state();
+		},
 		browserPreviews: () => [...browser.previews],
 		mixer: () => mixer.current(),
 		devices: () => devices.current(),
+		firmware: () => ({
+			installed: firmwareLibrary.all(),
+			hub: market.hub.all().length,
+			hubError: market.hub.error,
+			available: market.availableIds(),
+			pictures: Object.keys(market.previews.all()),
+			picturesMade: [...market.previews.made],
+			picturesFailed: [...market.previews.failed],
+			installs: [...market.installed],
+			screen: screen.current(),
+		}),
+		firmwareScreen: (id) => (id ? void screen.show(id) : screen.close()),
 		mixerShow: async (unfold) => {
 			if (!mixerPlace.floating) await vscode.commands.executeCommand('strdltn.mixer.focus');
 			return mixer.show(unfold);

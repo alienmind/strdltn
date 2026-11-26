@@ -9,6 +9,8 @@ import type { PreviewPlan } from './preview.ts';
  */
 export interface BrowserFilterState {
 	category: CategoryId;
+	/** A group of the category, picked in the tree under it: `Installed`, a bank, a folder. */
+	group?: string;
 	/** With category "all": only the items of this view, the "All" row of that view. */
 	scope?: BrowserPage;
 	place?: PlaceId;
@@ -19,22 +21,23 @@ export interface BrowserFilterState {
 	chips: string[];
 }
 
+/** Which panes of the Browser view are open. */
+export interface BrowserPanes {
+	controls: boolean;
+	library: boolean;
+	contents: boolean;
+	reference: boolean;
+}
+
 /**
- * The three views of the side bar, all made from the same page. Library and Reference pick
- * what is shown. Library also holds the one search field and the colors. Results shows
- * what both pick, in one list.
- *
- * Songs and Snippets was a view of its own from 2026-11-20 to 2026-11-22. The maintainer
- * used it for a while and asked for its categories back in the Library, as one tree with
- * All, Sounds, Drums, ..., Songs and Snippets (see the drawer of failed ideas).
+ * Where an item is picked: the Library tree or the Reference tree. Both are panes of the one Browser view
+ * (`strdltn.browser`), under Controls and around Contents. They were three views of their own until 2026-11-25; see
+ * "Three views of the Browser" in the drawer of failed ideas. `results` is the Contents pane, where the old Results
+ * view stood; the host still names it so.
  */
 export type BrowserPage = 'library' | 'reference' | 'results';
-export const BROWSER_PAGES: { page: BrowserPage; view: string; title: string }[] = [
-	{ page: 'library', view: 'strdltn.browser', title: 'Library' },
-	{ page: 'reference', view: 'strdltn.reference', title: 'Reference' },
-	{ page: 'results', view: 'strdltn.results', title: 'Results' },
-];
-export const viewOf = (page: BrowserPage): string => BROWSER_PAGES.find((p) => p.page === page)!.view;
+/** The one view of the Browser. */
+export const BROWSER_VIEW = 'strdltn.browser';
 
 /** Which view picks an item: functions in the Reference, everything else in the Library. */
 export const pageOf = (item: CatalogItem): BrowserPage => (item.kind === 'function' ? 'reference' : 'library');
@@ -44,7 +47,7 @@ export const scoped = (items: CatalogItem[], filter: BrowserFilterState): Catalo
 	filter.scope && filter.category === 'all' ? items.filter((item) => pageOf(item) === filter.scope) : items;
 
 export type ToBrowser =
-	| { type: 'init'; page: BrowserPage; items: CatalogItem[]; user: UserIndex; preview: boolean; filter: BrowserFilterState }
+	| { type: 'init'; page: BrowserPage; items: CatalogItem[]; user: UserIndex; preview: boolean; filter: BrowserFilterState; flashEnabled?: boolean }
 	| { type: 'items'; items: CatalogItem[] }
 	| { type: 'user'; user: UserIndex }
 	| { type: 'preview'; on: boolean }
@@ -53,8 +56,16 @@ export type ToBrowser =
 	| { type: 'controls'; state: ControlsState }
 	/** Plays a preview in this page, without the engine. */
 	| { type: 'playPreview'; plan: PreviewPlan }
+	/** Stops any running Browser preview immediately (e.g. when Stop is pressed in Controls). */
+	| { type: 'stopPreview' }
+	/** Firmwares currently running in native `fm1-live` (e.g. `['shrub']`). */
+	| { type: 'nativeRunning'; ids: string[] }
+	/** Experimental setting `strdltn.experimental.fm1Flash` changed. */
+	| { type: 'flashEnabled'; on: boolean }
 	/** The filter changed in another view, or by a command. `open` opens headings in Results, for the integration test. */
-	| { type: 'filter'; filter: BrowserFilterState; open?: string[] };
+	| { type: 'filter'; filter: BrowserFilterState; show?: boolean }
+	/** For the pictures of the manual: opens and folds panes, and selects one row so the details show it. */
+	| { type: 'stage'; panes?: Partial<BrowserPanes>; select?: string };
 
 export type FromBrowser =
 	| { type: 'ready' }
@@ -69,6 +80,20 @@ export type FromBrowser =
 	| { type: 'insertSong'; id: string }
 	| { type: 'copy'; id: string; index?: number }
 	| { type: 'open'; id: string }
+	/** A firmware's screen, in a popup. */
+	| { type: 'screen'; id: string }
+	/** Opens a firmware's companion web editor (e.g. SHRUB editor, zp12 editor). */
+	| { type: 'openEditor'; id: string }
+	/** Launches or stops a `.fwsc` firmware (or SHRUB) in native `fm1-live` (240 MHz JIT). */
+	| { type: 'runNative'; id: string }
+	/** Opens the firmware repositories manager (view/add custom repo URLs). */
+	| { type: 'manageRepos' }
+	/** Flashes a `.fwsc` firmware directly onto connected M-VAVE FM-1 hardware over USB-MIDI SysEx. */
+	| { type: 'flashHardware'; id: string }
+	/** Installs an Available firmware into the project. */
+	| { type: 'install'; id: string }
+	/** Batch-installs all currently shown Available firmwares into the project. */
+	| { type: 'installAll'; ids: string[] }
 	/** Turns one color on or off for the items. `color` 0 clears every color. */
 	| { type: 'color'; ids: string[]; color: number; on: boolean }
 	| { type: 'tags'; ids: string[]; add: string[]; remove: string[] }
@@ -81,7 +106,9 @@ export type FromBrowser =
 	/** Ctrl+F in a view without a search field: the Library's field gets the cursor. */
 	| { type: 'focusSearch' }
 	/** What Results shows now. The integration test reads it. */
-	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number }
+	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number; panes: BrowserPanes }
 	| { type: 'log'; message: string }
+	/** The user started dragging a Browser row, so a cross-webview drop can resolve the item even if MIME is stripped. */
+	| { type: 'dragItem'; id: string; index?: number }
 	/** "User manual (PDF)": the PDF of the latest release, in the user's browser. */
 	| { type: 'openManual' };

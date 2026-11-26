@@ -1,58 +1,67 @@
-// MIDI learn for sliders on knobs, in the extension host: it owns the MIDI ports, so learn
-// works the same from every place that asks (the knob button left of a line in either
-// editor, a fader of the Mixer, Ctrl+Alt+K), with a song playing or not. The rules are in
-// src/shared/knob.ts; the page moves the sliders. See "Sliders on knobs" in ARCHITECTURE.
+// Line actions (M = Mute, S = Solo, C = MIDI Capture) for the native VS Code text editor,
+// plus host-side MIDI learn shared across both editors, the Mixer, and Ctrl+Alt+K.
+// Uses the same `lineActionMap` and badge visuals as the Strudel editor so both views stay 1:1.
 import * as vscode from 'vscode';
 import { knobEdits, sliderAt, unmapKnobEdit } from '../shared/knob';
+import { type LineAction, lineActionMap, lineActionStateKey, lineActionSvg } from '../shared/lineActions';
 import { lf, lineColumn } from '../shared/sync';
 import type { MidiBridge } from './midi';
 
 const LEARN_MS = 10_000;
 
-/** Lines that hold a slider, and the CC of a knob already on it. Line text only: cheap enough for every edit. */
-export function sliderLines(text: string): { line: number; cc?: number }[] {
-	const lines: { line: number; cc?: number }[] = [];
-	text.split('\n').forEach((content, line) => {
-		if (!/\bslider\s*\(/.test(content)) return;
-		const cc = /\.knob\(\s*(\d+)\s*\)/.exec(content)?.[1];
-		lines.push({ line, cc: cc === undefined ? undefined : Number(cc) });
-	});
-	return lines;
+function commandUri(command: string, arg: unknown): string {
+	return `command:${command}?${encodeURIComponent(JSON.stringify([arg]))}`;
+}
+
+function actionHover(uri: vscode.Uri, action: LineAction, learning: boolean): vscode.MarkdownString {
+	const items: string[] = [];
+	const uriStr = uri.toString();
+	if (action.chain !== undefined) {
+		const mLabel = action.muted ? '**M** Unmute' : '**M** Mute';
+		const sLabel = action.solo ? '**S** Unsolo' : '**S** Solo';
+		items.push(`[${mLabel}](${commandUri('strdltn.toggleChainLine', { uri: uriStr, chain: action.chain, button: 'mute' })} "${action.muted ? 'Unmute chain (M)' : 'Mute chain (M)'}")`);
+		items.push(`[${sLabel}](${commandUri('strdltn.toggleChainLine', { uri: uriStr, chain: action.chain, button: 'solo' })} "${action.solo ? 'Unsolo chain (S)' : 'Solo chain (S)'}")`);
+	}
+	if (action.sliderFrom !== undefined) {
+		if (learning) {
+			items.push('**C** Listening... turn a knob on your MIDI controller');
+		} else {
+			const cLabel = action.cc === undefined ? '**C** MIDI Capture' : `**C** Unmap CC ${action.cc}`;
+			const cTip =
+				action.cc === undefined
+					? 'MIDI Capture (C): click, then turn a knob on your MIDI controller to map this slider'
+					: `MIDI Capture (CC ${action.cc}): mapped - click to unmap`;
+			items.push(`[${cLabel}](${commandUri('strdltn.knobLearnAtLine', { uri: uriStr, from: action.sliderFrom, toggle: true })} "${cTip}")`);
+		}
+	}
+	const md = new vscode.MarkdownString(items.join(' &nbsp;|&nbsp; '));
+	md.isTrusted = { enabledCommands: ['strdltn.toggleChainLine', 'strdltn.knobLearnAtLine'] };
+	return md;
 }
 
 export class KnobLearn implements vscode.Disposable {
 	private message?: vscode.Disposable;
 	private readonly disposables: vscode.Disposable[] = [];
-	private readonly icon: vscode.TextEditorDecorationType;
-	private readonly iconOn: vscode.TextEditorDecorationType;
-	private readonly iconLearn: vscode.TextEditorDecorationType;
+	/** Cached M / S / C badge decoration types keyed by `lineActionStateKey`. */
+	private readonly badgeTypes = new Map<string, vscode.TextEditorDecorationType>();
 	/** The slider waiting for a CC, as its document and where its number starts. */
 	private learning?: { document: vscode.TextDocument; from: number };
 	private readonly learningChanged = new vscode.EventEmitter<{ document: vscode.TextDocument; from?: number }>();
 	/**
-	 * Which slider waits for a CC, and when it stops waiting (`from` undefined): its knob
-	 * button turns red meanwhile, in both editors and the Mixer (the maintainer, 2026-11-22).
+	 * Which slider waits for a CC, and when it stops waiting (`from` undefined): its C badge
+	 * turns red meanwhile, in both editors and the Mixer.
 	 */
 	readonly onLearning = this.learningChanged.event;
 
 	constructor(
-		context: vscode.ExtensionContext,
 		private readonly midi: MidiBridge,
 		private readonly output: vscode.OutputChannel,
 		/** Evaluates the song again where it plays, so the new knob works at once. */
 		private readonly evaluate: (document: vscode.TextDocument) => void,
+		/** Toggles mute or solo on a chain label, shared with the Strudel editor. */
+		private readonly toggleChain: (document: vscode.TextDocument, chain: number, button: 'mute' | 'solo') => Promise<void>,
 	) {
-		// The native editor: an icon in the glyph margin, left of the line numbers, on every
-		// line with a slider. Green when a knob is on it, red while it waits for one.
-		const icon = (file: string) =>
-			vscode.window.createTextEditorDecorationType({ gutterIconPath: vscode.Uri.joinPath(context.extensionUri, 'media', file), gutterIconSize: 'contain' });
-		this.icon = icon('knob.svg');
-		this.iconOn = icon('knob-on.svg');
-		this.iconLearn = icon('knob-learn.svg');
 		this.disposables.push(
-			this.icon,
-			this.iconOn,
-			this.iconLearn,
 			this.learningChanged,
 			vscode.window.onDidChangeVisibleTextEditors((editors) => editors.forEach((e) => this.decorate(e))),
 			vscode.workspace.onDidChangeTextDocument((event) => {
@@ -63,21 +72,57 @@ export class KnobLearn implements vscode.Disposable {
 		vscode.window.visibleTextEditors.forEach((e) => this.decorate(e));
 	}
 
+	private badgeType(key: string, action: LineAction | undefined, learning: boolean): vscode.TextEditorDecorationType {
+		let type = this.badgeTypes.get(key);
+		if (!type) {
+			const svg = lineActionSvg(action, learning);
+			const uri = vscode.Uri.parse(`data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`);
+			type = vscode.window.createTextEditorDecorationType({
+				before: {
+					contentIconPath: uri,
+					width: '49px',
+					height: '15px',
+					margin: '0 8px 0 0',
+					textDecoration: 'none; vertical-align: middle;',
+				},
+			});
+			this.badgeTypes.set(key, type);
+		}
+		return type;
+	}
+
 	private decorate(editor: vscode.TextEditor): void {
 		if (!editor.document.uri.path.endsWith('.strudel')) return;
 		const text = lf(editor.document.getText());
+		const map = lineActionMap(text);
+		if (map.size === 0) {
+			for (const type of this.badgeTypes.values()) editor.setDecorations(type, []);
+			return;
+		}
 		const waiting = this.learning?.document === editor.document ? lineColumn(text, this.learning.from).line : undefined;
-		const lines = sliderLines(text).filter((l) => l.line !== waiting);
-		const range = (line: number) => new vscode.Range(line, 0, line, 0);
-		editor.setDecorations(this.icon, lines.filter((l) => l.cc === undefined).map((l) => ({ range: range(l.line), hoverMessage: 'Knob: click left of the line number, then turn a knob' })));
-		editor.setDecorations(this.iconOn, lines.filter((l) => l.cc !== undefined).map((l) => ({ range: range(l.line), hoverMessage: `Knob on CC ${l.cc}. Click to take it off` })));
-		editor.setDecorations(this.iconLearn, waiting === undefined ? [] : [{ range: range(waiting), hoverMessage: 'Waiting for a knob: turn one on your MIDI controller' }]);
+		const buckets = new Map<string, { action: LineAction | undefined; learning: boolean; items: vscode.DecorationOptions[] }>();
+		for (let line = 0; line < editor.document.lineCount; line++) {
+			const action = map.get(line);
+			const learning = action?.sliderFrom !== undefined && waiting === line;
+			const key = lineActionStateKey(action, learning);
+			let bucket = buckets.get(key);
+			if (!bucket) {
+				bucket = { action, learning, items: [] };
+				buckets.set(key, bucket);
+			}
+			const range = new vscode.Range(line, 0, line, 0);
+			bucket.items.push(action ? { range, hoverMessage: actionHover(editor.document.uri, action, learning) } : { range });
+		}
+		// Ensure every active state key has a decoration type, and clear any unused cached types.
+		for (const [key, bucket] of buckets) this.badgeType(key, bucket.action, bucket.learning);
+		for (const [key, type] of this.badgeTypes) editor.setDecorations(type, buckets.get(key)?.items ?? []);
 	}
 
 	/**
-	 * VS Code reports no click on a gutter icon. A click in the glyph margin or on a line
-	 * number selects the whole line with the mouse, which this sees. Spike: whether a click
-	 * on the icon does that, and whether it can be told from a click on the number. Logged.
+	 * VS Code reports no direct click on a line decoration. Clicking the line number or glyph
+	 * margin selects the whole line with the mouse; on a slider line that starts/toggles MIDI
+	 * Capture (C), matching the one-click workflow. M, S, and C are all clickable on hover and
+	 * in the line-number context menu.
 	 */
 	private gutterClick(event: vscode.TextEditorSelectionChangeEvent): void {
 		const { textEditor: editor, selections, kind } = event;
@@ -89,17 +134,25 @@ export class KnobLearn implements vscode.Disposable {
 				(selection.end.line === selection.start.line && selection.end.character === editor.document.lineAt(selection.start.line).text.length && selection.end.character > 0));
 		if (!wholeLine) return;
 		const line = selection.start.line;
-		if (!sliderLines(lf(editor.document.getText())).some((l) => l.line === line)) return;
-		this.output.appendLine(`[knobs] native editor: line ${line + 1} selected whole by the mouse, taken as a click on its knob`);
-		void this.learnLine(editor.document, line, true);
+		const action = lineActionMap(lf(editor.document.getText())).get(line);
+		if (action?.sliderFrom === undefined) return;
+		this.output.appendLine(`[knobs] native editor: line ${line + 1} selected whole by the mouse, taken as MIDI Capture (C)`);
+		void this.learn(editor.document, action.sliderFrom, true);
+	}
+
+	/** Toggles mute or solo for the labeled chain starting on `line` (0-based). */
+	async toggleChainAtLine(document: vscode.TextDocument, line: number, button: 'mute' | 'solo'): Promise<void> {
+		const action = lineActionMap(lf(document.getText())).get(line);
+		if (action?.chain === undefined) {
+			return this.say('warning', `Line ${line + 1} is not the start of a labeled chain`);
+		}
+		await this.toggleChain(document, action.chain, button);
 	}
 
 	/** The first slider of a line. For the line number menu and the gutter. */
 	async learnLine(document: vscode.TextDocument, line: number, toggle = false): Promise<void> {
-		const text = lf(document.getText());
-		const start = text.split('\n').slice(0, line).reduce((n, l) => n + l.length + 1, 0);
-		const at = /\bslider\s*\(/.exec(text.slice(start).split('\n')[0]);
-		return this.learn(document, at ? sliderAt(text, start + at.index + at[0].length) : undefined, toggle);
+		const action = lineActionMap(lf(document.getText())).get(line);
+		return this.learn(document, action?.sliderFrom, toggle);
 	}
 
 	/** The slider whose call holds `offset` (an offset of the native editor, CRLF counted as two). */
@@ -111,8 +164,8 @@ export class KnobLearn implements vscode.Disposable {
 	/**
 	 * Waits for the next CC and writes `.knob(cc)` on the slider whose number starts at `from`
 	 * (an offset of the text with `\n` line ends, as the pages and the Mixer count), plus the
-	 * snippet the first time. With `toggle` (a click on a knob button), a slider that has a
-	 * knob loses it instead (the maintainer, 2026-11-22).
+	 * snippet the first time. With `toggle` (a click on a C button), a slider that has a
+	 * knob loses it instead.
 	 */
 	async learn(document: vscode.TextDocument, from: number | undefined, toggle = false): Promise<void> {
 		if (from === undefined) return this.say('warning', 'Put the cursor in a slider(...) call first');
@@ -162,6 +215,8 @@ export class KnobLearn implements vscode.Disposable {
 
 	dispose(): void {
 		this.message?.dispose();
+		for (const type of this.badgeTypes.values()) type.dispose();
+		this.badgeTypes.clear();
 		this.disposables.forEach((d) => d.dispose());
 	}
 }

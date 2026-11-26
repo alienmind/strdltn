@@ -1,15 +1,19 @@
-// The page of the Browser's three views. Library and Reference show the categories that
-// pick what is shown (Library also the search and the colors); Results shows the chips,
-// the results and the details. One filter for all three: the host keeps it and hands it to
-// each. See "Browser" in doc/ARCHITECTURE.md.
+// The page of the Browser: one view with four panes, Controls, Library, Contents and Reference. Controls stays open at
+// the top (collapsible) with Music Controls, Back/Forward history, the search field and the color/built-in filters;
+// Library and Reference are trees that pick what is shown; Contents shows what they pick, a flat list with its chips
+// and details, and is called Results while a search is typed. The panes fold like the sections of a VS Code side bar,
+// by our rules: picking something shows Contents alone below Controls, at full height. One view, because VS Code gives
+// an extension no way to fold one of its views (measured in 1.147). See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
-import { type BrowserFilterState, type BrowserPage, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
-import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, opens, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
-import type { PreviewPlan } from '../shared/preview.ts';
+import { type BrowserFilterState, type BrowserPage, type BrowserPanes, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
+import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, inCategory, opens, parentOf, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
+import { DROP_MIME, dropLine } from '../shared/drop.ts';
+import { BrowserHistory, type BrowserHistoryState, type BrowserSnapshot, describeSnapshot } from '../shared/history.ts';
 import { chipGroups, filterItems, groupItems } from '../shared/search.ts';
 import { TAG_GROUPS } from '../shared/tags.ts';
 import { createControls } from './controls.ts';
 import { icon } from './icons.ts';
+import { playPreview, stopPreview } from './preview.ts';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): unknown; setState(state: unknown): void };
 const vscode = acquireVsCodeApi();
@@ -19,8 +23,6 @@ const post = (message: FromBrowser) => vscode.postMessage(message);
 const MAX_VARIATIONS = 64;
 /** Chips shown per group before "+ more". */
 const CHIPS_SHOWN = 8;
-/** A heading opens by itself when the results are this few, or it is the only one. */
-const OPEN_BY_ITSELF = 600;
 
 type Row =
 	| { type: 'heading'; key: string; label: string; count: number; insert?: string; open: boolean }
@@ -31,14 +33,19 @@ interface Saved {
 	sections: Record<string, boolean>;
 	headings: Record<string, boolean>;
 	chipsOpen: string[];
+	panes?: Partial<BrowserPanes>;
+	/** Tree rows the user unfolded: a category id, or `<category>|<group>` is never needed. */
+	tree?: string[];
+	history?: BrowserHistoryState;
 }
+
+/** The four panes of the view. */
+type Pane = keyof BrowserPanes;
 
 const saved = (vscode.getState() as Saved | undefined) ?? undefined;
 let items: CatalogItem[] = [];
 let user: UserIndex = emptyUserIndex();
 let preview = true;
-/** Which of the three views this page is. Known from `init`. */
-let page: BrowserPage = 'library';
 let filter: BrowserFilterState = { category: 'all', query: '', chips: [] };
 const sections: Record<string, boolean> = saved?.sections ?? { collections: true, library: true, places: false };
 /** Headings the user opened or closed, by category and key. Cleared when the search changes. */
@@ -52,7 +59,30 @@ const selection = new Set<string>();
 let cursor = -1;
 let anchor = -1;
 
-const keep = () => vscode.setState({ sections, headings, chipsOpen: [...chipsOpen] } satisfies Saved);
+const panes: BrowserPanes = {
+	controls: saved?.panes?.controls ?? true,
+	library: saved?.panes?.library ?? true,
+	contents: saved?.panes?.contents ?? true,
+	reference: saved?.panes?.reference ?? false,
+};
+/** Categories unfolded in the trees, so their groups show under them. */
+const tree = new Set<string>(saved?.tree ?? []);
+const history = new BrowserHistory(saved?.history);
+let initialized = false;
+/** Coalesces rapid typing in the search field into one history entry. */
+let lastSearchAt = 0;
+const snapshot = (): BrowserSnapshot => ({
+	filter: { ...filter, chips: [...filter.chips] },
+	panes: { ...panes },
+	tree: [...tree],
+	sections: { ...sections },
+});
+const record = (options?: { replace?: boolean }) => {
+	if (!initialized) return;
+	if (!options?.replace) lastSearchAt = 0;
+	history.push(snapshot(), options);
+};
+const keep = () => vscode.setState({ sections, headings, chipsOpen: [...chipsOpen], panes, tree: [...tree], history: history.toState() } satisfies Saved);
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
 	const node = document.createElement(tag);
 	if (className) node.className = className;
@@ -72,18 +102,41 @@ const button = (name: string, title: string, onClick: (event: MouseEvent) => voi
 const rowKey = (row: Row) => (row.type === 'heading' ? `h:${row.key}` : row.type === 'item' ? row.item.id : `${row.item.id}#${row.index}`);
 const colorVar = (color: number) => `var(--c${color})`;
 const filtered = () => !!(filter.query.trim() || filter.chips.length || filter.color || filter.place || filter.builtin !== undefined);
-/** The items this view picks from: functions in the Reference, everything else in the Library. */
-const ownItems = () => items.filter((item) => pageOf(item) === page);
+/** The items a tree picks from: functions in the Reference, everything else in the Library. */
+const itemsOf = (of: BrowserPage) => items.filter((item) => pageOf(item) === of);
 
 // ---- the page ---------------------------------------------------------------------------
 
 const app = document.getElementById('app')!;
-// Nothing shows before `init` says which view this is.
+// Nothing shows before `init`.
 app.hidden = true;
-// Music Controls on top of the Library, then the search.
-const controlsBox = app.appendChild(el('div'));
+
+/** A pane: a header like a VS Code section, and a body. */
+function pane(id: Pane, title: string): { box: HTMLElement; head: HTMLElement; title: HTMLElement; count: HTMLElement; body: HTMLElement } {
+	const box = app.appendChild(el('div', `pane pane-${id}`));
+	const head = box.appendChild(el('div', 'pane-head'));
+	head.tabIndex = 0;
+	head.innerHTML = icon('chevron');
+	const name = head.appendChild(el('span', 'pane-title', title));
+	const count = head.appendChild(el('span', 'pane-count'));
+	head.addEventListener('click', () => togglePane(id));
+	head.addEventListener('keydown', (event) => {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			togglePane(id);
+		}
+	});
+	const body = box.appendChild(el('div', 'pane-body'));
+	return { box, head, title: name, count, body };
+}
+const controlsPane = pane('controls', 'Controls');
+const libraryPane = pane('library', 'Library');
+const contentsPane = pane('contents', 'Contents');
+const referencePane = pane('reference', 'Reference');
+// Controls pane: Music Controls (centered BPM), then search + preview + Back/Forward on the right, then colors and Built-in.
+const controlsBox = controlsPane.body.appendChild(el('div'));
 const showControls = createControls(controlsBox, post);
-const searchbar = app.appendChild(el('div', 'searchbar'));
+const searchbar = controlsPane.body.appendChild(el('div', 'searchbar'));
 const searchBox = searchbar.appendChild(el('div', 'search'));
 searchBox.innerHTML = icon('search');
 const search = searchBox.appendChild(el('input'));
@@ -92,21 +145,153 @@ search.value = filter.query;
 search.spellcheck = false;
 const clearSearch = searchBox.appendChild(button('close', 'Clear the search (Esc)', () => setQuery('')));
 const previewButton = searchbar.appendChild(button('speaker', '', () => post({ type: 'setPreview', on: !preview })));
+const navButtons = searchbar.appendChild(el('div', 'nav-buttons'));
+const backButton = navButtons.appendChild(button('back', 'Back (Alt+Left)', () => goBack(), 'nav-button'));
+const forwardButton = navButtons.appendChild(button('forward', 'Forward (Alt+Right)', () => goForward(), 'nav-button'));
+let nativeRunning = new Set<string>();
+let flashEnabled = false;
 // The colors and the Built-in button, right under the search: they filter like it does.
-const colorbar = app.appendChild(el('div', 'colorbar'));
-const nav = app.appendChild(el('div', 'nav'));
+const colorbar = controlsPane.body.appendChild(el('div', 'colorbar'));
+const nav = libraryPane.body.appendChild(el('div', 'nav'));
 // The user manual of the latest release, at the foot of the Library (the maintainer, 2026-11-22).
-const manual = app.appendChild(el('button', 'manual-link', 'User manual (PDF)'));
+const manual = libraryPane.body.appendChild(el('button', 'manual-link', 'User manual (PDF)'));
 manual.title = 'Opens the user manual of the latest release in your browser';
 manual.addEventListener('click', () => post({ type: 'openManual' }));
-const chips = app.appendChild(el('div', 'chips'));
-const resultbar = app.appendChild(el('div', 'resultbar'));
-const resultsBox = app.appendChild(el('div', 'results'));
+const chips = contentsPane.body.appendChild(el('div', 'chips'));
+const resultbar = contentsPane.body.appendChild(el('div', 'resultbar'));
+const resultsBox = contentsPane.body.appendChild(el('div', 'results'));
 resultsBox.tabIndex = 0;
 const spacer = resultsBox.appendChild(el('div', 'spacer'));
-const details = app.appendChild(el('div', 'details'));
+const details = contentsPane.body.appendChild(el('div', 'details'));
+const referenceNav = referencePane.body.appendChild(el('div', 'nav'));
+
+/**
+ * The fold rules the maintainer asked for (2026-11-25 and 2026-11-26). Controls stays open unless folded by its own
+ * header. Opening Reference folds Library and Contents so Reference gets the height.
+ */
+function togglePane(id: Pane): void {
+	panes[id] = !panes[id];
+	if (id === 'reference' && panes.reference) panes.library = panes.contents = false;
+	record();
+	update();
+}
+
+/** Something was picked in a tree: Contents alone shows it below Controls, at full height. */
+function showContents(): void {
+	panes.library = panes.reference = false;
+	panes.contents = true;
+}
+
+function drawPanes(): void {
+	for (const [id, part] of [['controls', controlsPane], ['library', libraryPane], ['contents', contentsPane], ['reference', referencePane]] as const) {
+		part.box.classList.toggle('open', panes[id]);
+		part.head.setAttribute('aria-expanded', String(panes[id]));
+	}
+	// The pane that takes the height that is left: Contents when it is open, else Reference or Library. Controls never grows.
+	const grow: Pane | undefined = panes.contents ? 'contents' : panes.reference ? 'reference' : panes.library ? 'library' : undefined;
+	controlsPane.box.classList.remove('grow');
+	libraryPane.box.classList.toggle('grow', grow === 'library');
+	contentsPane.box.classList.toggle('grow', grow === 'contents');
+	referencePane.box.classList.toggle('grow', grow === 'reference');
+	// Results only while a search is typed; else it shows the contents of what is picked.
+	contentsPane.title.textContent = filter.query.trim() ? 'Results' : 'Contents';
+	contentsPane.count.textContent = String(results.length);
+}
+
+function drawHistory(): void {
+	const prev = history.peekBack();
+	const next = history.peekForward();
+	backButton.disabled = !prev;
+	forwardButton.disabled = !next;
+	backButton.title = prev ? `Back to ${describeSnapshot(prev)} (Alt+Left)` : 'Back (Alt+Left)';
+	forwardButton.title = next ? `Forward to ${describeSnapshot(next)} (Alt+Right)` : 'Forward (Alt+Right)';
+}
+
+function applySnapshot(next: BrowserSnapshot): void {
+	clearTimeout(searchTimer);
+	lastSearchAt = 0;
+	filter = { ...next.filter, chips: [...next.filter.chips] };
+	panes.controls = next.panes.controls;
+	panes.library = next.panes.library;
+	panes.contents = next.panes.contents;
+	panes.reference = next.panes.reference;
+	tree.clear();
+	for (const id of next.tree) tree.add(id);
+	for (const key of Object.keys(sections)) delete sections[key];
+	Object.assign(sections, next.sections);
+	headings = {};
+	searchbarSync();
+	post({ type: 'filter', filter });
+	update();
+}
+
+function goBack(): void {
+	const prev = history.back();
+	if (prev) applySnapshot(prev);
+}
+
+function goForward(): void {
+	const next = history.forward();
+	if (next) applySnapshot(next);
+}
 let menu: HTMLElement | undefined;
 let dialog: HTMLElement | undefined;
+let popover: HTMLElement | undefined;
+let popoverPinned = false;
+let popoverHideTimer: ReturnType<typeof setTimeout> | undefined;
+
+function closePopover(): void {
+	clearTimeout(popoverHideTimer);
+	popover?.remove();
+	popover = undefined;
+	popoverPinned = false;
+}
+
+/**
+ * Opens an explanatory popover describing the FM-1 synth technologies (WASM, FWSC, MIDI),
+ * native JIT / hardware flashing options, and firmware repositories.
+ */
+function openPluginPopover(anchorEl: HTMLElement, pin: boolean): void {
+	clearTimeout(popoverHideTimer);
+	if (popover && popoverPinned && !pin) return;
+	closePopover();
+	popoverPinned = pin;
+	const box = document.body.appendChild(el('div', 'plugin-popover'));
+	popover = box;
+	box.innerHTML =
+		`<div class="pop-head"><span>FM-1 Synth Technologies &amp; Repositories</span>${pin ? '<button class="pop-close" title="Close (Esc)">&times;</button>' : ''}</div>` +
+		`<div class="pop-card">` +
+			`<div class="pop-title"><span class="badge runtime runtime-vibe">WASM</span><strong>VIBE FM (.wasm)</strong></div>` +
+			`<p>Open-source synths compiled to WebAssembly (<code>s("vibefm1:&lt;id&gt;")</code>). ~1% CPU, sample-accurate inside Strudel's mix, live screens &amp; Devices panel (desktop + Codespaces).</p>` +
+		`</div>` +
+		`<div class="pop-card">` +
+			`<div class="pop-title"><span class="badge runtime runtime-fwsc">FWSC</span><strong>Real FM-1 Firmware (.fwsc)</strong></div>` +
+			`<p>Unmodified M-VAVE FM-1 hardware packages (Hub catalog, <strong>SHRUB</strong> via <code>shrub.audio</code>, or local drop-in). Play in-editor (<code>s("fm1:&lt;id&gt;")</code>), click <strong>Run Native</strong> for 240 MHz JIT (zero dropouts for SHRUB), or click <strong>Flash to FM-1...</strong> to flash hardware over USB-MIDI.</p>` +
+		`</div>` +
+		`<div class="pop-card">` +
+			`<div class="pop-title"><span class="badge runtime runtime-hardware">MIDI</span><strong>Hardware MIDI Profiles</strong></div>` +
+			`<p>Ready-made CC maps (e.g. SHRUB CC 74 / 16-19, FM-1 Stock) targeting a physical M-VAVE FM-1 over desktop MIDI. Filter everything using the <strong>Runtime</strong> and <strong>Repo</strong> chips.</p>` +
+		`</div>` +
+		`<div class="pop-foot"><button class="chip more pop-repos" title="View built-in repos (The Firmware Hub, shrub.audio) or add a custom repository URL">Manage repositories...</button></div>`;
+	box.querySelector('.pop-close')?.addEventListener('click', (e) => {
+		e.stopPropagation();
+		closePopover();
+	});
+	box.querySelector('.pop-repos')?.addEventListener('click', (e) => {
+		e.stopPropagation();
+		closePopover();
+		post({ type: 'manageRepos' });
+	});
+	box.addEventListener('mouseenter', () => clearTimeout(popoverHideTimer));
+	box.addEventListener('mouseleave', () => {
+		if (!popoverPinned) popoverHideTimer = setTimeout(() => closePopover(), 160);
+	});
+	const rect = anchorEl.getBoundingClientRect();
+	const top = Math.min(window.innerHeight - box.offsetHeight - 8, Math.max(8, rect.bottom + 4));
+	box.style.top = `${Math.max(8, top)}px`;
+	box.style.left = '8px';
+	box.style.right = '8px';
+}
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 search.addEventListener('input', () => {
@@ -121,7 +306,25 @@ document.addEventListener('keydown', (event) => {
 		event.preventDefault();
 		focusSearch();
 	}
+	if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			goBack();
+		} else if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			goForward();
+		}
+	}
 	if (event.key === 'Escape') closePopups();
+});
+document.addEventListener('mouseup', (event) => {
+	if (event.button === 3) {
+		event.preventDefault();
+		goBack();
+	} else if (event.button === 4) {
+		event.preventDefault();
+		goForward();
+	}
 });
 document.addEventListener('mousedown', (event) => {
 	if (menu && !menu.contains(event.target as Node)) closeMenu();
@@ -130,9 +333,13 @@ resultsBox.addEventListener('scroll', () => drawRows());
 new ResizeObserver(() => drawRows()).observe(resultsBox);
 resultsBox.addEventListener('keydown', onResultsKey);
 
-/** The search field is in the Library. Another view asks the host to put the cursor there. */
+/** The search field is in Controls: Controls opens for it if it was folded. */
 function focusSearch(): void {
-	if (page !== 'library') return post({ type: 'focusSearch' });
+	if (!panes.controls) {
+		panes.controls = true;
+		record();
+		update();
+	}
 	search.focus();
 	search.select();
 }
@@ -140,13 +347,21 @@ function focusSearch(): void {
 function setQuery(query: string): void {
 	search.value = query;
 	if (query === filter.query) return;
-	setFilter({ query });
+	const wasEmpty = !filter.query.trim();
+	const isEmpty = !query.trim();
+	// What a search finds shows in Contents, under Controls where it is typed.
+	if (!isEmpty) panes.contents = true;
+	const now = Date.now();
+	const replace = !wasEmpty && !isEmpty && lastSearchAt > 0 && now - lastSearchAt < 1200;
+	lastSearchAt = isEmpty ? 0 : now;
+	setFilter({ query }, { replace });
 }
 
-/** A change made in this view. The host hands it to the other three. */
-function setFilter(change: Partial<BrowserFilterState>): void {
+/** A change made in this view. The host keeps it across reloads. */
+function setFilter(change: Partial<BrowserFilterState>, options?: { replace?: boolean }): void {
 	filter = { ...filter, ...change };
 	headings = {};
+	record(options);
 	post({ type: 'filter', filter });
 	update();
 }
@@ -159,14 +374,16 @@ function update(): void {
 	previewButton.innerHTML = icon(preview ? 'speaker' : 'mute');
 	previewButton.classList.toggle('on', preview);
 	previewButton.title = preview ? 'Preview on click is ON. Press to turn it off' : 'Preview on click is OFF. Press to turn it on';
-	if (page !== 'results') return drawNav();
+	drawHistory();
+	drawNav();
 	const shown = drawChips();
 	results = filterItems(scoped(items, filter), filter, user);
+	drawPanes();
 	buildRows();
 	drawResultbar();
 	drawRows();
 	drawDetails();
-	post({ type: 'state', filter, results: results.length, rows: rows.length, chips: shown });
+	post({ type: 'state', filter, results: results.length, rows: rows.length, chips: shown, panes: { ...panes } });
 }
 
 function section(id: string, title: string, body: (into: HTMLElement) => void): HTMLElement {
@@ -177,6 +394,7 @@ function section(id: string, title: string, body: (into: HTMLElement) => void): 
 	head.appendChild(el('span', '', title));
 	head.addEventListener('click', () => {
 		sections[id] = !sections[id];
+		record();
 		update();
 	});
 	body(box.appendChild(el('div', 'section-body')));
@@ -211,12 +429,10 @@ function drawColorbar(): void {
 }
 
 function drawNav(): void {
-	if (page === 'library') drawColorbar();
-	const own = ownItems();
+	drawColorbar();
 	nav.replaceChildren(
-		// One set of colors and saved searches, in the Library. They act on every view.
-		// Saved searches, when there are any. The colors moved under the search field.
-		...(page !== 'library' || !user.searches.length
+		// Saved searches, when there are any. The colors are under the search field.
+		...(!user.searches.length
 			? []
 			: [
 					section('collections', 'Collections', (body) => {
@@ -231,22 +447,91 @@ function drawNav(): void {
 						}
 					}),
 				]),
-		// The categories of this view, without a heading. A click picks one for Results; a
-		// click on the one that is picked goes back to everything.
-		categories((body) => {
-			const allOn = filter.category === 'all' && filter.scope === page;
-			const all = body.appendChild(navRow('all', 'All', own.length, allOn));
-			all.addEventListener('click', () => setFilter(allOn ? { scope: undefined } : { category: 'all', scope: page, chips: [] }));
-			for (const category of CATEGORIES) {
-				if (category.id === 'all') continue;
-				const count = own.filter((item) => item.category === category.id).length;
-				if (!count) continue;
-				const on = filter.category === category.id;
-				const row = body.appendChild(navRow(category.icon, category.label, count, on));
-				row.addEventListener('click', () => setFilter(on ? { category: 'all', scope: undefined } : { category: category.id, scope: undefined, chips: [] }));
-			}
-		}),
+		categories((body) => drawTree(body, 'library')),
 	);
+	referenceNav.replaceChildren(categories((body) => drawTree(body, 'reference')));
+}
+
+/**
+ * A tree of the Library or the Reference: All, the categories, the children of a parent category (Plugins > FM-1
+ * Synths), and under each category its groups (Installed and Available, Synths and Soundfonts, the banks, the
+ * folders). A click picks one for Contents, and Contents alone shows; a click on what is picked goes one level up. A
+ * category unfolds when it is picked; its arrow folds it.
+ */
+function drawTree(body: HTMLElement, of: BrowserPage): void {
+	const own = itemsOf(of);
+	const allOn = filter.category === 'all' && filter.scope === of;
+	const all = body.appendChild(navRow('all', 'All', own.length, allOn, 0));
+	all.addEventListener('click', () => pick(allOn ? { category: 'all', scope: undefined } : { category: 'all', scope: of }));
+	for (const category of CATEGORIES) {
+		if (category.id === 'all') continue;
+		const mine = own.filter((item) => inCategory(item.category, category.id));
+		// Plugins and FM-1 Synths show in the Library while empty: repositories load on first open.
+		if (!mine.length && !(of === 'library' && (category.id === 'plugins' || category.id === 'fm1'))) continue;
+		const parent = parentOf(category.id);
+		if (parent && !tree.has(parent)) continue;
+		const children = CATEGORIES.filter((c) => parentOf(c.id) === category.id);
+		const groups = children.length ? [] : groupsOf(mine);
+		const foldable = children.length > 0 || groups.length > 1;
+		const unfolded = foldable && tree.has(category.id);
+		const on = filter.category === category.id && !filter.group;
+		const row = body.appendChild(navRow(category.icon, category.label, mine.length, on, parent ? 1 : 0, foldable ? unfolded : undefined));
+		if (category.id === 'plugins' || category.id === 'fm1') {
+			if (category.id === 'plugins') {
+				const reposBtn = el('button', 'info-btn repos-btn', '+');
+				reposBtn.title = 'Manage firmware repositories (The Firmware Hub, shrub.audio, or add custom URLs)';
+				reposBtn.addEventListener('click', (event) => {
+					event.stopPropagation();
+					post({ type: 'manageRepos' });
+				});
+				row.insertBefore(reposBtn, row.lastChild);
+			}
+			const info = el('button', 'info-btn', '?');
+			info.title = 'FM-1 synth technologies (WASM, FWSC, MIDI) and repositories';
+			info.addEventListener('mouseenter', () => openPluginPopover(row, false));
+			info.addEventListener('mouseleave', () => {
+				if (!popoverPinned) popoverHideTimer = setTimeout(() => closePopover(), 180);
+			});
+			info.addEventListener('click', (event) => {
+				event.stopPropagation();
+				if (popover && popoverPinned) closePopover();
+				else openPluginPopover(row, true);
+			});
+			row.insertBefore(info, row.lastChild);
+		}
+		row.addEventListener('click', (event) => {
+			if ((event.target as HTMLElement).closest('.info-btn')) return;
+			if ((event.target as HTMLElement).closest('.twisty')) {
+				if (unfolded) tree.delete(category.id);
+				else tree.add(category.id);
+				record();
+				return update();
+			}
+			if (foldable) tree.add(category.id);
+			pick(on ? { category: 'all', scope: undefined } : { category: category.id, scope: undefined });
+		});
+		if (!unfolded) continue;
+		for (const group of groups) {
+			const groupOn = filter.category === category.id && filter.group === group.key;
+			const groupRow = body.appendChild(navRow('', group.label, group.items.length, groupOn, parent ? 2 : 1));
+			groupRow.addEventListener('click', () => pick(groupOn ? { category: category.id, scope: undefined } : { category: category.id, group: group.key, scope: undefined }));
+			// A bank's button types `.bank("...")`, as its heading in the results did.
+			if (group.insert) {
+				groupRow.insertBefore(button('insert', `Insert ${group.insert} at the cursor`, () => post({ type: 'insertText', text: group.insert! })), groupRow.lastChild);
+			}
+		}
+	}
+}
+
+/** The groups of a category, in their order: Installed before Available, else by name. */
+function groupsOf(list: CatalogItem[]): { key: string; label: string; insert?: string; items: CatalogItem[] }[] {
+	return groupItems(list, false);
+}
+
+/** A row of a tree was picked: the filter changes, Contents alone shows it. */
+function pick(change: Partial<BrowserFilterState>): void {
+	showContents();
+	setFilter({ group: undefined, chips: [], ...change });
 }
 
 function categories(body: (into: HTMLElement) => void): HTMLElement {
@@ -255,9 +540,13 @@ function categories(body: (into: HTMLElement) => void): HTMLElement {
 	return box;
 }
 
-function navRow(iconName: string, label: string, count: number | undefined, active: boolean): HTMLElement {
+/** A row of a tree. `depth` indents it; `unfolded` gives it an arrow, true when its children show. */
+function navRow(iconName: string, label: string, count: number | undefined, active: boolean, depth = 0, unfolded?: boolean): HTMLElement {
 	const row = el('div', `nav-row${active ? ' active' : ''}`);
-	row.innerHTML = icon(iconName);
+	row.style.paddingLeft = `${4 + depth * 14}px`;
+	const twisty = row.appendChild(el('span', `twisty${unfolded ? ' open' : ''}`));
+	if (unfolded !== undefined) twisty.innerHTML = icon('chevron');
+	if (iconName) row.insertAdjacentHTML('beforeend', icon(iconName));
 	row.appendChild(el('span', 'name', label));
 	if (count !== undefined) row.appendChild(el('span', 'count', String(count)));
 	return row;
@@ -303,31 +592,43 @@ function toggleChip(tag: string, add: boolean): void {
 function drawResultbar(): void {
 	resultbar.replaceChildren();
 	const scopes: Record<BrowserPage, string> = { library: 'Library', reference: 'Reference', results: '' };
-	const where = filter.category !== 'all' ? CATEGORIES.find((c) => c.id === filter.category)?.label : filter.scope ? scopes[filter.scope] : '';
-	const parts = [`${results.length} ${results.length === 1 ? 'result' : 'results'}`, where ? `in ${where}` : ''];
+	const category = filter.category !== 'all' ? CATEGORIES.find((c) => c.id === filter.category)?.label : filter.scope ? scopes[filter.scope] : '';
+	const where = [category, filter.group].filter(Boolean).join(' > ');
+	// "Results" only for a search, as the pane's title: else it is what the tree picked.
+	const noun = filter.query.trim() ? (results.length === 1 ? 'result' : 'results') : results.length === 1 ? 'item' : 'items';
+	const parts = [`${results.length} ${noun}`, where ? `in ${where}` : ''];
 	if (filter.color) parts.push(user.colorNames[filter.color - 1]);
 	if (filter.place) parts.push(PLACES.find((p) => p.id === filter.place)?.label ?? '');
 	if (filter.builtin !== undefined) parts.push(filter.builtin ? 'built in' : 'not built in');
 	resultbar.appendChild(el('span', 'summary', parts.filter(Boolean).join(' ')));
+	const installable = results.filter((item) => item.kind === 'firmware' && item.available && !item.externalUrl);
+	if (installable.length > 0 && (filter.category === 'fm1' || filter.category === 'plugins' || filter.query.trim())) {
+		const batch = resultbar.appendChild(el('button', 'elsewhere batch-install'));
+		batch.innerHTML = `${icon('install')}<span>Download all (${installable.length})</span>`;
+		batch.title = `Download and install all ${installable.length} available FM-1 firmwares shown here into firmware/`;
+		batch.addEventListener('click', () => post({ type: 'installAll', ids: installable.map((item) => item.id) }));
+	}
 	if (filtered()) {
 		resultbar.appendChild(button('save', 'Save this search under Collections', () => saveSearch()));
-		resultbar.appendChild(button('close', 'Clear the search and the filters', () => setFilter({ query: '', chips: [], color: undefined, place: undefined, builtin: undefined })));
+		resultbar.appendChild(
+			button('close', 'Clear the search and the filters', () => {
+				setFilter({ query: '', chips: [], color: undefined, place: undefined, builtin: undefined });
+				searchbarSync();
+			}),
+		);
 	}
 }
 
+/**
+ * Contents: a flat list, in the order of the groups the trees show, with no headings: the groups are in the trees now
+ * (the maintainer, 2026-11-25).
+ */
 function buildRows(): void {
-	const byCategory = filter.category === 'all';
-	const groups = groupItems(results, byCategory);
+	const groups = groupItems(results, filter.category === 'all');
 	rows = [];
-	const many = results.length > OPEN_BY_ITSELF;
 	for (const group of groups) {
-		const key = `${filter.category}|${group.key}`;
-		const open = headings[key] ?? (groups.length === 1 || (!many && (filtered() || groups.length <= 24)));
-		const label = byCategory ? (CATEGORIES.find((c) => c.id === group.key)?.label ?? group.key) : group.label;
-		rows.push({ type: 'heading', key, label, count: group.items.length, insert: group.insert, open });
-		if (!open) continue;
 		for (const item of group.items) {
-			rows.push({ type: 'item', item, depth: 1 });
+			rows.push({ type: 'item', item, depth: 0 });
 			if (item.count && openItems.has(item.id)) {
 				for (let index = 0; index < Math.min(item.count, MAX_VARIATIONS); index++) rows.push({ type: 'variation', item, index, depth: 2 });
 			}
@@ -340,24 +641,65 @@ function rowHeight(): number {
 	return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--row')) || 22;
 }
 
-/** Only the rows in sight exist in the page. 2000 rows would make every keystroke slow. */
-function drawRows(): void {
-	const height = rowHeight();
-	spacer.style.height = `${rows.length * height}px`;
-	const first = Math.max(0, Math.floor(resultsBox.scrollTop / height) - 5);
-	const last = Math.min(rows.length, Math.ceil((resultsBox.scrollTop + resultsBox.clientHeight) / height) + 5);
-	spacer.replaceChildren();
-	if (!rows.length) {
-		spacer.appendChild(el('div', 'empty', items.length ? 'Nothing matches. Clear the search or the filters.' : 'Loading...'));
-		return;
-	}
-	for (let index = first; index < last; index++) spacer.appendChild(drawRow(rows[index], index, height));
+/** A firmware's row is taller: its picture sits under its name. */
+const isTall = (row: Row) => row.type === 'item' && row.item.kind === 'firmware';
+function tallHeight(): number {
+	return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--row-tall')) || 98;
 }
 
-function drawRow(row: Row, index: number, height: number): HTMLElement {
+/** Where each row starts, and the height of all of them, worked out again when the rows are drawn. */
+let tops: number[] = [];
+let total = 0;
+function layout(): void {
+	const height = rowHeight();
+	const tall = tallHeight();
+	tops = [];
+	total = 0;
+	for (const row of rows) {
+		tops.push(total);
+		total += isTall(row) ? tall : height;
+	}
+}
+const heightAt = (index: number) => (tops[index + 1] ?? total) - (tops[index] ?? 0);
+/** The row at a height of the list. */
+function rowAt(y: number): number {
+	let low = 0;
+	let high = tops.length - 1;
+	while (low < high) {
+		const mid = (low + high + 1) >> 1;
+		if (tops[mid] <= y) low = mid;
+		else high = mid - 1;
+	}
+	return Math.max(0, low);
+}
+
+/** Only the rows in sight exist in the page. 2000 rows would make every keystroke slow. */
+function drawRows(): void {
+	layout();
+	spacer.style.height = `${total}px`;
+	const first = Math.max(0, rowAt(resultsBox.scrollTop) - 5);
+	const last = Math.min(rows.length, rowAt(resultsBox.scrollTop + resultsBox.clientHeight) + 6);
+	spacer.replaceChildren();
+	if (!rows.length) {
+		spacer.appendChild(el('div', 'empty', emptyText()));
+		return;
+	}
+	for (let index = first; index < last; index++) spacer.appendChild(drawRow(rows[index], index));
+}
+
+/** What an empty Results says. An empty FM-1 Synths says how a firmware gets there. */
+function emptyText(): string {
+	if (!items.length) return 'Loading...';
+	if ((filter.category === 'fm1' || filter.category === 'plugins') && !items.some((item) => item.kind === 'firmware'))
+		return 'Loading the list of The Firmware Hub... Without a network, put a VIBE FM (.wasm) or real FM-1 (.fwsc) firmware in a firmware folder of the project.';
+	return 'Nothing matches. Clear the search or the filters.';
+}
+
+function drawRow(row: Row, index: number): HTMLElement {
 	const key = rowKey(row);
 	const node = el('div', `row${selection.has(key) ? ' selected' : ''}${index === cursor ? ' cursor' : ''}`);
-	node.style.top = `${index * height}px`;
+	node.style.top = `${tops[index]}px`;
+	node.style.height = `${heightAt(index)}px`;
 	const depth = row.type === 'heading' ? 0 : row.depth;
 	node.style.paddingLeft = `${4 + depth * 14}px`;
 	const twisty = node.appendChild(el('span', 'twisty'));
@@ -384,20 +726,62 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 		node.appendChild(kindIcon);
 		const label = row.type === 'variation' ? variationLabel(item, row.index) : item.label;
 		node.appendChild(el('span', 'label', label));
-		// The bank or folder is said by the heading, unless the headings are categories.
-		const detail = item.detail && (filter.category === 'all' || item.detail !== item.group) ? item.detail : '';
+		// The bank or folder, unless a group is picked in the tree and says it already.
+		const detail = item.detail ?? (!filter.group && item.group !== '.' ? item.group : '');
 		node.appendChild(el('span', 'detail', row.type === 'item' ? [item.count ? String(item.count) : '', detail].filter(Boolean).join('  ') : ''));
 		const squares = node.appendChild(el('span', 'squares'));
 		for (const color of colorsOf(item, user)) squares.appendChild(el('span', 'sq')).style.background = colorVar(color);
 		const actions = node.appendChild(el('span', 'actions'));
 		const index_ = row.type === 'variation' ? row.index : undefined;
-		if (item.sound) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
-		if (opens(item)) actions.appendChild(button('open', item.kind === 'render' ? 'Play' : 'Open', () => post({ type: 'open', id: item.id })));
+		if (isTall(row)) {
+			node.classList.add('tall');
+			// The firmware's display, centered in the row and pre-loaded from Hub/vendor thumbnails or the worker.
+			const picture = node.appendChild(el('div', 'picture'));
+			if (item.image) {
+				const image = picture.appendChild(el('img'));
+				image.src = item.image;
+				image.alt = `The screen of ${item.label}`;
+				image.draggable = false;
+			} else {
+				picture.appendChild(
+					el('span', '', item.externalUrl ? (item.repo ?? 'External') : item.runtime === 'hardware' ? 'FM-1 MIDI' : item.runtime === 'fwsc' ? 'FM-1 .fwsc' : 'No preview yet'),
+				);
+			}
+			const runtimeLabel = item.externalUrl ? 'EXT' : item.runtime === 'hardware' ? 'MIDI' : item.runtime === 'fwsc' ? 'FWSC' : 'WASM';
+			picture.appendChild(el('span', `badge runtime runtime-${item.runtime ?? 'vibe'}`, runtimeLabel));
+			// Said by the badge unless the tree's Available is picked, which says it already.
+			if (item.available && filter.group !== 'Available') picture.appendChild(el('span', 'badge', 'Available'));
+		}
+		if (item.sound && !item.externalUrl) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
+		if (item.available)
+			actions.appendChild(
+				button(
+					item.externalUrl ? 'open' : 'install',
+					item.externalUrl ? `Get from ${item.repo ?? item.externalUrl} (double click)` : 'Install into the project (double click)',
+					() => post({ type: 'install', id: item.id }),
+				),
+			);
+		else if (opens(item)) actions.appendChild(button('open', item.kind === 'render' ? 'Play' : 'Open', () => post({ type: 'open', id: item.id })));
 		else actions.appendChild(button('insert', 'Insert at the cursor (Enter)', () => post({ type: 'insert', id: item.id, index: index_ })));
 		// A song's code, without its header, at the cursor, as a snippet's (DAW-PLAN "Insert a song").
 		if (item.kind === 'song') actions.appendChild(button('insert', 'Insert at the cursor: the song\'s code, without its header', () => post({ type: 'insertSong', id: item.id })));
 		// A function's example from the reference, as it is (DAW-PLAN "Insert an example").
 		if (item.kind === 'function' && item.code) actions.appendChild(button('snippet', 'Insert an example', () => post({ type: 'insertText', text: item.code! })));
+		// The firmware's display, run in a popup without sound (VIBE .wasm firmwares only).
+		if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') actions.appendChild(button('screen', 'Show the screen', () => post({ type: 'screen', id: item.id })));
+		if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.id === 'firmware:shrub-midi' || (item.runtime === 'fwsc' && !item.externalUrl))) {
+			const fwId = item.id.slice('firmware:'.length);
+			const running = nativeRunning.has(fwId);
+			actions.appendChild(
+				button(
+					'screen',
+					running ? 'Stop native fm1-live emulator' : 'Run natively in fm1-live (240 MHz JIT, zero dropouts)',
+					() => post({ type: 'runNative', id: item.id }),
+					running ? 'icon-button on' : 'icon-button',
+				),
+			);
+		}
+		if (item.kind === 'firmware' && item.editorUrl) actions.appendChild(button('open', 'Open synth editor', () => post({ type: 'openEditor', id: item.id })));
 		if (item.kind === 'snippet') actions.appendChild(button('open', 'Open the file', () => post({ type: 'open', id: item.id })));
 		else if (!opens(item)) actions.appendChild(button('copy', 'Copy the name', () => post({ type: 'copy', id: item.id, index: index_ })));
 		// Colors and tags have their own button: a right click or the keys 1 to 7 were the
@@ -411,6 +795,18 @@ function drawRow(row: Row, index: number, height: number): HTMLElement {
 	}
 	node.addEventListener('click', (event) => onRowClick(index, event));
 	node.addEventListener('dblclick', () => openRow(rows[index]));
+	if (row.type !== 'heading') {
+		const { item } = row;
+		const index_ = row.type === 'variation' ? row.index : undefined;
+		node.draggable = true;
+		node.addEventListener('dragstart', (event) => {
+			if (!event.dataTransfer) return;
+			event.dataTransfer.effectAllowed = 'copy';
+			event.dataTransfer.setData(DROP_MIME, JSON.stringify({ id: item.id, index: index_ }));
+			event.dataTransfer.setData('text/plain', dropLine(item, '', index_).line);
+			post({ type: 'dragItem', id: item.id, index: index_ });
+		});
+	}
 	node.addEventListener('contextmenu', (event) => {
 		event.preventDefault();
 		if (!selection.has(key)) select(index, false, false);
@@ -456,6 +852,35 @@ function drawDetails(): void {
 		dot.title = `${on ? 'Take out of' : 'Put in'} "${user.colorNames[color - 1]}" (key ${color})`;
 		dot.addEventListener('click', () => post({ type: 'color', ids: targets.map((target) => target.id), color, on: !on }));
 	}
+	if (item.available) {
+		const install = collect.appendChild(el('button', 'chip more', item.externalUrl ? `Get on ${item.repo ?? 'web'}...` : 'Install'));
+		install.title = item.externalUrl ? `Open ${item.externalUrl} to download` : 'Install it into the firmware folder of the project';
+		install.addEventListener('click', () => post({ type: 'install', id: item.id }));
+	}
+	if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') {
+		const screen = collect.appendChild(el('button', 'chip more', 'Screen...'));
+		screen.title = "Show the firmware's display, run without sound";
+		screen.addEventListener('click', () => post({ type: 'screen', id: item.id }));
+	}
+	if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.id === 'firmware:shrub-midi' || (item.runtime === 'fwsc' && !item.externalUrl))) {
+		const fwId = item.id.slice('firmware:'.length);
+		const running = nativeRunning.has(fwId);
+		const nativeBtn = collect.appendChild(el('button', `chip ${running ? 'on' : 'more'}`, running ? 'Stop Native' : 'Run Native'));
+		nativeBtn.title = running
+			? 'Stop the running native fm1-live emulator'
+			: 'Run natively in fm1-live (240 MHz JIT on Windows, macOS, Linux)';
+		nativeBtn.addEventListener('click', () => post({ type: 'runNative', id: item.id }));
+	}
+	if (flashEnabled && item.kind === 'firmware' && (item.runtime === 'fwsc' || item.runtime === 'hardware')) {
+		const flashBtn = collect.appendChild(el('button', 'chip more', 'Flash to FM-1...'));
+		flashBtn.title = 'Experimental (use at your own risk): flash this .fwsc firmware to a connected M-VAVE FM-1 over USB-MIDI SysEx';
+		flashBtn.addEventListener('click', () => post({ type: 'flashHardware', id: item.id }));
+	}
+	if (item.kind === 'firmware' && item.editorUrl) {
+		const editorBtn = collect.appendChild(el('button', 'chip more', 'Editor...'));
+		editorBtn.title = `Open ${item.editorUrl}`;
+		editorBtn.addEventListener('click', () => post({ type: 'openEditor', id: item.id }));
+	}
 	const tagButton = collect.appendChild(el('button', 'chip more', 'Tags...'));
 	tagButton.title = 'Add or remove your own tags';
 	tagButton.addEventListener('click', () => {
@@ -473,6 +898,11 @@ function drawDetails(): void {
 			chip.title = 'Filter by this tag';
 			chip.addEventListener('click', () => toggleChip(tag, true));
 		}
+	}
+	if (item.image) {
+		const picture = details.appendChild(el('img', 'picture'));
+		picture.src = item.image;
+		picture.alt = `The screen of ${item.label}`;
 	}
 	if (item.description) details.appendChild(el('p', '', item.description));
 	const fields = (item.fields ?? []).filter((field) => !['details', 'tags', 'category'].includes(field.name));
@@ -515,8 +945,8 @@ function moveCursor(index: number, extend: boolean): void {
 	if (!rows.length) return;
 	index = Math.max(0, Math.min(rows.length - 1, index));
 	select(index, false, extend);
-	const height = rowHeight();
-	const top = index * height;
+	const height = heightAt(index);
+	const top = tops[index] ?? 0;
 	if (top < resultsBox.scrollTop) resultsBox.scrollTop = top;
 	else if (top + height > resultsBox.scrollTop + resultsBox.clientHeight) resultsBox.scrollTop = top + height - resultsBox.clientHeight;
 	drawRows();
@@ -651,10 +1081,20 @@ function menuFor(row: Row): MenuEntry[] {
 	const entries: MenuEntry[] = ['colors', 'separator'];
 	if (item.sound) entries.push({ label: 'Play once', run: () => playRow(row) });
 	if (opens(item)) entries.push({ label: item.kind === 'render' ? 'Play' : 'Open', run: () => post({ type: 'open', id: item.id }) });
+	else if (item.available) entries.push({ label: 'Install', run: () => post({ type: 'install', id: item.id }) });
 	else entries.push({ label: 'Insert at the cursor', run: () => post({ type: 'insert', id: item.id, index }) });
 	if (item.kind === 'song') entries.push({ label: 'Insert at the cursor', run: () => post({ type: 'insertSong', id: item.id }) });
 	if (item.kind === 'function' && item.code) entries.push({ label: 'Insert an example', run: () => post({ type: 'insertText', text: item.code! }) });
 	if (item.kind === 'snippet') entries.push({ label: 'Open the file', run: () => post({ type: 'open', id: item.id }) });
+	if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') entries.push({ label: 'Show the screen', run: () => post({ type: 'screen', id: item.id }) });
+	if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.id === 'firmware:shrub-midi' || item.runtime === 'fwsc')) {
+		const running = nativeRunning.has(item.id.slice('firmware:'.length));
+		entries.push({ label: running ? 'Stop native fm1-live' : 'Run natively (fm1-live)', run: () => post({ type: 'runNative', id: item.id }) });
+	}
+	if (flashEnabled && item.kind === 'firmware' && (item.runtime === 'fwsc' || item.runtime === 'hardware')) {
+		entries.push({ label: 'Flash to FM-1 hardware (experimental)...', run: () => post({ type: 'flashHardware', id: item.id }) });
+	}
+	if (item.kind === 'firmware' && item.editorUrl) entries.push({ label: 'Open synth editor', run: () => post({ type: 'openEditor', id: item.id }) });
 	entries.push({ label: opens(item) ? 'Copy the path' : item.kind === 'snippet' ? 'Copy the code' : 'Copy the name', run: () => post({ type: 'copy', id: item.id, index }) });
 	entries.push('separator', { label: 'Edit tags...', run: () => editTags() });
 	return entries;
@@ -703,9 +1143,17 @@ function closeMenu(): void {
 
 function closePopups(): void {
 	closeMenu();
+	closePopover();
 	dialog?.remove();
 	dialog = undefined;
 }
+
+document.addEventListener('mousedown', (event) => {
+	if (!popover || !popoverPinned) return;
+	const target = event.target as HTMLElement | null;
+	if (target?.closest('.plugin-popover') || target?.closest('.info-btn')) return;
+	closePopover();
+});
 
 function openDialog(title: string, body: (into: HTMLElement) => void, ok: string, onOk: () => void): void {
 	closePopups();
@@ -805,119 +1253,21 @@ function editTags(): void {
 	);
 }
 
-// ---- previews ---------------------------------------------------------------------------
-
-/**
- * Plays a preview here, with plain Web Audio, as the host planned it. The click on the row
- * started it, and a click inside this page is what lets it make sound. Half a second at
- * A3, a fade at the end, like the engine's preview with no song playing.
- */
-let audio: AudioContext | undefined;
-const buffers = new Map<string, Promise<AudioBuffer>>();
-let playingNow: AudioScheduledSourceNode | undefined;
-async function playPreview(plan: PreviewPlan): Promise<void> {
-	audio ??= new AudioContext();
-	// Not awaited: without a click in the page (the integration test sends the message from
-	// the host) the promise may never settle. With the click, the context runs at once.
-	if (audio.state === 'suspended') void audio.resume();
-	playingNow?.stop();
-	const now = audio.currentTime + 0.01;
-	const gain = audio.createGain();
-	gain.connect(audio.destination);
-	let source: AudioScheduledSourceNode;
-	let length = 0.5;
-	try {
-		if (plan.kind === 'sample') {
-			let buffer = buffers.get(plan.url);
-			if (!buffer) {
-				const url = plan.url;
-				buffer = fetch(url)
-					.then((response) => {
-						if (!response.ok) throw new Error(`${response.status} for ${url}`);
-						return response.arrayBuffer();
-					})
-					.then((bytes) => audio!.decodeAudioData(bytes));
-				buffers.set(url, buffer);
-				buffer.catch(() => buffers.delete(url));
-			}
-			const node = audio.createBufferSource();
-			node.buffer = await buffer;
-			if (plan.loop) {
-				// One cycle of a wavetable, looped at A3.
-				node.loop = true;
-				node.playbackRate.value = 220 * node.buffer.duration;
-			} else length = Math.min(node.buffer.duration, 4);
-			source = node;
-		} else if (plan.kind === 'oscillator') {
-			const node = audio.createOscillator();
-			node.type = plan.wave;
-			node.frequency.value = 220;
-			source = node;
-			gain.gain.value = 0.3;
-		} else {
-			const node = audio.createBufferSource();
-			node.buffer = noise(audio, plan.color);
-			source = node;
-			gain.gain.value = 0.3;
-		}
-	} catch (error) {
-		post({ type: 'log', message: `preview: ${(error as Error).message}` });
-		return;
-	}
-	const level = gain.gain.value || 1;
-	gain.gain.setValueAtTime(level, now + Math.max(0, length - 0.05));
-	gain.gain.linearRampToValueAtTime(0, now + length);
-	source.connect(gain);
-	source.start(now);
-	source.stop(now + length);
-	playingNow = source;
-	post({ type: 'log', message: `preview: ${plan.kind === 'sample' ? plan.url.split('/').pop() : plan.kind === 'oscillator' ? plan.wave : `${plan.color} noise`} (${audio.state})` });
-}
-
-/** Half a second of noise. Pink and brown by the usual simple filters. */
-function noise(context: AudioContext, color: 'white' | 'pink' | 'brown'): AudioBuffer {
-	const buffer = context.createBuffer(1, context.sampleRate / 2, context.sampleRate);
-	const data = buffer.getChannelData(0);
-	let last = 0;
-	let b0 = 0;
-	let b1 = 0;
-	let b2 = 0;
-	for (let i = 0; i < data.length; i++) {
-		const white = Math.random() * 2 - 1;
-		if (color === 'white') data[i] = white;
-		else if (color === 'brown') {
-			last = (last + 0.02 * white) / 1.02;
-			data[i] = last * 3.5;
-		} else {
-			b0 = 0.99765 * b0 + white * 0.099046;
-			b1 = 0.963 * b1 + white * 0.2965164;
-			b2 = 0.57 * b2 + white * 1.0526913;
-			data[i] = (b0 + b1 + b2 + white * 0.1848) * 0.2;
-		}
-	}
-	return buffer;
-}
-
 // ---- messages ---------------------------------------------------------------------------
 
 window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 	const message = event.data;
 	switch (message.type) {
 		case 'init':
-			page = message.page;
 			filter = message.filter;
 			items = message.items;
 			user = message.user;
 			preview = message.preview;
-			// Library: search, colors, categories. Reference: its categories. Results:
-			// chips, results, details.
-			searchbar.hidden = colorbar.hidden = controlsBox.hidden = page !== 'library';
-			nav.hidden = page === 'results';
-			manual.hidden = page !== 'library';
-			chips.hidden = resultbar.hidden = resultsBox.hidden = details.hidden = page !== 'results';
-			document.body.dataset.page = page;
+			flashEnabled = !!message.flashEnabled;
 			app.hidden = false;
 			searchbarSync();
+			initialized = true;
+			history.seed(snapshot());
 			return update();
 		case 'items':
 			items = message.items;
@@ -933,21 +1283,35 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 		case 'controls':
 			return showControls(message.state);
 		case 'playPreview':
-			return void playPreview(message.plan);
+			return void playPreview(message.plan, (text) => post({ type: 'log', message: text }));
+		case 'stopPreview':
+			return stopPreview();
+		case 'nativeRunning':
+			nativeRunning = new Set(message.ids);
+			return update();
+		case 'flashEnabled':
+			flashEnabled = message.on;
+			return update();
+		case 'stage': {
+			Object.assign(panes, message.panes ?? {});
+			update();
+			const index = message.select ? rows.findIndex((row) => row.type !== 'heading' && row.item.id === message.select) : -1;
+			if (index >= 0) moveCursor(index, false);
+			return;
+		}
 		case 'filter':
 			filter = message.filter;
 			searchbarSync();
 			headings = {};
-			for (const key of message.open ?? []) headings[`${filter.category}|${key}`] = true;
-			update();
-			// Show the first opened heading at the top, for a screenshot.
-			if (page === 'results' && message.open?.length) {
-				const index = rows.findIndex((row) => row.type === 'heading' && row.key === `${filter.category}|${message.open![0]}`);
-				if (index >= 0) {
-					resultsBox.scrollTop = index * rowHeight();
-					moveCursor(Math.min(index + 1, rows.length - 1), false);
-				}
+			// A filter set by a command or the test: Contents shows it, and the tree unfolds to it, as a click would.
+			if (message.show) {
+				showContents();
+				const parent = parentOf(filter.category);
+				if (parent) tree.add(parent);
+				if (filter.group || CATEGORIES.some((c) => parentOf(c.id) === filter.category)) tree.add(filter.category);
 			}
+			record();
+			update();
 			return;
 	}
 });

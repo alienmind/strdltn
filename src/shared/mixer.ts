@@ -37,6 +37,8 @@ export type FromMixer =
 	| { type: 'toggle'; chain: number; button: 'mute' | 'solo' | 'gain' | 'scope' }
 	/** A fader moved: the slider by its index in the model, and the number as it is to be written. */
 	| { type: 'slider'; index: number; value: string }
+	/** A Browser item (synth, firmware, drum, sample, snippet) dropped onto the Mixer to append as a new track. */
+	| { type: 'dropItem'; id?: string; index?: number; text?: string }
 	/** What the page shows, after it has drawn. For the integration test. */
 	| { type: 'state'; strips: { name: string; unfolded: boolean; faders: number }[]; cables: number }
 	| { type: 'log'; message: string };

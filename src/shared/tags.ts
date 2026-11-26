@@ -5,7 +5,7 @@
 import type { SoundInfo } from './protocol.ts';
 
 /** The groups of chips, in the order the Browser shows them. */
-export const TAG_GROUPS = ['Drums', 'Sounds', 'Maker', 'Source', 'Category', 'Function', 'Tag', 'Creator'] as const;
+export const TAG_GROUPS = ['Drums', 'Sounds', 'Maker', 'Runtime', 'Repo', 'Source', 'Category', 'Function', 'Tag', 'Creator'] as const;
 
 /**
  * A drum machine sound is named `<bank>_<sound>`, for example `RolandTR909_bd`, and

@@ -6,7 +6,7 @@
 import * as strudelWebaudio from '@strudel/webaudio';
 import { unzipSync } from 'fflate';
 import type { DeviceInfo, DeviceParam, DeviceRequest } from '../../shared/devices';
-import type { FirmwareCacheMap } from '../../shared/firmware';
+import { type FirmwareCacheMap, firmwareIdFromUrl } from '../../shared/firmware';
 import type { FirmwareInfo } from '../../shared/protocol';
 import type { VibeEvent } from './core';
 import type { FromVibeWorklet, ToVibeWorklet } from './worklet';
@@ -70,7 +70,7 @@ export function initFirmware(h: VibeHost): void {
  * one whose file changed is loaded again on its next note; one that is gone stops.
  */
 export function registerFirmware(list: FirmwareInfo[]): void {
-	local = list;
+	local = list.filter((fw) => fw.runtime !== 'fwsc');
 	apply();
 }
 
@@ -99,10 +99,7 @@ export function setFirmwareCache(map: FirmwareCacheMap): void {
 	cache = map;
 }
 
-function idFromUrl(url: string): string {
-	const file = url.split(/[?#]/)[0].split('/').pop() ?? '';
-	return file.replace(/\.[^.]*$/, '').replace(/-vibe$/, '');
-}
+const idFromUrl = firmwareIdFromUrl;
 
 function apply(): void {
 	const list = [...local, ...[...remote.values()].filter((fw) => !local.some((l) => l.id === fw.id))];
@@ -133,6 +130,7 @@ function apply(): void {
 
 /** Tells every running firmware where the song is, and that it plays or stopped. */
 export function transport(playing: boolean): void {
+	if (!playing) stopFirmwarePreview();
 	for (const pending of instances.values()) {
 		void pending.then((instance) => {
 			if (!instance) return;
@@ -141,6 +139,98 @@ export function transport(playing: boolean): void {
 			sendPlay(instance, playing);
 		});
 	}
+}
+
+/** Active temporary preview node, kept separate from the song's permanent firmware copies so it always stops and disposes. */
+let activePreview: { stop(): void } | undefined;
+
+/** Fades out and disposes any running firmware preview. Safe to call repeatedly. */
+export function stopFirmwarePreview(): void {
+	activePreview?.stop();
+	activePreview = undefined;
+}
+
+/**
+ * Plays a time-limited preview of one firmware in a disposable AudioWorkletNode routed through its own GainNode.
+ * Never joins the song's orbits or Devices view, fades out smoothly over `fade` seconds after `duration`, and
+ * terminates its worklet processor afterwards so sequencer/drone firmwares never linger.
+ */
+export async function previewFirmware(n: string | number, at: number, duration: number, fade: number): Promise<void> {
+	stopFirmwarePreview();
+	const id = resolve(n);
+	if (!id) return;
+	const ac = context();
+	workletLoaded ??= ac.audioWorklet.addModule(WORKLET_URL);
+	await workletLoaded;
+	let module: WebAssembly.Module;
+	try {
+		module = await moduleFor(id);
+	} catch (error) {
+		host.log('error', `preview ${INSTRUMENT}:${id}: ${(error as Error)?.message ?? error}`);
+		return;
+	}
+	const node = new AudioWorkletNode(ac, 'strdltn-vibe', {
+		numberOfInputs: 0,
+		numberOfOutputs: 1,
+		outputChannelCount: [2],
+		processorOptions: { module },
+	});
+	const gain = ac.createGain();
+	node.connect(gain);
+	gain.connect(ac.destination);
+
+	let disposed = false;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const disposeNow = () => {
+		if (disposed) return;
+		disposed = true;
+		clearTimeout(timer);
+		try {
+			node.port.postMessage({ t: 'dispose' } satisfies ToVibeWorklet);
+		} catch {
+			// Port already closed.
+		}
+		node.disconnect();
+		gain.disconnect();
+		if (activePreview === handle) activePreview = undefined;
+	};
+	const handle = {
+		stop: () => {
+			if (disposed) return;
+			clearTimeout(timer);
+			const now = ac.currentTime;
+			gain.gain.cancelScheduledValues(now);
+			gain.gain.setValueAtTime(gain.gain.value, now);
+			gain.gain.linearRampToValueAtTime(0, now + 0.03);
+			timer = setTimeout(disposeNow, 50);
+		},
+	};
+	activePreview = handle;
+
+	const rate = ac.sampleRate;
+	const startAt = Math.max(at, ac.currentTime + 0.02);
+	const onFrame = Math.round(startAt * rate);
+	const offFrame = Math.max(onFrame + 1, Math.round((startAt + duration) * rate));
+	const { cycle, cps } = host.clock();
+	const bpm = (cps > 0 ? cps : 0.5) * 240;
+	node.port.postMessage({ t: 'clock', frame: onFrame, cycle, cps: cps > 0 ? cps : 0.5, playing: true } satisfies ToVibeWorklet);
+	node.port.postMessage({
+		t: 'events',
+		events: [
+			{ frame: onFrame, kind: 'tempo', bpm },
+			{ frame: onFrame, kind: 'play', on: true },
+			{ frame: onFrame, kind: 'midi', status: 0x90, d1: 57, d2: 100 },
+			{ frame: offFrame, kind: 'midi', status: 0x80, d1: 57, d2: 0 },
+			{ frame: offFrame, kind: 'play', on: false },
+		],
+	} satisfies ToVibeWorklet);
+
+	gain.gain.setValueAtTime(1, startAt);
+	gain.gain.setValueAtTime(1, startAt + duration);
+	gain.gain.linearRampToValueAtTime(0, startAt + duration + fade);
+
+	const waitMs = Math.max(50, Math.ceil((startAt + duration + fade - ac.currentTime) * 1000) + 80);
+	timer = setTimeout(disposeNow, waitMs);
 }
 
 function context(): AudioContext {
@@ -164,6 +254,7 @@ function forget(id: string): void {
  * copies in whatever context is current.
  */
 export function resetFirmware(): void {
+	stopFirmwarePreview();
 	for (const pending of instances.values()) void pending.then((instance) => instance?.node.disconnect());
 	instances.clear();
 	running.clear();

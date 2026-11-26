@@ -8,6 +8,7 @@
 // in Music Controls, at the top of the Library (src/browser/controls.ts).
 import './mixer.css';
 import type { MixerChain, MixerModel, MixerSlider } from '../shared/chains.ts';
+import { DROP_MIME } from '../shared/drop.ts';
 import type { FromMixer, ToMixer } from '../shared/mixer.ts';
 import type { ScopeFrame } from '../shared/protocol.ts';
 import { type CableSpec, CableLayer } from './cables.ts';
@@ -63,6 +64,45 @@ tool('Show MIDI Mappings', 'Every knob mapped in this song: its CC and the line 
 tool('Show MIDI Routing', 'The cables that route MIDI instruments. Not built yet (doc/TODO.md)');
 const strips = main.appendChild(el('div', 'strips'));
 const cables = new CableLayer(strips);
+
+// Dragging a synth, firmware, drum or sample from the Browser onto the Mixer appends a new `$name:` strip to the song.
+let dropDepth = 0;
+strips.addEventListener('dragenter', (event) => {
+	const types = event.dataTransfer?.types;
+	if (!types || (!types.includes(DROP_MIME) && !types.includes('text/plain'))) return;
+	dropDepth++;
+	strips.classList.add('drop-ready');
+});
+strips.addEventListener('dragleave', () => {
+	dropDepth = Math.max(0, dropDepth - 1);
+	if (dropDepth === 0) strips.classList.remove('drop-ready');
+});
+strips.addEventListener('dragover', (event) => {
+	const types = event.dataTransfer?.types;
+	if (!types || (!types.includes(DROP_MIME) && !types.includes('text/plain'))) return;
+	event.preventDefault();
+	if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+});
+strips.addEventListener('drop', (event) => {
+	dropDepth = 0;
+	strips.classList.remove('drop-ready');
+	const raw = event.dataTransfer?.getData(DROP_MIME);
+	const text = event.dataTransfer?.getData('text/plain');
+	if (!raw && !text) return;
+	event.preventDefault();
+	let id: string | undefined;
+	let index: number | undefined;
+	if (raw) {
+		try {
+			const parsed = JSON.parse(raw) as { id?: string; index?: number };
+			id = parsed.id;
+			index = parsed.index;
+		} catch {
+			// Fall back to text/plain + host's lastDrag.
+		}
+	}
+	post({ type: 'dropItem', id, index, text: text || undefined });
+});
 
 let song: string | undefined;
 /** The slider waiting for a CC (its knob button is red), by where its number starts. */

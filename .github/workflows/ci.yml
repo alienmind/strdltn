@@ -10,8 +10,13 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  # Verify TypeScript, unit tests, and esbuild across Linux, macOS, and Windows.
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,6 +27,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test:unit
+      - run: pnpm build
+
+  # Universal .vsix (Codespaces and fallback; downloads native fm1-live on demand) + User Manual PDF.
+  package-universal:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm package
       # A second copy under a fixed name, so that a devcontainer can always download
       # releases/latest/download/strdltn.vsix without knowing the version.
@@ -37,9 +56,46 @@ jobs:
             strdltn-manual.pdf
           if-no-files-found: error
 
+  # Platform-specific .vsix bundles with the native fm1-live JIT emulator pre-bundled for offline use.
+  package-native:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win32-x64
+          - os: macos-latest
+            target: darwin-arm64
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: ubuntu-latest
+            target: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/build.mjs --production
+      - run: node scripts/fetch-fm1-native.mjs ${{ matrix.target }}
+      - name: Package platform VSIX (${{ matrix.target }})
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          npx @vscode/vsce package --no-dependencies --target "${{ matrix.target }}" -o "strdltn-${version}-${{ matrix.target }}.vsix"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strdltn-vsix-${{ matrix.target }}
+          path: strdltn-*-${{ matrix.target }}.vsix
+          if-no-files-found: error
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [package-universal, package-native]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -47,7 +103,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: strdltn-vsix
+          path: release-artifacts
+          merge-multiple: true
       - name: Check that the tag matches package.json
         run: |
           version="v$(node -p "require('./package.json').version")"
@@ -58,11 +115,16 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" *.vsix strdltn-manual.pdf --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" release-artifacts/*.vsix release-artifacts/strdltn-manual.pdf --title "$GITHUB_REF_NAME" --generate-notes
       # Runs only once the repository has a VSCE_PAT secret. The `publisher` in
       # package.json must be the Marketplace publisher that the token belongs to.
       - name: Publish to the VS Code Marketplace
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         if: env.VSCE_PAT != ''
-        run: npx --yes @vscode/vsce publish --packagePath "strdltn-${GITHUB_REF_NAME#v}.vsix"
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for target in win32-x64 darwin-arm64 linux-x64 linux-arm64; do
+            npx --yes @vscode/vsce publish --packagePath "release-artifacts/strdltn-${version}-${target}.vsix"
+          done
+          npx --yes @vscode/vsce publish --packagePath "release-artifacts/strdltn-${version}.vsix"

@@ -5,7 +5,9 @@ import type { BrowserFilterState, BrowserPage, FromBrowser, ToBrowser } from '..
 import {
 	type CatalogItem,
 	type FunctionDoc,
+	firmwareItems,
 	functionItem,
+	knownCategory,
 	midiItem,
 	readUserIndex,
 	renderItem,
@@ -16,13 +18,14 @@ import {
 	type UserIndex,
 	writeUserIndex,
 } from '../shared/catalog';
+import { availableFirmware, firmwareCode, HARDWARE_FM1_PROFILES, type HubFirmware, type InstalledFirmware } from '../shared/firmware';
 import type { SoundInfo } from '../shared/protocol';
 import { filterItems } from '../shared/search';
 import { parseSnippet, setSnippetTags } from '../shared/snippet';
 import type { SongList } from './files';
 import type { SnippetLibrary } from './snippets';
 import type { ControlsState, FromControls } from '../shared/controls';
-import { previewPlan } from '../shared/preview';
+import { DEFAULT_PREVIEW_BPM, previewCycleSeconds, previewPlan } from '../shared/preview';
 import { setPage } from './surface';
 
 /** The file in the root of the project that keeps the colors, tags and saved searches. */
@@ -38,6 +41,32 @@ export interface BrowserActions {
 	control(message: FromControls): void;
 	/** `bare` goes in instead when the cursor is inside a string. */
 	insert(text: string, bare?: string, argument?: InsertArgument): Promise<void>;
+	/** As insert, and a cached firmware's `firmware('<url>')` line at the top of the song when it has none. */
+	insertFirmware(text: string, bare: string, url?: string): Promise<void>;
+	/** Inserts a real FM-1 hardware MIDI profile line plus its `midimaps(...)` definition. */
+	insertHardware(id: string): Promise<void>;
+	/** Opens the popup with a firmware's screen. */
+	showScreen(id: string): void;
+	/** Opens a firmware's companion web editor (e.g. SHRUB editor). */
+	openEditor(id: string): void;
+	/** Starts or stops native `fm1-live` (240 MHz JIT) for SHRUB or any `.fwsc` firmware. */
+	runNative(id: string): Promise<void>;
+	/** Opens the firmware repository manager (built-in Hub, shrub.audio, and custom URLs). */
+	manageRepos(): Promise<void>;
+	/** Flashes a `.fwsc` firmware directly onto connected M-VAVE FM-1 hardware over USB-MIDI SysEx. */
+	flashHardware(id: string): Promise<void>;
+	/** Installs a firmware of the hub into the project. */
+	install(id: string): Promise<void>;
+	/** Batch-installs multiple Available firmwares into the project. */
+	installAll(ids: string[]): Promise<void>;
+	/** Local file of a firmware (installed or cached from the hub) for standalone Browser preview. */
+	firmwareFile(id: string): Promise<vscode.Uri | undefined>;
+	/** Cached `fm1_web.wasm` for standalone `.fwsc` Browser preview. */
+	emuWasmFile(): Promise<vscode.Uri | undefined>;
+	/** Sends a 1-loop preview note to a real FM-1 hardware MIDI device, returning the matched port name if connected. */
+	previewMidi(portHint: string, durationMs: number): Promise<string | undefined>;
+	/** FM-1 Synths is in sight: read the hub's list and make the pictures that are missing. */
+	wantFirmware(): void;
 }
 
 const FILTER_KEY = 'strdltn.browserFilter';
@@ -66,11 +95,16 @@ export class BrowserView {
 	/** The filter of all views. Kept per workspace, so a reload shows the same. */
 	private filter: BrowserFilterState;
 	private sounds: SoundInfo[] = [];
+	private firmware: InstalledFirmware[] = [];
+	private hub: HubFirmware[] = [];
+	private images: Record<string, vscode.Uri> = {};
 	private functions: FunctionDoc[] = [];
 	private items: CatalogItem[] = [];
 	private user: UserIndex = readUserIndex(undefined);
 	private preview: boolean;
 	private pushTimer?: ReturnType<typeof setTimeout>;
+	/** Last item dragged from the Browser, so cross-webview drops work even if Chromium strips custom MIME data. */
+	private lastDrag?: { id: string; index?: number; at: number };
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -80,7 +114,8 @@ export class BrowserView {
 		private readonly actions: BrowserActions,
 	) {
 		this.preview = context.globalState.get(PREVIEW_KEY, true);
-		this.filter = { ...NO_FILTER, ...context.workspaceState.get<Partial<BrowserFilterState>>(FILTER_KEY) };
+		const kept = { ...NO_FILTER, ...context.workspaceState.get<Partial<BrowserFilterState>>(FILTER_KEY) };
+		this.filter = { ...kept, category: knownCategory(kept.category) };
 		snippets.onDidChange(() => this.rebuild());
 		songs.onDidChange(() => this.rebuild());
 	}
@@ -101,20 +136,37 @@ export class BrowserView {
 		this.rebuild();
 	}
 
+	/** The firmwares on disk, from FirmwareLibrary. */
+	setFirmware(installed: InstalledFirmware[], hub: HubFirmware[], images: Record<string, vscode.Uri>): void {
+		this.firmware = installed;
+		this.hub = hub;
+		this.images = images;
+		this.rebuild();
+	}
+
+	/** The pictures live in the extension's global storage: the pages may load from there. */
+	private get imageRoot(): vscode.Uri {
+		return vscode.Uri.joinPath(this.context.globalStorageUri, 'firmware');
+	}
+
 	allSounds(): SoundInfo[] {
 		return this.sounds;
 	}
 
-	/** The provider of one of the three views. */
+	/** The provider of the Browser's view. `page` is always `library` now: its three panes are one page. */
 	provider(page: BrowserPage): vscode.WebviewViewProvider {
 		return {
 			resolveWebviewView: (view) => {
 				this.views.set(page, view);
-				// The page plays previews itself: sample files from the web, from the project and
-				// from the pack cache in it (`.strdltn/cache`).
+				// The page plays previews itself: sample files, superdough synths/soundfonts and VIBE FM-1 worklets.
 				setPage(this.context, view.webview, 'browser', {
-					roots: (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri),
-					csp: [`connect-src ${view.webview.cspSource} https:`, `media-src ${view.webview.cspSource} https: data: blob:`],
+					roots: [...(vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri), this.imageRoot],
+					script: [view.webview.cspSource, 'data:', 'blob:', "'unsafe-eval'"],
+					csp: [
+						`worker-src ${view.webview.cspSource} data: blob:`,
+						`connect-src ${view.webview.cspSource} https: data: blob:`,
+						`media-src ${view.webview.cspSource} https: data: blob:`,
+					],
 				});
 				view.webview.onDidReceiveMessage((message: FromBrowser) => void this.handle(message, page));
 				view.onDidDispose(() => this.views.get(page) === view && this.views.delete(page));
@@ -128,9 +180,14 @@ export class BrowserView {
 		this.post({ type: 'focusSearch' }, 'library');
 	}
 
-	/** Sets what the Browser shows, as clicks would. For the integration test. */
-	show(filter: Partial<BrowserFilterState>, open?: string[]): void {
-		this.setFilter({ ...this.filter, ...filter }, undefined, open);
+	/** Sets what the Browser shows, as a click in a tree would: Contents shows it. For the integration test. */
+	show(filter: Partial<BrowserFilterState>): void {
+		this.setFilter({ ...this.filter, ...filter }, undefined, true);
+	}
+
+	/** Opens and folds panes and selects a row, as the hand would. For the pictures of the manual. */
+	stage(message: Omit<Extract<ToBrowser, { type: 'stage' }>, 'type'>): void {
+		this.post({ type: 'stage', ...message });
 	}
 
 	/** What Results reported last: the filter, and how many results and rows it shows. */
@@ -147,6 +204,37 @@ export class BrowserView {
 		return this.items;
 	}
 
+	/** Stops any standalone preview playing in the Browser view. */
+	stopPreview(): void {
+		this.post({ type: 'stopPreview' });
+	}
+
+	/** Updates which firmwares are currently running in native `fm1-live`. */
+	setNativeRunning(ids: string[]): void {
+		this.post({ type: 'nativeRunning', ids });
+	}
+
+	/** Toggles experimental hardware flashing buttons in the Browser UI. */
+	setFlashEnabled(on: boolean): void {
+		this.post({ type: 'flashEnabled', on });
+	}
+
+	/** Resolves a dropped item by its MIME id, falling back to the last Browser drag within 15 seconds. */
+	resolveDrop(id?: string, index?: number): { item: CatalogItem; index?: number } | undefined {
+		if (id) {
+			this.lastDrag = undefined;
+			const item = this.item(id);
+			return item ? { item, index } : undefined;
+		}
+		if (this.lastDrag && Date.now() - this.lastDrag.at < 15000) {
+			const drag = this.lastDrag;
+			this.lastDrag = undefined;
+			const item = this.item(drag.id);
+			return item ? { item, index: drag.index } : undefined;
+		}
+		return undefined;
+	}
+
 	async refresh(): Promise<void> {
 		await Promise.all([this.snippets.refresh(), this.songs.refresh(), this.loadUser()]);
 		this.rebuild();
@@ -156,7 +244,13 @@ export class BrowserView {
 		const snippetItems = this.snippets.all().map((snippet) => snippetItem(snippet, vscode.workspace.asRelativePath(snippet.uri)));
 		const renders = this.songs.renders().map((audio) => renderItem(audio.path, audio.song));
 		const midi = [...this.midiPorts.outputs.map((name) => midiItem(name, 'out')), ...this.midiPorts.inputs.map((name) => midiItem(name, 'in'))];
-		this.items = [...soundItems(this.sounds), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
+		// The engine's order of its firmwares: a row plays by its position, as `vibefm1:3` or `fm1:0` does.
+		const engine = this.sounds.find((sound) => sound.name === 'vibefm1')?.variations ?? [];
+		const fm1Engine = this.sounds.find((sound) => sound.name === 'fm1')?.variations ?? [];
+		// A webview URL is the same for every view of the Browser; without a view yet there are no pictures to show.
+		const webview = [...this.views.values()][0]?.webview;
+		const images = webview ? Object.fromEntries(Object.entries(this.images).map(([id, uri]) => [id, webview.asWebviewUri(uri).toString()])) : {};
+		this.items = [...soundItems(this.sounds), ...firmwareItems(this.firmware, availableFirmware(this.hub, this.firmware), engine, images, fm1Engine), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
 		// A pack loads hundreds of sounds one by one, and each change would send 2000 items.
 		clearTimeout(this.pushTimer);
 		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
@@ -178,25 +272,15 @@ export class BrowserView {
 		this.post({ type: 'controls', state }, 'library');
 	}
 
-	/** The filter changed in one view: the others follow, and Results opens to show it. */
-	private setFilter(filter: BrowserFilterState, from?: BrowserPage, open?: string[]): void {
-		this.filter = filter;
-		void this.context.workspaceState.update(FILTER_KEY, filter);
-		for (const [page, view] of this.views) if (page !== from) void view.webview.postMessage({ type: 'filter', filter, open } satisfies ToBrowser);
-		if (from && from !== 'results') void this.showResults(from);
-	}
-
 	/**
-	 * Expands Results when it is folded, as the maintainer asked: every click and every search
-	 * should show its results at once. `show(true)` keeps the focus, so typing in the search
-	 * goes on. A Results view that was never opened has no `show`: its focus command opens it,
-	 * and the cursor goes back to the search field when the search was typed.
+	 * The filter changed: kept for the next start, and sent to the page unless it came from there. `show` opens Contents
+	 * alone, as a click in a tree does; the page does that itself for its own clicks.
 	 */
-	private async showResults(from: BrowserPage): Promise<void> {
-		const results = this.views.get('results');
-		if (results) return results.visible ? undefined : results.show(true);
-		await vscode.commands.executeCommand('strdltn.results.focus');
-		if (from === 'library') this.post({ type: 'focusSearch' }, 'library');
+	private setFilter(filter: BrowserFilterState, from?: BrowserPage, show = false): void {
+		this.filter = filter;
+		if (filter.category === 'plugins' || filter.category === 'fm1') this.actions.wantFirmware();
+		void this.context.workspaceState.update(FILTER_KEY, filter);
+		for (const [page, view] of this.views) if (page !== from) void view.webview.postMessage({ type: 'filter', filter, show } satisfies ToBrowser);
 	}
 
 	/** To one view, or to all when no view is named. */
@@ -209,10 +293,16 @@ export class BrowserView {
 	}
 
 	/** What a message of the webview asks. Public for the integration test, which cannot click in a webview. */
-	async handle(message: FromBrowser, page: BrowserPage = 'results'): Promise<void> {
+	async handle(message: FromBrowser, page: BrowserPage = 'library'): Promise<void> {
 		switch (message.type) {
 			case 'ready': {
-				this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter }, page);
+				// The first view: the pictures get their webview URLs now.
+				if (Object.keys(this.images).length && !this.items.some((item) => item.image)) this.rebuild();
+				// Pre-load the FM-1 catalog and lightweight (~2-7 KB) screen thumbnails right away so
+				// previews are ready even before firmwares are downloaded.
+				this.actions.wantFirmware();
+				const flashEnabled = vscode.workspace.getConfiguration('strdltn').get<boolean>('experimental.fm1Flash', false);
+				this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter, flashEnabled }, page);
 				if (page === 'library' && this.controls) this.post({ type: 'controls', state: this.controls }, page);
 				return;
 			}
@@ -220,10 +310,46 @@ export class BrowserView {
 				const item = this.item(message.id);
 				if (!item?.sound) return;
 				const index = message.index ?? item.index ?? 0;
-				// While a song plays the engine plays it, on the next beat of the song. Else
-				// the page that was clicked plays it itself, so a preview needs no song at all.
-				const plan = this.actions.playing() ? undefined : previewPlan(this.sounds.find((sound) => sound.name === item.sound), index);
-				if (plan) return this.post({ type: 'playPreview', plan }, page);
+				const bpm = this.controls?.tempo?.bpm ?? DEFAULT_PREVIEW_BPM;
+				const duration = previewCycleSeconds({ bpm });
+				if (item.kind === 'firmware' && item.runtime === 'hardware') {
+					const id = item.id.slice('firmware:'.length);
+					const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === id);
+					const sent = await this.actions.previewMidi(profile?.defaultPort ?? 'FM-1', Math.round(duration * 1000));
+					if (sent) this.output.appendLine(`browser: preview ${item.label} -> MIDI ${sent}`);
+					else void vscode.window.setStatusBarMessage(`strdltn: connect ${profile?.defaultPort ?? 'M-VAVE FM-1'} over MIDI to preview ${item.label}`, 4000);
+					return;
+				}
+				// While a song plays, route previews to its engine so they land on the next beat.
+				// Exception: a firmware the playing engine does not hold yet (e.g. Available) plays in the Browser.
+				if (this.actions.playing()) {
+					if (item.kind !== 'firmware' || item.index !== undefined) {
+						this.actions.preview(item.sound, index);
+						return;
+					}
+				}
+				if (item.kind === 'firmware') {
+					const id = item.id.slice('firmware:'.length);
+					const webview = this.views.get(page)?.webview;
+					const file = webview ? await this.actions.firmwareFile(id) : undefined;
+					if (!file || !webview) return;
+					if (item.runtime === 'fwsc') {
+						const emu = await this.actions.emuWasmFile();
+						if (!emu) return;
+						const workletUrl = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'fm1-worklet.js')).toString();
+						return this.post(
+							{
+								type: 'playPreview',
+								plan: { kind: 'fm1', id, url: webview.asWebviewUri(file).toString(), emuUrl: webview.asWebviewUri(emu).toString(), workletUrl, bpm, duration },
+							},
+							page,
+						);
+					}
+					const workletUrl = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'vibe-worklet.js')).toString();
+					return this.post({ type: 'playPreview', plan: { kind: 'firmware', id, url: webview.asWebviewUri(file).toString(), workletUrl, bpm, duration } }, page);
+				}
+				const plan = previewPlan(this.sounds.find((sound) => sound.name === item.sound), index);
+				if (plan) return this.post({ type: 'playPreview', plan: { ...plan, duration } }, page);
 				this.actions.preview(item.sound, index);
 				return;
 			}
@@ -231,6 +357,13 @@ export class BrowserView {
 				const item = this.item(message.id);
 				if (!item) return;
 				if (item.kind === 'song' || item.kind === 'render') return this.open(item);
+				// An Available firmware is installed first: Enter and a double click do that.
+				if (item.kind === 'firmware' && item.available) return this.actions.install(item.id.slice('firmware:'.length));
+				if (item.kind === 'firmware' && item.runtime === 'hardware') return this.actions.insertHardware(item.id.slice('firmware:'.length));
+				if (item.kind === 'firmware') {
+					const code = firmwareCode(item.id.slice('firmware:'.length), item.runtime);
+					return this.actions.insertFirmware(code.code, code.name, item.runtime === 'fwsc' ? undefined : item.url);
+				}
 				if (item.kind === 'sound') {
 					const sound = soundCode(item, message.index);
 					if (sound) return this.actions.insert(sound.code, sound.name);
@@ -243,6 +376,38 @@ export class BrowserView {
 			}
 			case 'insertText':
 				return this.actions.insert(message.text);
+			case 'install': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware' && item.available) await this.actions.install(item.id.slice('firmware:'.length));
+				return;
+			}
+			case 'installAll': {
+				if (message.ids.length) await this.actions.installAll(message.ids);
+				return;
+			}
+			case 'screen': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware') this.actions.showScreen(item.id.slice('firmware:'.length));
+				return;
+			}
+			case 'openEditor': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware') this.actions.openEditor(item.id.slice('firmware:'.length));
+				return;
+			}
+			case 'runNative': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware') await this.actions.runNative(item.id.slice('firmware:'.length));
+				return;
+			}
+			case 'manageRepos':
+				await this.actions.manageRepos();
+				return;
+			case 'flashHardware': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware') await this.actions.flashHardware(item.id.slice('firmware:'.length));
+				return;
+			}
 			case 'insertSong': {
 				const item = this.item(message.id);
 				const uri = item?.kind === 'song' && item.path ? this.songs.uri(item.path) : undefined;
@@ -255,7 +420,19 @@ export class BrowserView {
 			}
 			case 'copy': {
 				const item = this.item(message.id);
-				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'song' || item.kind === 'render' ? item.path : item.kind === 'midi' ? item.label : item.insert);
+				const text =
+					item &&
+					(item.kind === 'sound'
+						? soundCode(item, message.index)?.name
+						: item.kind === 'firmware'
+							? item.runtime === 'hardware'
+								? (HARDWARE_FM1_PROFILES.find((p) => p.id === item.id.slice('firmware:'.length))?.defaultPort ?? 'M-VAVE FM-1')
+								: firmwareCode(item.id.slice('firmware:'.length), item.runtime).name
+							: item.kind === 'song' || item.kind === 'render'
+								? item.path
+								: item.kind === 'midi'
+									? item.label
+									: item.insert);
 				if (text) await vscode.env.clipboard.writeText(text);
 				return;
 			}
@@ -297,8 +474,13 @@ export class BrowserView {
 			case 'focusSearch':
 				return this.focusSearch();
 			case 'transport':
+				if (message.action === 'stop') this.post({ type: 'stopPreview' });
+				return this.actions.control(message);
 			case 'tempo':
 				return this.actions.control(message);
+			case 'dragItem':
+				this.lastDrag = { id: message.id, index: message.index, at: Date.now() };
+				return;
 			case 'openManual':
 				return void vscode.env.openExternal(vscode.Uri.parse(MANUAL_URL));
 			case 'log':

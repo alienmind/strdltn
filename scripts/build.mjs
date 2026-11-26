@@ -1,4 +1,4 @@
-// Builds the bundles: the extension host (Node, CommonJS), its MIDI worker thread, the webview of the editor and the stage, the Browser view, the Mixer view, the Devices view, and the firmware worklet (browser).
+// Builds the bundles: the extension host (Node, CommonJS), its MIDI worker thread, the webview of the editor and the stage, the Browser view, the Mixer view, the Devices view, the firmware screen popup, and the firmware worklet (browser).
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { context } from 'esbuild';
@@ -49,6 +49,24 @@ const builds = [
 	},
 	{
 		...shared,
+		// Worker thread for flashing .fwsc firmware to M-VAVE FM-1 hardware over USB-MIDI SysEx.
+		entryPoints: ['src/extension/fm1-flash-worker.ts'],
+		outfile: 'dist/fm1-flash-worker.cjs',
+		platform: 'node',
+		format: 'cjs',
+		target: 'node20',
+	},
+	{
+		...shared,
+		// The thread that runs a firmware for the picture of its display (src/extension/previews.ts).
+		entryPoints: ['src/extension/preview-worker.ts'],
+		outfile: 'dist/preview-worker.cjs',
+		platform: 'node',
+		format: 'cjs',
+		target: 'node20',
+	},
+	{
+		...shared,
 		entryPoints: ['src/webview/main.ts'],
 		outfile: 'dist/webview.js',
 		platform: 'browser',
@@ -85,9 +103,27 @@ const builds = [
 	},
 	{
 		...shared,
+		// The firmware screen popup, opened from the Firmware category of the Library. Its CSS lands in dist/screen.css.
+		entryPoints: ['src/screen/main.ts'],
+		outfile: 'dist/screen.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
+	{
+		...shared,
 		// Loaded with audioWorklet.addModule() from beside webview.js. A worklet scope has no modules to import.
 		entryPoints: ['src/webview/vibe/worklet.ts'],
 		outfile: 'dist/vibe-worklet.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
+	{
+		...shared,
+		// Emulates real FM-1 hardware firmwares (.fwsc) via fm1-emu's WebAssembly runtime.
+		entryPoints: ['src/webview/fm1/worklet.ts'],
+		outfile: 'dist/fm1-worklet.js',
 		platform: 'browser',
 		format: 'iife',
 		target: 'es2022',

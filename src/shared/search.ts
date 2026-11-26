@@ -1,10 +1,12 @@
 // Search and filters of the Browser. Plain functions over the items, so the webview and
 // the integration test filter the same way. `search.test.ts` holds the cases.
-import { type CatalogItem, type CategoryId, colorsOf, type PlaceId, tagsOf, type UserIndex } from './catalog.ts';
+import { type CatalogItem, type CategoryId, colorsOf, inCategory, type PlaceId, tagsOf, type UserIndex } from './catalog.ts';
 
 export interface Filter {
 	query: string;
 	category: CategoryId;
+	/** A group of the category: `Installed`, a bank, a folder. */
+	group?: string;
 	place?: PlaceId;
 	/** True: only what comes with Strudel. False: only what does not (the project, the packs it loads). */
 	builtin?: boolean;
@@ -62,7 +64,8 @@ export function matchesChips(tags: string[], chips: string[]): boolean {
 export function filterItems(items: CatalogItem[], filter: Filter, user: UserIndex): CatalogItem[] {
 	const query = parseQuery(filter.query);
 	return items.filter((item) => {
-		if (filter.category !== 'all' && item.category !== filter.category) return false;
+		if (!inCategory(item.category, filter.category)) return false;
+		if (filter.group && item.group !== filter.group) return false;
 		if (filter.place && item.place !== filter.place) return false;
 		if (filter.builtin !== undefined && (item.place === 'builtin') !== filter.builtin) return false;
 		if (filter.color && !colorsOf(item, user).includes(filter.color)) return false;
@@ -96,15 +99,15 @@ export function chipGroups(items: CatalogItem[], user: UserIndex, order: readonl
 
 /** The results under their headings, in the order of first appearance after sorting by heading. */
 export function groupItems(items: CatalogItem[], byCategory: boolean): { key: string; label: string; insert?: string; items: CatalogItem[] }[] {
-	const groups = new Map<string, { key: string; label: string; insert?: string; items: CatalogItem[] }>();
+	const groups = new Map<string, { key: string; label: string; insert?: string; rank: number; items: CatalogItem[] }>();
 	for (const item of items) {
 		const key = byCategory ? item.category : item.group;
 		let group = groups.get(key);
-		if (!group) groups.set(key, (group = { key, label: key, insert: byCategory ? undefined : item.groupInsert, items: [] }));
+		if (!group) groups.set(key, (group = { key, label: key, insert: byCategory ? undefined : item.groupInsert, rank: byCategory ? 0 : (item.groupRank ?? 0), items: [] }));
 		group.items.push(item);
 	}
 	const list = [...groups.values()];
 	for (const group of list) group.items.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true }));
-	if (!byCategory) list.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true }));
-	return list;
+	if (!byCategory) list.sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true }));
+	return list.map(({ rank: _rank, ...group }) => group);
 }

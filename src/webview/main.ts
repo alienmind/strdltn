@@ -16,12 +16,16 @@ import * as strudelWebaudio from '@strudel/webaudio';
 import { chooseInsert, type InsertArgument, visualLabel } from '../shared/context';
 import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
+import { DROP_MIME } from '../shared/drop';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
 import { SyncClient, type SyncUpdate } from '../shared/sync';
 import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { initMidi, listenEverywhere, midiMessage, midiScope, midiStopped, onControlChange, setMidiMuted } from './midi';
 import { findKnobs, type KnobBinding, type Pickup, pickup, sliderAt } from '../shared/knob';
-import { addFirmware, deviceRequest, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
+import { type LineAction, lineActionMap } from '../shared/lineActions';
+import { PREVIEW_FADE, previewCycleSeconds } from '../shared/preview';
+import { initFm1, previewFm1, pruneFm1, registerFm1Firmware, stopFm1Preview, stopFm1Transport } from './fm1';
+import { addFirmware, deviceRequest, initFirmware, previewFirmware, registerFirmware, setFirmwareCache, stopFirmwarePreview, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
@@ -47,6 +51,15 @@ let pushTimer: ReturnType<typeof setTimeout> | undefined;
 const syncId = Math.random().toString(36).slice(2);
 /** What to do once the user has clicked the "enable audio" overlay. */
 let afterUnlock: (() => unknown) | undefined;
+
+/** Resolvers waiting for the host to return the cached `fm1_web.wasm` URL. */
+const emuWasmWaiters: ((url: string | undefined) => void)[] = [];
+function requestEmuWasm(): Promise<string | undefined> {
+	return new Promise((resolve) => {
+		emuWasmWaiters.push(resolve);
+		post({ type: 'wantEmuWasm' });
+	});
+}
 
 window.addEventListener('error', (event) => log('error', `${event.message} (${event.filename}:${event.lineno})`));
 window.addEventListener('unhandledrejection', (event) => log('error', `unhandled rejection: ${event.reason?.message ?? event.reason}`));
@@ -82,6 +95,10 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'firmware':
 			registerFirmware(message.firmware);
+			registerFm1Firmware(message.firmware);
+			break;
+		case 'emuWasm':
+			while (emuWasmWaiters.length) emuWasmWaiters.shift()!(message.url);
 			break;
 		case 'firmwareCache':
 			setFirmwareCache(message.map);
@@ -96,6 +113,9 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			void play();
 			break;
 		case 'stop':
+			stopFirmwarePreview();
+			stopFm1Preview();
+			stopFm1Transport();
 			mirror?.stop();
 			break;
 		case 'device':
@@ -191,6 +211,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		meter: meterInput,
 		frame: (key, px, values) => post({ type: 'frame', key, px, values }),
 	});
+	initFm1({ log, emuWasmUrl: requestEmuWasm, meter: meterInput });
 
 	mirror = new strudelCodemirror.StrudelMirror({
 		id: REPL_ID,
@@ -239,6 +260,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			strudelWebaudio.registerSamplesPrefix('github:', resolveGithubPack);
 			await loadLocalSamples(samples);
 			registerFirmware(firmware);
+			registerFm1Firmware(firmware);
 			log('info', `local samples: ${Object.keys(samples).join(', ') || 'none'}`);
 			// The first play waits for the default packs, or "bd" is not found yet (measured
 			// on a slow network). The wait is capped so that offline use still starts.
@@ -252,6 +274,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			if (mode === 'stage') prepareDock(mirror.code);
 		},
 		afterEval: ({ meta }: { meta: { widgets?: unknown[] } }) => {
+			pruneFm1(mirror.code);
 			rememberSliders(meta?.widgets ?? []);
 			rememberKnobs(mirror.code);
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
@@ -260,7 +283,10 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		onToggle: (started: boolean) => {
 			// The firmwares follow the transport of the song.
 			transport(started);
-			if (!started) midiStopped();
+			if (!started) {
+				stopFm1Transport();
+				midiStopped();
+			}
 			sendLevels();
 			postState();
 		},
@@ -287,6 +313,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		),
 	});
 	mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(slashComment()) });
+	mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(browserDrop()) });
 
 	// For the integration test, which clicks and types with real input through the DevTools
 	// protocol: where a character is on screen, and what the editor holds. Read only.
@@ -596,6 +623,60 @@ function insert(text: string, bare?: string, argument?: InsertArgument): void {
 }
 
 /**
+ * Accepts items dragged from the Browser (synths, firmwares, drums, samples, snippets) onto the Strudel editor,
+ * letting the host expand them into a full playable `$name:` line at the drop position. Internal text drags inside
+ * CodeMirror itself are left to CodeMirror.
+ */
+function browserDrop() {
+	let internal = false;
+	return EditorView.domEventHandlers({
+		dragstart: () => {
+			internal = true;
+			return false;
+		},
+		dragend: () => {
+			internal = false;
+			return false;
+		},
+		dragover: (event, view) => {
+			if (internal) return false;
+			const types = event.dataTransfer?.types;
+			if (!types || (!types.includes(DROP_MIME) && !types.includes('text/plain'))) return false;
+			event.preventDefault();
+			if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+			const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+			if (pos !== null) view.dispatch({ selection: { anchor: pos } });
+			return true;
+		},
+		drop: (event, view) => {
+			if (internal) {
+				internal = false;
+				return false;
+			}
+			const raw = event.dataTransfer?.getData(DROP_MIME);
+			const text = event.dataTransfer?.getData('text/plain');
+			if (!raw && !text) return false;
+			event.preventDefault();
+			const offset = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head;
+			let id: string | undefined;
+			let index: number | undefined;
+			if (raw) {
+				try {
+					const parsed = JSON.parse(raw) as { id?: string; index?: number };
+					id = parsed.id;
+					index = parsed.index;
+				} catch {
+					// Fall back to text/plain + host's lastDrag.
+				}
+			}
+			view.focus();
+			post({ type: 'dropItem', id, index, text: text || undefined, offset });
+			return true;
+		},
+	});
+}
+
+/**
  * `//` typed over a selection comments the selected lines, and the same keys again take
  * the comment off (the rule is `toggleComment` in src/shared/comment.ts). The first `/`
  * waits for the second: any other key, or a pause of half a second, types the `/` as usual,
@@ -686,11 +767,10 @@ function preview(name: string, index: number): Promise<void> {
 		const data = (strudelWebaudio.soundMap.get() as Record<string, { data?: any }>)[name]?.data ?? {};
 		// Synths, soundfonts and pitched sample maps need a note to make a sound.
 		const pitched = data.type !== 'sample' || !Array.isArray(data.samples);
-		const value = { s: name, n: index, clip: 1, release: 0.5, ...(pitched ? { note: 'a3' } : {}) };
 		const context: AudioContext = strudelWebaudio.getAudioContext();
 		const scheduler = mirror?.repl?.scheduler;
 		let at = context.currentTime + 0.05;
-		let duration = 0.5;
+		let duration = previewCycleSeconds({ cps: scheduler?.cps });
 		let synced = '';
 		if (scheduler?.started && scheduler.cps > 0) {
 			const beats = 4;
@@ -703,9 +783,24 @@ function preview(name: string, index: number): Promise<void> {
 			// Not a beat closer than 50 ms: the sound could not start in time.
 			while (timeOf(next) < context.currentTime + 0.05) next += 1 / beats;
 			at = timeOf(next);
-			duration = 1 / beats / scheduler.cps;
+			duration = previewCycleSeconds({ cps: scheduler.cps });
 			synced = ` on beat ${(Math.round(next * beats) % beats) + 1}`;
 		}
+		if (name === 'vibefm1') {
+			stopFm1Preview();
+			await previewFirmware(index, at, duration, PREVIEW_FADE);
+			log('info', `preview: ${name}:${index}${synced}`);
+			return;
+		}
+		if (name === 'fm1') {
+			stopFirmwarePreview();
+			await previewFm1(index, at, duration, PREVIEW_FADE);
+			log('info', `preview: ${name}:${index}${synced}`);
+			return;
+		}
+		stopFirmwarePreview();
+		stopFm1Preview();
+		const value = { s: name, n: index, orbit: 99, clip: 1, release: PREVIEW_FADE, ...(pitched ? { note: 'a3' } : {}) };
 		await strudelWebaudio.superdough(value, at, duration);
 		log('info', `preview: ${name}:${index}${synced}`);
 	});
@@ -987,60 +1082,131 @@ onControlChange((cc, value) => {
 
 /**
  * Line actions: a column left of the line numbers (`Prec.highest` puts it before upstream's
- * gutters). A knob button on every line with a slider; a click asks the host for MIDI
- * learn on the first slider of the line. Other lines keep the column empty, so the code
- * stays aligned. CodeMirror lays the gutter out per line, so a widget between two lines
- * leaves a gap here too and the button stays beside its line number.
+ * gutters) with aligned M (Mute), S (Solo), and C (MIDI Capture) buttons and tooltips.
+ * CodeMirror lays the gutter out per line, so inline scopes/widgets leave a gap here too and
+ * every button stays beside its line number.
  */
-const KNOB_ICON =
-	'<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8.5" r="5.5" fill="var(--knob-fill)" stroke="currentColor" stroke-width="1.5"/><path d="M8 8.5 5 5" stroke="var(--knob-mark)" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
-/** The slider waiting for a CC (its button is red), by where its number starts. The host says. */
+/** The slider waiting for a CC (its C button is red), by where its number starts. The host says. */
 let learningFrom: number | undefined;
 const learningEffect = StateEffect.define<number | undefined>();
 
-class KnobMarker extends GutterMarker {
-	constructor(
-		readonly cc: number | undefined,
-		readonly learning = false,
-	) {
+class LineActionsMarker extends GutterMarker {
+	readonly chain: number | undefined;
+	readonly muted: boolean;
+	readonly solo: boolean;
+	readonly sliderFrom: number | undefined;
+	readonly cc: number | undefined;
+	readonly learning: boolean;
+
+	constructor(action: LineAction, learning = false) {
 		super();
+		this.chain = action.chain;
+		this.muted = !!action.muted;
+		this.solo = !!action.solo;
+		this.sliderFrom = action.sliderFrom;
+		this.cc = action.cc;
+		this.learning = learning;
 	}
-	eq(other: KnobMarker): boolean {
-		return other.cc === this.cc && other.learning === this.learning;
+
+	eq(other: LineActionsMarker): boolean {
+		return (
+			other.chain === this.chain &&
+			other.muted === this.muted &&
+			other.solo === this.solo &&
+			other.sliderFrom === this.sliderFrom &&
+			other.cc === this.cc &&
+			other.learning === this.learning
+		);
 	}
+
 	toDOM(): Node {
-		const button = document.createElement('span');
-		button.className = `strdltn-knob${this.learning ? ' learning' : this.cc === undefined ? '' : ' on'}`;
-		button.innerHTML = KNOB_ICON;
-		button.title = this.cc === undefined ? 'Click, then turn a knob: it moves this slider' : `Knob on CC ${this.cc}. Click to take it off`;
-		return button;
+		const row = document.createElement('span');
+		row.className = 'strdltn-act-row';
+
+		if (this.chain !== undefined) {
+			const m = document.createElement('span');
+			m.className = `strdltn-act strdltn-act-m${this.muted ? ' on' : ''}`;
+			m.textContent = 'M';
+			m.dataset.chain = String(this.chain);
+			m.title = this.muted ? 'Unmute chain (M)' : 'Mute chain (M)';
+			row.appendChild(m);
+
+			const s = document.createElement('span');
+			s.className = `strdltn-act strdltn-act-s${this.solo ? ' on' : ''}`;
+			s.textContent = 'S';
+			s.dataset.chain = String(this.chain);
+			s.title = this.solo ? 'Unsolo chain (S)' : 'Solo chain (S)';
+			row.appendChild(s);
+		} else {
+			const gapM = document.createElement('span');
+			gapM.className = 'strdltn-act-gap';
+			const gapS = document.createElement('span');
+			gapS.className = 'strdltn-act-gap';
+			row.append(gapM, gapS);
+		}
+
+		if (this.sliderFrom !== undefined) {
+			const c = document.createElement('span');
+			c.className = `strdltn-act strdltn-act-c${this.learning ? ' learning' : this.cc === undefined ? '' : ' on'}`;
+			c.textContent = 'C';
+			c.dataset.from = String(this.sliderFrom);
+			c.title = this.learning
+				? 'MIDI Capture (C): listening... turn a knob on your MIDI controller'
+				: this.cc === undefined
+					? 'MIDI Capture (C): click, then turn a knob on your MIDI controller to map this slider'
+					: `MIDI Capture (CC ${this.cc}): mapped - click to unmap`;
+			row.appendChild(c);
+		} else {
+			const gapC = document.createElement('span');
+			gapC.className = 'strdltn-act-gap';
+			row.appendChild(gapC);
+		}
+
+		return row;
 	}
 }
 
 function lineActions() {
-	const sliderLine = (text: string) => /\bslider\s*\(/.exec(text);
+	let cachedText = '';
+	let cachedMap = new Map<number, LineAction>();
+	const actionsFor = (view: EditorView) => {
+		const text = view.state.doc.toString();
+		if (text !== cachedText) {
+			cachedText = text;
+			cachedMap = lineActionMap(text);
+		}
+		return cachedMap;
+	};
 	return Prec.highest(
 		gutter({
 			class: 'strdltn-actions',
 			lineMarker(view, line) {
 				const docLine = view.state.doc.lineAt(line.from);
-				const text = docLine.text;
-				if (!sliderLine(text)) return null;
-				const cc = /\.knob\(\s*(\d+)\s*\)/.exec(text)?.[1];
-				const learning = learningFrom !== undefined && learningFrom >= docLine.from && learningFrom <= docLine.to;
-				return new KnobMarker(cc === undefined ? undefined : Number(cc), learning);
+				const action = actionsFor(view).get(docLine.number - 1);
+				if (!action) return null;
+				const learning = learningFrom !== undefined && action.sliderFrom !== undefined && learningFrom >= docLine.from && learningFrom <= docLine.to;
+				return new LineActionsMarker(action, learning);
 			},
 			lineMarkerChange: (update) => update.docChanged || update.transactions.some((t) => t.effects.some((e) => e.is(learningEffect))),
-			initialSpacer: () => new KnobMarker(undefined),
+			initialSpacer: () => new LineActionsMarker({ chain: 0, sliderFrom: 0 }),
 			domEventHandlers: {
-				mousedown(view, line, event) {
-					if (!(event.target as HTMLElement).closest('.strdltn-knob')) return false;
-					const docLine = view.state.doc.lineAt(line.from);
-					const at = sliderLine(docLine.text);
-					if (!at) return false;
-					post({ type: 'knobLearnAt', from: sliderAt(view.state.doc.toString(), docLine.from + at.index + at[0].length), toggle: true });
-					return true;
+				mousedown(_view, _line, event) {
+					const target = (event.target as HTMLElement | null)?.closest('.strdltn-act') as HTMLElement | null;
+					if (!target) return false;
+					if (target.classList.contains('strdltn-act-m') && target.dataset.chain !== undefined) {
+						post({ type: 'toggleChain', chain: Number(target.dataset.chain), button: 'mute' });
+						return true;
+					}
+					if (target.classList.contains('strdltn-act-s') && target.dataset.chain !== undefined) {
+						post({ type: 'toggleChain', chain: Number(target.dataset.chain), button: 'solo' });
+						return true;
+					}
+					if (target.classList.contains('strdltn-act-c') && target.dataset.from !== undefined) {
+						post({ type: 'knobLearnAt', from: Number(target.dataset.from), toggle: true });
+						return true;
+					}
+					return false;
 				},
 			},
 		}),

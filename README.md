@@ -1,8 +1,19 @@
 <p align="center">
   <img src="doc/logo.jpg" alt="[str]dltn Live[code] - your IDE is your DAW" width="760">
 </p>
+<!-- SCREENSHOT SPEC: doc/logo.jpg
+  Static project logo artwork (dark background, "[str]dltn Live[code]" typography with cyan "[str]" and "[code]").
+  Do not recapture; keep existing file.
+-->
 
 # [str]dltn Live[code]
+
+**[str]dltn Live[code] (pronounced "Stroo-del-ton") is a VS Code extension for Strudel live coding.
+However it is much more than that, as it turns your editor in a DAW on top of Strudel.**
+
+[Strudel](https://strudel.cc) is a language for making music with code. [str]dltn Live[code] embeds
+the real Strudel, the same editor and the same sound engine as strudel.cc, and adds
+features that you would expect of a DAW, but that play nice with the code on screen.
 
 > **[UNOFFICIAL NOTE]** [str]dltn Live[code] is an independent project. It is neither an
 > official project nor a component of Strudel, and it is not endorsed or supported by the
@@ -13,50 +24,69 @@
 > this extension [here](https://github.com/alienmind/strdltn/issues), not to the Strudel
 > project.
 
-**[str]dltn Live[code] (pronounced "Stroo-del-ton") is a VS Code extension for Strudel live coding.
-However it is much more than that, as it turns your editor in a DAW on top of Strudel.**
+You can either use the specialized panels OR keep writing code OR a mix of both. Some of the features (more underway!):
 
-[Strudel](https://strudel.cc) is a language for making music with code. [str]dltn Live[code] embeds
-the real Strudel, the same editor and the same sound engine as strudel.cc, and adds
-features that you would expect of a DAW, but that play nice with the code on screen.
-You can either use the new panels OR keep writing code OR a mix of both. Some of the features (more underway!):
+- **Controls**: Play, Stop, Record, Render, Undo, Redo, BPM, Back/Forward Browser history,
+  search and color filters in a dedicated top pane that stays visible while you browse.
+- **Mixer**: a strip per part of the song you play, with faders, level meters, mute, solo,
+  sidechain cables you drag, and drag-and-drop from the Browser to add new tracks. Every
+  change is plain Strudel code.
+- **Browser**: every sound, synth, drum machine, FM-1 firmware, snippet, song and function,
+  with one search, colors, tags and drag-to-insert into code or the Mixer. Single-click any
+  sound or synth to hear a timed 1-loop preview, even with no song open.
+- **Your files**: songs, samples, firmwares and snippets are plain files in a folder, so
+  they work with git, search and everything else in your editor.
 
-- **Music Controls**: Play, Stop and the BPM of the song, in one row at the top of the Library.
-- **Mixer**: a strip per part of the song you play, with faders, mute, solo and sidechain
-  cables you drag. Every change is plain Strudel code.
-- **Browser**: every sound, snippet, song and function, with one search, colors and tags.
-  Click a sound to hear it, even with no song open.
-- **Your files**: songs, samples and snippets are plain files in a folder, so they work
-  with git, search and everything else in your editor.
-
-> ### M-VAVE FM-1 and VIBE FM firmwares
+> ### M-VAVE FM-1 Synths (WASM, FWSC, External Repos and Hardware MIDI)
 >
-> **Got an FM-1? Your song can play it.** [str]dltn Live[code] supports the M-VAVE FM-1
-> synth in two ways:
+> **Got an FM-1, or want its synths in software?** Open **Plugins > FM-1 Synths** in the
+> Browser to browse all FM-1 synths in one unified category divided into **Installed** and
+> **Available** (hover or click `?` for a technology guide, or click `+` to manage firmware
+> repositories). Every row is tagged with its technology badge and filterable with
+> `Runtime/...` and `Repo/...` chips:
 >
-> - **The real device, over MIDI.** Plug in the FM-1 and send any part of your song to it
->   with `.midi('M-VAVE FM-1')`, in time with the rest of the music. Its knobs and the knobs
->   of any controller can move the sliders of your code. Desktop VS Code.
-> - **Its firmwares, inside VS Code.** The synth firmwares of the VIBE FM platform, from
->   [The Firmware Hub](https://thefirmwarehub.com), run inside the extension as instruments
->   of your song: `s("vibefm1:obervave")`. Each one gets a panel with its own screen, its
->   F1 to F6 keys and its parameters, with no hardware at all.
+> - **`WASM` (VIBE FM):** open-source builds from [The Firmware Hub](https://thefirmwarehub.com)
+>   running inside Strudel's engine (`s("vibefm1:obervave")`) with ~1% CPU, sample-accurate
+>   timing, live screen thumbnails, Screen popup, and Devices tab controls (desktop & Codespaces).
+> - **`FWSC` (FM-1 Firmware):** real unmodified M-VAVE FM-1 `.fwsc` firmwares (~280+ Hub
+>   synths plus custom repository URLs in `strdltn.firmware.repositories`): launch
+>   **Run Native** (`fm1-live` 240 MHz JIT on Windows, macOS, Linux - zero dropouts for
+>   SHRUB), or emulate lighter `.fwsc` synths in-editor (`s("fm1:<id>")`).
+> - **`EXT` (External Repositories):** external synth repositories such as `shrub.audio`
+>   (listing **SHRUB**) link directly to their official download page.
+> - **`MIDI` (Hardware MIDI):** built-in profiles (**SHRUB**, **M-VAVE FM-1 Stock**) to play
+>   a real M-VAVE FM-1 over desktop MIDI with CC maps and `Editor...` links.
+>
+> **Disclaimer - Experimental FM-1 Hardware Flashing (USE AT YOUR OWN RISK):** direct
+> USB-MIDI SysEx flashing (`Flash to FM-1...`) is an experimental feature, **disabled by
+> default**, and gated behind the `strdltn.experimental.fm1Flash` setting. Flashing
+> firmware to hardware carries inherent risk. The `[str]dltn Live[code]` authors take **no
+> responsibility** for bricked, corrupted, or damaged hardware - use entirely at your own
+> risk.
 >
 > See `examples/07-vibefm1-obervave.strudel` and `examples/09-midi-out.strudel`.
 
-![demo.strudel playing: the Strudel editor, the Browser on the left, the Mixer below](doc/screenshot-overview.png)
+![demo.strudel playing: the 4-pane Browser on the left, the Strudel editor with inline visuals in the center, and the Mixer with level meters and sidechain cables below](doc/screenshot-overview.png)
+<!-- SCREENSHOT SPEC: doc/screenshot-overview.png
+  File: doc/screenshot-overview.png
+  Capture: Full VS Code window at 1440x900 (or 2880x1800 downscaled 50% to 1440x900).
+  Workspace / Song: template/demo.strudel open in the Strudel editor and actively playing.
+  UI State:
+    - Left side bar: [str]dltn Browser visible with Controls pane open at top (Play lit green, Stop, Record, Render, Undo, Redo, BPM, Back/Forward, search box, preview speaker, 7 color dots, Built-in), Library/Contents showing Drums or Sounds with rows and tag chips, Reference collapsed at bottom.
+    - Center: Strudel editor showing demo.strudel with inline scopes/visuals, inline sliders, note outlines active, and knob buttons in the left gutter.
+    - Bottom panel: Mixer tab active showing Master strip first, then song strips (with bass unfolded to show inner blue faders), active green level meters, pump meters, knob buttons, and orange dashed sidechain ducking cables.
+    - Status bar right: "strdltn: playing".
+  Must show: All three main regions (4-pane Browser, Strudel editor with live visuals, Mixer with meters and cables) clearly legible in one window.
+-->
 
 It also runs in **GitHub Codespaces**. That gives a second way to use it: keep each
 music project as a repository and open it in a browser from any machine, with nothing
 installed. Fork this repository, open your fork in a Codespace, and start from the
 `template/` folder.
 
-Free and open source, AGPL-3.0-or-later like Strudel. **Version 0.5.0**: MIDI knobs on every slider, the Mixer's Master and MIDI mappings, a user
-manual. See
-`doc/TODO.md` for what is missing.
+Free and open source, AGPL-3.0-or-later like Strudel.
 
-This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
-it because the scope grew beyond a VS Code extension.
+This project is a fork of my former extension [vstrudel](https://github.com/alienmind/vstrudel)
 
 ## Install
 
@@ -94,8 +124,11 @@ browser.
 
 **Mixer and Music Controls**
 
-- Music Controls, one row at the top of the Library, with Play, Stop and the BPM of the song. Type a BPM to write `setcpm(<bpm>/4)`;
-  double click it to go back to Strudel's default, 120.
+- Controls pane at the top of the Browser (always reachable, collapsible): Play, Stop,
+  Record, Render, song Undo and Redo, and the BPM of the song. Type a BPM to write
+  `setcpm(<bpm>/4)`; double click it to go back to Strudel's default, 120.
+- Drag any sound, synth, drum or FM-1 firmware from the Browser onto the Mixer strip area
+  to append a new playable `$name:` strip at the bottom of the song.
 - A mixer in the bottom panel, next to Terminal: one strip per chain of the song in front
   (`$kick:`, `bass:`), side by side as in the Session view of Live.
 - A strip shows the slider in the chain's `.gain()` as a fader. Unfold it to see every
@@ -144,37 +177,69 @@ browser.
   and its parameters as sliders. The mouse wheel over the screen turns its DATA knob.
 - Fold a panel, fill the view with it, or take it out into a tab of its own.
 
-![OBERVAVE playing on two orbits, each with its own panel in the Devices tab](doc/screenshot-devices.png)
+![OBERVAVE playing on two orbits, each with its own live screen, F1-F6 keys and parameter sliders in the Devices tab](doc/screenshot-devices.png)
+<!-- SCREENSHOT SPEC: doc/screenshot-devices.png
+  File: doc/screenshot-devices.png
+  Capture: Cropped bottom panel (Devices tab) or full window showing Devices prominently (~1440x420 or half-size crop).
+  Workspace / Song: template/examples/07-vibefm1-obervave.strudel open and playing.
+  UI State:
+    - Bottom panel switched to the Devices tab.
+    - At least two OBERVAVE device panels side by side (orbit 2 bass and orbit 3 pad, e.g. "56 DEEP BASS" and "44 DARK PAD").
+  Must show: Each panel's live 480x320 firmware display, the six soft keys F1 to F6 underneath, parameter sliders on the right, and fold/maximize/pop-out buttons in each panel header.
+-->
 
 **Browser**
 
-- A Browser in the side bar, like the browser of Ableton Live, in three views. Library
-  (search, seven colors, a Built-in switch, and Sounds, Drums, Samples, Instruments,
-  Render, MIDI, Songs, Snippets) and Reference (every function of Strudel) pick what you
-  see; Results shows it all in one list, with tag chips and details.
+- A Browser in the side bar, like the browser of Ableton Live, in one view with four panes:
+  **Controls** (Music Controls with Undo/Redo, Back/Forward browser history beside the
+  search field, preview toggle, seven colors, and Built-in switch), **Library** (Sounds,
+  Drums, Samples, Plugins > FM-1 Synths, Render, MIDI, Songs, Snippets), **Contents**
+  (renamed **Results** while searching, with tag chips, flat rows and details pane), and
+  **Reference** (every function of Strudel). Picking a category folds Library and Reference
+  so Contents fills the height below Controls.
+- Back and Forward history buttons (`Alt+Left` / `Alt+Right` or mouse side buttons) step
+  through previous searches, categories and pane states.
 - Search by name, bank, folder, description or tag. Every word must match. `#kick`
   looks only at tags.
 - Tags come by themselves from the names: Kick, Snare, Hihat... for drums, Bass, Pad,
-  Keys... for instruments, the maker of a drum machine, where a sound comes from. Click a
-  chip to filter, Ctrl+click to take several of a group.
+  Keys... for instruments, the maker of a drum machine, `Runtime/...` for FM-1 synths,
+  and where a sound comes from. Click a chip to filter, Ctrl+click to take several of a
+  group.
 - Put anything in a collection: the tag button on a row, the color dots under the
   selected item, or the keys 1 to 7 (0 clears). Your own tags come from the same button
-  ("Edit tags...") or the "Tags..." button. They are kept in `strdltn.index.json` in your project, so they travel with it.
-  Tags of a snippet go into its own header.
+  ("Edit tags...") or the "Tags..." button. They are kept in `strdltn.index.json` in your
+  project, so they travel with it. Tags of a snippet go into its own header.
 - Save a search: it becomes a row under Collections.
-- A click on a sound plays it when preview is on. It never types. Enter, a double click
-  (not on a snippet, which opens its file) or the insert button types the code that plays it at the cursor: `s("bd")`,
-  `s("bd").bank("RolandTR909")`, `note("c3").s("sawtooth")`. Inside a string, only the
-  name. Copy gives the name. A bank heading has a button that types
-  `.bank("...")`.
-- While a song plays, a preview starts on its next beat and lasts one beat, so you hear
-  the sound against the music.
+- Single-click preview works for every sound and synth (samples, drum machines, plain
+  waves, soundfonts, `supersaw`, `zzfx`, VIBE `.wasm`, emulated `.fwsc`, and hardware
+  MIDI profiles), even with no song open. Each preview plays for 1 loop (of the active
+  song, or 120 BPM when no song plays), fades out smoothly over 0.5 s, and disposes
+  cleanly; pressing Stop cuts it off at once.
+- Drag and drop any row from the Browser into the Strudel editor or native editor to insert
+  a complete playable `$name:` line with an example pattern and gain slider (or bare name
+  inside `"..."`), drag an effect function (like `lpf` or `room`) onto an existing chain
+  line to append it, or drop any instrument onto the Mixer to append a new strip.
+- A click on a sound never types. Enter, a double click (not on a snippet, which opens its
+  file) or the insert button types the code at the cursor. A bank in the Drums tree has a
+  button on hover that types `.bank("...")`.
 - A pane at the bottom shows the selected item: its tags, a snippet's description and
-  code, a function's parameters and an example.
+  code, a function's parameters and an example, or an FM-1 synth's screen/editor buttons.
 - A song can be inserted at the cursor too (its code, without its header), and a function
   has "Insert an example".
 - "User manual (PDF)" at the foot of the Library opens the manual of the latest release.
 - The list is there as soon as VS Code starts, before you open a song.
+
+![Plugins > FM-1 Synths in the Browser showing Installed, Hardware (MIDI) with SHRUB, and Available VIBE WASM and FWSC firmwares](doc/screenshot-fm1-synths.png)
+<!-- SCREENSHOT SPEC: doc/screenshot-fm1-synths.png
+  File: doc/screenshot-fm1-synths.png
+  Capture: Cropped Browser side bar (~360px wide, full height) showing Plugins > FM-1 Synths.
+  Workspace / Song: template/ workspace open (at least one installed firmware or default hub catalog loaded).
+  UI State:
+    - Controls pane open at top.
+    - Library folded after clicking Plugins > FM-1 Synths (or showing FM-1 Synths > Installed, Hardware (MIDI), Available).
+    - Contents pane showing Runtime chips (Runtime/VIBE WASM, Runtime/FM-1 Emulated, Runtime/Hardware MIDI), FM-1 rows with screen thumbnails and color-coded WASM (green), FWSC (orange) and MIDI (purple) badges, with SHRUB (FM-1 Hardware) selected so the Details pane at the bottom shows CC 74 / CC 16-19 details and the "Editor..." button.
+  Must show: Runtime chips, color-coded WASM / FWSC / MIDI badges, screen thumbnails on VIBE rows, and SHRUB details with the Editor button.
+-->
 
 **Sounds**
 
@@ -186,13 +251,14 @@ browser.
   (`samples('https://.../strudel.json')`) are listed before you press play, get their
   own group, and are copied into your project so they play offline.
 - Commands show how much space the copies take, and delete them.
-- Synths from [The Firmware Hub](https://thefirmwarehub.com): put VIBE FM firmwares
-  (`.wasm`) in a `firmware/` folder, or load one from an address with
-  `firmware('https://.../name.wasm')`, which is kept in your project so it plays
-  offline. Play them through one instrument, `s("vibefm1:<name>")`, in time with the
-  rest of the song. The firmware can change per step (`s("vibefm1:<obervave sloop>")`)
-  and `.progNum()` picks its sound. Two examples show how. Effects on its line, such as
-  `.room()`, do not reach it yet.
+- Synths from [The Firmware Hub](https://thefirmwarehub.com): browse and install VIBE FM
+  (`.wasm`, played as `s("vibefm1:<id>")`) and real FM-1 (`.fwsc`, emulated as
+  `s("fm1:<id>")`) firmwares right from **Plugins > FM-1 Synths**, drop local `.wasm` or
+  `.fwsc` files into `firmware/`, or load by URL with `firmware('https://.../name.wasm')`.
+  Hardware MIDI profiles (**SHRUB**, **FM-1 Stock**) target a real M-VAVE FM-1 over desktop
+  MIDI with built-in CC maps. The firmware can change per step
+  (`s("vibefm1:<obervave sloop>")`) and `.progNum()` picks its sound. Effects on its line,
+  such as `.room()`, do not reach a firmware yet.
 
 **Snippets**
 
@@ -212,20 +278,22 @@ browser.
   devices; a click types `.midi('name')` or `midin('name')`. See `examples/09-midi-out.strudel`.
   To see what a controller sends, run "strdltn: Show MIDI messages in the Output": every
   message in and out shows in Output > strdltn.
-- Knobs on sliders: click the knob button left of a line with a `slider(...)`, or on a fader
-  of the Mixer (or press Ctrl+Alt+K in a slider), then turn a knob. The code gets `.knob(cc)`, and from then that knob moves
-  the slider, the sound and the number in the code. It takes over once it reaches the
-  slider's value, so the sound does not jump. In the Mixer, "Show MIDI Mappings" lists every
-  knob with its CC and its line, and "Reset MIDI Mappings" takes them all out. On strudel.cc the song still plays, without
-  the knob.
+- **Line actions (`M` / `S` / `C`)** left of the line numbers in the Strudel editor: click
+  `M` to mute a chain, `S` to solo it, or `C` (MIDI Capture) on any `slider(...)` line to
+  map a physical MIDI knob, each with hover tooltips.
+- **Native FM-1 emulation (`fm1-live`):** click **Run Native** on **SHRUB** (with your own
+  `SHRUB.fwsc`) or any `.fwsc` firmware to run it natively at 240 MHz JIT on Windows, macOS
+  (Apple Silicon), and Linux - with platform-specific `.vsix` bundles built in GitHub
+  Actions.
 - VS Code's keys in the Strudel editor: Ctrl+F finds, Ctrl+H replaces, Ctrl+G goes to a
   line, Ctrl+D selects the next match, Ctrl+Shift+L every match. Change them in Keyboard
   Shortcuts under `strdltn.editor.*`.
 - A template to start from, with a demo song, examples and a library of snippets.
 - Runs in GitHub Codespaces: fork, open, play.
 
-Experimental, off by default: the setting `strdltn.experimental.shrubEditor` adds a tab
-with Xfer's SHRUB web editor, to see how it would look. It is not connected to your songs.
+Experimental, off by default: `strdltn.experimental.fm1Flash` enables direct USB-MIDI SysEx
+flashing of `.fwsc` firmwares onto M-VAVE FM-1 hardware. Use at your own risk; the authors
+take no responsibility for bricked or damaged hardware.
 
 Not there yet: MIDI in Codespaces, MIDI devices in the Mixer, sound across a switch of editor, completion and hover in the code,
 the Marketplace. See `doc/TODO.md`.
@@ -244,59 +312,98 @@ stage opens below the code with the visuals of the song. Each is named from your
 the name of the pattern (`$kick:`), the name of a variable, the comment above the line,
 or the code itself. The sliders are faders in the Mixer.
 
-![The native editor with the stage below it and the Mixer](doc/screenshot-stage.png)
+![The native VS Code editor with the stage below it showing named visuals, and the Mixer in the bottom panel](doc/screenshot-stage.png)
+<!-- SCREENSHOT SPEC: doc/screenshot-stage.png
+  File: doc/screenshot-stage.png
+  Capture: Full VS Code window at 1440x900 (or half-size downscale from 2880x1800).
+  Workspace / Song: template/demo.strudel (or an example with inline scopes) switched to the native VS Code text editor (Ctrl+Alt+M) and playing.
+  UI State:
+    - Top editor group: native VS Code editor showing Strudel code with syntax highlighting and knob icons in the gutter left of line numbers.
+    - Lower editor group: Stage panel showing live named visuals/scopes (each labeled from its chain or comment).
+    - Bottom panel: Mixer visible with live meters and strips.
+  Must show: Native VS Code editor on top, Stage with named scopes underneath, Mixer at the bottom.
+-->
 
 [Hydra](https://hydra.ojack.xyz) works as on strudel.cc: call `initHydra()` and the
 visuals draw behind your code, driven by your pattern.
 
-![Hydra shapes behind the code](doc/screenshot-hydra.png)
+![Hydra procedural visuals rendering behind the Strudel editor code](doc/screenshot-hydra.png)
+<!-- SCREENSHOT SPEC: doc/screenshot-hydra.png
+  File: doc/screenshot-hydra.png
+  Capture: Full VS Code window at 1440x900 (or half-size downscale from 2880x1800).
+  Workspace / Song: template/examples/06-hydra.strudel (or demo.strudel during a Hydra drop) open in the Strudel editor and playing.
+  UI State:
+    - Strudel editor focused and playing so Hydra canvas renders vivid geometric/shader shapes behind the code text.
+    - Code text legible over the Hydra background; active notes outlined.
+  Must show: Live Hydra visuals visible behind the Strudel code inside VS Code.
+-->
 
 Edits made outside the editor, by git or another editor, show up at once, even while the
 song plays.
 
 ### The Mixer and Music Controls
 
-![The Mixer: a strip per part with faders, M, S, G and sidechain cables](doc/screenshot-music.png)
+![The Mixer: Master strip first, strips per chain with level meters, gain faders, inner sliders, M/S, knob buttons, pump meters and orange sidechain cables](doc/screenshot-music.png)
+<!-- SCREENSHOT SPEC: doc/screenshot-music.png
+  File: doc/screenshot-music.png
+  Capture: Cropped Mixer bottom panel (~1440x360).
+  Workspace / Song: template/demo.strudel playing.
+  UI State:
+    - Left utility column visible (blue > and < unfold/fold buttons, Reset MIDI Mappings, Show MIDI Mappings, Show MIDI Routing).
+    - Master strip first with active stereo green meter and peak dB readout.
+    - Chain strips side by side (kick, bass unfolded showing inner blue faders, pad, hats, vocals, etc.), M and S buttons, knob buttons under faders, active green pump meters, jacks at the foot, and orange dashed sidechain cables from kick to ducked strips.
+  Must show: Master strip, unfolded inner blue faders, stereo level meters with peak dB, M/S, knob buttons, pump meters, and orange dashed ducking cables.
+-->
 
-The bottom panel has a tab called Mixer, for the song in front. Each part of the song (`$kick:`, `bass:`) is a strip with its faders. M mutes, S solos, a click on
-the gain fader's triangle adds or removes it. Drag from the jack at the foot of a strip onto another strip and
-the first ducks the second (`.duck()`); pull the cable off to stop. Type a BPM to set the
-tempo in Music Controls, at the top of the Library, with Play and Stop. Every change is
-an edit of the song, so undo takes it back.
+The bottom panel has a tab called Mixer, for the song in front. Each part of the song
+(`$kick:`, `bass:`) is a strip with its faders and level meter. M mutes, S solos, a click
+on the gain fader's triangle adds or removes it. Drag from the jack at the foot of a strip
+onto another strip and the first ducks the second (`.duck()`); pull the cable off to stop.
+Drop any instrument from the Browser onto the Mixer strip area to append a new strip.
+Music Controls (Play, Stop, Record, Render, Undo, Redo, BPM) sit in the top **Controls**
+pane of the Browser. Every change is an edit of the song, so Undo takes it back.
 
 ### The Browser
 
-<img src="doc/screenshot-browser.png" alt="The Browser: Library with the search and colors, Reference, and Results" width="300" align="right">
+<img src="doc/screenshot-browser.png" alt="The 4-pane Browser: Controls at top with Play/Stop/Record/Render/Undo/Redo/BPM, Back/Forward and search, Library tree, Contents with chips and details, and Reference" width="300" align="right">
+<!-- SCREENSHOT SPEC: doc/screenshot-browser.png
+  File: doc/screenshot-browser.png
+  Capture: Cropped Browser side bar (~320-360px wide, ~750-900px tall).
+  Workspace / Song: template/ workspace open.
+  UI State:
+    - Four stacked pane headers visible inside the Browser view: Controls (open), Library (showing Sounds, Drums, Samples, Plugins > FM-1 Synths, Render, MIDI, Songs, Snippets), Contents (open with tag chips, sound rows and Details pane at bottom), and Reference (collapsed at bottom).
+    - Controls pane clearly shows: Music Controls row (Play, Stop, Record, Render, Undo, Redo, BPM), Back/Forward arrows beside the Search box and speaker preview toggle, and the row of 7 color dots + Built-in toggle button.
+  Must show: All four pane headers (Controls, Library, Contents, Reference), Back/Forward and Undo/Redo buttons, colors + Built-in row, and Contents rows with chips.
+-->
 
-The [str]dltn Live[code] icon in the activity bar opens the Browser, three views that
-each fold and move on their own. The first two pick what is shown, the last shows it.
-Everything you set, in any of them, acts on Results.
+The [str]dltn Live[code] icon in the activity bar opens the Browser, one view with four
+panes: **Controls**, **Library**, **Contents** (called **Results** while searching), and
+**Reference**. Controls stays open at the top so transport, history, search and quick
+filters remain reachable while Library and Reference auto-fold to give Contents full height.
 
-- **Search** (Library). Ctrl+F in any of the views, or Ctrl+Alt+F from anywhere, puts the
-  cursor here. Esc clears it. It searches everything.
-- **Colors** (Library, under the search). Seven color dots. A click shows everything with
-  that color. Right click a dot to rename it ("Favorites" is the first). Beside them, the
-  Built-in button: click once for only what comes with Strudel, again for only what does
-  not (your project and the packs your songs load), again for everything.
-- **Collections** (Library). Your saved searches, once you have saved one.
-- Every click and every search opens Results, if it is folded.
-- **Categories.** The rows of each view: Sounds (synths, soundfonts), Drums (by bank),
-  Samples, Instruments (VIBE FM firmwares), Render (the audio of your songs), MIDI (the
-  ports of the machine, desktop only), Songs and Snippets in the Library; Functions (every
-  function of Strudel, with its documentation) in the Reference. "All" takes everything of that view. A click on the row that is picked goes
-  back to everything.
-- **Chips** (Results). The tags of what is shown, by group. They narrow the results.
-- **Results.** Under headings: the bank, the folder, the category. Arrow keys move,
-  Enter inserts (or opens a song), Space plays, 1 to 7 color, right click for more.
-  Ctrl+click and Shift+click select several rows.
-- **Details.** The selected item: seven dots that put it in or take it out of a
-  collection, a "Tags..." button, its tags (a click filters by one), its description, code
-  or parameters.
+- **Controls.** Music Controls (Play, Stop, Record, Render, Undo, Redo, BPM), Back and
+  Forward history buttons (`Alt+Left` / `Alt+Right`) beside the search field (Ctrl+F /
+  Ctrl+Alt+F, Esc clears) and speaker preview toggle, seven color dots (right click to
+  rename; 1 to 7 color rows, 0 clears), and the Built-in switch (everything / Built-in /
+  Not built-in).
+- **Library.** Collections (your saved searches) and the category tree: All, Sounds
+  (Synths, Soundfonts, Wavetables), Drums (by bank, with `.bank("...")` on hover), Samples,
+  Plugins > FM-1 Synths (Installed, Available), Render, MIDI, Songs,
+  Snippets, plus "User manual (PDF)" at the foot.
+- **Contents / Results.** Tag chips on top narrow the flat list; rows show their group as
+  dim text. Arrow keys move, Enter inserts (or opens a song), Space plays, drag and drop
+  inserts a playable `$name:` line into code (or appends an effect onto a chain, or adds a
+  strip in the Mixer).
+- **Reference.** Every function of Strudel with parameters, descriptions and "Insert an
+  example".
+- **Details.** At the bottom of Contents: seven color dots, "Tags..." button, tags,
+  description, code/parameters, and FM-1 Screen / Editor buttons.
 
-The speaker button beside the search turns preview on click on or off. Samples, drum
-machines and the plain waves play at once, with no song open. While a song plays, a
-preview waits for the next beat of the song. Soundfonts, supersaw and firmwares need a
-song open.
+The speaker button beside the search turns single-click preview on or off. Every sound and
+synth (samples, drum machines, plain waves, soundfonts, `supersaw`, `zzfx`, VIBE `.wasm`,
+emulated `.fwsc`, and hardware MIDI profiles) plays a 1-loop preview with a smooth fade-out
+and automatic disposal, with or without an open song. While a song plays, previews start on
+the next beat.
 
 Colors, your own tags and saved searches are kept in `strdltn.index.json` at the root of
 your project. Commit it and they travel with your songs.
@@ -355,6 +462,8 @@ plays or stops.
 | `strdltn.samplesFolder` | The folder of your own samples. Default `samples` |
 | `strdltn.libFolder` | The folder of your snippets. Default `lib` |
 | `strdltn.remoteSamples.cache`, `strdltn.remoteSamples.maxFiles` | Whether packs are copied into the project, and up to how many files |
+| `strdltn.firmware.repositories` | Custom FM-1 firmware repository URLs shown alongside The Firmware Hub and `shrub.audio` |
+| `strdltn.experimental.fm1Flash` | Experimental (off by default, USE AT YOUR OWN RISK): enable USB-MIDI SysEx flashing of `.fwsc` firmwares to M-VAVE FM-1 hardware. No responsibility for damaged hardware |
 
 ## Keys
 

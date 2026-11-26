@@ -2,7 +2,7 @@
 	"name": "strdltn",
 	"displayName": "[str]dltn Live[code]",
 	"description": "Your IDE is your DAW. Strudel live coding inside VS Code: an editor for .strudel files with sound, visuals, samples and a snippet library",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"private": true,
 	"publisher": "strdltn",
 	"license": "AGPL-3.0-or-later",
@@ -101,8 +101,16 @@
 				"title": "strdltn: Map a MIDI knob to the slider at the cursor"
 			},
 			{
+				"command": "strdltn.muteChainLine",
+				"title": "strdltn: Mute / Unmute chain (M)"
+			},
+			{
+				"command": "strdltn.soloChainLine",
+				"title": "strdltn: Solo / Unsolo chain (S)"
+			},
+			{
 				"command": "strdltn.knobLearnLine",
-				"title": "Map a MIDI knob to this line's slider"
+				"title": "strdltn: MIDI Capture (C) for this line's slider"
 			},
 			{
 				"command": "strdltn.editor.find",
@@ -130,9 +138,24 @@
 				"icon": "$(arrow-swap)"
 			},
 			{
-				"command": "strdltn.openShrubEditor",
-				"title": "strdltn: Open SHRUB editor (experimental)",
-				"icon": "$(beaker)"
+				"command": "strdltn.runNativeFm1",
+				"title": "strdltn: Launch FM-1 firmware in native emulator (fm1-live)"
+			},
+			{
+				"command": "strdltn.stopNativeFm1",
+				"title": "strdltn: Stop native FM-1 emulator"
+			},
+			{
+				"command": "strdltn.manageFirmwareRepos",
+				"title": "strdltn: Manage FM-1 firmware repositories..."
+			},
+			{
+				"command": "strdltn.installAllFirmwares",
+				"title": "strdltn: Download all available FM-1 firmwares"
+			},
+			{
+				"command": "strdltn.flashFm1Hardware",
+				"title": "strdltn: Flash .fwsc firmware to M-VAVE FM-1 hardware (experimental)..."
 			},
 			{
 				"command": "strdltn.openStage",
@@ -186,6 +209,14 @@
 		"menus": {
 			"editor/lineNumber/context": [
 				{
+					"command": "strdltn.muteChainLine",
+					"when": "editorLangId == strudel"
+				},
+				{
+					"command": "strdltn.soloChainLine",
+					"when": "editorLangId == strudel"
+				},
+				{
 					"command": "strdltn.knobLearnLine",
 					"when": "editorLangId == strudel"
 				}
@@ -219,11 +250,6 @@
 					"group": "navigation@2"
 				},
 				{
-					"command": "strdltn.openShrubEditor",
-					"when": "view == strdltn.browser && config.strdltn.experimental.shrubEditor",
-					"group": "navigation@3"
-				},
-				{
 					"command": "strdltn.mixer.float",
 					"when": "view == strdltn.mixer",
 					"group": "navigation@1"
@@ -236,6 +262,14 @@
 				},
 				{
 					"command": "strdltn.knobLearnLine",
+					"when": "false"
+				},
+				{
+					"command": "strdltn.muteChainLine",
+					"when": "false"
+				},
+				{
+					"command": "strdltn.soloChainLine",
 					"when": "false"
 				},
 				{
@@ -271,8 +305,8 @@
 					"when": "false"
 				},
 				{
-					"command": "strdltn.openShrubEditor",
-					"when": "config.strdltn.experimental.shrubEditor"
+					"command": "strdltn.flashFm1Hardware",
+					"when": "config.strdltn.experimental.fm1Flash"
 				}
 			]
 		},
@@ -370,12 +404,27 @@
 				"strdltn.firmwareFolder": {
 					"type": "string",
 					"default": "firmware",
-					"description": "Workspace folder that holds VIBE FM firmwares (.wasm) from thefirmwarehub.com. Each one plays as s(\"vibefm1:<id>\")."
+					"description": "Workspace folder that holds VIBE FM (.wasm) and real FM-1 (.fwsc) firmwares. Plays as s(\"vibefm1:<id>\") or s(\"fm1:<id>\")."
 				},
-				"strdltn.experimental.shrubEditor": {
+				"strdltn.shrub.fwscPath": {
+					"type": "string",
+					"default": "",
+					"description": "Optional path to your local SHRUB .fwsc file (e.g. SHRUB-V1.11.fwsc) for native 240 MHz JIT emulation via fm1-live."
+				},
+				"strdltn.fm1.nativeBinary": {
+					"type": "string",
+					"default": "",
+					"description": "Optional path to a local fm1-live executable (github.com/joakimeriksson/fm1-emu), e.g. for Intel Macs or custom builds."
+				},
+				"strdltn.firmware.repositories": {
+					"type": "array",
+					"default": [],
+					"description": "Additional FM-1 firmware repository URLs shown alongside The Firmware Hub and shrub.audio. Each entry can be a catalog JSON URL, a direct .wasm/.fwsc URL, an external synth webpage URL, or { \"name\": \"...\", \"url\": \"...\" }."
+				},
+				"strdltn.experimental.fm1Flash": {
 					"type": "boolean",
 					"default": false,
-					"description": "Experimental mockup: adds the command \"Open SHRUB editor\", which shows Xfer's SHRUB web editor (shrub.audio/editor) in a tab. It is a separate synth: not in the song's mix or tempo, and no MIDI inside VS Code."
+					"description": "Experimental (USE AT YOUR OWN RISK): enables direct USB-MIDI SysEx firmware flashing (.fwsc) to M-VAVE FM-1 hardware from the Browser and Command Palette. The [str]dltn authors take no responsibility for bricked or damaged hardware."
 				},
 				"strdltn.libFolder": {
 					"type": "string",
@@ -489,21 +538,8 @@
 			"strdltn": [
 				{
 					"id": "strdltn.browser",
-					"name": "Library",
-					"type": "webview",
-					"initialSize": 4
-				},
-				{
-					"id": "strdltn.reference",
-					"name": "Reference",
-					"type": "webview",
-					"initialSize": 2
-				},
-				{
-					"id": "strdltn.results",
-					"name": "Results",
-					"type": "webview",
-					"initialSize": 6
+					"name": "Browser",
+					"type": "webview"
 				}
 			],
 			"strdltn-mixer": [

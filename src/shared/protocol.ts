@@ -1,7 +1,7 @@
 // Messages between the extension host and a webview. Both sides import this file.
 import type { DeviceInfo, DeviceRequest } from './devices';
 import type { InsertArgument } from './context';
-import type { FirmwareCacheMap } from './firmware';
+import type { FirmwareCacheMap, FirmwareRuntime } from './firmware';
 import type { MidiOut, MidiPorts } from './midi';
 import type { PackInfo } from './packs';
 import type { SyncUpdate } from './sync';
@@ -31,16 +31,17 @@ export interface SoundInfo {
 	urls?: string[];
 }
 
-/** A VIBE FM firmware the song can play as `s("vibefm1:<id>")`. */
+/** A VIBE FM (.wasm) or real FM-1 hardware (.fwsc) firmware. */
 export interface FirmwareInfo {
-	/** The firmware's own id, lower case. It is what follows `vibefm1:` in a song. */
+	/** The firmware's own id, lower case. It is what follows `vibefm1:` or `fm1:` in a song. */
 	id: string;
 	name: string;
 	author?: string;
 	version?: string;
 	license?: string;
 	description?: string;
-	/** The .wasm, as a webview URL. */
+	runtime?: FirmwareRuntime;
+	/** The .wasm or .fwsc, as a webview URL. */
 	url: string;
 }
 
@@ -107,7 +108,9 @@ export type ToWebview =
 	/** Ctrl+Alt+K: the page answers `knobLearnAt` with the slider under its cursor. */
 	| { type: 'knobLearn' }
 	/** The slider whose number starts at `from` waits for a CC (its knob button is red); undefined: none waits. */
-	| { type: 'knobLearning'; from?: number };
+	| { type: 'knobLearning'; from?: number }
+	/** Answer to `wantEmuWasm`: webview URL of the cached fm1-emu `fm1_web.wasm`, if available. */
+	| { type: 'emuWasm'; url?: string };
 
 /** The editing actions of the Strudel editor that VS Code's keys reach through our commands. */
 export type EditorAction = 'find' | 'replace' | 'gotoLine' | 'selectNextMatch' | 'selectAllMatches';
@@ -163,7 +166,13 @@ export type FromWebview =
 	/** A slider's value changed live (a drag, a knob, a fader): `from` is where its number is now. For the Mixer. */
 	| { type: 'sliderLive'; from: number; value: number }
 	/** MIDI learn for the slider whose number starts at `from` (undefined: no slider there). The host does the learn. */
-	| { type: 'knobLearnAt'; from?: number; toggle?: boolean };
+	| { type: 'knobLearnAt'; from?: number; toggle?: boolean }
+	/** M or S button clicked in the code editor's line-actions gutter for chain `chain`. */
+	| { type: 'toggleChain'; chain: number; button: 'mute' | 'solo' }
+	/** Something (a Browser synth/sound/firmware or plain text) was dropped onto the Strudel editor at `offset`. */
+	| { type: 'dropItem'; id?: string; index?: number; text?: string; offset: number }
+	/** Engine asks the host to fetch/cache `fm1_web.wasm` on demand for `.fwsc` playback. */
+	| { type: 'wantEmuWasm' };
 
 export interface TextChange {
 	from: number;

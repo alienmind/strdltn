@@ -58,6 +58,35 @@ interface Exports {
 	vibe_wasm_draw?(): number;
 }
 
+/**
+ * Exports of native-compiled FM-1 WebAssembly builds using the `ss_*` sim ABI (e.g. SHRUB's
+ * `shrub_sim.wasm`, zero imports, 240x240 RGB565 LCD, interleaved stereo f32 render). Hosted inside
+ * `VibeCore` automatically so no separate engine or worklet is needed.
+ */
+interface ShrubSimExports {
+	memory: WebAssembly.Memory;
+	_initialize?(): void;
+	ss_flash(): number;
+	ss_master(value: number): void;
+	ss_boot(seed: number): void;
+	ss_running(): number;
+	ss_render(frames: number): number;
+	ss_midi(status: number, d1: number, d2: number): void;
+	ss_event?(kind: number, id: number, value: number): void;
+	ss_lcd?(): number;
+}
+
+const SS_MAX_BLOCK = 128;
+const SS_LCD_SIZE = 240;
+const SS_PARAMS: { param: VibeParam; cc?: number }[] = [
+	{ param: { index: 0, id: 'master', name: 'Master', min: 0, max: 1023, def: 900, unit: '', steps: 1024 } },
+	{ param: { index: 1, id: 'cutoff', name: 'Cutoff (CC 74)', min: 0, max: 127, def: 100, unit: '', steps: 128 }, cc: 74 },
+	{ param: { index: 2, id: 'macro1', name: 'Macro 1 (CC 16)', min: 0, max: 127, def: 0, unit: '', steps: 128 }, cc: 16 },
+	{ param: { index: 3, id: 'macro2', name: 'Macro 2 (CC 17)', min: 0, max: 127, def: 0, unit: '', steps: 128 }, cc: 17 },
+	{ param: { index: 4, id: 'macro3', name: 'Macro 3 (CC 18)', min: 0, max: 127, def: 0, unit: '', steps: 128 }, cc: 18 },
+	{ param: { index: 5, id: 'macro4', name: 'Macro 4 (CC 19)', min: 0, max: 127, def: 0, unit: '', steps: 128 }, cc: 19 },
+];
+
 /** UTF-8 without TextDecoder, which an AudioWorkletGlobalScope does not have. */
 function decodeUtf8(bytes: Uint8Array): string {
 	let s = '';
@@ -82,7 +111,9 @@ export class VibeCore {
 	/** Frames rendered since init. Events are scheduled on this timeline. */
 	frame = 0;
 
-	private readonly x: Exports;
+	private readonly x?: Exports;
+	private readonly ss?: ShrubSimExports;
+	private readonly ssValues?: number[];
 	private readonly io: number;
 	private readonly transport: number;
 	private readonly queue: VibeEvent[] = [];
@@ -92,6 +123,24 @@ export class VibeCore {
 
 	constructor(module: WebAssembly.Module, sampleRate: number, callbacks: VibeHostCallbacks = {}, files?: Map<string, ArrayBuffer>) {
 		if (files) for (const [k, v] of files) this.files.set(k, v);
+		const exportNames = new Set(WebAssembly.Module.exports(module).map((e) => e.name));
+		if (exportNames.has('ss_render') && exportNames.has('ss_boot')) {
+			const instance = new WebAssembly.Instance(module, {});
+			const ss = instance.exports as unknown as ShrubSimExports;
+			this.ss = ss;
+			this.io = 0;
+			this.transport = 0;
+			this.sdk = 1;
+			ss._initialize?.();
+			ss.ss_flash();
+			ss.ss_master(900);
+			ss.ss_boot(1);
+			// Fast-forward the boot splash (~4 s emulated = ~20 ms CPU) so the first note sounds immediately.
+			for (let i = 0; i < 2000 && !ss.ss_running(); i++) ss.ss_render(SS_MAX_BLOCK);
+			this.ssValues = SS_PARAMS.map((entry) => entry.param.def);
+			for (const entry of SS_PARAMS) this.params.push({ ...entry.param });
+			return;
+		}
 		let memory: WebAssembly.Memory | undefined;
 		const bytes = (p: number, n: number) => new Uint8Array(memory!.buffer, p, n);
 		const text = (p: number, n: number) => decodeUtf8(bytes(p, n));
@@ -131,7 +180,8 @@ export class VibeCore {
 	}
 
 	paramValue(index: number): number {
-		return this.x.vibe_wasm_param_value?.(index) ?? NaN;
+		if (this.ssValues) return this.ssValues[index] ?? NaN;
+		return this.x?.vibe_wasm_param_value?.(index) ?? NaN;
 	}
 
 	/**
@@ -140,8 +190,25 @@ export class VibeCore {
 	 * between two blocks. OBERVAVE takes 0.05 to 0.08 ms (spike F1, ARCHITECTURE "Firmware").
 	 */
 	draw(): Uint16Array | undefined {
-		const p = this.x.vibe_wasm_draw?.();
-		if (!p) return undefined;
+		if (this.ss) {
+			const ptr = this.ss.ss_lcd?.();
+			if (!ptr) return undefined;
+			const src = new Uint16Array(this.ss.memory.buffer, ptr, SS_LCD_SIZE * SS_LCD_SIZE);
+			const dst = new Uint16Array(VIBE_SCREEN.w * VIBE_SCREEN.h);
+			// Scale 240x240 square LCD to 320x320 centered inside the 480x320 VIBE display.
+			const ox = (VIBE_SCREEN.w - VIBE_SCREEN.h) >> 1;
+			for (let y = 0; y < VIBE_SCREEN.h; y++) {
+				const sy = ((y * SS_LCD_SIZE) / VIBE_SCREEN.h) | 0;
+				const srcRow = sy * SS_LCD_SIZE;
+				const dstRow = y * VIBE_SCREEN.w + ox;
+				for (let x = 0; x < VIBE_SCREEN.h; x++) {
+					dst[dstRow + x] = src[srcRow + (((x * SS_LCD_SIZE) / VIBE_SCREEN.h) | 0)];
+				}
+			}
+			return dst;
+		}
+		const p = this.x?.vibe_wasm_draw?.();
+		if (!p || !this.x) return undefined;
 		return new Uint16Array(this.x.memory.buffer, p, VIBE_SCREEN.w * VIBE_SCREEN.h).slice();
 	}
 
@@ -151,7 +218,7 @@ export class VibeCore {
 	 * bar_start f64 @32, loop i32 @40, loop_start f64 @48, loop_end f64 @56.
 	 */
 	setTransport(t: { playing: boolean; bpm: number; beat: number; beatsPerBar?: number }): void {
-		if (!this.transport) return;
+		if (!this.transport || !this.x) return;
 		const dv = new DataView(this.x.memory.buffer, this.transport, 64);
 		const perBar = t.beatsPerBar ?? 4;
 		dv.setInt32(0, 1, true);
@@ -166,28 +233,60 @@ export class VibeCore {
 
 	/**
 	 * Renders left.length frames. The block is cut at each queued event so that the event lands on its own frame:
-	 * the SDK allows 1 to 256 frames a call and says to split at events.
+	 * the SDK allows 1 to 256 frames a call (128 for `ss_render`) and says to split at events.
 	 */
 	render(left: Float32Array, right: Float32Array): void {
 		const total = left.length;
 		const end = this.frame + total;
+		const maxBlock = this.ss ? SS_MAX_BLOCK : VIBE_MAX_BLOCK;
 		let done = 0;
 		while (done < total) {
 			while (this.queue.length && this.queue[0].frame <= this.frame) this.apply(this.queue.shift()!);
-			let n = Math.min(total - done, VIBE_MAX_BLOCK);
+			let n = Math.min(total - done, maxBlock);
 			if (this.queue.length && this.queue[0].frame < end) n = Math.min(n, this.queue[0].frame - this.frame);
-			this.x.vibe_wasm_audio(n, 0);
-			// A new view each time: the firmware's memory may grow, and then the old buffer is detached.
-			const io = new Float32Array(this.x.memory.buffer, this.io, VIBE_MAX_BLOCK * 4);
-			left.set(io.subarray(VIBE_MAX_BLOCK, VIBE_MAX_BLOCK + n), done);
-			right.set(io.subarray(VIBE_MAX_BLOCK * 2, VIBE_MAX_BLOCK * 2 + n), done);
+			if (this.ss) {
+				const ptr = this.ss.ss_render(n);
+				const interleaved = new Float32Array(this.ss.memory.buffer, ptr, 2 * n);
+				for (let i = 0; i < n; i++) {
+					const lv = interleaved[2 * i];
+					const rv = interleaved[2 * i + 1];
+					left[done + i] = Number.isFinite(lv) ? lv : 0;
+					right[done + i] = Number.isFinite(rv) ? rv : 0;
+				}
+			} else if (this.x) {
+				this.x.vibe_wasm_audio(n, 0);
+				// A new view each time: the firmware's memory may grow, and then the old buffer is detached.
+				const io = new Float32Array(this.x.memory.buffer, this.io, VIBE_MAX_BLOCK * 4);
+				left.set(io.subarray(VIBE_MAX_BLOCK, VIBE_MAX_BLOCK + n), done);
+				right.set(io.subarray(VIBE_MAX_BLOCK * 2, VIBE_MAX_BLOCK * 2 + n), done);
+			}
 			done += n;
 			this.frame += n;
 		}
 	}
 
 	private apply(e: VibeEvent): void {
-		const x = this.x;
+		if (this.ss) {
+			if (e.kind === 'midi') {
+				const type = e.status & 0xf0;
+				const key = ((e.status & 15) << 7) | (e.d1 & 127);
+				if (type === 0x90 && e.d2 > 0) this.held.add(key);
+				else if (type === 0x80 || type === 0x90) this.held.delete(key);
+				this.ss.ss_midi(e.status & 255, e.d1 & 127, e.d2 & 127);
+			} else if (e.kind === 'param') {
+				const spec = SS_PARAMS[e.index];
+				if (!spec || !this.ssValues) return;
+				const clamped = Math.max(spec.param.min, Math.min(spec.param.max, e.value));
+				this.ssValues[e.index] = clamped;
+				if (spec.cc !== undefined) this.ss.ss_midi(0xb0, spec.cc, Math.round(clamped));
+				else this.ss.ss_master(Math.round(clamped));
+			} else if (e.kind === 'control') {
+				if (e.type === VIBE_EV.BUTTON) this.ss.ss_event?.(2, e.id, e.down ? 1 : 0);
+				else if (e.type === VIBE_EV.ENCODER) this.ss.ss_event?.(3, e.id, Math.round(e.value));
+			}
+			return;
+		}
+		const x = this.x!;
 		if (e.kind === 'midi') {
 			const type = e.status & 0xf0;
 			const key = ((e.status & 15) << 7) | (e.d1 & 127);
@@ -206,7 +305,7 @@ export class VibeCore {
 	/** vibe_param on wasm32: id @0, name @4, min @8, max @12, def @16, unit @20, steps @24, choices @28. */
 	private readParams(): void {
 		const x = this.x;
-		if (!x.vibe_wasm_param_count || !x.vibe_wasm_param_info) return;
+		if (!x || !x.vibe_wasm_param_count || !x.vibe_wasm_param_info) return;
 		const mem = () => x.memory.buffer;
 		const cstr = (p: number) => {
 			if (!p) return '';

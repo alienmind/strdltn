@@ -19,6 +19,8 @@ export const ICONS: Record<string, string> = {
 	copy: svg('<rect x="5" y="5" width="8.5" height="8.5" rx="1"/><path d="M11 5V3.5c0-.6-.4-1-1-1H3.5c-.6 0-1 .4-1 1V10c0 .6.4 1 1 1H5"/>'),
 	open: svg('<path d="M9 2.5h4.5V7M13.5 2.5L7.5 8.5M11.5 9.5v4h-9v-9h4"/>'),
 	chevron: svg('<path d="M6 4l4 4-4 4"/>'),
+	back: svg('<path d="M12.5 8H3.5M7.5 4L3.5 8l4 4" stroke-width="1.4"/>'),
+	forward: svg('<path d="M3.5 8h9M8.5 4l4 4-4 4" stroke-width="1.4"/>'),
 	speaker: svg('<path d="M2.5 6v4h2.5l3.5 3V3L5 6z"/><path d="M11 5.5c1 1.4 1 3.6 0 5M12.8 4c1.8 2.3 1.8 5.7 0 8"/>'),
 	mute: svg('<path d="M2.5 6v4h2.5l3.5 3V3L5 6z"/><path d="M11 6l3.5 4M14.5 6L11 10"/>'),
 	search: svg('<circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3l3.7 3.7"/>'),
@@ -26,6 +28,14 @@ export const ICONS: Record<string, string> = {
 	tag: svg('<path d="M2 2.5h5.5l6.5 6.5-5 5-6.5-6.5z"/><circle cx="5" cy="5.5" r="1"/>'),
 	// A waveform: the audio a song was rendered or recorded into.
 	render: svg('<path d="M1.5 8h2l1.5-4 2 8 2-10 2 9 1.5-3h2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>'),
+	// A device with its display and two knobs: a VIBE FM firmware.
+	firmware: svg('<rect x="1.5" y="3" width="13" height="10" rx="1.2"/><rect x="3.3" y="4.8" width="6" height="4.2" rx=".4"/><circle cx="11.9" cy="6.2" r="1"/><circle cx="11.9" cy="10.4" r="1"/><path d="M3.3 11h1.4M5.6 11H7M7.9 11h1.4"/>'),
+	// A display: the screen of a firmware, in its popup.
+	screen: svg('<rect x="1.5" y="2.5" width="13" height="9" rx="1"/><path d="M5.5 14h5M8 11.5V14"/><path d="M4 9l2.2-2.4 1.6 1.4 2.4-3 1.8 2"/>'),
+	// An arrow into a tray: install a plugin into the project.
+	install: svg('<path d="M8 1.5v8M4.8 6.5L8 9.7l3.2-3.2"/><path d="M2.5 10.5v3h11v-3"/>'),
+	// A plug: the Plugins category.
+	plugin: svg('<path d="M5.5 1.5v3M10.5 1.5v3"/><path d="M3.5 4.5h9v3a4.5 4.5 0 0 1-9 0z"/><path d="M8 12v2.5"/>'),
 	save: svg('<path d="M3.5 2.5h7l2 2v9h-9z"/><path d="M5.5 2.5v3h4v-3M5.5 13.5v-4h5v4"/>'),
 };
 

@@ -3,8 +3,9 @@ import { duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains
 import type { ControlsState, FromControls, TransportAction } from '../shared/controls';
 import { removeKnobEdits } from '../shared/knob';
 import type { FromMixer, ToMixer } from '../shared/mixer';
-import type { ScopeFrame } from '../shared/protocol';
+import { diffText, type ScopeFrame } from '../shared/protocol';
 import { lf, lineColumn } from '../shared/sync';
+import { UndoStack } from '../shared/undo';
 import { setPage, type Surface } from './surface';
 
 export interface MixerActions {
@@ -20,12 +21,14 @@ export interface MixerActions {
 	/** MIDI learn for the slider whose number starts at `from`. */
 	learnKnob(document: vscode.TextDocument, from: number): Promise<void>;
 	/** Plays, stops, records or renders the song, as the buttons of Music Controls ask. */
-	transport(document: vscode.TextDocument, action: TransportAction): void;
+	transport(document: vscode.TextDocument, action: Exclude<TransportAction, 'undo' | 'redo'>): void;
 	isPlaying(document: vscode.TextDocument): boolean;
 	/** Record is on, or a render is being made, for the song. */
 	busy(document: vscode.TextDocument): { recording: boolean; rendering: boolean };
 	/** What Music Controls show changed. */
 	controls(state: ControlsState): void;
+	/** A Browser item was dropped onto the Mixer to append as a new chain. */
+	dropItem?(document: vscode.TextDocument, info: { id?: string; index?: number; text?: string }): Promise<void>;
 }
 
 /** How long a fader waits after its last move before it writes the code, when no engine has the song. As the stage's sliders did. */
@@ -61,6 +64,9 @@ export class MixerView implements Surface {
 	private scopeFramesLogged = 0;
 	/** How many pages have said `ready`. A move between dock and float that keeps its page does not count up. */
 	pages = 0;
+	/** Per-document undo/redo stacks for the Undo and Redo buttons of Music Controls. */
+	private readonly history = new Map<string, UndoStack>();
+	private applyingHistory = false;
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -73,10 +79,20 @@ export class MixerView implements Surface {
 			vscode.window.onDidChangeActiveTextEditor(() => this.follow()),
 			vscode.workspace.onDidChangeTextDocument((event) => {
 				if (event.document !== this.document) return;
+				if (!this.applyingHistory) {
+					const reason =
+						event.reason === vscode.TextDocumentChangeReason.Undo
+							? 'undo'
+							: event.reason === vscode.TextDocumentChangeReason.Redo
+								? 'redo'
+								: undefined;
+					if (this.stackOf(event.document).record(lf(event.document.getText()), { reason })) this.sendControls();
+				}
 				clearTimeout(this.timer);
 				this.timer = setTimeout(() => this.read(), PAUSE);
 			}),
 			vscode.workspace.onDidCloseTextDocument((document) => {
+				this.history.delete(document.uri.toString());
 				if (document !== this.document) return;
 				this.document = this.model = this.error = undefined;
 				this.send();
@@ -128,14 +144,62 @@ export class MixerView implements Surface {
 	 */
 	control(message: FromControls): void {
 		if (message.type === 'tempo') return void this.setTempo(message.bpm);
-		if (this.document) this.actions.transport(this.document, message.action);
+		if (!this.document) return;
+		if (message.action === 'undo' || message.action === 'redo') return void this.stepHistory(message.action);
+		this.actions.transport(this.document, message.action);
+	}
+
+	private stackOf(document: vscode.TextDocument): UndoStack {
+		const key = document.uri.toString();
+		let stack = this.history.get(key);
+		if (!stack) {
+			stack = new UndoStack();
+			stack.seed(lf(document.getText()));
+			this.history.set(key, stack);
+		}
+		return stack;
+	}
+
+	/** Undoes or redoes one edit on the song in front, without stealing focus from the Browser. */
+	private async stepHistory(direction: 'undo' | 'redo'): Promise<void> {
+		const document = this.document;
+		if (!document) return;
+		const stack = this.stackOf(document);
+		const target = direction === 'undo' ? stack.undo() : stack.redo();
+		if (target === undefined) return this.sendControls();
+		const current = lf(document.getText());
+		const change = diffText(current, target);
+		if (change) {
+			const from = lineColumn(current, change.from);
+			const to = lineColumn(current, change.to);
+			const edit = new vscode.WorkspaceEdit();
+			edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+			this.applyingHistory = true;
+			try {
+				if (await vscode.workspace.applyEdit(edit)) {
+					if (!('error' in readChains(target))) this.actions.evaluate(document);
+				}
+			} finally {
+				this.applyingHistory = false;
+			}
+		}
+		this.sendControls();
 	}
 
 	/** What Music Controls show. Sent on every change of the song, its model or its playing. */
 	private sendControls(): void {
 		const song = this.document?.uri.path.split('/').pop();
 		const busy = this.document ? this.actions.busy(this.document) : { recording: false, rendering: false };
-		this.actions.controls({ song, known: !!this.model, tempo: this.model?.tempo && { bpm: this.model.tempo.bpm }, playing: this.playing, ...busy });
+		const stack = this.document ? this.stackOf(this.document) : undefined;
+		this.actions.controls({
+			song,
+			known: !!this.model,
+			tempo: this.model?.tempo && { bpm: this.model.tempo.bpm },
+			playing: this.playing,
+			...busy,
+			canUndo: stack?.canUndo() ?? false,
+			canRedo: stack?.canRedo() ?? false,
+		});
 	}
 
 	private handle(message: FromMixer): void {
@@ -169,6 +233,9 @@ export class MixerView implements Surface {
 			case 'duck':
 			case 'unduck':
 				return void this.handleAsync(message);
+			case 'dropItem':
+				if (this.document) void this.actions.dropItem?.(this.document, message);
+				return;
 			case 'state':
 				this.lastState = message;
 				if (message.strips.length) this.unfolded = message.strips.filter((strip) => strip.unfolded).map((strip) => strip.name);

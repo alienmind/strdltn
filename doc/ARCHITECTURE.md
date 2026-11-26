@@ -68,13 +68,17 @@ extension host (Node, may be remote)          webview (browser)
 | `src/shared/diagnostic.ts` | The rules that find the place of an evaluation error in the code. `diagnostic.test.ts` holds the cases. |
 | `src/shared/protocol.ts` | Message types and `diffText`, used by both sides. |
 | `src/webview/main.ts` | Creates `StrudelMirror`, syncs text, handles play and stop, fills the stage dock. |
-| `src/extension/firmware.ts` | Lists the VIBE FM firmwares in the `firmware/` folder, and caches the ones songs load from an address. See "Firmware" |
-| `src/extension/shrub.ts` | Experimental mockup, behind `strdltn.experimental.shrubEditor`: SHRUB's web editor in a tab. See "SHRUB editor panel" |
-| `src/shared/firmware.ts` | Finds the addresses of `firmware(...)` in a song. `firmware.test.ts` holds the cases |
-| `src/webview/vibe/core.ts` | Hosts one firmware `.wasm` and renders its sound. No Web Audio in it, so the tests run it. `core.test.ts` holds the cases |
+| `src/extension/firmware.ts` | Lists workspace firmwares (`firmware/`), installs `.wasm`/`.fwsc` packages, and caches URL-loaded firmwares. See "Firmware" |
+| `src/extension/nativeFm1.ts` | Manages native `fm1-live` JIT binary download/bundling and child-process execution for `.fwsc` firmwares |
+| `src/extension/fm1Flasher.ts`, `fm1-flash-worker.ts` | Experimental USB-MIDI SysEx firmware flasher for M-VAVE FM-1 hardware (`strdltn.experimental.fm1Flash`, off by default) |
+| `src/shared/lineActions.ts` | Shared `M` / `S` / `C` line-control model aligned across both the Strudel editor gutter and the native VS Code editor |
+| `src/shared/firmware.ts` | Finds `firmware(...)` addresses, defines `DEFAULT_FIRMWARE_REPOS` (including `SHRUB (WASM)` and `SHRUB.fwsc`), and hardware MIDI profiles. `firmware.test.ts` holds the cases |
+| `src/webview/vibe/core.ts` | Hosts one VIBE `.wasm` or auto-detected `ss_*` native WASM (e.g. `SHRUB (WASM)`) and renders audio + LCD frames. `core.test.ts` holds the cases |
 | `src/webview/vibe/worklet.ts` | The AudioWorklet processor around `core.ts`. Built as `dist/vibe-worklet.js` |
 | `src/webview/vibe/index.ts` | Registers the instrument `vibefm1`, picks the firmware of each hap, sends it notes, clock and transport |
-| `scripts/build.mjs` | esbuild: `dist/extension.cjs` (Node, CommonJS), `dist/webview.js` (browser, ESM) and `dist/vibe-worklet.js` (an AudioWorklet script). |
+| `src/webview/fm1/worklet.ts` | AudioWorklet processor for real FM-1 `.fwsc` packages on `fm1_web.wasm` (`fm1-emu`). Built as `dist/fm1-worklet.js` |
+| `src/webview/fm1/index.ts` | Registers the instrument `fm1` (`s("fm1:<id>")`) alongside `vibefm1` for real `.fwsc` firmwares, plus disposable previews |
+| `scripts/build.mjs` | esbuild: `dist/extension.cjs` (Node, CommonJS), `dist/webview.js` (browser, ESM), `dist/vibe-worklet.js` and `dist/fm1-worklet.js` (AudioWorklet scripts). |
 | `scripts/smoke/` | The webview bundle in a plain browser with a fake `acquireVsCodeApi`. Muted. |
 | `src/test/m0.ts` | Integration test that runs inside VS Code and records what happened. |
 | `scripts/test-vscode.mjs` | Starts VS Code with that test and prints the result. |
@@ -197,45 +201,46 @@ One run without retries lost every pack until the window was closed.
 
 ## Browser
 
-The side bar is the browser of Ableton Live split into its parts, as three views. It
-replaced four other views: the logo, Files, Sounds and Snippets. A tree cannot draw color
-squares, chips or a search field, and a webview between trees looked out of place (see
-"Snippet cards in a webview" in the drawer), so the side bar is webviews only now. The
-plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
+The side bar is the browser of Ableton Live: one webview view, `strdltn.browser`, named Browser, with four panes.
+It replaced four other views: the logo, Files, Sounds and Snippets. A tree cannot draw color squares, chips or a
+search field, and a webview between trees looked out of place (see "Snippet cards in a webview" in the drawer), so
+the side bar is webviews only now. The plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
 
-**Three views.** Each folds and moves on its own, as vstrudel had separate views. The
-maintainer asked for them on 2026-11-21: one search, one set of colors, one list of
-results. Songs and Snippets was a fourth view until 2026-11-22, when the maintainer asked
-for its categories back in the Library (see "Songs and Snippets as a view of its own" in
-the drawer).
+**Four panes.** From the top, as the maintainer ordered them on 2026-11-25 and 2026-11-26:
 
-| View | id | Shows |
-|---|---|---|
-| Library | `strdltn.browser` | The search field; under it one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; and its categories: All, Sounds, Drums, Samples, Instruments, Render, MIDI, Songs, Snippets |
-| Reference | `strdltn.reference` | Its categories: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
-| Results | `strdltn.results` | The chips, the result bar, the results of all views in one list, and the details pane |
+| Pane | Shows |
+|---|---|
+| Controls | Open by default, collapsible by its header, never auto-folded: Music Controls (Play, Stop, Record, Render, Undo, Redo, BPM, song); Back and Forward history buttons beside the search field and the preview toggle; one row with the seven colors and the Built-in button |
+| Library | Collections with the saved searches, when there are any; the Library tree: All, Sounds, Drums, Samples, Plugins (with FM-1 Synths under it), Render, MIDI, Songs, Snippets; the link to the manual |
+| Contents | What the trees pick, as a flat list: the chips, the result bar, the rows and the details pane. Its header says Results while a search is typed, else Contents, with the number of rows |
+| Reference | The Reference tree: All, Functions, later Tutorial (`doc/NEW_FEATURES.md` section 3) |
 
-The categories have no heading: the rows start at the top of their view. A click on a
-category picks it for Results; "All" of a view picks everything of that view (the
-filter's `scope`); a click on the row that is picked goes back to everything of every
-view. The Library keeps the view id `strdltn.browser` it had as the whole Browser.
+Each pane has a header drawn as VS Code draws the sections of a side bar, and folds by it. The rules, asked by the
+maintainer: Controls stays open at the top so transport, history, search and quick filters remain reachable after a
+tree collapses; a click on a row of a tree shows Contents alone below Controls, at full height (Library and Reference
+fold); opening Reference folds Library and Contents, so it gets the height; Ctrl+F opens Controls if it was folded and
+focuses the search; typing a search opens Contents under it. Controls keeps its compact height; another open pane that
+is not the growing one keeps at most half the view and scrolls. Until 2026-11-25 Library, Reference and Results were
+three views of their own; VS Code gives an extension no way to fold a view (see "Three views of the Browser" in the
+drawer), so these rules need one page.
 
-**One filter.** All three views are the same page (`dist/browser.js`) and the same host
-object: `BrowserView.provider(page)` gives the provider of each, and every page gets
-every item. The host keeps one filter (search text, category, scope, color, built-in,
-chips) for all views and stores it per workspace. A view that changes it sends `filter`
-to the host, which sends it to the other two; the view that made the change already
-shows it, so typing is never undone by an echo. Ctrl+F in a view without the search
-field puts the cursor in the Library's. Colors, tags and saved searches come from the
-one user file.
+**History.** Back and Forward buttons sit to the left of the search field (`Alt+Left` / `Alt+Right`, or mouse side
+buttons 3 and 4). `BrowserHistory` in `src/shared/history.ts` keeps up to 50 stops in webview state across reloads:
+the active filter (search, category, group, scope, color, built-in, chips), which panes are open, which tree categories
+are unfolded, and which Library sections are open. Consecutive keystrokes while typing one search query within 1.2 s
+replace the current stop so Back returns to the state before the search.
 
-**Results opens itself.** Every change of the filter made in Library or Reference
-expands Results when it is folded, so a click or a search shows its results
-at once (asked by the maintainer on 2026-11-21). The host calls `show(true)` on the
-Results view, which keeps the focus where it is, so typing in the search goes on. A
-Results view that was never opened has no `WebviewView` yet: then its focus command
-opens it and the host puts the cursor back in the search field. Not measured yet whether
-that last case loses a key typed in between.
+**Trees.** A category with children (Plugins > FM-1 Synths), or whose items fall in two or more groups, has an arrow,
+and unfolds when it is picked. Under it are its groups: Installed and Available, Synths and Soundfonts, the banks of
+Drums (with the `.bank("...")` button on hover), the packs of Samples, the folders of Songs. A group is the filter's
+`group`; Contents shows only its rows. A click on the row that is picked goes one level up. Contents has no headings:
+the groups are in the trees, and a row says its group as dim text when no group is picked. "All" of a tree picks
+everything of that tree (the filter's `scope`).
+
+**One filter.** One page (`dist/browser.js`) and one host object, `BrowserView`. The host keeps the filter (search
+text, category, group, scope, color, built-in, chips) and stores it per workspace. The page sends each change to the
+host; a filter the host sets (a command, the integration test) comes with `show`, and the page then shows Contents
+alone and unfolds the tree to it, as a click would. Colors, tags and saved searches come from the one user file.
 
 **Built-in.** Places (project, packs, built in) is gone. The maintainer sees where an
 item comes from as one more condition, so the Library has one button under the colors
@@ -243,30 +248,24 @@ that goes round three states: everything, only what comes with Strudel ("Built-i
 and only what does not ("Not built-in": the project and the packs it loads). It is the
 filter's `builtin`, read by `filterItems` from the item's `place`.
 
-**Previews without a song.** The maintainer found that a click on a sound played nothing
-unless a song was open, the stage was open and "Enable sound" had been clicked, and
-wanted previews to work at once. Now, when no song plays, the page that was clicked plays
-the preview itself with plain Web Audio (`playPreview` in `src/browser/main.ts`): the
-click on the row is a click inside that page, which is what a webview needs to start
-sound. The host decides what to play (`previewPlan` in `src/shared/preview.ts`):
+**Previews without a song, and disposal.** When no song is playing (including with no `.strudel` file open), the Browser page plays every preview itself (`src/browser/preview.ts`): the click on the row is a user gesture inside that webview, so audio starts without opening a song. The host builds the plan (`previewPlan` in `src/shared/preview.ts` and `firmwareFile` for FM-1 firmwares):
 
-| Sound | Played by the page as |
+| Sound | Played by the Browser as |
 |---|---|
-| Samples, drum machines, the project's `samples/`, packs | The file, fetched and decoded; variation `n` wraps as in superdough |
-| Wavetables (`wt_...`) | Its one cycle, looped at A3 |
-| `sine`, `square`, `sawtooth`/`saw`, `triangle`/`tri` | An `OscillatorNode` at A3 |
-| `white`, `pink`, `brown` | Half a second of noise |
-| Soundfonts, `supersaw` and the other synths, firmwares | Not: they go to the engine of a song as before, or a message says to open one |
+| Samples, drum machines, the project's `samples/`, packs | Plain Web Audio, fetched and decoded; variation `n` wraps as in superdough. Short one-shots play their natural length; longer samples cap at 1 loop + fade |
+| Wavetables (`wt_...`) | Its one cycle, looped at A3 for 1 loop + fade |
+| `sine`/`sin`, `square`/`sqr`, `sawtooth`/`saw`, `triangle`/`tri` | An `OscillatorNode` at A3 for 1 loop + fade |
+| `white`, `pink`, `brown` | Noise for 1 loop + fade |
+| Soundfonts, `supersaw`, `zzfx` and the other Strudel synths | Lazily initialized `superdough` + `@strudel/soundfonts` inside the Browser on preview orbit 99 (faded via `orbit.output`), for 1 loop + fade |
+| VIBE FM-1 firmwares (`.wasm`, Installed and Available) | Temporary `AudioWorkletNode` (`dist/vibe-worklet.js`) on its own `GainNode`, for 1 loop + fade, then `{ t: 'dispose' }` terminates the worklet processor |
+| Real FM-1 firmwares (`.fwsc`, Installed and Available) | Temporary `AudioWorkletNode` (`dist/fm1-worklet.js`) loaded with cached `fm1_web.wasm` + `.fwsc`, for 1 loop + fade, then `{ t: 'dispose' }` |
+| Hardware FM-1 MIDI profiles (SHRUB, FM-1 Stock) | Sends a single A3 note on/off over desktop MIDI (`MidiBridge.previewNote`) to the connected FM-1 output port |
 
-The addresses come from superdough: the engine sends `urls` with each sound of its list
-(`sampleUrls` in `src/webview/main.ts`; a pitched map gives its note closest to A3). They
-stay in the host and are cached with the sound list. A list cached by an older build has
-none, so samples need one song opened once after the update. The Browser's pages may read
-the workspace folders (the project's samples and `.strdltn/cache`) and fetch over https
-(`connect-src`). While a song plays, the engine still plays the preview, on the next beat
-of the song. Heard by the maintainer on 2026-11-21, with no song open: a sample and a
-sawtooth. The integration test sends the click as a message, which is not a click, so it
-only shows that the page fetched, decoded and started the sound.
+Every preview is time-limited to 1 cycle (`previewCycleSeconds`: 1 cycle of the active song, or 1 cycle at 120 BPM = 2.0 s when no song plays, clamped to `[0.5, 4]` s), fades out smoothly over 0.5 s (`PREVIEW_FADE`), and disposes its nodes. While a song plays, previews route to that song's engine so they land on the next beat; firmware previews there run in the same disposable `AudioWorkletNode` (`previewFirmware` in `src/webview/vibe/index.ts` or `previewFm1` in `src/webview/fm1/index.ts`), never polluting orbit 1 or the Devices view. Clicking another sound or pressing Stop (`strdltn.stop` / Controls Stop) fades out and disposes any running preview immediately (and sends MIDI note-off for hardware previews).
+
+**Drag and drop into the editor and Mixer.** Every Browser item row is draggable (`DROP_MIME = 'application/vnd.strdltn.item'` plus `text/plain` and a host-side `lastDrag` fallback). Dropping onto either the Strudel editor (`browserDrop()` in `src/webview/main.ts` -> `onDrop`) or the native editor (`registerDocumentDropEditProvider('strudel', ...)`) runs `dropEdit` (`src/shared/drop.ts`): inside a string it inserts the bare name; dropping an effect function (`EFFECT_CALLS`, e.g. `lpf`, `room`, `delay`, `distort`) onto an existing chain line appends `.effect(...)` onto that chain's end; anywhere else it inserts a full playable `$name:` line with a unique label and `.gain(slider(...))` on its own line without splitting existing code (handling VIBE `vibefm1:<id>`, emulated `fm1:<id>`, and Hardware MIDI `.midi(...).midimap(...)` profiles). Dropping an Available FM-1 firmware (`.wasm` or `.fwsc`) installs it into `firmware/<id>/` automatically before inserting, and dropping a Hardware MIDI profile adds its `midimaps(...)` block if missing. Dropping any Browser item onto the Mixer's strip area (`.strips`, dashed `.drop-ready` highlight) sends `{ type: 'dropItem' }` to append a new playable `$name:` strip at the bottom of the active song.
+
+**Song Undo and Redo.** Music Controls holds Undo and Redo buttons backed by a per-document `UndoStack` (`src/shared/undo.ts`) in `MixerView`. It tracks all document changes (typing, Mixer toggles, cables, inserts, drops), coalesces rapid small typing edits within 600 ms, syncs with native VS Code undo/redo reasons, applies minimal `diffText` edits without stealing focus from the Browser, and re-evaluates when the song plays and the restored text parses cleanly.
 
 **Heights.** VS Code gives the views of a side bar equal heights unless `initialSize`
 says otherwise, and with four views the Library's categories were cut off under the logo
@@ -282,10 +281,13 @@ the sizes it had, until "View: Reset View Locations".
 | `src/shared/catalog.ts` | The item of the Browser (`CatalogItem`), the categories and places, how sounds, snippets, songs and functions become items, and the project file `strdltn.index.json` |
 | `src/shared/tags.ts` | The rules that tag an item from its name. `tags.test.ts` holds the cases |
 | `src/shared/search.ts` | Search, chips, the grouping under headings. Used by the webview and by the host for the test. `search.test.ts` holds the cases |
+| `src/shared/history.ts` | Browser Back/Forward history stack over filter, pane fold states, unfolded trees and sections. `history.test.ts` holds the cases |
+| `src/shared/undo.ts` | Per-song Undo/Redo text stack for Music Controls. `undo.test.ts` holds the cases |
+| `src/shared/drop.ts` | Drag-and-drop line generation and placement (`dropLine`, `dropEdit`) for Browser items. `drop.test.ts` holds the cases |
 | `src/shared/browser.ts` | The messages between the host and the Browser |
 | `src/extension/browser.ts` | `BrowserView`: builds the items, keeps the project file, does what a row asks |
 | `src/extension/snippets.ts`, `src/extension/files.ts` | `SnippetLibrary` and `SongList`: the files under `lib/` and every `.strudel` file |
-| `src/browser/main.ts`, `browser.css`, `icons.ts` | The page: plain DOM and CSS with the `--vscode-*` theme variables, no framework. Built to `dist/browser.js` and `dist/browser.css` |
+| `src/browser/main.ts`, `preview.ts`, `browser.css`, `icons.ts` | The page and standalone preview engine: plain DOM and CSS with the `--vscode-*` theme variables, no framework. Built to `dist/browser.js` and `dist/browser.css` |
 
 **Items.** The host builds them from four sources and sends them all at once, 150 ms
 after the last change (a pack registers hundreds of sounds one by one): the engine's
@@ -293,7 +295,7 @@ sound list (see below), the snippets under `lib/`, the songs, and the functions 
 `@strudel/reference`. The build writes `dist/functions.json` from the reference: name,
 synonyms, description as text, parameters, the first example and the source file, 518
 functions after doubles and inner names (`_fast`) are left out, 166 KB. An item has a
-stable id that the user data hangs on: `sound:bd`, `sound:vibefm1:obervave`,
+stable id that the user data hangs on: `sound:bd`, `firmware:obervave`,
 `snippet:drums/four-on-the-floor`, `song:examples/01-chords.strudel`, `fn:lpf`.
 
 | Category | Holds | Headings |
@@ -301,7 +303,7 @@ stable id that the user data hangs on: `sound:bd`, `sound:vibefm1:obervave`,
 | Sounds | Synths, soundfonts, wavetables, ZZFX | Synths, Soundfonts, Wavetables |
 | Drums | Drum machine sounds, and pack sounds named `<bank>_<sound>` | The bank. Its button types `.bank("...")` |
 | Samples | Local samples, the default samples, other pack sounds | Local samples, Default samples, each pack |
-| Instruments | The VIBE FM firmwares, one row each | - |
+| Plugins > FM-1 Synths | FM-1 synths across three runtimes (`firmwareItems`): VIBE `.wasm` (`WASM` badge), real FM-1 `.fwsc` emulated via `fm1-emu` (`FWSC` badge), and Hardware MIDI profiles like SHRUB and FM-1 Stock (`MIDI` badge), filterable by `Runtime/...` chips. Each row shows a picture of the firmware's screen (or a runtime badge placeholder for `.fwsc`/MIDI) and an "Editor..." button when a companion web editor exists. Plugins is a parent: picking it shows its children's items (`inCategory`) | Installed, Hardware (MIDI), then Available (`groupRank`) |
 | Snippets | The files under `lib/` | The `@category` |
 | Songs | Every `.strudel` file | The folder |
 | Functions | The functions of Strudel | The group from the source file: Effect, Pattern, Signal, Tonal... |
@@ -394,16 +396,18 @@ samples and the packs of its songs, and is for a workspace that has no list yet.
 of a running engine always replaces the kept one. Preview needs an engine and says so.
 We chose a kept list over an engine of its own, see the drawer.
 
-**Screenshots.** The pictures in `doc/` (`screenshot-*.png`, used by the README and
-`doc/ABOUT.md`) come from the integration test. Its last step ("9. Pictures for
-README.md and doc/ABOUT.md") plays `demo.strudel` in the Strudel editor, shows the
-Library on Drums with the TR-909 open in Results and the Mixer with bass unfolded,
-and saves `tmp/shots/doc-overview.png`. From a run of `pnpm test:vscode` (the Hydra and
-stage shots only come from the full run), the pictures are cut by hand with Pillow:
-`screenshot-overview.png`, `-stage.png` and `-hydra.png` are the whole window at half
-size (1440 by 900), `-music.png` and `-browser.png` are the Mixer and the side bar
-cut out of the overview, at half size. The window title says "[Extension Development
-Host]" (decision 11 of `doc/TODO.md`). Made on 2026-11-21 for 0.2.0.
+**Screenshots.** The pictures in `doc/` (`screenshot-*.png`, for the README and `doc/ABOUT.md`) and in `doc/manual/`
+(for `doc/USERMANUAL.md`) come from one run of `pnpm test:vscode`; each file's `SCREENSHOT SPEC` comment says what it
+must show. The test takes them in the state the specs ask: step 9 plays `demo.strudel` with the cursor on `$hhr` (so the
+chains from `$kick` show with their scopes and sliders), the Browser on Drums > TR-909 and the Mixer with bass unfolded
+(`doc-overview`); step 9b uses `browserStage` to open the panes and select a row for the details: the Browser
+(`manual-browser`), Reference > Functions on `lpf` (`manual-reference`) and FM-1 Synths with SHRUB selected
+(`manual-fm1`). The stage, Devices and Hydra shots come from their own steps of the full run. Every shot first clears
+the notifications, because a toast of an earlier step sat over the Mixer in every later picture. The files are then cut
+with Pillow from the 1440 by 900 window: whole window for overview, stage and Hydra; the side bar (x 48-348, y 40-868)
+for the Browser, Reference and FM-1 Synths; the editor group (x 353-1440, y 40-572) for the editor; the bottom panel
+(x 353-1440, y 576-868) for the Mixer and Devices. The window title says "[Extension Development Host]" (decision 11
+of `doc/TODO.md`). Made on 2026-11-26.
 
 **Logo and icons.** The Browser has no logo any more: the maintainer took it out on
 2026-11-21 (its colors did not match the theme and it took room), and `media/logo.jpg`
@@ -463,7 +467,7 @@ first statement after the header comments (`tempoEdit`). A double click takes th
 out, line and all. A tempo that is not plain arithmetic (a slider) disables the box. The
 row is built once and updated in place, so a redraw while typing keeps the field. In a
 narrow side bar it wraps onto two lines.
-Record and record automation come here later (see "Recording" in `doc/DAW-PLAN.md`).
+Record and record automation come here later (`doc/NEW_FEATURES.md` section 9).
 
 **Layout.** Top to bottom: the name, the peak of the level meter, the gain fader on its
 meter (as tall as the panel allows), M and S side by side, the scope with the gain's value
@@ -485,7 +489,7 @@ shown, it gets a `vscode.Webview` through `attach`. A move gives a new page, whi
 with every strip folded, so the host remembers which strips the page reported unfolded
 and sends them on `ready`. A floating tab is not restored after a reload of the window
 (no serializer): the Mixer comes back docked. The stage is to follow the same way after
-phase 6, see "Dock and float" in `doc/DAW-PLAN.md`.
+phase 6 (`doc/NEW_FEATURES.md` section 11).
 
 **The model.** `readChains` in `src/shared/chains.ts` parses the song with acorn 8.19.0,
 the version and the options upstream's transpiler uses (`ecmaVersion: 2022`,
@@ -968,7 +972,7 @@ into `{ s: 'vibefm1', n: 'obervave' }` (checked with `@strudel/mini` 1.2.6, also
 trigger picks the firmware from `n` on every hap. So the firmware is a pattern value: `s("vibefm1:<obervave sloop>")`
 changes it per cycle. A number picks by position in the folder and wraps, as `bd:3` does for samples; no `n` is the
 first one. An id that is not in the folder logs one error with the ids there are. The Browser shows each firmware
-of `vibefm1` (`SoundInfo.variations`) as a row under Instruments, and inserting one types `vibefm1:<id>`.
+in Plugins > FM-1 Synths, see "FM-1 Synths" below.
 
 The catch: a later `.n()` replaces the firmware. `s("vibefm1:obervave").n("0 2").scale("c2:minor")` ends up with
 `n` gone, and then plays the first firmware. Put `n(...).scale(...)` first, or use `note`. The first time `vibefm1`
@@ -1083,6 +1087,65 @@ frame. On desktop that gives the full rate; in a Codespace it gives whatever the
 frames a second for one panel on this one, with a delay of one frame instead of seconds. `Uint8Array` arrived as
 `Uint8Array` there too. Compressing the frame (OBERVAVE's screen is mostly flat colour) is not measured.
 
+**The hub's catalogs.** Read from Node on 2026-11-22, for the Firmware Marketplace (`doc/TODO.md`).
+
+| Address | What | Headers |
+|---|---|---|
+| `play.thefirmwarehub.com/firmware/index.json` | The Playground's list: a JSON array of 43 VIBE FM builds. Fields: `id`, `file` (relative, `firmware/<id>.wasm?v=<stamp>`), `name`, `version`, `author`, `description`, `order` (all 43), `license` (42; GPL-3.0 in three spellings, MPL-2.0, MIT), `protocol` (28, all 7), `cheat` (26, a cheat sheet `.html`), `stage` (5, `{w, h}`), `memory_mb`, `memory_whole`, `buffer_ms`, `touch`. No `sha256`, no picture | No CORS header. `cache-control: no-cache`, an `etag` and `last-modified` (changed that same day). The `.wasm` files: no CORS, `application/wasm` |
+| `thefirmwarehub.com/catalog.json` | The list the hub offers app makers: 294 FM-1 firmwares as `.fwsc` packages, with `sha256`, `lic`, `source`, `card` (a picture) and more. No VIBE FM builds | `access-control-allow-origin: *`, `max-age=600` |
+| `thefirmwarehub.com/fw/natives.json` | The native VIBE firmwares, an object by id: `version`, `date`, `repo`, `card`, `name`; one entry `held` with the reason | `access-control-allow-origin: *` |
+
+The hub's rules for app makers (`thefirmwarehub.com/kb/#catalog`): `catalog.json` is CC BY 4.0 with attribution
+("Firmware list: The Firmware Hub - thefirmwarehub.com", as a link); the makers' texts and pictures are theirs; read it
+at most once a day with a User-Agent that names the app; do not read the pages; download packages from the makers'
+releases, not from the hub; install only what matches its `sha256`. `index.json` is not mentioned. The maintainer chose to
+read it anyway on 2026-11-24, once a day with a User-Agent, see "FM-1 Synths". Native firmwares put a `.wasm`, a `.zip`, sometimes
+`SHA256SUMS` and a screenshot on their own GitHub releases; converted ones (OBERVAVE among them) do not.
+
+**FM-1 Synths.** Plugins > FM-1 Synths of the Library lists the firmwares on disk under Installed, and the hub's
+others under Available. `FirmwareMarket` (`src/extension/market.ts`) keeps the items current from three sources:
+
+| Part | What |
+|---|---|
+| `HubCatalog` | Reads `index.json` of the Playground (VIBE `.wasm` builds), `thefirmwarehub.com/catalog.json` (real FM-1 `.fwsc` packages), and configured `strdltn.firmware.repositories` (defaulting to `shrub-audio` with direct `SHRUB (WASM)` at `https://shrub.audio/sim/shrub_sim.wasm` and `SHRUB.fwsc` at `https://shrub.audio/editor/firmware/SHRUB.fwsc`), at most once a day with User-Agent `strdltn/<version> (VS Code extension; +https://github.com/alienmind/strdltn)`, kept in global storage for offline use. `mergeHubFirmwares` joins them so lightweight VIBE `.wasm` wins when both exist and `.fwsc` fills in the rest |
+| `FirmwarePreviews` | Preloads lightweight Hub/SHRUB screen thumbnails (~2-7 KB) for every firmware without downloading its binary, centered in the Browser card; also generates local PNGs for VIBE `.wasm` firmwares via `dist/preview-worker.cjs` and downloads/caches `fm1_web.wasm` (`FM1_EMU_WASM_URL`, MIT, `fm1-emu`) on demand into `firmware/files/` so no firmware or emulator binary is bundled in the universal `.vsix` |
+| Install & Batch Download | A double click, Enter, row Install button, Screen popup Install, or batch **Download all (N)** (`strdltn.installAllFirmwares`): `FirmwareLibrary.install` downloads directly in Node (no browser window) and writes `<firmware folder>/<id>/<id>.wasm` (or `<id>.fwsc`, verifying SHA-256 when provided) plus `firmware.json`. Songs play `.wasm` as `vibefm1:<id>` (including `vibefm1:shrub-wasm`, auto-detected via `ss_*` exports in `VibeCore` with ~48 ms boot fast-forward and ~0.4% CPU, upscaling its 240x240 RGB565 `ss_lcd()` into 480x320) or `.fwsc` as `fm1:<id>` (pre-compiled `fm1_web.wasm`, sliced boot budget, real-time overload circuit breaker, NaN clamping, and `pruneFm1()` on eval/stop so a heavy `.fwsc` can never stall or mute Strudel audio) or via native `fm1-live` (`Run Native`). `template/firmware/` is in `.gitignore` |
+| Hardware MIDI profiles & Experimental Flash | `HARDWARE_FM1_PROFILES` (`src/shared/firmware.ts`) lists real FM-1 hardware firmwares played over desktop MIDI: SHRUB (Xfer Records, cutoff CC 74 + macros CC 16-19, `shrub.audio/editor/`) and M-VAVE FM-1 Stock (cutoff CC 2). Inserting or dropping auto-detects a connected FM-1 MIDI output port (`MidiBridge.findOutput`), adds `midimaps(...)` via `midimapLoadEdit`, and inserts `$<id>: note(...).midi('<port>').midimap('<id>')`. Clicking "Editor..." opens the companion editor URL externally. Direct USB-MIDI SysEx hardware flashing (`src/extension/fm1Flasher.ts`) is gated off by default behind `strdltn.experimental.fm1Flash` |
+
+Measured on 2026-11-24 in `pnpm test:quick` (VS Code 1.147, Windows 11): the list had 44 firmwares; all 44
+pictures were made, none failed, in the time the test waits (under 3 minutes, with the downloads). The first rows of
+the Library get theirs first only by chance: the jobs run in list order.
+
+The rest of what was "Firmware category": `FirmwareLibrary`
+(`src/extension/firmware.ts`) finds every folder named by `strdltn.firmwareFolder` in the workspace (findFiles, both
+layouts) and every finished download in `.strdltn/cache/firmware/` of each workspace folder (read with
+`readDirectory`: the cache's `.gitignore` says `*`). A cached copy is named by its address (`firmwareIdFromUrl`, the same
+function the engine uses) and described by the `firmware.json` in its `.zip`, when it is one; a bare `.wasm` has only
+its id, shown in capitals. Watchers and `FirmwareCache.onDidChange` scan again, 300 ms after the last event. A folder
+firmware wins over a cached one of the same id, as in the engine. A row plays a test note only when an engine knows the
+firmware (by its position, as `vibefm1:3`); the Library shows every folder, but a song plays only the one nearest to it.
+
+Insert types `$: note("c2 eb2 g2 bb2").s("vibefm1:<id>")`, or `vibefm1:<id>` inside a string. The `$:` matters: a
+song plays only its last bare pattern, so without it a firmware line after a kick line was silent (hand test,
+2026-11-24). A cached firmware plays only
+in a song that loads it, so when the song has no `firmware('<url>')` for it, that line goes in first
+(`firmwareLoadEdit`): after the song's last `firmware(` call, else after the comments at the top. It is a
+`WorkspaceEdit`, applied before the insert at the cursor; both editors move the cursor with the text above it. Measured
+in the integration test on 2026-11-22: the line lands after the comments, the note line at the cursor, and a second
+insert adds no second load line.
+
+**Firmware screen.** The screen button of a row (or "Screen..." in the details) opens a tab beside the song, without the
+focus, reused for the next firmware. An Available one runs from its downloaded copy, and the tab's button says Install
+until it is installed (`FirmwareScreen`, `src/extension/screen.ts`, page `src/screen/`). The page fetches
+the file from disk (`asWebviewUri`, so it works in a Codespace), unpacks a `.zip` with `fflate`, compiles it and runs
+`VibeCore` on its own thread, without sound: per animation frame it renders the frames the clock says have passed (at
+most 0.1 s after the tab was hidden), and draws about 30 times a second. Its CSP adds `'wasm-unsafe-eval'` to
+`script-src` and the webview's own source to `connect-src`. F1 to F6 and the scroll wheel send the same events as the
+Devices view. The tab keeps no page while hidden; a new page says `ready` and gets the firmware again, which starts it
+anew. Measured on 2026-11-22: OBERVAVE in Node renders 400 blocks of 128 frames and draws in 18 ms, and its first
+frame that is not blank comes after 24 blocks (64 ms); in VS Code 1.147 the popup painted 30 frames with 236 parameters
+read, with `new WebAssembly.Instance` on the page's main thread (no worker needed for this size).
+
 ## Level meters
 
 Each strip of the Mixer has a level meter behind its gain fader, as in Live's mixer: two bars, left and right, on a
@@ -1168,8 +1231,7 @@ Render in the Library.
 The Devices view is a tab of the bottom panel beside the Mixer (`strdltn.devices`, in its own container
 `strdltn-devices`). It shows one panel per firmware copy that plays: one per firmware and orbit, as `vibefm1` runs
 them. A panel has the firmware's own display, six soft keys F1 to F6 under it, and the parameters the firmware
-declared (`vibe_wasm_param_info`) as sliders beside it. Built on 2026-11-21 on `feat/devices`; phase 4 steps 1 to 4
-of `doc/DAW-PLAN.md`.
+declared (`vibe_wasm_param_info`) as sliders beside it. Built on 2026-11-21 on `feat/devices`.
 
 The firmware runs in the AudioWorklet of the engine that plays the song; the view is another webview. So:
 
@@ -1195,39 +1257,17 @@ engine; only its picture moves. The host keeps, per copy, the page that asked to
 stays in flight per copy wherever it is shown. In the view, a panel that is in a tab says so; unfolding it brings
 the picture back to the view, and the tab stops getting frames. A tab whose copy ends closes itself.
 
-**SHRUB.** With the setting `strdltn.experimental.shrubEditor` on, the view ends with a SHRUB panel: Xfer's editor
-(`https://shrub.audio/editor/`) in a frame, the same CSP as the mockup tab (`frame-src https://shrub.audio`). It is
-its own synth, not in our mix. Folded, it is hidden with CSS and not removed, so its unsaved patches stay. Its take
-out opens the mockup tab ("SHRUB editor panel" below). Phase 4 step 6.
+**SHRUB (historical note):** The experimental `strdltn.experimental.shrubEditor` iframe panel (`src/extension/shrub.ts`) was removed on 2026-11-26 once SHRUB gained full integration under `Plugins > FM-1 Synths` (`SHRUB (WASM)`, `SHRUB.fwsc` + `Run Native`, and Hardware MIDI profile with external `Editor...` link).
 
 Checked by hand on 2026-11-21 in a development host on Windows, with `template/examples/07-vibefm1-obervave.strudel`
 playing: OBERVAVE's panels for orbits 2 and 3 in view, each with its own display ("56 DEEP BASS", "44 DARK PAD")
 and its parameter values moving; the panel of orbit 4 is off to the right and was not looked at. Picture: `doc/screenshot-devices.png`. The maintainer's hand test of the same day passed: all three panels, the
 wheel, F3 and F4 (PRG- and PRG+), a parameter slider, fold and unfold. Maximize and take out were then checked in a
 development host with clicks sent through DevTools, from screenshots: one panel fills the view; the tab shows the
-whole screen while the view's panel says "in a tab" and the other panels keep drawing. The SHRUB panel was seen with
-the setting on, its frame blank because shrub.audio did not answer from that machine that evening. The integration
+whole screen while the view's panel says "in a tab" and the other panels keep drawing. The integration
 test records the copies, the frames that reached the view and a picture while `07-vibefm1-obervave.strudel` plays
 (`steps.devices`, `tmp/shots/devices.png`). Not checked: a Codespace.
 
-## SHRUB editor panel
-
-An experimental mockup, to see how the SHRUB web editor would look inside VS Code. Off unless the setting
-`strdltn.experimental.shrubEditor` is on; then the command "strdltn: Open SHRUB editor (experimental)" shows in the
-palette and in the title bar of the Browser. Turning the setting off closes the tab. The tab is a `WebviewPanel` with
-a toolbar and an `iframe` of `https://shrub.audio/editor/`. Its CSP allows frames from that origin only, and scripts only
-with its nonce. `retainContextWhenHidden` keeps the editor's page, and its unsaved patches, while the tab is hidden.
-"Open in browser" goes through `vscode.env.openExternal`. "Use in song" is disabled: it marks where a VIBE FM build of
-SHRUB would connect.
-
-Measured on 2026-11-21 (spike F3), desktop VS Code 1.147 on Windows 11, with the editor in a frame of a webview view in
-the bottom panel and the mockup's CSP. shrub.audio sends no `X-Frame-Options` and no `frame-ancestors`, and the whole
-editor loads in the frame: tabs, oscillators, keyboard. Its `AudioContext` is created at the first click on a key,
-suspended, and runs right after it: on a real mouse press sent to the frame through DevTools, an analyser on its output
-read an RMS of 0.31, at 4% render capacity. The window was muted (`--mute-audio`), so this proves the graph renders,
-not that the speakers played. The click must be inside SHRUB's frame. A mouse press sent to the VS Code window at the
-same spot reached the frame in one of three runs; one sent to the frame's own DevTools target always did. Why it stays
-a mockup is in the drawer.
 ## Status bar
 
 One item on the right of the status bar says what the song in front does. It replaced a
@@ -1534,12 +1574,20 @@ whether the editor holds the same, and whether the file kept its line endings.
 
 ## Build pipeline
 
-`.github/workflows/ci.yml` runs on pushes to `main`, on pull requests and on tags. It
-installs with pnpm, type checks, runs the unit tests, and builds the `.vsix`, which it
-uploads as an artifact. On a tag `v*` it also checks that the tag matches the version in
-`package.json` and creates a GitHub release with two files: `strdltn-<version>.vsix`
-and `strdltn.vsix`. The second has a fixed name so that
-`releases/latest/download/strdltn.vsix` always works.
+`.github/workflows/ci.yml` runs on pushes to `main`, on pull requests and on tags:
+
+- `verify`: matrix across `ubuntu-latest`, `macos-latest` and `windows-latest` running
+  `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test:unit`, and `pnpm build`.
+- `package-universal` (`ubuntu-latest`): builds the universal `.vsix` (`strdltn-<version>.vsix`
+  and `strdltn.vsix` for Codespaces/fallback, downloading native `fm1-live` on demand) and
+  renders `strdltn-manual.pdf`.
+- `package-native`: matrix for `win32-x64` (`windows-latest`), `darwin-arm64` (`macos-latest`),
+  `linux-x64` and `linux-arm64` (`ubuntu-latest`). Each runs `scripts/fetch-fm1-native.mjs` to
+  bundle the official `fm1-live` JIT binary into `bin/<target>/` and builds a platform-specific
+  `strdltn-<version>-<target>.vsix`.
+- `release` (on tags `v*`): verifies the tag matches `package.json`, creates a GitHub release
+  with all `.vsix` files and `strdltn-manual.pdf`, and publishes to the VS Code Marketplace
+  when `VSCE_PAT` is configured.
 
 The integration test does not run in CI yet.
 
@@ -1662,6 +1710,13 @@ stop -> midiPanic                  -> panic(engine)              -> notes off of
   with loopMIDI on 2026-11-22). Inside a string it types the name alone, inside the empty
   parentheses of `.midi()`, `midin()` or `midikeys()` the name in quotes (`chooseInsert` in
   `src/shared/context.ts`, the item's `argument`). Copy copies the name.
+- A knob's starting value, ours and not upstream's: `cc(n, { start: .8 })` reads .8 until the
+  knob first sends a value (`knobOptions`); a channel number as the second argument works as
+  upstream. Upstream reads 0 until then, so a song whose levels are knobs starts silent. The
+  example `09-midi-out.strudel` uses it, and catches a missing controller
+  (`midin(...).catch(...)` returning `pure(start)` per knob), because `midin` of a device that
+  is not there throws and the whole song then plays nothing (seen 2026-11-24 with the MPK mini
+  3 unplugged). Expected to play the band without the controller; not run since the change.
 - Debugging: the setting `strdltn.midi.debug` (the command "strdltn: Show MIDI messages in
   the Output" turns it on and off) writes every message in and out to Output > strdltn as
   text (`describeMidi`): `in <- MPK mini 3: CC 70 = 64 (ch 1)`, `out -> M-VAVE FM-1: note on

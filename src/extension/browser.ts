@@ -53,6 +53,8 @@ export interface BrowserActions {
 	runNative(id: string): Promise<void>;
 	/** Opens the firmware repository manager (built-in Hub, shrub.audio, and custom URLs). */
 	manageRepos(): Promise<void>;
+	/** Flashes a `.fwsc` firmware directly onto connected M-VAVE FM-1 hardware over USB-MIDI SysEx. */
+	flashHardware(id: string): Promise<void>;
 	/** Installs a firmware of the hub into the project. */
 	install(id: string): Promise<void>;
 	/** Local file of a firmware (installed or cached from the hub) for standalone Browser preview. */
@@ -382,6 +384,11 @@ export class BrowserView {
 			case 'manageRepos':
 				await this.actions.manageRepos();
 				return;
+			case 'flashHardware': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware') await this.actions.flashHardware(item.id.slice('firmware:'.length));
+				return;
+			}
 			case 'insertSong': {
 				const item = this.item(message.id);
 				const uri = item?.kind === 'song' && item.path ? this.songs.uri(item.path) : undefined;

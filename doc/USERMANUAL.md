@@ -471,7 +471,12 @@ repositories...** to inspect built-in repos or add custom repository URLs):
   click **Run Native** to launch `fm1-live` natively at 240 MHz JIT on Windows, macOS, or
   Linux (recommended for SHRUB, using your own `SHRUB.fwsc` with persistent flash saves),
   emulate lighter `.fwsc` synths directly inside Strudel (`s("fm1:<id>")` via `fm1-emu`),
-  or target a real M-VAVE FM-1 over desktop MIDI (`.midi('<port>').midimap('<id>')`).
+  target a real M-VAVE FM-1 over desktop MIDI (`.midi('<port>').midimap('<id>')`), or click
+  **Flash to FM-1...** (or run **strdltn: Flash .fwsc firmware to M-VAVE FM-1 hardware...**)
+  to flash any `.fwsc` directly onto your connected FM-1 over USB-MIDI SysEx. Flashing
+  automatically pauses Strudel's MIDI bridge, probes your hardware identity, checks model
+  compatibility (FM-1 vs SMK-37), asks for confirmation, shows live progress, and supports
+  resuming an interrupted OTA update.
 - **Repositories and chips:** Selecting **Plugins** shows both categories together with
   `Runtime/...` and `Repo/...` filter chips (`Repo/The Firmware Hub`, `Repo/shrub.audio`,
   plus custom repos). Clicking Install on an external-repo item like SHRUB opens its

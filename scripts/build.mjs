@@ -49,6 +49,15 @@ const builds = [
 	},
 	{
 		...shared,
+		// Worker thread for flashing .fwsc firmware to M-VAVE FM-1 hardware over USB-MIDI SysEx.
+		entryPoints: ['src/extension/fm1-flash-worker.ts'],
+		outfile: 'dist/fm1-flash-worker.cjs',
+		platform: 'node',
+		format: 'cjs',
+		target: 'node20',
+	},
+	{
+		...shared,
 		// The thread that runs a firmware for the picture of its display (src/extension/previews.ts).
 		entryPoints: ['src/extension/preview-worker.ts'],
 		outfile: 'dist/preview-worker.cjs',

@@ -147,6 +147,10 @@
 				"title": "strdltn: Manage FM-1 firmware repositories..."
 			},
 			{
+				"command": "strdltn.flashFm1Hardware",
+				"title": "strdltn: Flash .fwsc firmware to M-VAVE FM-1 hardware..."
+			},
+			{
 				"command": "strdltn.openStage",
 				"title": "strdltn: Open stage",
 				"icon": "$(open-preview)"

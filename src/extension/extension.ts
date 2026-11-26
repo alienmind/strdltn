@@ -14,6 +14,7 @@ import { labelEdit } from '../shared/chains';
 import { DevicesView } from './devices';
 import { KnobLearn } from './knobs';
 import { MidiBridge } from './midi';
+import { Fm1Flasher } from './fm1Flasher';
 import { NativeFm1Host } from './nativeFm1';
 import type { MidiPorts } from '../shared/midi';
 import { MixerView } from './mixer';
@@ -133,6 +134,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			await nativeFm1.toggle(id);
 		},
 		manageRepos: () => market.manageRepos(),
+		flashHardware: (id) => fm1Flasher.flash(id),
 		install: (id) => market.install(id),
 		firmwareFile: async (id) => (await market.screenSource(id))?.file,
 		emuWasmFile: () => market.emuWasmFile().catch(() => undefined),
@@ -142,6 +144,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	const market = new FirmwareMarket(context, firmwareLibrary, browser, output);
 	context.subscriptions.push(market);
 	const nativeFm1 = new NativeFm1Host(context, firmwareLibrary, market, output);
+	const fm1Flasher = new Fm1Flasher(context, context.asAbsolutePath('dist'), firmwareLibrary, market, midi, output);
 	context.subscriptions.push(
 		nativeFm1,
 		nativeFm1.onDidChange((ids) => browser.setNativeRunning(ids)),
@@ -467,6 +470,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		}),
 		vscode.commands.registerCommand('strdltn.stopNativeFm1', () => nativeFm1.stopAll()),
 		vscode.commands.registerCommand('strdltn.manageFirmwareRepos', () => market.manageRepos()),
+		vscode.commands.registerCommand('strdltn.flashFm1Hardware', (id?: string) => fm1Flasher.flash(typeof id === 'string' ? id : undefined)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('strdltn.experimental.shrubEditor')) ShrubPanel.settingChanged();
 		}),

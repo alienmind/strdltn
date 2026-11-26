@@ -52,7 +52,9 @@ You can either use the specialized panels OR keep writing code OR a mix of both.
 >   repository `shrub.audio`, **M-VAVE FM-1 Stock**, plus any custom repository URLs in
 >   `strdltn.firmware.repositories`): launch **Run Native** (`fm1-live` 240 MHz JIT on
 >   Windows, macOS, Linux — zero dropouts for SHRUB), emulate lighter `.fwsc` synths
->   in-editor (`s("fm1:<id>")`), or play a real M-VAVE FM-1 over desktop MIDI.
+>   in-editor (`s("fm1:<id>")`), play a real M-VAVE FM-1 over desktop MIDI, or click
+  **Flash to FM-1...** to flash any `.fwsc` firmware directly onto your connected FM-1
+  hardware over USB-MIDI SysEx (with model verification and OTA resume support).
 >
 > See `examples/07-vibefm1-obervave.strudel` and `examples/09-midi-out.strudel`.
 

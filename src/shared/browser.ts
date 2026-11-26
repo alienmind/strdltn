@@ -84,6 +84,8 @@ export type FromBrowser =
 	| { type: 'runNative'; id: string }
 	/** Opens the firmware repositories manager (view/add custom repo URLs). */
 	| { type: 'manageRepos' }
+	/** Flashes a `.fwsc` firmware directly onto connected M-VAVE FM-1 hardware over USB-MIDI SysEx. */
+	| { type: 'flashHardware'; id: string }
 	/** Installs an Available firmware into the project. */
 	| { type: 'install'; id: string }
 	/** Turns one color on or off for the items. `color` 0 clears every color. */

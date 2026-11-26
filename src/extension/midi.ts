@@ -209,6 +209,25 @@ export class MidiBridge implements vscode.Disposable {
 		});
 	}
 
+	/** Temporarily closes all MIDI ports by terminating the MIDI worker (needed on Windows before exclusive SysEx flashing). */
+	async suspend(): Promise<void> {
+		this.stopPreview();
+		const worker = this.worker;
+		if (!worker) return;
+		this.send({ type: 'panic' });
+		this.worker = undefined;
+		await new Promise((r) => setTimeout(r, 60));
+		await worker.terminate().catch(() => undefined);
+		this.applyPriority();
+		await new Promise((r) => setTimeout(r, 120));
+		this.output.appendLine('[midi] bridge suspended for hardware firmware flashing');
+	}
+
+	/** Restarts the MIDI worker after hardware flashing completes. */
+	resume(): void {
+		if (!vscode.env.remoteName) void this.listPorts();
+	}
+
 	dispose(): void {
 		this.send({ type: 'panic' });
 		const worker = this.worker;

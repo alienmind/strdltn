@@ -870,6 +870,11 @@ function drawDetails(): void {
 			: 'Run natively in fm1-live (240 MHz JIT on Windows, macOS, Linux)';
 		nativeBtn.addEventListener('click', () => post({ type: 'runNative', id: item.id }));
 	}
+	if (item.kind === 'firmware' && (item.runtime === 'fwsc' || item.runtime === 'hardware')) {
+		const flashBtn = collect.appendChild(el('button', 'chip more', 'Flash to FM-1...'));
+		flashBtn.title = 'Flash this .fwsc firmware directly to a connected M-VAVE FM-1 over USB-MIDI SysEx (desktop only)';
+		flashBtn.addEventListener('click', () => post({ type: 'flashHardware', id: item.id }));
+	}
 	if (item.kind === 'firmware' && item.editorUrl) {
 		const editorBtn = collect.appendChild(el('button', 'chip more', 'Editor...'));
 		editorBtn.title = `Open ${item.editorUrl}`;
@@ -1081,9 +1086,12 @@ function menuFor(row: Row): MenuEntry[] {
 	if (item.kind === 'function' && item.code) entries.push({ label: 'Insert an example', run: () => post({ type: 'insertText', text: item.code! }) });
 	if (item.kind === 'snippet') entries.push({ label: 'Open the file', run: () => post({ type: 'open', id: item.id }) });
 	if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') entries.push({ label: 'Show the screen', run: () => post({ type: 'screen', id: item.id }) });
-	if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.runtime === 'fwsc')) {
+	if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.id === 'firmware:shrub-midi' || item.runtime === 'fwsc')) {
 		const running = nativeRunning.has(item.id.slice('firmware:'.length));
 		entries.push({ label: running ? 'Stop native fm1-live' : 'Run natively (fm1-live)', run: () => post({ type: 'runNative', id: item.id }) });
+	}
+	if (item.kind === 'firmware' && (item.runtime === 'fwsc' || item.runtime === 'hardware')) {
+		entries.push({ label: 'Flash to FM-1 hardware...', run: () => post({ type: 'flashHardware', id: item.id }) });
 	}
 	if (item.kind === 'firmware' && item.editorUrl) entries.push({ label: 'Open synth editor', run: () => post({ type: 'openEditor', id: item.id }) });
 	entries.push({ label: opens(item) ? 'Copy the path' : item.kind === 'snippet' ? 'Copy the code' : 'Copy the name', run: () => post({ type: 'copy', id: item.id, index }) });

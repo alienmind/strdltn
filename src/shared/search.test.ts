@@ -20,7 +20,10 @@ const items = [
 			{ id: 'obervave', name: 'OBERVAVE', author: 'zvenson', from: 'cache', path: '.strdltn/cache/firmware/a/obervave.wasm', url: 'https://example.com/obervave.wasm' },
 			{ id: 'sloop', name: 'SLOOP', from: 'folder', path: 'firmware/sloop.wasm' },
 		],
-		[{ id: 'echofield-vibe', name: 'ECHOFIELD', author: 'PhilipsKnobs', url: 'https://play.thefirmwarehub.com/firmware/echofield-vibe.wasm?v=1', order: 50 }],
+		[
+			{ id: 'echofield-vibe', name: 'ECHOFIELD', author: 'PhilipsKnobs', runtime: 'vibe', url: 'https://play.thefirmwarehub.com/firmware/echofield-vibe.wasm?v=1', order: 50 },
+			{ id: 'felucca', name: 'Felucca', author: 'hub', runtime: 'fwsc', url: 'https://thefirmwarehub.com/fw/felucca.fwsc', order: 100 },
+		],
 		['obervave', 'sloop'],
 		{ 'firmware:obervave': 'https://pictures/obervave.png' },
 	),
@@ -46,9 +49,17 @@ test('every word must match, in the name, the text or a tag', () => {
 
 test('categories and places', () => {
 	assert.deepEqual(find('', { category: 'drums' }), ['sound:rolandtr909_bd', 'sound:rolandtr909_sd', 'sound:linndrum_bd']);
-	assert.deepEqual(find('', { category: 'fm1' }), ['firmware:obervave', 'firmware:sloop', 'firmware:shrub', 'firmware:fm1-stock', 'firmware:echofield-vibe']);
-	// Plugins, the parent, shows what its children hold.
-	assert.deepEqual(find('', { category: 'plugins' }), ['firmware:obervave', 'firmware:sloop', 'firmware:shrub', 'firmware:fm1-stock', 'firmware:echofield-vibe']);
+	assert.deepEqual(find('', { category: 'fm1' }), ['firmware:obervave', 'firmware:sloop', 'firmware:echofield-vibe']);
+	assert.deepEqual(find('', { category: 'fm1live' }), ['firmware:shrub', 'firmware:fm1-stock', 'firmware:felucca']);
+	// Plugins, the parent, shows both parallel children (FM-1 Synths + FM-1 Live).
+	assert.deepEqual(find('', { category: 'plugins' }), [
+		'firmware:obervave',
+		'firmware:sloop',
+		'firmware:shrub',
+		'firmware:fm1-stock',
+		'firmware:echofield-vibe',
+		'firmware:felucca',
+	]);
 	assert.deepEqual(find('', { place: 'project', category: 'samples' }), ['sound:kick']);
 });
 

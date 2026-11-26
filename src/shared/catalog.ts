@@ -15,11 +15,12 @@ export const CATEGORIES = [
 	{ id: 'sounds', label: 'Sounds', icon: 'keyboard' },
 	{ id: 'drums', label: 'Drums', icon: 'drum' },
 	{ id: 'samples', label: 'Samples', icon: 'sample' },
-	// Plugins, as in Live: one child per kind of plugin, more kinds to come (the maintainer, 2026-11-24). FM-1 Synths
-	// are the VIBE FM firmwares, Installed and Available (firmwareItems). It took the place of Instruments, which held
-	// the same firmwares and nothing else.
+	// Plugins, as in Live: one child per kind of plugin, more kinds to come (the maintainer, 2026-11-24).
+	// FM-1 Synths holds native VIBE FM (.wasm) builds; FM-1 Live holds real FM-1 (.fwsc) firmwares and Hardware/Native
+	// profiles (SHRUB, FM-1 Stock) run via fm1-live JIT, fm1-emu wasm, or desktop MIDI.
 	{ id: 'plugins', label: 'Plugins', icon: 'plugin' },
 	{ id: 'fm1', label: 'FM-1 Synths', icon: 'firmware', parent: 'plugins' },
+	{ id: 'fm1live', label: 'FM-1 Live', icon: 'firmware', parent: 'plugins' },
 	// The audio of songs: renders and recordings, next to their song. See src/shared/render.ts.
 	{ id: 'renders', label: 'Render', icon: 'render' },
 	// The MIDI ports of the machine, from the extension host (src/extension/midi.ts). Desktop only.
@@ -344,7 +345,7 @@ export function firmwareItems(
 				kind: 'firmware',
 				label: fw.name,
 				detail: describe(fw),
-				category: 'fm1',
+				category: runtime === 'vibe' ? 'fm1' : 'fm1live',
 				place: 'project',
 				group: 'Installed',
 				groupRank: 0,
@@ -380,7 +381,7 @@ export function firmwareItems(
 			kind: 'firmware',
 			label: profile.name,
 			detail: profile.author,
-			category: 'fm1',
+			category: 'fm1live',
 			place: 'builtin',
 			group: 'Hardware (MIDI)',
 			groupRank: 1,
@@ -414,7 +415,7 @@ export function firmwareItems(
 				kind: 'firmware',
 				label: fw.name,
 				detail: describe(fw),
-				category: 'fm1',
+				category: runtime === 'vibe' ? 'fm1' : 'fm1live',
 				place: 'packs',
 				group: 'Available',
 				groupRank: 2,

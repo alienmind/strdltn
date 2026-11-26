@@ -235,6 +235,62 @@ function goForward(): void {
 }
 let menu: HTMLElement | undefined;
 let dialog: HTMLElement | undefined;
+let popover: HTMLElement | undefined;
+let popoverPinned = false;
+let popoverHideTimer: ReturnType<typeof setTimeout> | undefined;
+
+function closePopover(): void {
+	clearTimeout(popoverHideTimer);
+	popover?.remove();
+	popover = undefined;
+	popoverPinned = false;
+}
+
+/**
+ * Opens an explanatory popover comparing the parallel plugin categories:
+ * FM-1 Synths (VIBE .wasm) vs FM-1 Live (real .fwsc / native fm1-live JIT / Hardware MIDI).
+ */
+function openPluginPopover(anchorEl: HTMLElement, focus: 'plugins' | 'fm1' | 'fm1live', pin: boolean): void {
+	clearTimeout(popoverHideTimer);
+	if (popover && popoverPinned && !pin) return;
+	closePopover();
+	popoverPinned = pin;
+	const box = document.body.appendChild(el('div', 'plugin-popover'));
+	popover = box;
+	box.innerHTML =
+		`<div class="pop-head"><span>FM-1 Plugin Categories</span>${pin ? '<button class="pop-close" title="Close (Esc)">&times;</button>' : ''}</div>` +
+		`<div class="pop-card${focus === 'fm1' ? ' active' : ''}">` +
+			`<div class="pop-title"><span class="badge runtime runtime-vibe">WASM</span><strong>FM-1 Synths (VIBE)</strong></div>` +
+			`<p>Open-source synths compiled from source to WebAssembly (<code>s("vibefm1:&lt;id&gt;")</code>).</p>` +
+			`<ul>` +
+				`<li>Ultra-light (~1% CPU), sample-accurate inside Strudel's mix</li>` +
+				`<li>Live screen thumbnails, Screen popup &amp; Devices panel</li>` +
+				`<li>Works on desktop VS Code and GitHub Codespaces</li>` +
+			`</ul>` +
+		`</div>` +
+		`<div class="pop-card${focus === 'fm1live' ? ' active' : ''}">` +
+			`<div class="pop-title"><span class="badge runtime runtime-fwsc">FWSC</span><span class="badge runtime runtime-hardware">MIDI</span><strong>FM-1 Live (Native / .fwsc)</strong></div>` +
+			`<p>Real unmodified M-VAVE FM-1 hardware firmwares (~280+ Hub synths plus <strong>SHRUB</strong> &amp; <strong>FM-1 Stock</strong>).</p>` +
+			`<ul>` +
+				`<li><strong>Run Native</strong>: launches <code>fm1-live</code> (240 MHz native JIT on Windows, macOS, Linux) — zero dropouts for SHRUB</li>` +
+				`<li><strong>In-editor .fwsc</strong>: plays lighter firmwares (e.g. Felucca) directly via <code>s("fm1:&lt;id&gt;")</code></li>` +
+				`<li><strong>Hardware MIDI</strong>: plays a real M-VAVE FM-1 with built-in CC maps &amp; web editor link</li>` +
+			`</ul>` +
+		`</div>`;
+	box.querySelector('.pop-close')?.addEventListener('click', (e) => {
+		e.stopPropagation();
+		closePopover();
+	});
+	box.addEventListener('mouseenter', () => clearTimeout(popoverHideTimer));
+	box.addEventListener('mouseleave', () => {
+		if (!popoverPinned) popoverHideTimer = setTimeout(() => closePopover(), 160);
+	});
+	const rect = anchorEl.getBoundingClientRect();
+	const top = Math.min(window.innerHeight - box.offsetHeight - 8, Math.max(8, rect.bottom + 4));
+	box.style.top = `${Math.max(8, top)}px`;
+	box.style.left = '8px';
+	box.style.right = '8px';
+}
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 search.addEventListener('input', () => {
@@ -409,8 +465,8 @@ function drawTree(body: HTMLElement, of: BrowserPage): void {
 	for (const category of CATEGORIES) {
 		if (category.id === 'all') continue;
 		const mine = own.filter((item) => inCategory(item.category, category.id));
-		// Plugins and FM-1 Synths show in the Library while empty: FM-1 Synths is where the hub's list loads.
-		if (!mine.length && !(of === 'library' && (category.id === 'plugins' || category.id === 'fm1'))) continue;
+		// Plugins, FM-1 Synths, and FM-1 Live show in the Library while empty: hub lists load on first open.
+		if (!mine.length && !(of === 'library' && (category.id === 'plugins' || category.id === 'fm1' || category.id === 'fm1live'))) continue;
 		const parent = parentOf(category.id);
 		if (parent && !tree.has(parent)) continue;
 		const children = CATEGORIES.filter((c) => parentOf(c.id) === category.id);
@@ -419,7 +475,22 @@ function drawTree(body: HTMLElement, of: BrowserPage): void {
 		const unfolded = foldable && tree.has(category.id);
 		const on = filter.category === category.id && !filter.group;
 		const row = body.appendChild(navRow(category.icon, category.label, mine.length, on, parent ? 1 : 0, foldable ? unfolded : undefined));
+		if (category.id === 'plugins' || category.id === 'fm1' || category.id === 'fm1live') {
+			const info = el('button', 'info-btn', '?');
+			info.title = 'Compare FM-1 Synths (VIBE WASM) vs FM-1 Live (Native / .fwsc / MIDI)';
+			info.addEventListener('mouseenter', () => openPluginPopover(row, category.id as 'plugins' | 'fm1' | 'fm1live', false));
+			info.addEventListener('mouseleave', () => {
+				if (!popoverPinned) popoverHideTimer = setTimeout(() => closePopover(), 180);
+			});
+			info.addEventListener('click', (event) => {
+				event.stopPropagation();
+				if (popover && popoverPinned) closePopover();
+				else openPluginPopover(row, category.id as 'plugins' | 'fm1' | 'fm1live', true);
+			});
+			row.insertBefore(info, row.lastChild);
+		}
 		row.addEventListener('click', (event) => {
+			if ((event.target as HTMLElement).closest('.info-btn')) return;
 			if ((event.target as HTMLElement).closest('.twisty')) {
 				if (unfolded) tree.delete(category.id);
 				else tree.add(category.id);
@@ -602,8 +673,8 @@ function drawRows(): void {
 /** What an empty Results says. An empty FM-1 Synths says how a firmware gets there. */
 function emptyText(): string {
 	if (!items.length) return 'Loading...';
-	if ((filter.category === 'fm1' || filter.category === 'plugins') && !items.some((item) => item.kind === 'firmware'))
-		return 'Loading the list of The Firmware Hub... Without a network, put a VIBE FM firmware (.wasm) in a firmware folder of the project.';
+	if ((filter.category === 'fm1' || filter.category === 'fm1live' || filter.category === 'plugins') && !items.some((item) => item.kind === 'firmware'))
+		return 'Loading the list of The Firmware Hub... Without a network, put a VIBE FM (.wasm) or real FM-1 (.fwsc) firmware in a firmware folder of the project.';
 	return 'Nothing matches. Clear the search or the filters.';
 }
 
@@ -987,7 +1058,12 @@ function menuFor(row: Row): MenuEntry[] {
 	if (item.kind === 'song') entries.push({ label: 'Insert at the cursor', run: () => post({ type: 'insertSong', id: item.id }) });
 	if (item.kind === 'function' && item.code) entries.push({ label: 'Insert an example', run: () => post({ type: 'insertText', text: item.code! }) });
 	if (item.kind === 'snippet') entries.push({ label: 'Open the file', run: () => post({ type: 'open', id: item.id }) });
-	if (item.kind === 'firmware') entries.push({ label: 'Show the screen', run: () => post({ type: 'screen', id: item.id }) });
+	if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') entries.push({ label: 'Show the screen', run: () => post({ type: 'screen', id: item.id }) });
+	if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.runtime === 'fwsc')) {
+		const running = nativeRunning.has(item.id.slice('firmware:'.length));
+		entries.push({ label: running ? 'Stop native fm1-live' : 'Run natively (fm1-live)', run: () => post({ type: 'runNative', id: item.id }) });
+	}
+	if (item.kind === 'firmware' && item.editorUrl) entries.push({ label: 'Open synth editor', run: () => post({ type: 'openEditor', id: item.id }) });
 	entries.push({ label: opens(item) ? 'Copy the path' : item.kind === 'snippet' ? 'Copy the code' : 'Copy the name', run: () => post({ type: 'copy', id: item.id, index }) });
 	entries.push('separator', { label: 'Edit tags...', run: () => editTags() });
 	return entries;
@@ -1036,9 +1112,17 @@ function closeMenu(): void {
 
 function closePopups(): void {
 	closeMenu();
+	closePopover();
 	dialog?.remove();
 	dialog = undefined;
 }
+
+document.addEventListener('mousedown', (event) => {
+	if (!popover || !popoverPinned) return;
+	const target = event.target as HTMLElement | null;
+	if (target?.closest('.plugin-popover') || target?.closest('.info-btn')) return;
+	closePopover();
+});
 
 function openDialog(title: string, body: (into: HTMLElement) => void, ok: string, onOk: () => void): void {
 	closePopups();

@@ -451,31 +451,30 @@ follows once you play.
   raises VS Code's priority while MIDI plays. It is off by default because it raises every
   other extension too.
 
-## 8. FM-1 Synths and the Devices panel
+## 8. FM-1 Synths, FM-1 Live and the Devices panel
 
 [The Firmware Hub](https://thefirmwarehub.com) publishes synth firmwares for the M-VAVE FM-1
-and VIBE FM. [str]dltn supports all three FM-1 runtimes under **Plugins > FM-1 Synths**:
+and VIBE FM. Under **Plugins** in the Browser, two parallel categories keep them clear
+(hover or click the **`?`** button on `Plugins`, `FM-1 Synths`, or `FM-1 Live` to open the
+comparison popover):
 
-- **VIBE FM (`WASM` badge):** native `.wasm` builds played as `s("vibefm1:<id>")` (from
-  `firmware/` or `firmware('https://.../name.wasm')`). `.progNum(55)` picks a sound, and
-  `s("vibefm1:<obervave sloop>")` switches per step. Each row shows a thumbnail of its
-  screen and a display button that opens the interactive **Screen** popup without sound.
-- **Real FM-1 (`FWSC` badge):** real `.fwsc` update packages from `thefirmwarehub.com/catalog.json`
-  or dropped locally into `firmware/<id>/`, emulated in software as `s("fm1:<id>")` via
-  `fm1-emu` (`fm1_web.wasm` downloaded on demand into global storage). Installing from
-  Available verifies SHA-256 when provided.
-- **Hardware (MIDI) (`MIDI` badge) and Native JIT (`Run Native`):** built-in profiles for
-  **SHRUB (FM-1 Hardware)** (cutoff CC 74, macros CC 16-19, **Editor...** button opening
-  `shrub.audio/editor/` or the experimental SHRUB panel) and **M-VAVE FM-1 Stock** (cutoff
-  CC 2). Inserting or dragging auto-detects a connected FM-1 MIDI port, adds `midimaps(...)`,
-  and inserts a playable `.midi('<port>').midimap('<id>')` line. Click **Run Native** on
-  SHRUB (or any `.fwsc` firmware) to launch `fm1-live` natively with 240 MHz JIT on Windows,
-  macOS, or Linux (using your own `SHRUB.fwsc` file, with persistent flash saves and zero
-  WebAssembly dropouts).
-- **Find, filter and install:** **Plugins > FM-1 Synths** groups items into **Installed**,
-  **Hardware (MIDI)**, and **Available**, with `Runtime/...` chips (`Runtime/VIBE WASM`,
-  `Runtime/FM-1 Emulated`, `Runtime/Hardware MIDI`). Single-click previews any row; double
-  click or drag an Available firmware to install it into `firmware/<id>/` and insert it.
+- **Plugins > FM-1 Synths (`WASM` badge):** open-source VIBE FM `.wasm` builds played as
+  `s("vibefm1:<id>")` (from `firmware/` or `firmware('https://.../name.wasm')`). `.progNum(55)`
+  picks a sound, and `s("vibefm1:<obervave sloop>")` switches per step. Grouped into
+  **Installed** and **Available**; each row shows a live screen thumbnail and opens the
+  interactive **Screen** popup without sound.
+- **Plugins > FM-1 Live (`FWSC` and `MIDI` badges):** real unmodified M-VAVE FM-1 hardware
+  firmwares grouped into **Installed**, **Hardware (MIDI)** (**SHRUB (FM-1 Hardware)** with
+  cutoff CC 74, macros CC 16-19 and **Editor...**, plus **M-VAVE FM-1 Stock**), and
+  **Available** (~280+ `.fwsc` firmwares from `thefirmwarehub.com/catalog.json`). Run them
+  three ways: click **Run Native** to launch `fm1-live` natively at 240 MHz JIT on Windows,
+  macOS, or Linux (recommended for SHRUB, using your own `SHRUB.fwsc` with persistent flash
+  saves), emulate lighter `.fwsc` synths directly inside Strudel (`s("fm1:<id>")` via
+  `fm1-emu`), or target a real M-VAVE FM-1 over desktop MIDI (`.midi('<port>').midimap('<id>')`).
+- **Selecting Plugins itself** shows both categories together with `Runtime/...` chips
+  (`Runtime/VIBE WASM`, `Runtime/FM-1 Emulated`, `Runtime/Hardware MIDI`). Single-click
+  previews any row; double click or drag an Available firmware to install it into
+  `firmware/<id>/` (verifying SHA-256 when provided) and insert it.
 
 ![Plugins > FM-1 Synths in the Browser showing Installed, Hardware (MIDI) with SHRUB, and Available VIBE WASM and FWSC firmwares](manual/fm1-synths.png)
 <!-- SCREENSHOT SPEC: doc/manual/fm1-synths.png

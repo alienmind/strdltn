@@ -263,6 +263,65 @@ svg { display: block; flex: none; }
 .details .collect .chip.more { margin-left: 4px; }
 .details img.picture { display: block; width: 100%; max-width: 240px; aspect-ratio: 3 / 2; margin: 4px 0; border-radius: 3px; background: #000; }
 
+.nav-row .info-btn {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 15px;
+	height: 15px;
+	margin-right: 4px;
+	border-radius: 50%;
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--vscode-descriptionForeground);
+	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .45));
+	opacity: 0.7;
+}
+.nav-row .info-btn:hover { opacity: 1; color: var(--vscode-foreground); border-color: var(--vscode-focusBorder); }
+
+.plugin-popover {
+	position: fixed;
+	z-index: 20;
+	padding: 8px 10px;
+	background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, #252526));
+	color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+	border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-widget-border, rgba(128, 128, 128, .45)));
+	box-shadow: 0 4px 14px var(--vscode-widget-shadow, rgba(0, 0, 0, .45));
+	border-radius: 5px;
+	font-size: 11.5px;
+	line-height: 1.4;
+	max-height: 75vh;
+	overflow-y: auto;
+}
+.plugin-popover .pop-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 10.5px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 6px;
+}
+.plugin-popover .pop-close { font-size: 14px; line-height: 1; padding: 0 3px; opacity: 0.75; }
+.plugin-popover .pop-close:hover { opacity: 1; }
+.plugin-popover .pop-card {
+	padding: 6px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .25));
+	background: rgba(128, 128, 128, .06);
+}
+.plugin-popover .pop-card + .pop-card { margin-top: 6px; }
+.plugin-popover .pop-card.active { border-color: var(--vscode-focusBorder, #3794ff); background: rgba(55, 148, 255, .08); }
+.plugin-popover .pop-title { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.plugin-popover .pop-title .badge { position: static; font-size: 9px; padding: 1px 4px; border-radius: 3px; }
+.plugin-popover p { margin: 0 0 4px; color: var(--vscode-descriptionForeground); }
+.plugin-popover ul { margin: 0; padding-left: 15px; }
+.plugin-popover li { margin: 2px 0; }
+.plugin-popover code { font-family: var(--vscode-editor-font-family, monospace); font-size: 10.5px; }
+
 .menu {
 	position: fixed;
 	z-index: 10;

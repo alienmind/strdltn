@@ -39,20 +39,19 @@ You can either use the specialized panels OR keep writing code OR a mix of both.
 
 > ### M-VAVE FM-1, VIBE FM (.wasm) and real FM-1 (.fwsc) firmwares
 >
-> **Got an FM-1, or want its synths in software?** [str]dltn Live[code] supports FM-1
-> synths in three ways under **Plugins > FM-1 Synths**:
+> **Got an FM-1, or want its synths in software?** [str]dltn Live[code] organizes FM-1
+> plugins into two parallel categories under **Plugins** (hover or click the `?` info icon
+> beside them for a quick comparison popover):
 >
-> - **Hardware (MIDI).** Built-in profiles for **SHRUB (FM-1 Hardware)** (with cutoff CC 74,
->   macros CC 16-19 and a one-click **Editor...** button) and **M-VAVE FM-1 Stock**. Plug in
->   the FM-1 and send any part of your song to it with `.midi('M-VAVE FM-1').midimap('shrub')`,
->   in time with the rest of the music. Desktop VS Code.
-> - **VIBE FM firmwares (`WASM`).** Native VIBE `.wasm` synth firmwares from
->   [The Firmware Hub](https://thefirmwarehub.com) run inside the extension as
->   `s("vibefm1:obervave")`, each with a screen thumbnail, interactive Screen popup, and a
->   live Devices panel (screen, F1 to F6 keys, parameters), with no hardware at all.
-> - **Real FM-1 firmwares (`FWSC`).** Real `.fwsc` update packages from The Firmware Hub
->   catalog (or dropped into `firmware/`) run via `s("fm1:<id>")` using the on-demand
->   `fm1-emu` WebAssembly emulator.
+> - **Plugins > FM-1 Synths (`WASM`).** Open-source VIBE FM `.wasm` builds from
+>   [The Firmware Hub](https://thefirmwarehub.com) running directly inside Strudel's engine
+>   (`s("vibefm1:obervave")`) with ~1% CPU, sample-accurate timing, live screen thumbnails,
+>   Screen popup, and Devices tab controls (desktop & Codespaces).
+> - **Plugins > FM-1 Live (`FWSC` / `MIDI` / Native JIT).** Real unmodified M-VAVE FM-1
+>   hardware firmwares (~280+ Hub `.fwsc` synths plus **SHRUB** and **M-VAVE FM-1 Stock**):
+>   launch **Run Native** (`fm1-live` 240 MHz JIT on Windows, macOS, Linux — zero dropouts
+>   for SHRUB), emulate lighter `.fwsc` synths in-editor (`s("fm1:<id>")`), or play a real
+>   M-VAVE FM-1 over desktop MIDI with built-in CC maps and SHRUB's **Editor...** button.
 >
 > See `examples/07-vibefm1-obervave.strudel` and `examples/09-midi-out.strudel`.
 

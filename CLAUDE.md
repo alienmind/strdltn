@@ -25,7 +25,8 @@ grew beyond a VS Code extension.
 | `README.md` | What a user gets, with the full feature list |
 | `doc/ARCHITECTURE.md` | How every part works, and every fact we measured about VS Code |
 | `doc/TODO.md` | What is left and the decisions waiting for the maintainer |
-| `docs/PENDING-TESTING.md` | Live checklist of features waiting for the maintainer's batched manual test run |
+| `doc/PENDING-TESTING.md` | Live, branch-agnostic checklist of features waiting for the maintainer's batched manual test run |
+| `doc/UX-ROADMAP.md` | Handover spec for the UX/UI overhaul, Welcome Screen, Track Rack / Filter Curve, and DJ features |
 | `doc/DAW-PLAN.md` | The plan to make this a DAW, phase by phase, with "Order of work". Phase 1 (the Browser) is built; the Mixer is next |
 | `doc/DRAWER_OF_FAILED_IDEAS.md` | What we tried or designed and dropped, with the reason. Read it before a spike |
 | `doc/VIDEO.md` | How to make the promo video: script, voice, scripted capture of a VS Code window, Remotion |
@@ -85,10 +86,10 @@ What to know about the real test:
 - **Other people's work.** A file by somebody else goes in only with a license that
   allows it. A technique learned from somebody is written again as our own code, and the
   snippet says `// @credits <name>`, the name and nothing else.
-- **Docs are part of the work.** `doc/TODO.md`, `docs/PENDING-TESTING.md`, `doc/ARCHITECTURE.md` and the drawer are
+- **Docs are part of the work.** `doc/TODO.md`, `doc/PENDING-TESTING.md`, `doc/ARCHITECTURE.md` and the drawer are
   updated in the same change, by the rules below.
-- **Keep `docs/PENDING-TESTING.md` live and branch-agnostic.** Every feature change or
-  behavioral tweak updates `docs/PENDING-TESTING.md` in place (adding new checks, revising
+- **Keep `doc/PENDING-TESTING.md` live and branch-agnostic.** Every feature change or
+  behavioral tweak updates `doc/PENDING-TESTING.md` in place (adding new checks, revising
   or merging superseded ones, and removing items once verified) without tying entries to a
   branch name, so the file carries cleanly across merges and the maintainer can batch many
   feature branches into a single manual test pass.
@@ -139,10 +140,10 @@ The commands and the release steps of this project are under "Release" in
 ## Asking for a manual test
 
 Some things cannot be proven from the terminal. Keep the running list of everything waiting
-for manual verification in `docs/PENDING-TESTING.md` rather than repeating overlapping test
+for manual verification in `doc/PENDING-TESTING.md` rather than repeating overlapping test
 tables after every change:
 
-- On every feature change, update `docs/PENDING-TESTING.md` in place: add new checks, update
+- On every feature change, update `doc/PENDING-TESTING.md` in place: add new checks, update
   or merge checks whose behavior changed, and remove checks for removed features.
 - Once the maintainer reports test results, delete the checks that passed and keep only
   failures or newly added work.
@@ -266,7 +267,7 @@ Keep these files current as part of the work, not after it.
 list of things to try. Finished work is DELETED from it rather than kept as a done-list -
 git history is the record of what shipped.
 
-`docs/PENDING-TESTING.md` is the live manual test checklist. Any feature change updates it
+`doc/PENDING-TESTING.md` is the live manual test checklist. Any feature change updates it
 in place (adding, editing, or removing superseded checks) so the maintainer can batch
 features and run one consolidated test pass. Delete items once the maintainer confirms they
 passed.

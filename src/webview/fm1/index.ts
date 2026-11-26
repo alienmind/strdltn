@@ -20,12 +20,13 @@ interface Fm1Instance {
 	id: string;
 	orbit: number;
 	node: AudioWorkletNode;
+	gain: GainNode;
 	timers: Set<ReturnType<typeof setTimeout>>;
 	metered?: Set<AudioNode>;
 }
 
 let host: Fm1Host;
-let emuBytes: Promise<ArrayBuffer> | undefined;
+let emuModule: Promise<WebAssembly.Module> | undefined;
 let workletLoaded: Promise<void> | undefined;
 const firmware = new Map<string, FirmwareInfo>();
 let order: string[] = [];
@@ -66,6 +67,22 @@ export function stopFm1Preview(): void {
 	activePreview = undefined;
 }
 
+function disposeInstance(inst: Fm1Instance): void {
+	for (const t of inst.timers) clearTimeout(t);
+	inst.timers.clear();
+	try {
+		inst.node.port.postMessage({ t: 'dispose' } satisfies ToFm1Worklet);
+	} catch {
+		// Port already closed.
+	}
+	try {
+		inst.node.disconnect();
+		inst.gain.disconnect();
+	} catch {
+		// Already disconnected.
+	}
+}
+
 export function stopFm1Transport(): void {
 	stopFm1Preview();
 	for (const pending of instances.values()) {
@@ -73,7 +90,36 @@ export function stopFm1Transport(): void {
 			if (!inst) return;
 			for (const t of inst.timers) clearTimeout(t);
 			inst.timers.clear();
-			inst.node.port.postMessage({ t: 'stop' } satisfies ToFm1Worklet);
+			try {
+				inst.node.port.postMessage({ t: 'stop' } satisfies ToFm1Worklet);
+			} catch {
+				// Port already closed.
+			}
+		});
+	}
+}
+
+/**
+ * Tears down any `.fwsc` worklet instances whose synth is no longer present in the evaluated Strudel code.
+ * Prevents removed `.fwsc` lines from continuing to consume audio-thread CPU in the background.
+ */
+export function pruneFm1(code: string): void {
+	if (!instances.size) return;
+	const stripped = code
+		.replace(/\/\*[\s\S]*?\*\//g, '')
+		.replace(/(^|[^:])\/\/.*$/gm, '$1')
+		.toLowerCase();
+	const hasAnyFm1 = /\bfm1\b/.test(stripped);
+	const hasIndexedFm1 = /\bfm1(?::\d+)?\b/.test(stripped.replace(/\bfm1:[a-z_][a-z0-9._-]*/g, ''));
+	for (const [key, pending] of [...instances]) {
+		const id = key.slice(0, key.lastIndexOf('@'));
+		const stillUsed = hasAnyFm1 && (hasIndexedFm1 || stripped.includes(`fm1:${id}`));
+		if (stillUsed) continue;
+		instances.delete(key);
+		void pending.then((inst) => {
+			if (!inst) return;
+			disposeInstance(inst);
+			host.log('info', `fm1: disposed unused ${id}.fwsc on orbit ${inst.orbit}`);
 		});
 	}
 }
@@ -82,10 +128,7 @@ export function resetFm1(): void {
 	stopFm1Preview();
 	for (const pending of instances.values()) {
 		void pending.then((inst) => {
-			if (!inst) return;
-			for (const t of inst.timers) clearTimeout(t);
-			inst.node.port.postMessage({ t: 'dispose' } satisfies ToFm1Worklet);
-			inst.node.disconnect();
+			if (inst) disposeInstance(inst);
 		});
 	}
 	instances.clear();
@@ -94,32 +137,29 @@ export function resetFm1(): void {
 
 function forgetFm1(id: string): void {
 	pkgCache.delete(id);
-	for (const [key, pending] of instances) {
+	for (const [key, pending] of [...instances]) {
 		if (!key.startsWith(`${id}@`)) continue;
-		void pending.then((inst) => {
-			if (!inst) return;
-			for (const t of inst.timers) clearTimeout(t);
-			inst.node.port.postMessage({ t: 'dispose' } satisfies ToFm1Worklet);
-			inst.node.disconnect();
-		});
 		instances.delete(key);
+		void pending.then((inst) => {
+			if (inst) disposeInstance(inst);
+		});
 	}
 }
 
-async function getEmuBytes(): Promise<ArrayBuffer> {
-	if (!emuBytes) {
-		emuBytes = (async () => {
+async function getEmuModule(): Promise<WebAssembly.Module> {
+	if (!emuModule) {
+		emuModule = (async () => {
 			const url = await host.emuWasmUrl();
 			if (!url) throw new Error('fm1-emu emulator wasm is not available');
 			const res = await fetch(url);
 			if (!res.ok) throw new Error(`${res.status} fetching fm1-emu wasm`);
-			return res.arrayBuffer();
+			return WebAssembly.compile(await res.arrayBuffer());
 		})().catch((error) => {
-			emuBytes = undefined;
+			emuModule = undefined;
 			throw error;
 		});
 	}
-	return emuBytes;
+	return emuModule;
 }
 
 async function getPkgBytes(id: string): Promise<ArrayBuffer> {
@@ -156,23 +196,33 @@ function resolve(n: unknown): string | undefined {
 	return order[((index % order.length) + order.length) % order.length];
 }
 
-async function createNode(ac: AudioContext, id: string): Promise<AudioWorkletNode> {
+async function createNode(ac: AudioContext, id: string, onRuntimeError?: (kind: 'error' | 'overload', message: string) => void): Promise<AudioWorkletNode> {
 	workletLoaded ??= ac.audioWorklet.addModule(WORKLET_URL).catch((error) => {
 		workletLoaded = undefined;
 		throw error;
 	});
-	const [, wasm, pkg] = await Promise.all([workletLoaded, getEmuBytes(), getPkgBytes(id)]);
+	const [, module, pkg] = await Promise.all([workletLoaded, getEmuModule(), getPkgBytes(id)]);
 	const node = new AudioWorkletNode(ac, 'strdltn-fm1', {
 		numberOfInputs: 0,
 		numberOfOutputs: 1,
 		outputChannelCount: [2],
+		processorOptions: { module },
 	});
 	await new Promise<void>((resolveReady, rejectReady) => {
+		let settled = false;
 		node.port.onmessage = (event: MessageEvent<FromFm1Worklet>) => {
-			if (event.data.t === 'ready') resolveReady();
-			else rejectReady(new Error(event.data.message));
+			const msg = event.data;
+			if (!settled) {
+				settled = true;
+				if (msg.t === 'ready') resolveReady();
+				else rejectReady(new Error(msg.message));
+				return;
+			}
+			if (msg.t === 'overload' || msg.t === 'error') {
+				onRuntimeError?.(msg.t, msg.message);
+			}
 		};
-		node.port.postMessage({ t: 'boot', wasm: wasm.slice(0), pkg: pkg.slice(0) } satisfies ToFm1Worklet);
+		node.port.postMessage({ t: 'boot', pkg: pkg.slice(0) } satisfies ToFm1Worklet);
 	});
 	return node;
 }
@@ -183,10 +233,21 @@ async function instanceFor(id: string, orbit: number): Promise<Fm1Instance | und
 	if (!pending) {
 		const created: Promise<Fm1Instance | undefined> = (async (): Promise<Fm1Instance> => {
 			const ac = strudelWebaudio.getAudioContext();
-			const node = await createNode(ac, id);
-			node.connect(strudelWebaudio.getSuperdoughAudioController().getOrbit(orbit).summingNode);
+			let instRef: Fm1Instance | undefined;
+			const node = await createNode(ac, id, (kind, message) => {
+				if (instRef) disposeInstance(instRef);
+				instances.delete(key);
+				if (!reported.has(`!${id}`)) {
+					reported.add(`!${id}`);
+					host.log('error', `fm1 ${id} (${kind}): ${message}`);
+				}
+			});
+			const gain = ac.createGain();
+			node.connect(gain);
+			gain.connect(strudelWebaudio.getSuperdoughAudioController().getOrbit(orbit).summingNode);
 			host.log('info', `fm1: booted ${id}.fwsc on orbit ${orbit}`);
-			return { key, id, orbit, node, timers: new Set<ReturnType<typeof setTimeout>>() };
+			instRef = { key, id, orbit, node, gain, timers: new Set<ReturnType<typeof setTimeout>>() };
+			return instRef;
 		})().catch((error) => {
 			if (!reported.has(`!${id}`)) host.log('error', `fm1 ${id}: ${(error as Error)?.message ?? error}`);
 			reported.add(`!${id}`);
@@ -210,7 +271,7 @@ async function trigger(t: number, value: any): Promise<undefined> {
 	const meter = host.meter?.(value);
 	if (meter && !(inst.metered ??= new Set()).has(meter)) {
 		inst.metered.add(meter);
-		inst.node.connect(meter);
+		inst.gain.connect(meter);
 	}
 	const freq = strudelWebaudio.getFrequencyFromValue(value);
 	const note = Math.max(0, Math.min(127, Math.round(12 * Math.log2(freq / 440) + 69)));
@@ -240,7 +301,10 @@ export async function previewFm1(n: string | number, at: number, duration: numbe
 	const ac = strudelWebaudio.getAudioContext();
 	let node: AudioWorkletNode;
 	try {
-		node = await createNode(ac, id);
+		node = await createNode(ac, id, (kind, message) => {
+			host.log('warn', `preview fm1:${id} (${kind}): ${message}`);
+			activePreview?.stop();
+		});
 	} catch (error) {
 		host.log('error', `preview fm1:${id}: ${(error as Error)?.message ?? error}`);
 		return;

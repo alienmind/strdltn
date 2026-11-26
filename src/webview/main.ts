@@ -24,7 +24,7 @@ import { initMidi, listenEverywhere, midiMessage, midiScope, midiStopped, onCont
 import { findKnobs, type KnobBinding, type Pickup, pickup, sliderAt } from '../shared/knob';
 import { type LineAction, lineActionMap } from '../shared/lineActions';
 import { PREVIEW_FADE, previewCycleSeconds } from '../shared/preview';
-import { initFm1, previewFm1, registerFm1Firmware, stopFm1Preview, stopFm1Transport } from './fm1';
+import { initFm1, previewFm1, pruneFm1, registerFm1Firmware, stopFm1Preview, stopFm1Transport } from './fm1';
 import { addFirmware, deviceRequest, initFirmware, previewFirmware, registerFirmware, setFirmwareCache, stopFirmwarePreview, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -274,6 +274,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			if (mode === 'stage') prepareDock(mirror.code);
 		},
 		afterEval: ({ meta }: { meta: { widgets?: unknown[] } }) => {
+			pruneFm1(mirror.code);
 			rememberSliders(meta?.widgets ?? []);
 			rememberKnobs(mirror.code);
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);

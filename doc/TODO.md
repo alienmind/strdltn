@@ -48,7 +48,8 @@ AudioWorklet + native `fm1-live` runner + local `.fwsc` drop-in), custom firmwar
 SysEx flashing (`strdltn.experimental.fm1Flash`, off by default, use at your own risk) unified
 under one `Plugins > FM-1 Synths` category (`Installed` / `Available`) with technology badges
 and `Runtime/...` / `Repo/...` tag chips. Experimental SHRUB panel special-casing was removed
-so SHRUB behaves as a regular synth. Pending manual checks live in `docs/PENDING-TESTING.md`.
+so SHRUB behaves as a regular synth. Pending manual checks live in `doc/PENDING-TESTING.md`,
+and the handover spec for the next UX/UI overhaul + DJ features lives in `doc/UX-ROADMAP.md`.
 Item 20 (melody and drum-rack line actions) waits for the maintainer's go.
 
 Next in line:
@@ -79,7 +80,7 @@ Next in line:
 
 ## Next: test by hand
 
-The live manual testing checklist now lives in `docs/PENDING-TESTING.md` so multiple features
+The live manual testing checklist now lives in `doc/PENDING-TESTING.md` so multiple features
 can be batched into a single test run. Update it on every feature change and remove items once
 verified.
 

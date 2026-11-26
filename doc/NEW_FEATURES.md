@@ -91,23 +91,7 @@ alongside a `.strudel` file:
 
 ---
 
-## 4. Colorful First-Install Welcome Screen (`UX-5`), Clean DAW Profile (`UX-12`) & `template/` -> `music/` (`#19`)
-
-Requested by the maintainer (2026-11-22 and updated 2026-11-26): an Eclipse/IDE-style colorful
-**Welcome Screen** webview tab (`Welcome to [str]dltn Live[code]`) shown automatically once on
-first install, plus command `strdltn: Open Welcome Screen` to re-open anytime.
-
-- **Layout:** Hero header with `[str]dltn` mark, one-sentence pitch, and a prominent **"Play the
-  demo song"** button; below, colorful feature cards grouped in onboarding order (Play, Find,
-  Mix, Devices & FM-1 Synths, MIDI, Render), each showing a crisp visual screenshot (from
-  `doc/screenshot-*.png` / `doc/manual/*.png`, with optional short silent VP9 `.webm` clips from
-  `video/` later), a short description, and a **"Try it"** button.
-- **Persistence:** **"Do not show me this again"** checkbox at the bottom stored in
-  `context.globalState` (with optional version tracking to highlight new features on major
-  releases). Respects VS Code theme variables and `prefers-reduced-motion`.
-- **Optional clip spikes (W1-W4):** W1 (VP9 `.webm` playback in Electron webview), W2 (total
-  clip size impact on `.vsix`), W3 (first-start version state), W4 (short VS Code walkthrough
-  pointing to our Welcome tab).
+## 4. Clean DAW Profile (`UX-12`) & `template/` -> `music/` (`#19`)
 
 ### Clean DAW Profile & Auto-Hiding Views (`UX-12` - maintainer 2026-11-26)
 

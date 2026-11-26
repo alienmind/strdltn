@@ -26,6 +26,7 @@ import { Session, type SessionHost } from './session';
 import { saveAudio } from './render';
 import { DEFAULT_RENDER_CYCLES, renderCycles } from '../shared/render';
 import { SnippetLibrary } from './snippets';
+import { WelcomeScreen } from './welcome';
 
 /** `git describe` of the checkout this bundle was built from. Set by scripts/build.mjs. */
 declare const __BUILD__: string;
@@ -543,6 +544,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		vscode.commands.registerCommand('strdltn.installAllFirmwares', () => market.installAll()),
 		vscode.commands.registerCommand('strdltn.flashFm1Hardware', (id?: string) => fm1Flasher.flash(typeof id === 'string' ? id : undefined)),
 		vscode.commands.registerCommand('strdltn.openSynthsGallery', () => gallery.open('all')),
+		vscode.commands.registerCommand('strdltn.openWelcome', () => welcome.open()),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('strdltn.experimental.fm1Flash')) {
 				const on = vscode.workspace.getConfiguration('strdltn').get<boolean>('experimental.fm1Flash', false);
@@ -997,10 +999,96 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		}
 	}
 
+	const findDemoUri = async (): Promise<vscode.Uri | undefined> => {
+		const listed = songs.all();
+		const exact = listed.find((p) => /(^|\/)demo\.strudel$/i.test(p));
+		if (exact) return songs.uri(exact);
+		if (listed.length) return songs.uri(listed[0]);
+		const found = await vscode.workspace.findFiles('**/demo.strudel', '**/.strdltn/**', 1);
+		if (found.length) return found[0];
+		const anySong = await vscode.workspace.findFiles('**/*.strudel', '**/.strdltn/**', 1);
+		return anySong[0];
+	};
+
+	const playDemoSong = async (): Promise<void> => {
+		const uri = await findDemoUri();
+		if (uri) {
+			await vscode.commands.executeCommand('vscode.openWith', uri, EDITOR_VIEW_TYPE);
+			for (let i = 0; i < 40; i++) {
+				const session = find(uri, 'editor');
+				if (session?.ready) {
+					session.play();
+					return;
+				}
+				await new Promise((resolve) => setTimeout(resolve, 120));
+			}
+			await vscode.commands.executeCommand('strdltn.play');
+			return;
+		}
+		const starter = [
+			'// @title Welcome Beat',
+			'setcpm(124/4)',
+			'',
+			'// @color rose',
+			'$kick: s("bd*4").bank("RolandTR909").gain(slider(0.85, 0, 1))',
+			'',
+			'// @color cyan',
+			'$hats: s("hh*8").bank("RolandTR909").gain(slider(0.45, 0, 1))',
+			'',
+			'// @color violet',
+			'$bass: note("c2 c2 eb2 g1").s("sawtooth").lpf(slider(720, 120, 4000)).gain(slider(0.6, 0, 1))',
+			'',
+		].join('\n');
+		const doc = await vscode.workspace.openTextDocument({ language: 'strudel', content: starter });
+		await vscode.window.showTextDocument(doc, vscode.ViewColumn.Active);
+		await vscode.commands.executeCommand('strdltn.play');
+	};
+
+	const welcome = new WelcomeScreen(context, {
+		hasDemo: () => songs.all().some((p) => /(^|\/)demo\.strudel$/i.test(p)),
+		hasProfile: () => Boolean(vscode.workspace.workspaceFolders?.length),
+		runAction: async (action) => {
+			switch (action) {
+				case 'playDemo':
+					return playDemoSong();
+				case 'tryFind':
+					return browser.focusSearch();
+				case 'tryMix':
+					return mixerPlace.reveal();
+				case 'tryDevices':
+					return gallery.open('all');
+				case 'tryMidi':
+					await vscode.commands.executeCommand(`${BROWSER_VIEW}.focus`);
+					browser.show({ category: 'midi' });
+					return;
+				case 'tryRender': {
+					const session = frontSession() ?? lastSession();
+					if (session) return transportOn(session, 'render');
+					await playDemoSong();
+					void vscode.window.showInformationMessage('Click Render in Browser Controls (or run "strdltn: Render audio") to export .wav and .mp3 files.');
+					return;
+				}
+				case 'importProfile': {
+					try {
+						await vscode.commands.executeCommand('workbench.profiles.actions.importProfile');
+					} catch {
+						void vscode.window.showInformationMessage('Open Settings > Profiles > Import Profile... and select strdltn.code-profile.');
+					}
+					return;
+				}
+				case 'openManual':
+					void vscode.env.openExternal(vscode.Uri.parse('https://github.com/alienmind/strdltn/releases/latest/download/strdltn-manual.pdf'));
+					return;
+			}
+		},
+	});
+	context.subscriptions.push(welcome);
+
 	// Last, when everything they use exists.
 	void Promise.all([snippets.refresh(), songs.refresh()]).then(() => browser.start());
 	void recallSounds();
 	updateStatus();
+	welcome.maybeShowOnStartup();
 
 	return {
 		sessions: () =>

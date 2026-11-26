@@ -121,6 +121,15 @@ const builds = [
 	},
 	{
 		...shared,
+		// The First-Install Welcome Screen editor tab (UX-5). Its CSS lands in dist/welcome.css.
+		entryPoints: ['src/welcome/main.ts'],
+		outfile: 'dist/welcome.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
+	{
+		...shared,
 		// Loaded with audioWorklet.addModule() from beside webview.js. A worklet scope has no modules to import.
 		entryPoints: ['src/webview/vibe/worklet.ts'],
 		outfile: 'dist/vibe-worklet.js',
@@ -154,6 +163,18 @@ if (process.argv.includes('--test')) {
 await writeFunctions();
 // The prebuilt binaries of @julusian/midi for every platform, 2.2 MB, as the .vsix ships only dist/.
 cpSync('node_modules/@julusian/midi/prebuilds', 'dist/prebuilds', { recursive: true });
+// Existing screenshots packaged into dist/welcome/ for the First-Install Welcome Screen (UX-5).
+mkdirSync('dist/welcome', { recursive: true });
+for (const [src, dest] of [
+	['doc/manual/editor.png', 'dist/welcome/play.png'],
+	['doc/screenshot-browser.png', 'dist/welcome/find.png'],
+	['doc/screenshot-music.png', 'dist/welcome/mix.png'],
+	['doc/screenshot-devices.png', 'dist/welcome/devices.png'],
+	['doc/screenshot-hydra.png', 'dist/welcome/midi.png'],
+	['doc/screenshot-stage.png', 'dist/welcome/render.png'],
+]) {
+	cpSync(src, dest);
+}
 
 /**
  * dist/functions.json: the functions of `@strudel/reference`, for the Functions category of

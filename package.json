@@ -163,6 +163,11 @@
 				"icon": "$(layout-grid)"
 			},
 			{
+				"command": "strdltn.openWelcome",
+				"title": "strdltn: Open Welcome Screen",
+				"icon": "$(home)"
+			},
+			{
 				"command": "strdltn.openStage",
 				"title": "strdltn: Open stage",
 				"icon": "$(open-preview)"

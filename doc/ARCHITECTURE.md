@@ -1281,6 +1281,17 @@ engine; only its picture moves. The host keeps, per copy, the page that asked to
 stays in flight per copy wherever it is shown. In the view, a panel that is in a tab says so; unfolding it brings
 the picture back to the view, and the tab stops getting frames. A tab whose copy ends closes itself.
 
+**Hardware bezel, rotary arc knobs, and parameter search (`UX-6` UI).** The 480x320 display sits inside a recessed
+dark hardware bezel (`.bezel`) with tactile aligned F1-F6 soft keys underneath and an activity LED in the panel
+header that glows on live frame updates and control presses (tinted by the owning chain's track color). Declared
+parameters (`vibe_wasm_param_info`) render as a responsive grid of custom SVG 270-degree rotary arc knobs (bipolar
+center-out when `min < 0 < max`): vertical pointer drag, `Shift`+drag fine control (0.1x), wheel and arrow-key
+adjustment, double-click reset to `param.def`, and a right-click context menu offering **Copy `.vp("<id>", <val>)`**,
+**Insert slider at cursor** (`.vp("<id>", slider(...))`), and **Reset to default**. For devices with more than 8
+parameters (such as OBERVAVE's 236 parameters), a sticky toolbar above the knob grid provides free-text search and
+prefix auto-grouping pills (`OSC`, `FLT`, `ENV`, `MOD`, `FX`, `MIX`, `OTHER`, implemented in
+`src/shared/deviceParams.ts` with unit tests in `src/shared/deviceParams.test.ts`).
+
 **SHRUB (historical note):** The experimental `strdltn.experimental.shrubEditor` iframe panel (`src/extension/shrub.ts`) was removed on 2026-11-26 once SHRUB gained full integration under `Plugins > FM-1 Synths` (`SHRUB (WASM)`, `SHRUB.fwsc` + `Run Native`, and Hardware MIDI profile with external `Editor...` link).
 
 Checked by hand on 2026-11-21 in a development host on Windows, with `template/examples/07-vibefm1-obervave.strudel`

@@ -35,6 +35,7 @@ export class DevicesView implements vscode.WebviewViewProvider {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly output: vscode.OutputChannel,
+		private readonly onInsert?: (text: string) => Promise<void>,
 	) {}
 
 	resolveWebviewView(view: vscode.WebviewView): void {
@@ -124,6 +125,13 @@ export class DevicesView implements vscode.WebviewViewProvider {
 			}
 			case 'takeOut':
 				return this.takeOut(message.engine, message.key);
+			case 'copyText':
+				void vscode.env.clipboard.writeText(message.text);
+				void vscode.window.setStatusBarMessage(`strdltn: copied ${message.text}`, 2500);
+				return;
+			case 'insertText':
+				void this.onInsert?.(message.text);
+				return;
 			case 'state':
 				if (!page.only) this.lastState = message;
 				return;

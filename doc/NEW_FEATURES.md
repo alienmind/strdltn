@@ -124,20 +124,13 @@ We combine three supported mechanisms instead:
 
 ---
 
-## 5. Devices Rotary Knob Grid, Param Search & Remaining Firmware Runtime (`UX-6`)
+## 5. Remaining Firmware Runtime (`UX-6` Runtime)
 
 Firmware Hub discovery, install, batch download, VIBE `.wasm`, `SHRUB (WASM)`, `.fwsc`
-(`fm1-emu` and native `fm1-live`), Hardware MIDI profiles, and Devices live screens/soft keys
-are **already shipped** (see `doc/ARCHITECTURE.md`). Only these enhancements remain unbuilt:
+(`fm1-emu` and native `fm1-live`), Hardware MIDI profiles, and Devices live screens, hardware
+bezel/soft keys, SVG rotary arc knob grid, and parameter search/auto-grouping are **already
+shipped** (see `doc/ARCHITECTURE.md`). Only these runtime enhancements remain unbuilt:
 
-- **SVG rotary arc knobs (`src/devices/main.ts`, `devices.css`):** Replace stacked raw
-  `<input type="range">` bars with a compact grid of SVG rotary knobs (vertical drag,
-  `Shift`+drag fine control, double-click reset to `param.def`, right-click **"Copy
-  `.vp(id, val)`"** or **"Insert slider"**).
-- **Parameter search & auto-grouping:** Filter box inside `.params` and prefix-based group tabs
-  (`OSC`, `FLT`, `ENV`, `FX`) for large synths like OBERVAVE (236 parameters).
-- **Display bezel & soft keys:** Subtle hardware bezel around the 480x320 `<canvas>`, tactile
-  F1-F6 alignment, and subtle active-LED glow on note hits.
 - **Per-firmware continuous stream FX bus (same pattern as `djf`, Decision 14):** Insert one
   persistent Web Audio FX chain per firmware instance (`id@orbit`) right before
   `orbit.summingNode` (`worklet -> hpf -> lpf -> pan -> gain -> orbit.summingNode`, plus

@@ -60,5 +60,9 @@ export type FromDevices =
 	| ({ type: 'request'; engine: string } & DeviceRequest)
 	/** Take a device out of the view into an editor tab. */
 	| { type: 'takeOut'; engine: string; key: string }
+	/** Copies a `.vp(id, val)` snippet to the clipboard from a knob context menu. */
+	| { type: 'copyText'; text: string }
+	/** Inserts a `.vp(id, slider(...))` snippet into the active editor from a knob context menu. */
+	| { type: 'insertText'; text: string }
 	| { type: 'state'; panels: { key: string; open: boolean; frames: number }[] }
 	| { type: 'log'; message: string };

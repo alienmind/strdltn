@@ -259,7 +259,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
 	// The Devices view keeps no page while hidden: a hidden page draws nothing, and the worklet stops at the frame it
 	// waits an answer for. A new page asks for frames again.
-	const devices = new DevicesView(context, output);
+	const devices = new DevicesView(context, output, (text) => insertText(text));
 	const mixerPlace = new Place(mixer, { viewId: 'strdltn.mixer', tabType: 'strdltn.mixerTab', title: 'Mixer', contextKey: 'strdltn.mixerFloating' });
 	const diagnostics = vscode.languages.createDiagnosticCollection('strdltn');
 	// Right side, beside the language of the file: it is about the file in front.

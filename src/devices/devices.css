@@ -1,4 +1,4 @@
-/* The Devices view. Every color is a theme variable of VS Code, except the firmware's own display and track accent. */
+/* The Devices view (UX-6 UI). Theme-aware VS Code variables + hardware bezel & SVG rotary arc knobs. */
 @import '../shared/tokens.css';
 * { box-sizing: border-box; }
 html, body {
@@ -28,8 +28,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 	min-height: 0;
 	border: 1px solid var(--vscode-panel-border, #444);
 	border-top: 3px solid var(--track-color, var(--vscode-panel-border, #444));
-	border-radius: 5px;
+	border-radius: 6px;
 	background: var(--strdltn-surface-raised);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
 }
 .panel header {
 	flex: none;
@@ -52,44 +53,265 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .panel .where { color: var(--vscode-descriptionForeground); font-size: 11px; white-space: nowrap; }
 .panel.folded .body { display: none; }
 
+/* Subtle active-LED glow in the device header */
+.activity-led {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: rgba(128, 128, 128, 0.35);
+	transition: background 0.14s ease, box-shadow 0.14s ease;
+	flex: none;
+}
+.activity-led.active {
+	background: var(--track-color, #2ea043);
+	box-shadow: 0 0 6px var(--track-color, #2ea043);
+}
+
 .body { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 8px; }
 
-/* The display keeps its 3:2 and fills the height the panel has. */
-.screen { flex: none; display: flex; flex-direction: column; gap: 4px; height: 100%; }
-.screen canvas {
+/* Hardware display bezel + aligned tactile F1-F6 soft keys */
+.screen { flex: none; display: flex; flex-direction: column; gap: 6px; height: 100%; }
+.bezel {
 	flex: 1;
 	min-height: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 5px;
+	border-radius: 6px;
+	background: linear-gradient(180deg, #1b1d22, #101114);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.72), 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.screen canvas {
 	aspect-ratio: 3 / 2;
 	height: 100%;
-	max-height: 320px;
+	max-height: 310px;
 	image-rendering: pixelated;
 	background: #000;
 	border-radius: 3px;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.85);
 }
-.keys { flex: none; display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
-.key {
-	padding: 2px 0;
-	font-size: 11px;
-	border-radius: 2px;
-	background: var(--vscode-button-secondaryBackground, #3a3d41);
-	color: var(--vscode-button-secondaryForeground, #fff);
-}
-.key:active { background: var(--vscode-button-background, #0e639c); color: var(--vscode-button-foreground, #fff); }
-
-/* Parameters: a column of small sliders beside the display, scrolling when there are many. */
-.params {
+.keys {
 	flex: none;
-	width: 220px;
-	overflow-y: auto;
+	display: grid;
+	grid-template-columns: repeat(6, 1fr);
+	gap: 4px;
+	padding: 0 4px;
+}
+.key {
+	padding: 3px 0;
+	font-size: 10.5px;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	border-radius: 3px;
+	border: 1px solid rgba(128, 128, 128, 0.28);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.12)), var(--vscode-button-secondaryBackground, #3a3d41);
+	color: var(--vscode-button-secondaryForeground, #fff);
+	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+	transition: transform 0.06s ease, background 0.08s ease;
+}
+.key:hover {
+	border-color: var(--track-color, var(--vscode-focusBorder, #3794ff));
+}
+.key:active,
+.key.pressed {
+	transform: translateY(1px);
+	background: var(--track-color, var(--vscode-button-background, #0e639c));
+	color: #fff;
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* Parameters pane: optional search + prefix group pills above compact SVG rotary knob grid */
+.params-pane {
+	flex: none;
+	width: 268px;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.params-toolbar {
+	flex: none;
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-	padding-right: 4px;
 }
-.param { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 6px; font-size: 11px; }
-.param .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.param .pvalue { color: var(--vscode-descriptionForeground); font-variant-numeric: tabular-nums; }
-.param input { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--vscode-focusBorder, #007fd4); }
+.params-search {
+	display: flex;
+	align-items: center;
+	height: 22px;
+	padding: 0 6px;
+	border-radius: 4px;
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.28));
+}
+.params-search:focus-within {
+	border-color: var(--vscode-focusBorder);
+}
+.params-search input {
+	flex: 1;
+	min-width: 0;
+	border: 0;
+	outline: none;
+	background: transparent;
+	color: var(--vscode-input-foreground);
+	font: inherit;
+	font-size: 11px;
+}
+.params-clear {
+	font-size: 13px;
+	line-height: 1;
+	opacity: 0.7;
+	padding: 0 2px;
+}
+.params-clear:hover { opacity: 1; }
+
+.param-groups {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 3px;
+}
+.pg-pill {
+	padding: 1px 6px;
+	border-radius: 999px;
+	font-size: 10px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	border: 1px solid rgba(128, 128, 128, 0.25);
+	color: var(--vscode-descriptionForeground);
+	background: transparent;
+}
+.pg-pill:hover {
+	color: var(--vscode-foreground);
+	background: var(--vscode-list-hoverBackground);
+}
+.pg-pill.on {
+	color: #fff;
+	background: var(--track-color, var(--vscode-button-background, #0e639c));
+	border-color: transparent;
+}
+
+.params {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+	align-content: start;
+	gap: 8px 4px;
+	padding: 2px 4px 4px 2px;
+}
+.params-empty {
+	grid-column: 1 / -1;
+	padding: 14px 4px;
+	text-align: center;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Individual SVG rotary arc knob cell */
+.knob-cell {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 3px 2px;
+	border-radius: 5px;
+	outline: none;
+	transition: background 0.1s ease;
+}
+.knob-cell:hover,
+.knob-cell.dragging {
+	background: rgba(128, 128, 128, 0.12);
+}
+.knob-cell:focus-visible {
+	box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+}
+.knob-dial {
+	cursor: ns-resize;
+	line-height: 0;
+}
+.knob-svg {
+	display: block;
+	overflow: visible;
+}
+.knob-track {
+	fill: none;
+	stroke: rgba(128, 128, 128, 0.24);
+	stroke-width: 3.2;
+	stroke-linecap: round;
+}
+.knob-arc {
+	fill: none;
+	stroke: var(--track-color, var(--vscode-focusBorder, #3794ff));
+	stroke-width: 3.4;
+	stroke-linecap: round;
+}
+.knob-cap {
+	fill: var(--vscode-editor-background, #1e1e1e);
+	stroke: rgba(128, 128, 128, 0.42);
+	stroke-width: 1.2;
+}
+.knob-cell.dragging .knob-cap {
+	stroke: var(--track-color, var(--vscode-focusBorder, #3794ff));
+}
+.knob-needle {
+	stroke: var(--vscode-foreground, #e5e5e5);
+	stroke-width: 2;
+	stroke-linecap: round;
+}
+.knob-cell .pname {
+	max-width: 100%;
+	font-size: 10px;
+	line-height: 1.15;
+	text-align: center;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.knob-cell .pvalue {
+	max-width: 100%;
+	font-size: 9.5px;
+	line-height: 1.1;
+	color: var(--vscode-descriptionForeground);
+	font-variant-numeric: tabular-nums;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Right-click context menu for knobs */
+.knob-menu {
+	position: fixed;
+	z-index: 9999;
+	min-width: 170px;
+	padding: 4px;
+	border-radius: 5px;
+	background: var(--vscode-menu-background, var(--vscode-editorWidget-background, #252526));
+	color: var(--vscode-menu-foreground, var(--vscode-foreground));
+	border: 1px solid var(--vscode-menu-border, rgba(128, 128, 128, 0.35));
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.36);
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.knob-menu-item {
+	text-align: left;
+	padding: 4px 8px;
+	border-radius: 3px;
+	font-size: 11.5px;
+	white-space: nowrap;
+}
+.knob-menu-item:hover {
+	background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground));
+	color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground));
+}
+.knob-menu-sep {
+	height: 1px;
+	margin: 2px 4px;
+	background: var(--vscode-menu-separatorBackground, rgba(128, 128, 128, 0.25));
+}
 
 /* Header buttons on the right; the note shows on a panel that is in a tab. */
 .panel header .gap { flex: 1; }
@@ -103,6 +325,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 /* Maximized: one panel fills the view, the others hide. */
 #app.maximized .panel:not(.max) { display: none; }
 .panel.max { flex: 1; }
+.panel.max .params-pane,
+#app.tab .params-pane { width: 320px; }
 
 /* A tab with one taken out device: no fold, no take out, the panel fills the tab. */
 #app.tab .panel { flex: 1; }
@@ -110,4 +334,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
 /* Maximized or in a tab, the screen takes the room there is and keeps its 3:2 inside it. */
 .panel.max .screen, #app.tab .screen { flex: 1; min-width: 0; }
-.panel.max .screen canvas, #app.tab .screen canvas { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; object-fit: contain; background: transparent; }
+.panel.max .bezel, #app.tab .bezel { width: 100%; height: 100%; }
+.panel.max .screen canvas, #app.tab .screen canvas { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; object-fit: contain; background: transparent; box-shadow: none; }
+
+@media (prefers-reduced-motion: reduce) {
+	.activity-led,
+	.key,
+	.knob-cell {
+		transition: none;
+	}
+}

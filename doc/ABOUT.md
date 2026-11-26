@@ -38,20 +38,24 @@ Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Co
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
 from a browser on any machine, with nothing installed.
 
-> **Version 0.5.0**: the knobs of your MIDI controller move the sliders of your code. Click
-> the small knob beside a line or under a fader, turn a knob, and it is mapped; the Mixer
-> lists and resets your mappings. The Mixer now starts with the Master strip, and a user
-> manual comes with every release. Version 0.4 brought MIDI on desktop (`.midi()`, `midin()`,
-> `midikeys()`), recording and rendering to `.wav` and `.mp3`, and level meters. Version 0.3
-> brought the Devices view for synth firmwares; 0.2 the Mixer and the Library. See "What is
-> missing" at the end.
+> **Version 0.5.1**: unified **Plugins > FM-1 Synths** catalog (`Installed` / `Available`)
+> with direct downloads, batch **Download all**, centered preloaded screens, **VIBE FM**
+> (`.wasm`, including native **SHRUB (WASM)**), real **FM-1** `.fwsc` firmwares (browser
+> `fm1-emu` and native `fm1-live`), Hardware MIDI profiles, and experimental USB-MIDI SysEx
+> flashing; the unified 4-pane Browser with Controls, Back/Forward history, song Undo/Redo,
+> single-click previews for every sound/synth/firmware, and full drag-to-insert into both
+> editors and the Mixer; plus `M` / `S` / `C` line controls in both the Strudel and native
+> VS Code editors. Version 0.5.0 brought MIDI knobs on sliders, the Master strip, and the
+> user manual; 0.4 brought desktop MIDI, recording/rendering to `.wav`/`.mp3`, and level
+> meters; 0.3 brought the Devices view; 0.2 the Mixer and Library. See "What is missing" at
+> the end.
 
 > **M-VAVE FM-1, VIBE FM (.wasm) and real FM-1 (.fwsc) firmwares.** Got an FM-1? Play it
 > over desktop MIDI with built-in Hardware profiles (**SHRUB** with CC 74 cutoff, CC 16-19
 > macros and its **Editor...** button, plus **FM-1 Stock**). Without hardware, install and
-> play VIBE FM `.wasm` builds (`s("vibefm1:<id>")`, each with live screens, F1-F6 keys and
-> parameters) and real FM-1 `.fwsc` firmwares (`s("fm1:<id>")` via `fm1-emu`) directly from
-> **Plugins > FM-1 Synths** in the Browser.
+> play VIBE FM `.wasm` builds (`s("vibefm1:<id>")`, including **SHRUB (WASM)**, each with
+> live screens, F1-F6 keys and parameters) and real FM-1 `.fwsc` firmwares (`s("fm1:<id>")`
+> via `fm1-emu` or native `fm1-live`) directly from **Plugins > FM-1 Synths** in the Browser.
 
 This project is a fork of [vstrudel](https://github.com/alienmind/vstrudel). We forked
 it because the scope grew beyond a VS Code extension.

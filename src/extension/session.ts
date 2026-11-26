@@ -24,6 +24,8 @@ export interface SessionHost {
 	onScopes?(document: vscode.TextDocument, scopes: ScopeFrame[]): void;
 	/** MIDI learn for a slider of the song, by where its number starts. */
 	onKnobLearn?(document: vscode.TextDocument, from: number | undefined, toggle?: boolean): Promise<void>;
+	/** M or S line action clicked in the code editor gutter. */
+	onToggleChain?(document: vscode.TextDocument, chain: number, button: 'mute' | 'solo'): Promise<void>;
 	/** A knob that waits for pickup moved, for the Mixer's dim handle. */
 	onKnobGhost?(document: vscode.TextDocument, from: number, value: number | undefined): void;
 	/** A slider of the song moved live, for the Mixer. */
@@ -313,6 +315,9 @@ export class Session {
 			case 'knobLearnAt':
 				void this.host.onKnobLearn?.(this.document, message.from, message.toggle);
 				break;
+			case 'toggleChain':
+				void this.host.onToggleChain?.(this.document, message.chain, message.button);
+				break;
 			case 'dropItem':
 				void this.host.onDrop?.(this.document, message.offset, message);
 				break;
@@ -534,12 +539,18 @@ export class Session {
 	.dock-slot { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
 	.dock-slot input[type=range] { flex: 1; max-width: 320px; accent-color: var(--vscode-focusBorder, #3794ff); }
 	.dock-slot output { width: 64px; font-family: var(--vscode-editor-font-family, monospace); opacity: .85; }
-	/* Line actions, left of the line numbers (main.ts, lineActions). */
-	.strdltn-actions .cm-gutterElement { padding: 0 2px 0 4px; display: flex; align-items: center; }
-	.strdltn-knob { display: inline-flex; cursor: pointer; color: var(--vscode-descriptionForeground, #8b949e); opacity: .6; --knob-fill: none; --knob-mark: currentColor; }
-	.strdltn-knob:hover { opacity: 1; }
-	.strdltn-knob.on { color: var(--vscode-charts-green, #3fb950); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
-	.strdltn-knob.learning { color: var(--vscode-charts-red, #f85149); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); animation: strdltn-learn 1s ease-in-out infinite; }
+	/* Line actions (M / S / C), left of the line numbers (main.ts, lineActions). */
+	.strdltn-actions .cm-gutterElement { padding: 0 3px 0 4px; display: flex; align-items: center; }
+	.strdltn-act-row { display: inline-grid; grid-template-columns: 15px 15px 15px; gap: 2px; align-items: center; }
+	.strdltn-act-gap { display: inline-block; width: 15px; height: 15px; }
+	.strdltn-act { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 3px;
+		font: 700 9px/1 var(--vscode-font-family, sans-serif); cursor: pointer; user-select: none;
+		color: var(--vscode-descriptionForeground, #8b949e); background: rgba(128, 128, 128, .12); border: 1px solid rgba(128, 128, 128, .25); opacity: .72; }
+	.strdltn-act:hover { opacity: 1; border-color: rgba(255, 255, 255, .45); color: var(--vscode-editor-foreground, #fff); }
+	.strdltn-act-m.on { background: var(--vscode-charts-blue, #3794ff); border-color: var(--vscode-charts-blue, #3794ff); color: #fff; opacity: 1; }
+	.strdltn-act-s.on { background: var(--vscode-charts-yellow, #d29922); border-color: var(--vscode-charts-yellow, #d29922); color: #111; opacity: 1; }
+	.strdltn-act-c.on { background: var(--vscode-charts-green, #3fb950); border-color: var(--vscode-charts-green, #3fb950); color: #111; opacity: 1; }
+	.strdltn-act-c.learning { background: var(--vscode-charts-red, #f85149); border-color: var(--vscode-charts-red, #f85149); color: #fff; opacity: 1; animation: strdltn-learn 1s ease-in-out infinite; }
 	@keyframes strdltn-learn { 50% { opacity: .45; } }
 	#unlock { position: fixed; z-index: 4; inset: 0; display: none; align-items: center; justify-content: center;
 		background: rgba(0, 0, 0, 0.7); color: #fff; font: 16px sans-serif; cursor: pointer; }

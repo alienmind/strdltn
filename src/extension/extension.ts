@@ -10,9 +10,11 @@ import { FirmwareCache, FirmwareLibrary } from './firmware';
 import { FirmwareScreen } from './screen';
 import { FirmwareMarket } from './market';
 import { firmwareLoadEdit, HARDWARE_FM1_PROFILES, hardwareFirmwareCode, type InstalledFirmware, midimapLoadEdit } from '../shared/firmware';
+import { labelEdit } from '../shared/chains';
 import { DevicesView } from './devices';
 import { KnobLearn } from './knobs';
 import { MidiBridge } from './midi';
+import { NativeFm1Host } from './nativeFm1';
 import type { MidiPorts } from '../shared/midi';
 import { MixerView } from './mixer';
 import { Place } from './surface';
@@ -127,6 +129,9 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		insertHardware: (id) => insertHardware(id),
 		showScreen: (id) => void screen.show(id),
 		openEditor: (id) => market.openEditor(id),
+		runNative: async (id) => {
+			await nativeFm1.toggle(id);
+		},
 		install: (id) => market.install(id),
 		firmwareFile: async (id) => (await market.screenSource(id))?.file,
 		emuWasmFile: () => market.emuWasmFile().catch(() => undefined),
@@ -135,6 +140,11 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 	});
 	const market = new FirmwareMarket(context, firmwareLibrary, browser, output);
 	context.subscriptions.push(market);
+	const nativeFm1 = new NativeFm1Host(context, firmwareLibrary, market, output);
+	context.subscriptions.push(
+		nativeFm1,
+		nativeFm1.onDidChange((ids) => browser.setNativeRunning(ids)),
+	);
 	// The popup's Insert does what the Library row's does.
 	const screen = new FirmwareScreen(
 		context,
@@ -220,6 +230,16 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		onSliderLive: (document, from, value) => mixer.sliderLive(document, from, value),
 		onKnobGhost: (document, from, value) => mixer.knobGhost(document, from, value),
 		onKnobLearn: (document, from, toggle) => knobs.learn(document, from, toggle),
+		onToggleChain: async (document, chain, button) => {
+			const text = lf(document.getText());
+			const change = labelEdit(text, chain, button);
+			if (!change) return;
+			const from = lineColumn(text, change.from);
+			const to = lineColumn(text, change.to);
+			const edit = new vscode.WorkspaceEdit();
+			edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+			if (await vscode.workspace.applyEdit(edit)) evaluateIfPlaying(document);
+		},
 		onDrop: (document, offset, info) => dropOntoDocument(document, offset, info),
 		onWantEmuWasm: () => market.emuWasmFile().catch(() => undefined),
 		onDevices: (session, list) => devices.setDevices(session, list),
@@ -429,6 +449,22 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			if (found) return insertText(found.code);
 		}),
 		vscode.commands.registerCommand('strdltn.openShrubEditor', () => ShrubPanel.show(context)),
+		vscode.commands.registerCommand('strdltn.runNativeFm1', async (id?: string) => {
+			if (typeof id === 'string' && id) {
+				await nativeFm1.toggle(id);
+				return;
+			}
+			const picks = [
+				{ label: 'SHRUB (native fm1-live JIT)', id: 'shrub', description: 'Run your SHRUB .fwsc natively at 240 MHz' },
+				...firmwareLibrary
+					.all()
+					.filter((fw) => fw.runtime === 'fwsc')
+					.map((fw) => ({ label: fw.name, id: fw.id, description: `Installed .fwsc (${fw.path})` })),
+			];
+			const chosen = await vscode.window.showQuickPick(picks, { placeHolder: 'Choose an FM-1 .fwsc firmware to run natively in fm1-live' });
+			if (chosen) await nativeFm1.toggle(chosen.id);
+		}),
+		vscode.commands.registerCommand('strdltn.stopNativeFm1', () => nativeFm1.stopAll()),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('strdltn.experimental.shrubEditor')) ShrubPanel.settingChanged();
 		}),

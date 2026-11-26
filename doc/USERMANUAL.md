@@ -4,6 +4,10 @@ subtitle: "Version 0.5"
 ---
 
 ![[str]dltn Live[code]](logo.jpg)
+<!-- SCREENSHOT SPEC: doc/logo.jpg
+  Static project logo artwork (dark background, "[str]dltn Live[code]" typography with cyan "[str]" and "[code]").
+  Do not recapture; keep existing file.
+-->
 
 # [str]dltn Live[code] - User manual
 
@@ -71,11 +75,22 @@ extension)". The sound comes out of your browser. MIDI works on desktop VS Code 
 
 ## 2. The screen at a glance
 
-![demo.strudel playing: the Library on the left, the Strudel editor, the Mixer below](manual/doc-overview.png)
+![demo.strudel playing: the 4-pane Browser on the left, the Strudel editor with inline visuals in the center, and the Mixer with level meters and sidechain cables below](manual/doc-overview.png)
+<!-- SCREENSHOT SPEC: doc/manual/doc-overview.png
+  File: doc/manual/doc-overview.png
+  Capture: Full VS Code window at 1440x900 (or 2880x1800 downscaled 50% to 1440x900).
+  Workspace / Song: template/demo.strudel open in the Strudel editor and playing.
+  UI State:
+    - Left side bar: Browser view showing Controls (open at top: Play lit green, Stop, Record, Render, Undo, Redo, BPM, Back/Forward, Search, speaker preview toggle, 7 colors, Built-in), Library/Contents showing Drums or Sounds with rows and chips, Reference collapsed at bottom.
+    - Center: Strudel editor showing demo.strudel with inline scopes, inline sliders, highlighted playing notes, and line action buttons in the left gutter.
+    - Bottom panel: Mixer tab showing Master strip first, song strips (bass unfolded with inner blue faders), active green level meters, pump meters, knob buttons, and orange dashed sidechain cables.
+    - Status bar right: "strdltn: playing".
+  Must show: Full workspace overview with all three main areas clearly readable.
+-->
 
 | Where | What |
 |---|---|
-| Activity bar, the [str]dltn icon | Opens the side bar with the Browser: Library, Contents and Reference |
+| Activity bar, the [str]dltn icon | Opens the side bar with the Browser: Controls, Library, Contents and Reference |
 | Editor area | Your `.strudel` files, in the Strudel editor or the native VS Code editor |
 | Bottom panel, Mixer tab | A strip per part of the song in front |
 | Bottom panel, Devices tab | A panel per firmware synth that plays |
@@ -92,7 +107,16 @@ Both edit the same file; pick the one that suits the moment.
 
 ### The Strudel editor
 
-![The Strudel editor with inline visuals and the knob column](manual/editor.png)
+![The Strudel editor with inline visuals, sliders, active note highlights, and the line-actions gutter](manual/editor.png)
+<!-- SCREENSHOT SPEC: doc/manual/editor.png
+  File: doc/manual/editor.png
+  Capture: Cropped Strudel editor tab (~1000x650) with crisp readable code.
+  Workspace / Song: template/demo.strudel open in the Strudel editor and playing.
+  UI State:
+    - Visible lines include labeled chains ($kick:, $bass:, etc.), inline ._scope() waveforms moving under chains, inline slider(...) controls, and active note highlight boxes.
+    - Left gutter next to line numbers clearly shows the line action buttons (M / S / C buttons on chains and sliders, with empty gaps on plain lines keeping alignment).
+  Must show: Code with inline scopes, inline sliders, highlighted notes, and the left-gutter line action buttons.
+-->
 
 - **Inline visuals.** `._scope()` draws the wave under the line that makes it,
   `._pianoroll()` the notes. They move while the song plays.
@@ -102,14 +126,24 @@ Both edit the same file; pick the one that suits the moment.
 - **Notes light up.** The part of a pattern that is sounding is outlined in the code.
 - **Hydra.** `await initHydra()` draws [Hydra](https://hydra.ojack.xyz) visuals behind the
   code, driven by your pattern.
-- **The knob column.** Left of the line numbers, every line that holds a `slider(...)` has a
-  small knob button. It maps a knob of your MIDI controller to that slider (see section 6).
-  Other lines keep an empty space there, so the code stays aligned.
+- **Line actions (`M` / `S` / `C`).** Left of the line numbers, every labeled chain line has
+  **M** (Mute) and **S** (Solo) buttons, and every line with a `slider(...)` has a **C**
+  (MIDI Capture) button — each with a hover tooltip (see section 6). Other lines keep empty
+  gaps so all three columns stay aligned.
 - **VS Code's keys.** Ctrl+F finds, Ctrl+H replaces, Ctrl+G goes to a line, Ctrl+D selects
   the next match, Ctrl+Shift+L selects every match. You can change these keys in Keyboard
   Shortcuts, under `strdltn.editor.*`.
 
-![Hydra shapes behind the code](manual/hydra.png)
+![Hydra procedural visuals drawing behind the Strudel code](manual/hydra.png)
+<!-- SCREENSHOT SPEC: doc/manual/hydra.png
+  File: doc/manual/hydra.png
+  Capture: Cropped Strudel editor tab or full window (~1440x900) during Hydra playback.
+  Workspace / Song: template/examples/06-hydra.strudel (or demo.strudel during a Hydra drop) open in the Strudel editor and playing.
+  UI State:
+    - Strudel editor focused and playing so Hydra canvas renders clear geometric/shader visuals behind the code.
+    - Code remains readable over the visuals with active notes highlighted.
+  Must show: Live Hydra visuals behind Strudel code inside VS Code.
+-->
 
 ### The native editor and the stage
 
@@ -117,7 +151,17 @@ The native editor is plain VS Code: your keys, your extensions, and an
 underline under the exact place of an error. Press play there and a **stage** opens below the
 code with the song's visuals and sliders, each named from your code.
 
-![The native editor with the stage below it, and the Mixer](manual/stage.png)
+![The native VS Code editor with the stage below it showing named visuals, and the Mixer at the bottom](manual/stage.png)
+<!-- SCREENSHOT SPEC: doc/manual/stage.png
+  File: doc/manual/stage.png
+  Capture: Full VS Code window at 1440x900 (or half-size downscale).
+  Workspace / Song: template/demo.strudel switched to the native VS Code editor (Ctrl+Alt+M) and playing.
+  UI State:
+    - Upper editor group: native VS Code text editor showing Strudel syntax highlighting and left-margin knob icons.
+    - Lower editor group: Stage panel displaying named visuals/scopes (each labeled from its chain or comment).
+    - Bottom panel: Mixer visible with active level meters and strips.
+  Must show: Native VS Code editor on top, Stage with named visuals underneath, Mixer in the bottom panel.
+-->
 
 How a visual or a slider on the stage gets its name, first rule that fits:
 
@@ -145,58 +189,86 @@ the song plays.
 
 ## 4. The Library
 
-The [str]dltn icon in the activity bar opens the Browser, with three panes. **Library** and
-**Reference** pick what you want to see; **Contents** shows it, and is called **Results** while
-you search. A click on anything in the Library or the Reference shows Contents alone, at full
-height; open the Library again by its header. Opening the Reference folds the other two.
+The [str]dltn icon in the activity bar opens the Browser, one view with four panes.
+**Controls** stays open at the top (collapsible, never auto-folded) with Music Controls,
+Back/Forward history, search, preview toggle, colors and the Built-in switch. **Library**
+and **Reference** pick what you want to see; **Contents** shows it, and is called
+**Results** while you search. A click on anything in the Library or the Reference folds
+Library and Reference so Contents fills the height below Controls; open Library again by
+its header or click Back (`Alt+Left`). Opening Reference folds Library and Contents.
 
-![The Browser: Library, Contents and Reference](manual/browser.png)
+![The 4-pane Browser: Controls at top with Play/Stop/Record/Render/Undo/Redo/BPM, Back/Forward and search, Library tree, Contents with chips and details, and Reference](manual/browser.png)
+<!-- SCREENSHOT SPEC: doc/manual/browser.png
+  File: doc/manual/browser.png
+  Capture: Cropped Browser side bar (~340-380px wide, ~780-900px tall).
+  Workspace / Song: template/ workspace open.
+  UI State:
+    - All four pane headers visible: Controls (open), Library (open showing Sounds, Drums, Samples, Plugins > FM-1 Synths, Render, MIDI, Songs, Snippets), Contents (open with tag chips, flat rows and Details pane at bottom), and Reference (collapsed at bottom).
+    - Controls pane clearly shows Play, Stop, Record, Render, Undo, Redo, BPM, Back/Forward arrows beside Search and speaker preview toggle, and 7 color dots + Built-in button.
+  Must show: Controls, Library, Contents and Reference headers; Undo/Redo and Back/Forward controls; colors + Built-in row; Contents rows with chips.
+-->
 
-### Music Controls
+### Controls and Music Controls
 
-The row at the top of the Library:
+The **Controls** pane at the top of the Browser holds:
 
-| Button | Does |
+| Control | Does |
 |---|---|
 | Play (green) | Plays the song in front |
-| Stop (red) | Stops it |
+| Stop (red) | Stops the song (and cuts off any running Browser preview immediately) |
 | Record (red circle) | Records what you hear (section 9) |
 | Render (arrow down) | Renders the whole song to a file (section 9) |
+| Undo / Redo | Walks the song's edit history (typing, Mixer faders/toggles, cables, inserts, drops) without stealing focus |
 | BPM | The tempo. Type a number to write `setcpm(<bpm>/4)` into the song; double click to go back to Strudel's 120 |
+| Back / Forward | Navigates Browser history (`Alt+Left` / `Alt+Right` or mouse side buttons): previous searches, categories and pane states |
+| Search and speaker | Filters everything (`Ctrl+F` / `Ctrl+Alt+F`, `Esc` clears); speaker toggles single-click preview |
+| Colors and Built-in | Seven color filter dots and the Built-in / Not built-in / All switch |
 
 ### Search, colors, categories
 
-- **Search.** Ctrl+F in the side bar, or Ctrl+Alt+F from anywhere. It looks at names,
-  banks, folders, descriptions and tags; every word must match. `#kick` looks only at tags.
-  Esc clears it.
-- **Colors.** Seven dots under the search. A click shows everything with that color. Right
+- **Search.** Ctrl+F in the side bar (opens Controls if folded), or Ctrl+Alt+F from
+  anywhere. It looks at names, banks, folders, descriptions and tags; every word must match.
+  `#kick` looks only at tags. Esc clears it.
+- **Colors.** Seven dots in Controls. A click shows everything with that color. Right
   click a dot to rename it; the first is "Favorites". The keys 1 to 7 color the selected
   rows, 0 clears.
 - **Built-in.** Beside the colors: one click shows only what comes with Strudel, a second
   only what does not (your project and the packs your songs load), a third everything.
 - **Collections.** Save a search with the button in Contents, and it becomes a row here.
-- **Categories.** All, Sounds (synths and soundfonts), Drums (by drum machine), Samples,
-  Plugins (FM-1 Synths: firmware synths), Render (the audio of your songs), MIDI (your devices),
-  Songs, Snippets. A category opens into its parts: Sounds into Synths and Soundfonts, Drums
-  into the drum machines, FM-1 Synths into Installed and Available, Songs into folders. Hover a
-  drum machine to insert its `.bank("...")`. The Reference has Functions: every function of
-  Strudel with its documentation.
+- **Categories.** All, Sounds (Synths, Soundfonts, Wavetables), Drums (by drum machine),
+  Samples, Plugins (FM-1 Synths: Installed, Hardware (MIDI), Available), Render (the audio
+  of your songs), MIDI (your devices), Songs, Snippets. A category opens into its parts.
+  Hover a drum machine to insert its `.bank("...")`. The Reference has Functions: every
+  function of Strudel with its documentation.
 
-![The Reference: every function of Strudel](manual/reference.png)
+![The Reference pane open in the Browser showing Strudel Functions with parameters and examples](manual/reference.png)
+<!-- SCREENSHOT SPEC: doc/manual/reference.png
+  File: doc/manual/reference.png
+  Capture: Cropped Browser side bar (~340-380px wide, ~780-900px tall).
+  Workspace / Song: template/ workspace open.
+  UI State:
+    - Controls pane open at top.
+    - Reference > Functions clicked so Contents shows Strudel functions (e.g. searching "lpf" or showing Effect chips) with one function like "lpf" selected.
+    - Details pane at the bottom displays the function's description, parameters, example code, and the "Insert an example" button.
+  Must show: Controls at top, Contents showing Strudel functions with category chips, and Details pane with parameters and example snippet.
+-->
 
 ### Contents
 
 - One list of what you picked, with no headings: the part it belongs to (the drum machine,
   the folder) is written after each name.
 - **Tag chips** on top narrow the list. Tags come by themselves from the names (Kick,
-  Snare, Hihat for drums; Bass, Pad, Keys for instruments; the maker of a drum machine).
-  Ctrl+click a chip to take several of one group.
+  Snare, Hihat for drums; Bass, Pad, Keys for instruments; the maker of a drum machine;
+  `Runtime/...` for FM-1 synths). Ctrl+click a chip to take several of one group.
 - **Details** at the bottom: the selected item's tags, its description, a snippet's code, a
-  function's parameters and an example, and seven dots to put it in a collection.
+  function's parameters and an example, FM-1 Screen/Editor buttons, and seven dots to put it
+  in a collection.
 
 | Do on a row | What happens |
 |---|---|
-| Click a sound | Plays it, when the speaker button beside the search is on. It never types |
+| Click a sound or synth | Plays a 1-loop preview with smooth 0.5 s fade-out and clean disposal when the speaker button is on (works even with no song open). Never types |
+| Drag into the editor | Inserts a complete playable `$name:` line with an example pattern and `.gain(slider(...))` (inside `"..."`, only the bare name; dragging an effect function like `lpf` or `room` onto an existing chain appends it to that chain; Available FM-1 synths install first) |
+| Drag onto the Mixer | Highlights the Mixer strip area and appends a new playable `$name:` strip at the bottom of the song |
 | Enter, or double click | Types the code that plays it at the cursor: `s("bd")`, `s("bd").bank("RolandTR909")`, `note("c3").s("sawtooth")`. Inside a string, only the name |
 | Double click a song or a snippet | Opens its file in the Strudel editor |
 | The second insert button of a song | Types the song's code, without its header, at the cursor |
@@ -205,9 +277,12 @@ The row at the top of the Library:
 | Space | Plays |
 | Right click | Colors, insert, copy, open, "Edit tags..." |
 
-While a song plays, a preview waits for the next beat and lasts one beat, so you hear the
-sound against the music. With no song, samples, drum machines and the plain waves play at
-once; soundfonts, supersaw and firmwares need a song open.
+Every sound and synth — samples, drum machines, oscillators, wavetables, soundfonts,
+`supersaw`, `zzfx`, VIBE `.wasm`, emulated `.fwsc`, and hardware MIDI profiles — previews
+on single click with or without an open `.strudel` file. While a song plays, previews start
+on the next beat and run for 1 cycle of the song; with no song open, they run for 1 cycle
+at 120 BPM (2 s), fade out over 0.5 s, and dispose cleanly. Pressing Stop cuts a preview off
+at once.
 
 Your colors, tags and saved searches are kept in `strdltn.index.json` at the root of your
 project. Commit it and they travel with your songs.
@@ -219,7 +294,17 @@ project. Commit it and they travel with your songs.
 The Mixer tab in the bottom panel shows the song in front, as the Session view of Ableton
 Live does: one strip per part of the song.
 
-![The Mixer: the Master first, a strip per chain, faders, meters, sidechain cables](manual/mixer.png)
+![The Mixer: Master strip first, strips per chain with level meters, gain faders, inner sliders, M/S, knob buttons, pump meters and orange sidechain cables](manual/mixer.png)
+<!-- SCREENSHOT SPEC: doc/manual/mixer.png
+  File: doc/manual/mixer.png
+  Capture: Cropped Mixer bottom panel (~1440x360).
+  Workspace / Song: template/demo.strudel playing.
+  UI State:
+    - Left utility column visible (blue > and < unfold/fold buttons, Reset MIDI Mappings, Show MIDI Mappings, Show MIDI Routing).
+    - Master strip first with stereo green meter and peak dB readout.
+    - Chain strips side by side (with bass unfolded to show inner blue faders), M and S buttons, knob buttons under faders, active green pump meters, jacks at the foot, and orange dashed sidechain cables from kick to ducked strips.
+  Must show: Master strip, unfolded inner blue faders, stereo meters with peak dB, M/S, knob buttons, pump meters, and orange dashed ducking cables.
+-->
 
 ### Where the strips come from
 
@@ -366,24 +451,54 @@ follows once you play.
   raises VS Code's priority while MIDI plays. It is off by default because it raises every
   other extension too.
 
-## 8. The Devices panel
+## 8. FM-1 Synths and the Devices panel
 
-[The Firmware Hub](https://thefirmwarehub.com) publishes synth firmwares for the VIBE FM.
-[str]dltn plays them as instruments of your song.
+[The Firmware Hub](https://thefirmwarehub.com) publishes synth firmwares for the M-VAVE FM-1
+and VIBE FM. [str]dltn supports all three FM-1 runtimes under **Plugins > FM-1 Synths**:
 
-- **Get a firmware:** put a `.wasm` file in a `firmware/` folder, or load one from an address
-  with `firmware('https://.../name.wasm')`; it is kept in your project and plays offline.
-- **Play it:** `note("c2 eb2").s("vibefm1:obervave")`. `.progNum(55)` picks one of its sounds.
-  The firmware can change per step: `s("vibefm1:<obervave sloop>")`.
-- **Find and install it in the Library:** **Plugins > FM-1 Synths** lists the firmwares you
-  have under Installed, and the ones of The Firmware Hub under Available, each with a picture
-  of its screen. Double click an Available one to install it into the `firmware/` folder of
-  your project. Insert at the cursor types a `$:` line that plays it (and the `firmware(...)`
-  line at the top of the song for one that a song loaded from an address). The display button
-  opens the firmware's **screen** in a tab beside the song, running without sound, so you can
-  try its keys before you install or use it.
+- **VIBE FM (`WASM` badge):** native `.wasm` builds played as `s("vibefm1:<id>")` (from
+  `firmware/` or `firmware('https://.../name.wasm')`). `.progNum(55)` picks a sound, and
+  `s("vibefm1:<obervave sloop>")` switches per step. Each row shows a thumbnail of its
+  screen and a display button that opens the interactive **Screen** popup without sound.
+- **Real FM-1 (`FWSC` badge):** real `.fwsc` update packages from `thefirmwarehub.com/catalog.json`
+  or dropped locally into `firmware/<id>/`, emulated in software as `s("fm1:<id>")` via
+  `fm1-emu` (`fm1_web.wasm` downloaded on demand into global storage). Installing from
+  Available verifies SHA-256 when provided.
+- **Hardware (MIDI) (`MIDI` badge) and Native JIT (`Run Native`):** built-in profiles for
+  **SHRUB (FM-1 Hardware)** (cutoff CC 74, macros CC 16-19, **Editor...** button opening
+  `shrub.audio/editor/` or the experimental SHRUB panel) and **M-VAVE FM-1 Stock** (cutoff
+  CC 2). Inserting or dragging auto-detects a connected FM-1 MIDI port, adds `midimaps(...)`,
+  and inserts a playable `.midi('<port>').midimap('<id>')` line. Click **Run Native** on
+  SHRUB (or any `.fwsc` firmware) to launch `fm1-live` natively with 240 MHz JIT on Windows,
+  macOS, or Linux (using your own `SHRUB.fwsc` file, with persistent flash saves and zero
+  WebAssembly dropouts).
+- **Find, filter and install:** **Plugins > FM-1 Synths** groups items into **Installed**,
+  **Hardware (MIDI)**, and **Available**, with `Runtime/...` chips (`Runtime/VIBE WASM`,
+  `Runtime/FM-1 Emulated`, `Runtime/Hardware MIDI`). Single-click previews any row; double
+  click or drag an Available firmware to install it into `firmware/<id>/` and insert it.
 
-![OBERVAVE playing on two orbits, each with its own panel](manual/devices.png)
+![Plugins > FM-1 Synths in the Browser showing Installed, Hardware (MIDI) with SHRUB, and Available VIBE WASM and FWSC firmwares](manual/fm1-synths.png)
+<!-- SCREENSHOT SPEC: doc/manual/fm1-synths.png
+  File: doc/manual/fm1-synths.png
+  Capture: Cropped Browser side bar (~360px wide, ~780-900px tall) showing Plugins > FM-1 Synths.
+  Workspace / Song: template/ workspace open with the hub catalog loaded.
+  UI State:
+    - Controls pane open at top.
+    - Contents showing Plugins > FM-1 Synths with Runtime chips (Runtime/VIBE WASM, Runtime/FM-1 Emulated, Runtime/Hardware MIDI), rows with color-coded WASM (green), FWSC (orange) and MIDI (purple) badges, and screen thumbnails on VIBE rows.
+    - SHRUB (FM-1 Hardware) selected so the Details pane at the bottom shows CC 74 / CC 16-19 info and the "Editor..." button.
+  Must show: Runtime chips, color-coded WASM / FWSC / MIDI badges, screen thumbnails, and SHRUB details with the Editor button.
+-->
+
+![OBERVAVE playing on two orbits, each with its own live screen, F1-F6 keys and parameter sliders in the Devices tab](manual/devices.png)
+<!-- SCREENSHOT SPEC: doc/manual/devices.png
+  File: doc/manual/devices.png
+  Capture: Cropped bottom panel (Devices tab) (~1440x420).
+  Workspace / Song: template/examples/07-vibefm1-obervave.strudel open and playing.
+  UI State:
+    - Bottom panel switched to the Devices tab.
+    - At least two OBERVAVE panels side by side (orbit 2 bass and orbit 3 pad).
+  Must show: Live 480x320 firmware displays, F1 to F6 soft keys underneath, parameter sliders on the right, and fold/maximize/pop-out buttons in each panel header.
+-->
 
 The **Devices** tab shows a panel per firmware that plays, one per orbit:
 

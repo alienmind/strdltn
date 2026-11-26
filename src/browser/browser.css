@@ -310,9 +310,12 @@ svg { display: block; flex: none; }
 .colorbar .colors-row { padding: 0; }
 .chip.builtin { font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap; }
 
-/* Music Controls, one row at the top of the Library. */
-.controls { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 8px 0; }
-.controls .song { margin-left: 4px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+/* Music Controls in the top Controls pane: transport row, then song + centered BPM row. */
+.controls { flex: none; display: flex; flex-direction: column; gap: 5px; padding: 6px 8px 2px; }
+.controls-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.controls-meta { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; width: 100%; }
+.controls .song { font-weight: 600; font-size: 11px; color: var(--vscode-descriptionForeground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.controls-meta .bpm { justify-self: center; }
 /* Play green, Stop a red square, as asked by the maintainer; fixed colors, the same in every theme. */
 .controls button { display: grid; place-items: center; width: 24px; height: 22px; border-radius: 3px; border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35)); }
 .controls button:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .2)); }

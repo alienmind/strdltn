@@ -58,6 +58,8 @@ export type ToBrowser =
 	| { type: 'playPreview'; plan: PreviewPlan }
 	/** Stops any running Browser preview immediately (e.g. when Stop is pressed in Controls). */
 	| { type: 'stopPreview' }
+	/** Firmwares currently running in native `fm1-live` (e.g. `['shrub']`). */
+	| { type: 'nativeRunning'; ids: string[] }
 	/** The filter changed in another view, or by a command. `open` opens headings in Results, for the integration test. */
 	| { type: 'filter'; filter: BrowserFilterState; show?: boolean };
 
@@ -78,6 +80,8 @@ export type FromBrowser =
 	| { type: 'screen'; id: string }
 	/** Opens a firmware's companion web editor (e.g. SHRUB editor, zp12 editor). */
 	| { type: 'openEditor'; id: string }
+	/** Launches or stops a `.fwsc` firmware (or SHRUB) in native `fm1-live` (240 MHz JIT). */
+	| { type: 'runNative'; id: string }
 	/** Installs an Available firmware into the project. */
 	| { type: 'install'; id: string }
 	/** Turns one color on or off for the items. `color` 0 clears every color. */

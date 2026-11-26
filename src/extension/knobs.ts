@@ -69,9 +69,9 @@ export class KnobLearn implements vscode.Disposable {
 		const waiting = this.learning?.document === editor.document ? lineColumn(text, this.learning.from).line : undefined;
 		const lines = sliderLines(text).filter((l) => l.line !== waiting);
 		const range = (line: number) => new vscode.Range(line, 0, line, 0);
-		editor.setDecorations(this.icon, lines.filter((l) => l.cc === undefined).map((l) => ({ range: range(l.line), hoverMessage: 'Knob: click left of the line number, then turn a knob' })));
-		editor.setDecorations(this.iconOn, lines.filter((l) => l.cc !== undefined).map((l) => ({ range: range(l.line), hoverMessage: `Knob on CC ${l.cc}. Click to take it off` })));
-		editor.setDecorations(this.iconLearn, waiting === undefined ? [] : [{ range: range(waiting), hoverMessage: 'Waiting for a knob: turn one on your MIDI controller' }]);
+		editor.setDecorations(this.icon, lines.filter((l) => l.cc === undefined).map((l) => ({ range: range(l.line), hoverMessage: 'MIDI Capture (C): click left of the line number, then turn a knob' })));
+		editor.setDecorations(this.iconOn, lines.filter((l) => l.cc !== undefined).map((l) => ({ range: range(l.line), hoverMessage: `MIDI Capture (CC ${l.cc}): mapped - click to unmap` })));
+		editor.setDecorations(this.iconLearn, waiting === undefined ? [] : [{ range: range(waiting), hoverMessage: 'MIDI Capture (C): listening... turn a knob on your MIDI controller' }]);
 	}
 
 	/**

@@ -167,6 +167,8 @@ export type FromWebview =
 	| { type: 'sliderLive'; from: number; value: number }
 	/** MIDI learn for the slider whose number starts at `from` (undefined: no slider there). The host does the learn. */
 	| { type: 'knobLearnAt'; from?: number; toggle?: boolean }
+	/** M or S button clicked in the code editor's line-actions gutter for chain `chain`. */
+	| { type: 'toggleChain'; chain: number; button: 'mute' | 'solo' }
 	/** Something (a Browser synth/sound/firmware or plain text) was dropped onto the Strudel editor at `offset`. */
 	| { type: 'dropItem'; id?: string; index?: number; text?: string; offset: number }
 	/** Engine asks the host to fetch/cache `fm1_web.wasm` on demand for `.fwsc` playback. */

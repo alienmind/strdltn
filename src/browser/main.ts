@@ -133,13 +133,10 @@ const controlsPane = pane('controls', 'Controls');
 const libraryPane = pane('library', 'Library');
 const contentsPane = pane('contents', 'Contents');
 const referencePane = pane('reference', 'Reference');
-// Controls pane: Music Controls, then Back/Forward + search + preview, then the colors and Built-in button.
+// Controls pane: Music Controls (centered BPM), then search + preview + Back/Forward on the right, then colors and Built-in.
 const controlsBox = controlsPane.body.appendChild(el('div'));
 const showControls = createControls(controlsBox, post);
 const searchbar = controlsPane.body.appendChild(el('div', 'searchbar'));
-const navButtons = searchbar.appendChild(el('div', 'nav-buttons'));
-const backButton = navButtons.appendChild(button('back', 'Back (Alt+Left)', () => goBack(), 'nav-button'));
-const forwardButton = navButtons.appendChild(button('forward', 'Forward (Alt+Right)', () => goForward(), 'nav-button'));
 const searchBox = searchbar.appendChild(el('div', 'search'));
 searchBox.innerHTML = icon('search');
 const search = searchBox.appendChild(el('input'));
@@ -148,6 +145,10 @@ search.value = filter.query;
 search.spellcheck = false;
 const clearSearch = searchBox.appendChild(button('close', 'Clear the search (Esc)', () => setQuery('')));
 const previewButton = searchbar.appendChild(button('speaker', '', () => post({ type: 'setPreview', on: !preview })));
+const navButtons = searchbar.appendChild(el('div', 'nav-buttons'));
+const backButton = navButtons.appendChild(button('back', 'Back (Alt+Left)', () => goBack(), 'nav-button'));
+const forwardButton = navButtons.appendChild(button('forward', 'Forward (Alt+Right)', () => goForward(), 'nav-button'));
+let nativeRunning = new Set<string>();
 // The colors and the Built-in button, right under the search: they filter like it does.
 const colorbar = controlsPane.body.appendChild(el('div', 'colorbar'));
 const nav = libraryPane.body.appendChild(el('div', 'nav'));
@@ -674,6 +675,18 @@ function drawRow(row: Row, index: number): HTMLElement {
 		if (item.kind === 'function' && item.code) actions.appendChild(button('snippet', 'Insert an example', () => post({ type: 'insertText', text: item.code! })));
 		// The firmware's display, run in a popup without sound (VIBE .wasm firmwares only).
 		if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') actions.appendChild(button('screen', 'Show the screen', () => post({ type: 'screen', id: item.id })));
+		if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.runtime === 'fwsc')) {
+			const fwId = item.id.slice('firmware:'.length);
+			const running = nativeRunning.has(fwId);
+			actions.appendChild(
+				button(
+					'screen',
+					running ? 'Stop native fm1-live emulator' : 'Run natively in fm1-live (240 MHz JIT, zero dropouts)',
+					() => post({ type: 'runNative', id: item.id }),
+					running ? 'icon-button on' : 'icon-button',
+				),
+			);
+		}
 		if (item.kind === 'firmware' && item.editorUrl) actions.appendChild(button('open', 'Open synth editor', () => post({ type: 'openEditor', id: item.id })));
 		if (item.kind === 'snippet') actions.appendChild(button('open', 'Open the file', () => post({ type: 'open', id: item.id })));
 		else if (!opens(item)) actions.appendChild(button('copy', 'Copy the name', () => post({ type: 'copy', id: item.id, index: index_ })));
@@ -754,6 +767,15 @@ function drawDetails(): void {
 		const screen = collect.appendChild(el('button', 'chip more', 'Screen...'));
 		screen.title = "Show the firmware's display, run without sound";
 		screen.addEventListener('click', () => post({ type: 'screen', id: item.id }));
+	}
+	if (item.kind === 'firmware' && (item.id === 'firmware:shrub' || item.runtime === 'fwsc')) {
+		const fwId = item.id.slice('firmware:'.length);
+		const running = nativeRunning.has(fwId);
+		const nativeBtn = collect.appendChild(el('button', `chip ${running ? 'on' : 'more'}`, running ? 'Stop Native' : 'Run Native'));
+		nativeBtn.title = running
+			? 'Stop the running native fm1-live emulator'
+			: 'Run natively in fm1-live (240 MHz JIT on Windows, macOS, Linux)';
+		nativeBtn.addEventListener('click', () => post({ type: 'runNative', id: item.id }));
 	}
 	if (item.kind === 'firmware' && item.editorUrl) {
 		const editorBtn = collect.appendChild(el('button', 'chip more', 'Editor...'));
@@ -1148,6 +1170,9 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			return void playPreview(message.plan, (text) => post({ type: 'log', message: text }));
 		case 'stopPreview':
 			return stopPreview();
+		case 'nativeRunning':
+			nativeRunning = new Set(message.ids);
+			return update();
 		case 'filter':
 			filter = message.filter;
 			searchbarSync();

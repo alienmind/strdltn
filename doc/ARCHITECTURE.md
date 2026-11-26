@@ -1593,12 +1593,20 @@ whether the editor holds the same, and whether the file kept its line endings.
 
 ## Build pipeline
 
-`.github/workflows/ci.yml` runs on pushes to `main`, on pull requests and on tags. It
-installs with pnpm, type checks, runs the unit tests, and builds the `.vsix`, which it
-uploads as an artifact. On a tag `v*` it also checks that the tag matches the version in
-`package.json` and creates a GitHub release with two files: `strdltn-<version>.vsix`
-and `strdltn.vsix`. The second has a fixed name so that
-`releases/latest/download/strdltn.vsix` always works.
+`.github/workflows/ci.yml` runs on pushes to `main`, on pull requests and on tags:
+
+- `verify`: matrix across `ubuntu-latest`, `macos-latest` and `windows-latest` running
+  `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test:unit`, and `pnpm build`.
+- `package-universal` (`ubuntu-latest`): builds the universal `.vsix` (`strdltn-<version>.vsix`
+  and `strdltn.vsix` for Codespaces/fallback, downloading native `fm1-live` on demand) and
+  renders `strdltn-manual.pdf`.
+- `package-native`: matrix for `win32-x64` (`windows-latest`), `darwin-arm64` (`macos-latest`),
+  `linux-x64` and `linux-arm64` (`ubuntu-latest`). Each runs `scripts/fetch-fm1-native.mjs` to
+  bundle the official `fm1-live` JIT binary into `bin/<target>/` and builds a platform-specific
+  `strdltn-<version>-<target>.vsix`.
+- `release` (on tags `v*`): verifies the tag matches `package.json`, creates a GitHub release
+  with all `.vsix` files and `strdltn-manual.pdf`, and publishes to the VS Code Marketplace
+  when `VSCE_PAT` is configured.
 
 The integration test does not run in CI yet.
 

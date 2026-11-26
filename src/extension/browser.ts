@@ -49,6 +49,8 @@ export interface BrowserActions {
 	showScreen(id: string): void;
 	/** Opens a firmware's companion web editor (e.g. SHRUB editor). */
 	openEditor(id: string): void;
+	/** Starts or stops native `fm1-live` (240 MHz JIT) for SHRUB or any `.fwsc` firmware. */
+	runNative(id: string): Promise<void>;
 	/** Installs a firmware of the hub into the project. */
 	install(id: string): Promise<void>;
 	/** Local file of a firmware (installed or cached from the hub) for standalone Browser preview. */
@@ -194,6 +196,11 @@ export class BrowserView {
 	/** Stops any standalone preview playing in the Browser view. */
 	stopPreview(): void {
 		this.post({ type: 'stopPreview' });
+	}
+
+	/** Updates which firmwares are currently running in native `fm1-live`. */
+	setNativeRunning(ids: string[]): void {
+		this.post({ type: 'nativeRunning', ids });
 	}
 
 	/** Resolves a dropped item by its MIME id, falling back to the last Browser drag within 15 seconds. */
@@ -363,6 +370,11 @@ export class BrowserView {
 			case 'openEditor': {
 				const item = this.item(message.id);
 				if (item?.kind === 'firmware') this.actions.openEditor(item.id.slice('firmware:'.length));
+				return;
+			}
+			case 'runNative': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware') await this.actions.runNative(item.id.slice('firmware:'.length));
 				return;
 			}
 			case 'insertSong': {

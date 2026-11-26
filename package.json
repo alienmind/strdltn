@@ -135,6 +135,14 @@
 				"icon": "$(beaker)"
 			},
 			{
+				"command": "strdltn.runNativeFm1",
+				"title": "strdltn: Launch FM-1 firmware in native emulator (fm1-live)"
+			},
+			{
+				"command": "strdltn.stopNativeFm1",
+				"title": "strdltn: Stop native FM-1 emulator"
+			},
+			{
 				"command": "strdltn.openStage",
 				"title": "strdltn: Open stage",
 				"icon": "$(open-preview)"
@@ -370,7 +378,17 @@
 				"strdltn.firmwareFolder": {
 					"type": "string",
 					"default": "firmware",
-					"description": "Workspace folder that holds VIBE FM firmwares (.wasm) from thefirmwarehub.com. Each one plays as s(\"vibefm1:<id>\")."
+					"description": "Workspace folder that holds VIBE FM (.wasm) and real FM-1 (.fwsc) firmwares. Plays as s(\"vibefm1:<id>\") or s(\"fm1:<id>\")."
+				},
+				"strdltn.shrub.fwscPath": {
+					"type": "string",
+					"default": "",
+					"description": "Optional path to your local SHRUB .fwsc file (e.g. SHRUB-V1.11.fwsc) for native 240 MHz JIT emulation via fm1-live."
+				},
+				"strdltn.fm1.nativeBinary": {
+					"type": "string",
+					"default": "",
+					"description": "Optional path to a local fm1-live executable (github.com/joakimeriksson/fm1-emu), e.g. for Intel Macs or custom builds."
 				},
 				"strdltn.experimental.shrubEditor": {
 					"type": "boolean",

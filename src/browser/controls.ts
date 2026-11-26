@@ -14,8 +14,10 @@ export function createControls(into: HTMLElement, post: (message: FromControls) 
 	let state: ControlsState = { known: false, playing: false };
 	const row = into.appendChild(document.createElement('div'));
 	row.className = 'controls';
+	const transport = row.appendChild(document.createElement('div'));
+	transport.className = 'controls-transport';
 	const button = (className: string, title: string, icon: string) => {
-		const b = row.appendChild(document.createElement('button'));
+		const b = transport.appendChild(document.createElement('button'));
 		b.className = className;
 		b.title = title;
 		b.innerHTML = svg(icon);
@@ -40,14 +42,17 @@ export function createControls(into: HTMLElement, post: (message: FromControls) 
 	const redo = button('redo', 'Redo edit to the song', '<path d="M11.5 6.5h-5a3.5 3.5 0 1 0 0 7H9M11.5 6.5 9 4M11.5 6.5 9 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>');
 	redo.disabled = true;
 	redo.addEventListener('click', () => post({ type: 'transport', action: 'redo' }));
-	const bpmBox = row.appendChild(document.createElement('label'));
+
+	const meta = row.appendChild(document.createElement('div'));
+	meta.className = 'controls-meta';
+	const song = meta.appendChild(document.createElement('span'));
+	song.className = 'song';
+	const bpmBox = meta.appendChild(document.createElement('label'));
 	bpmBox.className = 'bpm';
 	bpmBox.appendChild(document.createElement('span')).textContent = 'BPM';
 	const bpm = bpmBox.appendChild(document.createElement('input'));
 	bpm.inputMode = 'decimal';
 	bpm.size = 5;
-	const song = row.appendChild(document.createElement('span'));
-	song.className = 'song';
 
 	const showTempo = () => {
 		const tempo = state.tempo;

@@ -394,16 +394,18 @@ samples and the packs of its songs, and is for a workspace that has no list yet.
 of a running engine always replaces the kept one. Preview needs an engine and says so.
 We chose a kept list over an engine of its own, see the drawer.
 
-**Screenshots.** The pictures in `doc/` (`screenshot-*.png`, used by the README and
-`doc/ABOUT.md`) come from the integration test. Its last step ("9. Pictures for
-README.md and doc/ABOUT.md") plays `demo.strudel` in the Strudel editor, shows the
-Library on Drums with the TR-909 open in Results and the Mixer with bass unfolded,
-and saves `tmp/shots/doc-overview.png`. From a run of `pnpm test:vscode` (the Hydra and
-stage shots only come from the full run), the pictures are cut by hand with Pillow:
-`screenshot-overview.png`, `-stage.png` and `-hydra.png` are the whole window at half
-size (1440 by 900), `-music.png` and `-browser.png` are the Mixer and the side bar
-cut out of the overview, at half size. The window title says "[Extension Development
-Host]" (decision 11 of `doc/TODO.md`). Made on 2026-11-21 for 0.2.0.
+**Screenshots.** The pictures in `doc/` (`screenshot-*.png`, for the README and `doc/ABOUT.md`) and in `doc/manual/`
+(for `doc/USERMANUAL.md`) come from one run of `pnpm test:vscode`; each file's `SCREENSHOT SPEC` comment says what it
+must show. The test takes them in the state the specs ask: step 9 plays `demo.strudel` with the cursor on `$hhr` (so the
+chains from `$kick` show with their scopes and sliders), the Browser on Drums > TR-909 and the Mixer with bass unfolded
+(`doc-overview`); step 9b uses `browserStage` to open the panes and select a row for the details: the Browser
+(`manual-browser`), Reference > Functions on `lpf` (`manual-reference`) and FM-1 Synths with SHRUB selected
+(`manual-fm1`). The stage, Devices and Hydra shots come from their own steps of the full run. Every shot first clears
+the notifications, because a toast of an earlier step sat over the Mixer in every later picture. The files are then cut
+with Pillow from the 1440 by 900 window: whole window for overview, stage and Hydra; the side bar (x 48-348, y 40-868)
+for the Browser, Reference and FM-1 Synths; the editor group (x 353-1440, y 40-572) for the editor; the bottom panel
+(x 353-1440, y 576-868) for the Mixer and Devices. The window title says "[Extension Development Host]" (decision 11
+of `doc/TODO.md`). Made on 2026-11-26.
 
 **Logo and icons.** The Browser has no logo any more: the maintainer took it out on
 2026-11-21 (its colors did not match the theme and it took room), and `media/logo.jpg`

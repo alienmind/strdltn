@@ -63,7 +63,9 @@ export type ToBrowser =
 	/** Experimental setting `strdltn.experimental.fm1Flash` changed. */
 	| { type: 'flashEnabled'; on: boolean }
 	/** The filter changed in another view, or by a command. `open` opens headings in Results, for the integration test. */
-	| { type: 'filter'; filter: BrowserFilterState; show?: boolean };
+	| { type: 'filter'; filter: BrowserFilterState; show?: boolean }
+	/** For the pictures of the manual: opens and folds panes, and selects one row so the details show it. */
+	| { type: 'stage'; panes?: Partial<BrowserPanes>; select?: string };
 
 export type FromBrowser =
 	| { type: 'ready' }

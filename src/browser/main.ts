@@ -1286,6 +1286,13 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 		case 'flashEnabled':
 			flashEnabled = message.on;
 			return update();
+		case 'stage': {
+			Object.assign(panes, message.panes ?? {});
+			update();
+			const index = message.select ? rows.findIndex((row) => row.type !== 'heading' && row.item.id === message.select) : -1;
+			if (index >= 0) moveCursor(index, false);
+			return;
+		}
 		case 'filter':
 			filter = message.filter;
 			searchbarSync();

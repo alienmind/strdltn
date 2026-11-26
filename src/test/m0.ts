@@ -43,6 +43,9 @@ export async function run(): Promise<void> {
 		const shots = process.env.VSTRUDEL_TEST_SHOTS;
 		const shot = async (name: string) => {
 			if (!shots) return;
+			// A toast of an earlier step (an install, a render) would sit over the Mixer in every picture after it.
+			await vscode.commands.executeCommand('notifications.clearAll').then(undefined, () => undefined);
+			await sleep(300);
 			writeFileSync(join(shots, `${name}.request`), '');
 			await until(() => existsSync(join(shots, `${name}.png`)), 8000);
 		};
@@ -903,11 +906,42 @@ export async function run(): Promise<void> {
 		await api.mixerShow(['bass']);
 		const kick = api.mixer().model?.chains.findIndex((chain) => chain.name === 'kick') ?? -1;
 		if (kick >= 0) api.mixerReveal(kick);
+		// The cursor on $hhr scrolls the chains from $kick to $hh into view, with their scopes and sliders, for the
+		// pictures of the editor (doc/USERMANUAL.md, editor.png).
+		await api.revealText('$hhr:');
 		const framesBefore = api.mixer().scopeFrames;
 		await sleep(3000);
 		// The scopes of the song reach the Mixer while it plays, about 20 frames a second.
 		steps.mixerScopes = { frames: api.mixer().scopeFrames - framesBefore, scopes: api.mixer().lastScopes };
 		await shot('doc-overview');
+		// 9b. Pictures for doc/USERMANUAL.md, each in the state its SCREENSHOT SPEC asks for, while the demo plays. The
+		// side bar is cut out of these by hand.
+		const manualShots: Record<string, unknown> = {};
+		steps.manualShots = manualShots;
+		try {
+			const open = { controls: true, library: true, contents: true, reference: false };
+			const firstDrum = api.browserFind({ category: 'drums', group: tr909doc })[0];
+			await api.browserShow({ query: '', chips: [], color: undefined, place: undefined, scope: undefined, builtin: undefined, category: 'drums', group: tr909doc });
+			manualShots.browser = await api.browserStage(open, firstDrum);
+			await sleep(800);
+			await shot('manual-browser');
+			await api.browserShow({ query: 'lpf', chips: [], color: undefined, place: undefined, scope: undefined, builtin: undefined, category: 'functions' });
+			manualShots.reference = await api.browserStage({ controls: true, library: false, contents: true, reference: true }, 'fn:lpf');
+			await sleep(800);
+			await shot('manual-reference');
+			await api.browserShow({ query: '', chips: [], color: undefined, place: undefined, scope: undefined, builtin: undefined, category: 'fm1' });
+			await until(() => api.firmware().hub > 0, 30000);
+			await sleep(1500);
+			const shrub = api.browserFind({ category: 'fm1' }).find((id) => /shrub/i.test(id));
+			manualShots.fm1 = await api.browserStage({ controls: true, library: false, contents: true, reference: false }, shrub);
+			manualShots.shrub = shrub;
+			await sleep(1500);
+			await shot('manual-fm1');
+			await api.browserShow({ query: '', chips: [], color: undefined, place: undefined, scope: undefined, builtin: undefined, category: 'drums', group: tr909doc });
+		} catch (error) {
+			manualShots.error = String(error);
+		}
+		save();
 		await vscode.commands.executeCommand('strdltn.stop');
 		result.finished = true;
 		result.logs = api.sessions().map((s) => ({ mode: s.mode, uri: s.uri.split('/').pop(), logs: s.logs }));

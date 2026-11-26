@@ -183,6 +183,11 @@ export class BrowserView {
 		this.setFilter({ ...this.filter, ...filter }, undefined, true);
 	}
 
+	/** Opens and folds panes and selects a row, as the hand would. For the pictures of the manual. */
+	stage(message: Omit<Extract<ToBrowser, { type: 'stage' }>, 'type'>): void {
+		this.post({ type: 'stage', ...message });
+	}
+
 	/** What Results reported last: the filter, and how many results and rows it shows. */
 	state(): Extract<FromBrowser, { type: 'state' }> | undefined {
 		return this.lastState;

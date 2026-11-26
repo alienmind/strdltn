@@ -36,6 +36,35 @@ const log = (level: 'info' | 'warn' | 'error', message: string) => post({ type: 
 
 const unlockElement = document.getElementById('unlock')!;
 const dockElement = document.getElementById('dock')!;
+const errorToast = document.getElementById('error-toast');
+const errorToastMsg = errorToast?.querySelector<HTMLElement>('.err-msg');
+const errorToastJump = errorToast?.querySelector<HTMLButtonElement>('.err-jump');
+const errorToastClose = errorToast?.querySelector<HTMLButtonElement>('.err-close');
+let lastErrorPlace: { from: number; to: number } | undefined;
+
+function showErrorToast(message?: string, place?: { from: number; to: number }): void {
+	if (!errorToast || !errorToastMsg || !errorToastJump) return;
+	if (!message) {
+		errorToast.classList.remove('visible');
+		lastErrorPlace = undefined;
+		return;
+	}
+	errorToastMsg.textContent = message;
+	errorToastMsg.title = message;
+	lastErrorPlace = place;
+	errorToastJump.hidden = !place || mode !== 'editor';
+	errorToast.classList.add('visible');
+}
+
+errorToastClose?.addEventListener('click', () => showErrorToast(undefined));
+errorToastJump?.addEventListener('click', () => {
+	if (!mirror || mode !== 'editor' || !lastErrorPlace) return;
+	const max = mirror.editor.state.doc.length;
+	const anchor = Math.max(0, Math.min(max, lastErrorPlace.from));
+	const head = Math.max(anchor, Math.min(max, lastErrorPlace.to));
+	mirror.editor.dispatch({ selection: { anchor, head }, scrollIntoView: true });
+	mirror.editor.focus();
+});
 
 let mirror: any;
 /** Upstream's own `mirror.evaluate`, before init() routes the method through play(). */
@@ -278,6 +307,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			rememberSliders(meta?.widgets ?? []);
 			rememberKnobs(mirror.code);
 			if (mode === 'stage') fillDock(meta?.widgets ?? []);
+			showErrorToast(undefined);
 			post({ type: 'evaluated' });
 		},
 		onToggle: (started: boolean) => {
@@ -293,6 +323,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		onEvalError: (error: Error & { pos?: unknown }) => {
 			log('error', `eval: ${error.message}`);
 			const place = locateError(mirror.code, error);
+			showErrorToast(String(error.message), place);
 			post({ type: 'evaluated', error: { message: String(error.message), from: place?.from, to: place?.to } });
 		},
 	});
@@ -1104,6 +1135,7 @@ class LineActionsMarker extends GutterMarker {
 	readonly chain: number | undefined;
 	readonly muted: boolean;
 	readonly solo: boolean;
+	readonly color: string | undefined;
 	readonly sliderFrom: number | undefined;
 	readonly cc: number | undefined;
 	readonly learning: boolean;
@@ -1113,6 +1145,7 @@ class LineActionsMarker extends GutterMarker {
 		this.chain = action.chain;
 		this.muted = !!action.muted;
 		this.solo = !!action.solo;
+		this.color = action.color;
 		this.sliderFrom = action.sliderFrom;
 		this.cc = action.cc;
 		this.learning = learning;
@@ -1123,6 +1156,7 @@ class LineActionsMarker extends GutterMarker {
 			other.chain === this.chain &&
 			other.muted === this.muted &&
 			other.solo === this.solo &&
+			other.color === this.color &&
 			other.sliderFrom === this.sliderFrom &&
 			other.cc === this.cc &&
 			other.learning === this.learning
@@ -1132,6 +1166,11 @@ class LineActionsMarker extends GutterMarker {
 	toDOM(): Node {
 		const row = document.createElement('span');
 		row.className = 'strdltn-act-row';
+
+		const bar = document.createElement('span');
+		bar.className = 'strdltn-act-color';
+		if (this.color) bar.style.background = this.color;
+		row.appendChild(bar);
 
 		if (this.chain !== undefined) {
 			const m = document.createElement('span');

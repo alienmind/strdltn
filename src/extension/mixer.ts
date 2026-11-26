@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, scopeEdit, tempoEdit, unduckEdits } from '../shared/chains';
+import { assignMissingColorEdits, colorEdit, duckEdits, type Edits, gainEdit, labelEdit, type MixerModel, readChains, scopeEdit, tempoEdit, unduckEdits } from '../shared/chains';
 import type { ControlsState, FromControls, TransportAction } from '../shared/controls';
 import { removeKnobEdits } from '../shared/knob';
 import type { FromMixer, ToMixer } from '../shared/mixer';
@@ -230,6 +230,16 @@ export class MixerView implements Surface {
 			}
 			case 'toggle':
 				return void this.toggle(message.chain, message.button);
+			case 'setColor': {
+				if (!this.document) return;
+				const text = lf(this.document.getText());
+				return void this.write(this.document, text, colorEdit(text, message.chain, message.color));
+			}
+			case 'assignColors': {
+				if (!this.document) return;
+				const text = lf(this.document.getText());
+				return void this.writeAll(this.document, text, { edits: assignMissingColorEdits(text) });
+			}
 			case 'duck':
 			case 'unduck':
 				return void this.handleAsync(message);

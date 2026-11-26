@@ -16,6 +16,8 @@ export interface CableSpec {
 	to: Element;
 	/** `drag`: the cable in the hand, from a jack to the pointer. */
 	kind: 'sidechain' | 'drag';
+	/** Source chain index (for ducking pulse animation when that chain triggers). */
+	fromChain?: number;
 	label?: string;
 }
 
@@ -28,9 +30,13 @@ interface Cable extends CableSpec {
 	sag: number;
 	velocity: number;
 	last?: { from: Point; to: Point };
+	group: SVGGElement;
+	halo: SVGPathElement;
 	path: SVGPathElement;
 	plugs: SVGCircleElement[];
+	pill?: SVGRectElement;
 	text?: SVGTextElement;
+	pulseUntil: number;
 }
 
 const SAG_RATIO = 0.18;
@@ -74,6 +80,20 @@ export class CableLayer {
 		this.wake();
 	}
 
+	/** Briefly brightens/thickens outgoing sidechain cables from `chainIndex` when that chain fires. */
+	pulseFrom(chainIndex: number): void {
+		const until = performance.now() + 140;
+		let hit = false;
+		for (const cable of this.cables.values()) {
+			if (cable.kind === 'sidechain' && cable.fromChain === chainIndex) {
+				cable.pulseUntil = until;
+				cable.group.classList.add('pulsing');
+				hit = true;
+			}
+		}
+		if (hit) this.wake();
+	}
+
 	count(): number {
 		return this.cables.size;
 	}
@@ -90,19 +110,31 @@ export class CableLayer {
 	private create(spec: CableSpec): Cable {
 		const group = this.svg.appendChild(document.createElementNS(SVG, 'g'));
 		group.classList.add('cable', spec.kind);
+		// Dark under-stroke halo so crossing cables separate cleanly on dark and light themes.
+		const halo = group.appendChild(document.createElementNS(SVG, 'path'));
+		halo.classList.add('cable-halo');
 		const path = group.appendChild(document.createElementNS(SVG, 'path'));
+		path.classList.add('cable-wire');
 		const plugs = [0, 1].map(() => {
 			const plug = group.appendChild(document.createElementNS(SVG, 'circle'));
-			plug.setAttribute('r', '3');
+			plug.setAttribute('r', '3.2');
 			return plug;
 		});
-		const text = spec.label ? group.appendChild(document.createElementNS(SVG, 'text')) : undefined;
-		if (text) text.textContent = spec.label!;
-		return { ...spec, sag: 0, velocity: 0, path, plugs, text };
+		let pill: SVGRectElement | undefined;
+		let text: SVGTextElement | undefined;
+		if (spec.label) {
+			pill = group.appendChild(document.createElementNS(SVG, 'rect'));
+			pill.classList.add('cable-pill');
+			pill.setAttribute('rx', '3');
+			pill.setAttribute('ry', '3');
+			text = group.appendChild(document.createElementNS(SVG, 'text'));
+			text.textContent = spec.label;
+		}
+		return { ...spec, sag: 0, velocity: 0, group, halo, path, plugs, pill, text, pulseUntil: 0 };
 	}
 
 	private remove(cable: Cable): void {
-		cable.path.parentElement?.remove();
+		cable.group.remove();
 	}
 
 	/** The center of a jack in the coordinates of the container's content. */
@@ -117,6 +149,14 @@ export class CableLayer {
 		this.lastTime = time;
 		let moving = false;
 		for (const cable of this.cables.values()) {
+			if (cable.pulseUntil > 0) {
+				if (time >= cable.pulseUntil) {
+					cable.pulseUntil = 0;
+					cable.group.classList.remove('pulsing');
+				} else {
+					moving = true;
+				}
+			}
 			const from = this.center(cable.from);
 			const to = this.center(cable.to);
 			const distance = Math.hypot(to.x - from.x, to.y - from.y);
@@ -137,7 +177,9 @@ export class CableLayer {
 				cable.sag += cable.velocity * dt;
 			}
 			if (Math.abs(cable.velocity) > 0.5 || Math.abs(target - cable.sag) > 0.5) moving = true;
-			cable.path.setAttribute('d', `M ${from.x} ${from.y} C ${from.x} ${from.y + cable.sag} ${to.x} ${to.y + cable.sag} ${to.x} ${to.y}`);
+			const d = `M ${from.x} ${from.y} C ${from.x} ${from.y + cable.sag} ${to.x} ${to.y + cable.sag} ${to.x} ${to.y}`;
+			cable.halo.setAttribute('d', d);
+			cable.path.setAttribute('d', d);
 			[from, to].forEach((point, i) => {
 				cable.plugs[i].setAttribute('cx', String(point.x));
 				cable.plugs[i].setAttribute('cy', String(point.y));
@@ -147,9 +189,18 @@ export class CableLayer {
 				// cables from one jack lie on top of each other.
 				const t = 0.85;
 				const u = 1 - t;
-				const bezier = (a: number, b: number, c: number, d: number) => u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
-				cable.text.setAttribute('x', String(bezier(from.x, from.x, to.x, to.x) - 8));
-				cable.text.setAttribute('y', String(bezier(from.y, from.y + cable.sag, to.y + cable.sag, to.y) + 14));
+				const bezier = (a: number, b: number, c: number, d0: number) => u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d0;
+				const lx = bezier(from.x, from.x, to.x, to.x) - 8;
+				const ly = bezier(from.y, from.y + cable.sag, to.y + cable.sag, to.y) + 14;
+				cable.text.setAttribute('x', String(lx));
+				cable.text.setAttribute('y', String(ly));
+				if (cable.pill) {
+					const w = Math.max(36, (cable.label?.length ?? 6) * 5.6 + 8);
+					cable.pill.setAttribute('x', String(lx - w / 2));
+					cable.pill.setAttribute('y', String(ly - 10));
+					cable.pill.setAttribute('width', String(w));
+					cable.pill.setAttribute('height', '13');
+				}
 			}
 		}
 		this.restFrames = moving ? 0 : this.restFrames + 1;

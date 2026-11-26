@@ -35,6 +35,10 @@ export type FromMixer =
 	| { type: 'unduck'; from: number; orbit: number }
 	/** M or S of a chain clicked: the host flips `_` or `S` in its label. */
 	| { type: 'toggle'; chain: number; button: 'mute' | 'solo' | 'gain' | 'scope' }
+	/** Sets or clears `// @color <name>` above chain `chain`. */
+	| { type: 'setColor'; chain: number; color?: string }
+	/** Writes auto-assigned `// @color <name>` comments for all chains that lack one. */
+	| { type: 'assignColors' }
 	/** A fader moved: the slider by its index in the model, and the number as it is to be written. */
 	| { type: 'slider'; index: number; value: string }
 	/** A Browser item (synth, firmware, drum, sample, snippet) dropped onto the Mixer to append as a new track. */

@@ -39,6 +39,10 @@ export interface ViewDevice extends DeviceInfo {
 	/** Which engine runs it: an id the host gives each one. */
 	engine: string;
 	song: string;
+	/** Track color (`#rrggbb`) of the owning chain in the song, when matched. */
+	color?: string;
+	/** Owning chain name in the song, when matched. */
+	chainName?: string;
 }
 
 export type ToDevices =

@@ -80,7 +80,7 @@ export class KnobLearn implements vscode.Disposable {
 			type = vscode.window.createTextEditorDecorationType({
 				before: {
 					contentIconPath: uri,
-					width: '49px',
+					width: '54px',
 					height: '15px',
 					margin: '0 8px 0 0',
 					textDecoration: 'none; vertical-align: middle;',
@@ -111,7 +111,8 @@ export class KnobLearn implements vscode.Disposable {
 				buckets.set(key, bucket);
 			}
 			const range = new vscode.Range(line, 0, line, 0);
-			bucket.items.push(action ? { range, hoverMessage: actionHover(editor.document.uri, action, learning) } : { range });
+			const hasInteractive = action && (action.chain !== undefined || action.sliderFrom !== undefined);
+			bucket.items.push(hasInteractive ? { range, hoverMessage: actionHover(editor.document.uri, action, learning) } : { range });
 		}
 		// Ensure every active state key has a decoration type, and clear any unused cached types.
 		for (const [key, bucket] of buckets) this.badgeType(key, bucket.action, bucket.learning);

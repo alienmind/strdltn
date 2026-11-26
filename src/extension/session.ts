@@ -529,8 +529,15 @@ export class Session {
 	body.stage #dock { display: flex; }
 	.dock-group h2 { margin: 0 0 6px; padding-bottom: 3px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
 		opacity: .7; border-bottom: 1px solid rgba(128, 128, 128, .35); }
-	/* A song may draw a full page visual behind the stage. The rows keep their own dark ground so they stay readable. */
-	.dock-group { padding: 8px 10px; border-radius: 4px; background: rgba(0, 0, 0, .6); }
+	/* A song may draw a full page visual behind the stage. Frosted backdrop keeps rows crisp over Hydra. */
+	.dock-group {
+		padding: 8px 10px;
+		border-radius: 6px;
+		background: rgba(14, 16, 20, .64);
+		border: 1px solid rgba(255, 255, 255, .1);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+	}
 	.dock-row { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 10px; padding: 3px 0; }
 	.dock-slot canvas { max-width: 100%; height: auto !important; }
 	.dock-label { display: flex; flex-direction: column; min-width: 0; }
@@ -538,29 +545,123 @@ export class Session {
 	.dock-label small { opacity: .55; font-size: 10px; }
 	.dock-slot { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
 	.dock-slot input[type=range] { flex: 1; max-width: 320px; accent-color: var(--vscode-focusBorder, #3794ff); }
-	.dock-slot output { width: 64px; font-family: var(--vscode-editor-font-family, monospace); opacity: .85; }
-	/* Line actions (M / S / C), left of the line numbers (main.ts, lineActions). */
-	.strdltn-actions .cm-gutterElement { padding: 0 3px 0 4px; display: flex; align-items: center; }
-	.strdltn-act-row { display: inline-grid; grid-template-columns: 15px 15px 15px; gap: 2px; align-items: center; }
+	.dock-slot output { width: 64px; font-family: var(--vscode-editor-font-family, monospace); font-variant-numeric: tabular-nums; opacity: .85; }
+	/* Line actions (track color bar + M / S / C), left of the line numbers (main.ts, lineActions). */
+	.strdltn-actions .cm-gutterElement { padding: 0 3px 0 3px; display: flex; align-items: center; }
+	.strdltn-act-row { display: inline-grid; grid-template-columns: 3px 15px 15px 15px; gap: 2px; align-items: center; }
+	.strdltn-act-color { display: inline-block; width: 3px; height: 100%; min-height: 15px; border-radius: 1px; background: transparent; }
 	.strdltn-act-gap { display: inline-block; width: 15px; height: 15px; }
 	.strdltn-act { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 3px;
 		font: 700 9px/1 var(--vscode-font-family, sans-serif); cursor: pointer; user-select: none;
 		color: var(--vscode-descriptionForeground, #8b949e); background: rgba(128, 128, 128, .12); border: 1px solid rgba(128, 128, 128, .25); opacity: .72; }
 	.strdltn-act:hover { opacity: 1; border-color: rgba(255, 255, 255, .45); color: var(--vscode-editor-foreground, #fff); }
-	.strdltn-act-m.on { background: var(--vscode-charts-blue, #3794ff); border-color: var(--vscode-charts-blue, #3794ff); color: #fff; opacity: 1; }
-	.strdltn-act-s.on { background: var(--vscode-charts-yellow, #d29922); border-color: var(--vscode-charts-yellow, #d29922); color: #111; opacity: 1; }
+	/* Harmonized M (amber) and S (vivid blue) matching Mixer strips and native editor badges. */
+	.strdltn-act-m.on { background: #e5a00d; border-color: #e5a00d; color: #111; opacity: 1; }
+	.strdltn-act-s.on { background: var(--vscode-charts-blue, #3794ff); border-color: var(--vscode-charts-blue, #3794ff); color: #fff; opacity: 1; }
 	.strdltn-act-c.on { background: var(--vscode-charts-green, #3fb950); border-color: var(--vscode-charts-green, #3fb950); color: #111; opacity: 1; }
 	.strdltn-act-c.learning { background: var(--vscode-charts-red, #f85149); border-color: var(--vscode-charts-red, #f85149); color: #fff; opacity: 1; animation: strdltn-learn 1s ease-in-out infinite; }
 	@keyframes strdltn-learn { 50% { opacity: .45; } }
-	#unlock { position: fixed; z-index: 4; inset: 0; display: none; align-items: center; justify-content: center;
-		background: rgba(0, 0, 0, 0.7); color: #fff; font: 16px sans-serif; cursor: pointer; }
+	/* Glassmorphic audio unlock overlay. Clicking anywhere on #unlock enables Web Audio. */
+	#unlock {
+		position: fixed;
+		z-index: 4;
+		inset: 0;
+		display: none;
+		align-items: center;
+		justify-content: center;
+		background: rgba(10, 12, 16, 0.58);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		color: #fff;
+		font-family: var(--vscode-font-family, system-ui, sans-serif);
+		cursor: pointer;
+	}
 	#unlock.visible { display: flex; }
+	.unlock-card {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+		padding: 22px 30px;
+		border-radius: 12px;
+		background: rgba(24, 27, 34, 0.78);
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+		text-align: center;
+	}
+	.unlock-mark { font-size: 14px; font-weight: 700; letter-spacing: .04em; opacity: .9; }
+	.unlock-mark em { font-style: normal; color: #3fb950; }
+	.unlock-play {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 9px 22px;
+		border-radius: 999px;
+		border: 0;
+		background: #3fb950;
+		color: #0b130d;
+		font-size: 14px;
+		font-weight: 700;
+		cursor: pointer;
+		box-shadow: 0 4px 14px rgba(63, 185, 80, 0.35);
+	}
+	.unlock-play:hover { filter: brightness(1.08); }
+	.unlock-hint { font-size: 11.5px; opacity: .72; max-width: 280px; }
+	/* Compact inline dismissible eval error toast with Jump-to-error button. */
+	#error-toast {
+		position: fixed;
+		z-index: 3;
+		left: 14px;
+		right: 14px;
+		bottom: 12px;
+		display: none;
+		align-items: center;
+		gap: 8px;
+		padding: 7px 10px;
+		border-radius: 6px;
+		border: 1px solid rgba(241, 76, 76, 0.55);
+		background: rgba(38, 16, 18, 0.92);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		color: #ffd6d6;
+		font: 12px/1.35 var(--vscode-font-family, system-ui, sans-serif);
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+	}
+	#error-toast.visible { display: flex; }
+	#error-toast .err-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #f14c4c; }
+	#error-toast .err-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--vscode-editor-font-family, monospace); font-size: 11.5px; }
+	#error-toast .err-jump {
+		flex: none;
+		padding: 3px 8px;
+		border-radius: 4px;
+		border: 1px solid rgba(255, 255, 255, .25);
+		background: rgba(241, 76, 76, 0.25);
+		color: #fff;
+		font-size: 11px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	#error-toast .err-jump:hover { background: rgba(241, 76, 76, 0.45); }
+	#error-toast .err-close { flex: none; width: 20px; height: 20px; border: 0; background: none; color: inherit; opacity: .75; font-size: 15px; line-height: 1; cursor: pointer; }
+	#error-toast .err-close:hover { opacity: 1; }
 </style>
 </head>
 <body>
 <div id="editor"></div>
 <div id="dock"></div>
-<div id="unlock">Click to enable audio</div>
+<div id="error-toast" role="alert">
+	<span class="err-dot"></span>
+	<span class="err-msg"></span>
+	<button class="err-jump" type="button" hidden>Jump to error</button>
+	<button class="err-close" type="button" title="Dismiss">&times;</button>
+</div>
+<div id="unlock">
+	<div class="unlock-card">
+		<div class="unlock-mark"><em>[str]</em>dltn Live<em>[code]</em></div>
+		<button class="unlock-play" type="button">&#9654; Enable Audio &amp; Play</button>
+		<div class="unlock-hint">Webviews require one click before starting Web Audio.</div>
+	</div>
+</div>
 <script type="module" src="${script}"></script>
 </body>
 </html>`;

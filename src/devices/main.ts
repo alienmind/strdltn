@@ -135,12 +135,16 @@ function setDrawing(panel: Panel, on: boolean): void {
 	request(panel.device.engine, { action: 'draw', key: panel.device.key, on });
 }
 
-/** The header of a panel: fold, name, where, and maximize and take out on the right. */
-function header(root: HTMLElement, name: string, where: string, actions: { fold(): void; max(): void; out(): void }): void {
+/** The header of a panel: fold, owning chain swatch, name, where, and maximize and take out on the right. */
+function header(root: HTMLElement, name: string, where: string, color: string | undefined, actions: { fold(): void; max(): void; out(): void }): void {
 	const head = root.appendChild(el('header'));
 	const fold = head.appendChild(el('button', 'fold'));
 	fold.title = 'Fold or unfold';
 	fold.addEventListener('click', actions.fold);
+	if (color) {
+		root.style.setProperty('--track-color', color);
+		head.appendChild(el('span', 'swatch'));
+	}
 	head.appendChild(el('span', 'name', name));
 	head.appendChild(el('span', 'where', where));
 	head.appendChild(el('span', 'gap'));
@@ -210,7 +214,8 @@ function build(device: ViewDevice): Panel {
 		}
 	}
 
-	header(root, device.id.toUpperCase(), `orbit ${device.orbit} - ${device.song}`, {
+	const where = [device.chainName, `orbit ${device.orbit}`, device.song].filter(Boolean).join(' - ');
+	header(root, device.id.toUpperCase(), where, device.color, {
 		fold: () => {
 			// A panel in a tab comes back by unfolding: this page draws it again, and the tab stops getting frames.
 			if (page.out.includes(key)) page = { ...page, out: page.out.filter((k) => k !== key) };

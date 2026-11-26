@@ -472,12 +472,11 @@ row is built once and updated in place, so a redraw while typing keeps the field
 narrow side bar it wraps onto two lines.
 Record and record automation come here later (`doc/NEW_FEATURES.md` section 9).
 
-**Layout.** Top to bottom: the name, the peak of the level meter, the gain fader on its
-meter (as tall as the panel allows), M and S side by side, the scope with the gain's value
-in its corner, and the jack, centered, which tells the orbit in its tooltip. Asked by the
-maintainer on 2026-11-22, who found the stacked M, S, G and the "gain" text under the
-fader too much: the strip no longer grows when a gain fader comes or goes.
-Phase 2 of `doc/DAW-PLAN.md`, and phase 3 in progress.
+**Layout.** Top to bottom: clickable 4px track-color bar (`// @color <name>`), header with fold arrow, 6px pulsing note-activity LED, and strip name, the peak of the level meter, the gain fader on its segmented stereo meter (or custom recessed vertical sub-faders when unfolded, center-out bipolar for `pan`), harmonized M (amber `#e5a00d`) and S (vivid blue `#3794ff`) buttons, the track-colored pump scope with soft vertical gradient fill and the gain's value overlaid, and the jack with color-coded plugged collar. Utility actions (`Expand`, `Collapse`, `Save Colors`, `MIDI Mappings`, `Reset MIDI`, `MIDI Routing`) live in a horizontal top Mixer toolbar. Crossing sidechain cables render a dark under-stroke halo, pill-backed orbit labels, and briefly pulse when the ducking chain fires (`frame.level > 0.2`).
+
+**Track colors (`src/shared/colors.ts`).** Curated 14-color Ableton-inspired palette fixed across themes. `readChains()` parses `// @color <name|#rrggbb>` comments directly above chains (allowing intervening comment lines; a blank line breaks the link) and deterministically auto-assigns unused palette colors to chains without one. Clicking a strip's top color bar writes, updates, or clears `// @color` in one undo step (`colorEdit`), and **Save Colors** writes missing comments in one batch (`assignMissingColorEdits`). The same color renders as a 3px vertical bar in both editors' gutter (`lineActionMap` / `lineActionSvg`), in Mixer strips and scopes, and as the owning-chain swatch on Devices panels.
+
+**Shared tokens, unlock overlay, frosted Stage, and inline error toast.** `src/shared/tokens.css` defines shared semantic CSS variables (`--strdltn-play`, `--strdltn-rec`, `--strdltn-warn`, `--strdltn-mute`, `--strdltn-solo`, `--strdltn-sidechain`, `--strdltn-midi`, `--strdltn-surface-raised`, `--strdltn-surface-recessed`) and `tabular-nums` for live numeric readouts. In `src/extension/session.ts` and `src/webview/main.ts`, `#unlock` uses a glassmorphic card, Stage `.dock-group` cards use a frosted `backdrop-filter: blur(8px)` backdrop over Hydra visuals, and eval errors show a dismissible bottom toast with a **Jump to error** button wired to `locateError()`.
 
 **Dock and float.** The button with the window icon in the Mixer's title floats it:
 `Place.float` in `src/extension/surface.ts` makes an editor tab (`strdltn.mixerTab`),

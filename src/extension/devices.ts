@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
+import { readChains } from '../shared/chains';
 import type { DeviceInfo, FromDevices, ToDevices, ViewDevice } from '../shared/devices';
+import { lf } from '../shared/sync';
 import type { Session } from './session';
 import { setPage } from './surface';
 
@@ -145,7 +147,18 @@ export class DevicesView implements vscode.WebviewViewProvider {
 		return [...this.lists].flatMap(([session, list]) => {
 			const engine = this.engineId(session);
 			const song = session.document.uri.path.split('/').pop() ?? '';
-			return list.map((device) => ({ ...device, engine, song }));
+			const text = lf(session.document.getText());
+			const parsed = readChains(text);
+			const chains = 'error' in parsed ? [] : parsed.chains;
+			return list.map((device) => {
+				// Match owning chain by explicit firmware reference (`vibefm1:<id>` / `fm1:<id>`) + orbit, or orbit fallback.
+				const needle = device.id.toLowerCase();
+				const owner =
+					chains.find((c) => (c.orbit ?? 1) === device.orbit && text.slice(c.from, c.to).toLowerCase().includes(needle)) ??
+					chains.find((c) => text.slice(c.from, c.to).toLowerCase().includes(needle)) ??
+					chains.find((c) => (c.orbit ?? 1) === device.orbit);
+				return { ...device, engine, song, ...(owner?.color ? { color: owner.color, chainName: owner.name } : {}) };
+			});
 		});
 	}
 

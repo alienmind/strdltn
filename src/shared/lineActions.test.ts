@@ -55,23 +55,40 @@ test('falls back gracefully during mid-keystroke syntax error without dropping M
 	assert.equal(map.get(1)?.muted, false);
 });
 
-test('lineActionStateKey and lineActionSvg match M / S / C badge states and aligned spacer', () => {
+test('lineActionStateKey and lineActionSvg match M / S / C badge states, track color bar, and aligned spacer', () => {
 	assert.equal(lineActionStateKey(undefined), 'empty');
-	assert.equal(lineActionSvg(undefined), '<svg xmlns="http://www.w3.org/2000/svg" width="49" height="15" viewBox="0 0 49 15"></svg>');
+	assert.equal(lineActionSvg(undefined), '<svg xmlns="http://www.w3.org/2000/svg" width="54" height="15" viewBox="0 0 54 15"></svg>');
 
 	const sliderMapped = { sliderFrom: 10, cc: 74 };
-	assert.equal(lineActionStateKey(sliderMapped), 'm_-s_-c1');
+	assert.equal(lineActionStateKey(sliderMapped), 'm_-s_-c1-col_');
 	const mappedSvg = lineActionSvg(sliderMapped);
 	assert.ok(!mappedSvg.includes('>M<') && !mappedSvg.includes('>S<'));
 	assert.ok(mappedSvg.includes('#3fb950') && mappedSvg.includes('>C<'));
 
-	assert.equal(lineActionStateKey(sliderMapped, true), 'm_-s_-c2');
+	assert.equal(lineActionStateKey(sliderMapped, true), 'm_-s_-c2-col_');
 	assert.ok(lineActionSvg(sliderMapped, true).includes('#f85149'));
 
-	const combined = { chain: 0, muted: true, solo: true, sliderFrom: 20 };
-	assert.equal(lineActionStateKey(combined), 'm1-s1-c0');
+	const combined = { chain: 0, muted: true, solo: true, sliderFrom: 20, color: '#f08c2e' };
+	assert.equal(lineActionStateKey(combined), 'm1-s1-c0-col#f08c2e');
 	const combinedSvg = lineActionSvg(combined);
-	assert.ok(combinedSvg.includes('#3794ff') && combinedSvg.includes('>M<'));
-	assert.ok(combinedSvg.includes('#d29922') && combinedSvg.includes('>S<'));
+	assert.ok(combinedSvg.includes('#f08c2e'));
+	assert.ok(combinedSvg.includes('#e5a00d') && combinedSvg.includes('>M<'));
+	assert.ok(combinedSvg.includes('#3794ff') && combinedSvg.includes('>S<'));
 	assert.ok(combinedSvg.includes('>C<'));
+});
+
+test('lineActionMap propagates owning chain color across multi-line chain blocks', () => {
+	const code = [
+		'// @color orange',
+		'$kick: s("bd*4")',
+		'  .gain(0.8)',
+		'  .lpf(1200)',
+		'',
+		'// outside',
+	].join('\n');
+	const map = lineActionMap(code);
+	assert.equal(map.get(1)?.color, '#f08c2e');
+	assert.equal(map.get(2)?.color, '#f08c2e');
+	assert.equal(map.get(3)?.color, '#f08c2e');
+	assert.equal(map.get(5)?.color, undefined);
 });

@@ -1,0 +1,23 @@
+/* Shared semantic tokens and numeric typography across Browser, Mixer, Devices, and Stage. */
+:root {
+	--strdltn-play: var(--vscode-charts-green, #3fb950);
+	--strdltn-rec: var(--vscode-charts-red, #f14c4c);
+	--strdltn-warn: var(--vscode-editorWarning-foreground, #cca700);
+	--strdltn-mute: #e5a00d;
+	--strdltn-solo: var(--vscode-charts-blue, #3794ff);
+	--strdltn-sidechain: var(--vscode-charts-orange, #d18616);
+	--strdltn-midi: var(--vscode-charts-purple, #b180d7);
+	--strdltn-surface-raised: color-mix(in srgb, var(--vscode-editor-foreground, #ffffff) 4%, var(--vscode-sideBar-background, rgba(128, 128, 128, 0.08)));
+	--strdltn-surface-recessed: color-mix(in srgb, #000000 32%, var(--vscode-editor-background, #1e1e1e));
+}
+
+.tabular,
+output,
+.peakhold,
+.fader .value,
+.scope-value,
+.param .pvalue,
+.pane-count,
+.count {
+	font-variant-numeric: tabular-nums;
+}

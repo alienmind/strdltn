@@ -1,11 +1,13 @@
-/* The Mixer view. Every color is a theme variable of VS Code, so it fits any theme. */
+/* The Mixer view. Every color is a theme variable of VS Code or fixed track palette, so it fits any theme. */
+@import '../shared/tokens.css';
+
 :root {
 	/* The width of a folded strip. Long names are cut, the whole name is in the tooltip. */
-	--strip: 88px;
-	--fader: 40px;
-	--sidechain: var(--vscode-charts-orange, #d18616);
+	--strip: 92px;
+	--fader: 42px;
+	--sidechain: var(--strdltn-sidechain);
 	/* One height for every fader's track, plain or metered, so they line up across strips. */
-	--track: clamp(60px, calc(100vh - 262px), 400px);
+	--track: clamp(60px, calc(100vh - 266px), 400px);
 }
 * { box-sizing: border-box; }
 html, body {
@@ -22,27 +24,59 @@ html, body {
 #app { display: flex; flex-direction: column; height: 100%; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 button:disabled { cursor: default; opacity: .35; }
-
-.bar { flex: none; display: flex; gap: 12px; align-items: center; padding: 4px 10px; }
 [hidden] { display: none !important; }
-.bar .song { font-weight: 600; }
-.bar .stale { color: var(--vscode-editorWarning-foreground, #cca700); font-size: 11px; }
+
+/* Top Mixer toolbar replacing the cramped sideways vertical-rl rail. */
+.bar {
+	flex: none;
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 4px 10px;
+	border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .25));
+	background: var(--strdltn-surface-raised);
+}
+.bar .song { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar .stale { color: var(--strdltn-warn); font-size: 11px; white-space: nowrap; }
+.bar .spacer { flex: 1; min-width: 8px; }
+.toolbar { display: flex; align-items: center; gap: 4px; flex: none; }
+.tool {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: 22px;
+	padding: 0 7px;
+	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35));
+	border-radius: 3px;
+	background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, .15));
+	color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+	font-size: 11px;
+	white-space: nowrap;
+}
+.tool:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, .3)); }
+.tool.accent {
+	font-weight: 600;
+	background: var(--vscode-button-background, #0e639c);
+	color: var(--vscode-button-foreground, #fff);
+	border-color: transparent;
+}
+.tool.accent:hover:not(:disabled) { background: var(--vscode-button-hoverBackground, #1177bb); }
+
+.main { flex: 1; display: flex; min-height: 0; }
+.main .strips { flex: 1; }
 
 /* The strips scroll sideways. The cables hang under them, so there is room below. */
 .strips {
 	position: relative;
 	flex: 1;
-	/* One grid row: every strip as tall as the tallest, so a chain without a slider is not
-	   a stub (riser in demo.strudel). The row is as tall as its strips, not as the panel:
-	   a low panel scrolls, it does not squeeze them. */
 	display: grid;
 	grid-auto-flow: column;
 	grid-auto-columns: max-content;
 	align-items: stretch;
 	align-content: start;
 	justify-content: start;
-	gap: 4px;
-	padding: 0 10px 100px;
+	gap: 5px;
+	padding: 6px 10px 100px;
 	overflow: auto;
 	min-height: 0;
 }
@@ -55,124 +89,220 @@ button:disabled { cursor: default; opacity: .35; }
 .empty { padding: 8px 0; color: var(--vscode-descriptionForeground); }
 
 .strip {
+	position: relative;
 	flex: none;
 	display: flex;
 	flex-direction: column;
 	width: var(--strip);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35));
-	border-radius: 4px;
-	background: var(--vscode-sideBar-background, rgba(128, 128, 128, .06));
+	border-radius: 5px;
+	background: var(--strdltn-surface-raised);
+	overflow: hidden;
+	transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+.strip:not(.master):hover {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--track-color, #3794ff) 35%, transparent);
+	background: color-mix(in srgb, var(--track-color, #3794ff) 6%, var(--strdltn-surface-raised));
 }
 .strip.open { width: auto; min-width: var(--strip); }
+.strip.master {
+	background: var(--strdltn-surface-recessed);
+	border-right: 2px solid var(--vscode-panel-border, rgba(128, 128, 128, .6));
+	margin-right: 4px;
+}
 .strip.master.disabled { opacity: .45; }
-.strip.muted .faders, .strip.muted header .name { opacity: .45; }
-.strip.solo { border-color: var(--vscode-charts-blue, #3794ff); }
+.strip.muted .faders, .strip.muted header .name { opacity: .42; }
+.strip.solo { border-color: var(--strdltn-solo); box-shadow: 0 0 0 1px color-mix(in srgb, var(--strdltn-solo) 40%, transparent); }
 
-.strip header { display: flex; align-items: center; gap: 2px; padding: 4px 4px 2px; min-width: 0; }
-.strip header .fold { width: 14px; flex: none; opacity: .8; }
-.strip header .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-weight: 600; }
-/* The fold arrow sits at the left; a space as wide at the right keeps the name in the middle of the strip. */
-.strip header:has(.fold)::after { content: ""; width: 14px; flex: none; }
+/* 3px track color accent bar at top of each chain strip; click to pick or clear // @color. */
+.color-bar {
+	display: block;
+	width: 100%;
+	height: 4px;
+	background: var(--track-color, var(--vscode-panel-border, #555));
+	cursor: pointer;
+	transition: height 100ms ease, filter 100ms ease;
+}
+.color-bar:hover { height: 6px; filter: brightness(1.15); }
+.strip.master .color-bar {
+	background: linear-gradient(90deg, var(--strdltn-play), var(--strdltn-warn), var(--strdltn-rec));
+	cursor: default;
+	height: 3px;
+}
+.strip.master .color-bar:hover { height: 3px; filter: none; }
+
+.strip header { display: flex; align-items: center; gap: 3px; padding: 4px 5px 2px; min-width: 0; }
+.strip header .fold { width: 13px; flex: none; opacity: .78; font-size: 11px; }
+.strip header .fold:hover:not(:disabled) { opacity: 1; }
+/* 6px pulsing chain activity LED driven by ScopeFrame.level. */
+.activity-led {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	flex: none;
+	background: color-mix(in srgb, var(--track-color, #89d185) 28%, rgba(128, 128, 128, .35));
+	box-shadow: none;
+	transition: opacity 60ms linear, box-shadow 80ms linear;
+}
+.activity-led.lit {
+	background: var(--track-color, var(--strdltn-play));
+	box-shadow: 0 0 6px var(--track-color, var(--strdltn-play));
+}
+.strip header .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-weight: 600; font-size: 12px; }
 .strip header .name:hover { text-decoration: underline; }
 
 .body { flex: 1; display: flex; gap: 4px; padding: 0 4px 0 6px; }
-.badges { flex: none; display: flex; flex-direction: column; gap: 3px; padding-top: 4px; }
+
 .badge {
-	width: 18px;
+	width: 22px;
+	height: 18px;
 	line-height: 16px;
 	text-align: center;
 	font-size: 10px;
 	font-weight: 700;
-	border-radius: 2px;
+	border-radius: 3px;
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35));
+	background: rgba(128, 128, 128, .1);
 	color: var(--vscode-descriptionForeground);
+	transition: background 90ms ease, color 90ms ease, border-color 90ms ease;
 }
-.badge:hover { border-color: var(--vscode-focusBorder, #3794ff); }
-.badge.on { color: var(--vscode-editor-background, #1e1e1e); background: var(--vscode-charts-blue, #3794ff); border-color: transparent; }
+.badge:hover:not(:disabled) { border-color: var(--vscode-focusBorder, #3794ff); color: var(--vscode-foreground); }
+/* Harmonized M (amber) and S (vivid blue) matching editor gutter badges. */
+.badge.m.on { background: var(--strdltn-mute); color: #111; border-color: var(--strdltn-mute); }
+.badge.s.on { background: var(--strdltn-solo); color: #fff; border-color: var(--strdltn-solo); }
 
-.faders { flex: 1; display: flex; justify-content: center; gap: 2px; }
+.faders { flex: 1; display: flex; justify-content: center; gap: 3px; }
 .fader { display: flex; flex-direction: column; align-items: center; width: var(--fader); min-width: 0; }
-/* A vertical fader: writing-mode turns the range input upright, with the minimum at the bottom. */
-.fader input {
-	writing-mode: vertical-lr;
-	direction: rtl;
-	/* As tall as the panel allows, up to 400 pixels, so the jacks and cables stay in view. */
-	height: var(--track);
-	width: 22px;
-	margin: 3px 0 5px;
-	accent-color: var(--vscode-focusBorder, #3794ff);
-}
-.fader input:disabled { opacity: 1; cursor: default; }
-/* Fixed rows: a fader without a detail, or a gain fader with blank rows, keeps the knob button in line. */
 .fader .top { display: block; height: 17px; }
 .fader .label, .fader .detail, .fader .value { display: block; height: 15px; line-height: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 .fader .blank { visibility: hidden; }
 .fader .knob { height: 18px; }
 .fader .label { font-weight: 600; font-size: 11px; }
 .fader .detail { font-size: 10px; color: var(--vscode-descriptionForeground); }
-.fader .value { font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; opacity: .85; }
+.fader .value { font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; opacity: .88; font-variant-numeric: tabular-nums; }
 .fader.off { opacity: .4; }
-/* MIDI learn for the fader's slider. Filled, with its CC, once a knob is mapped. */
-.fader .knob { display: inline-flex; align-items: center; gap: 2px; margin-top: 2px; padding: 0 2px; border: 0; background: none; cursor: pointer; color: var(--vscode-descriptionForeground); opacity: .6; --knob-fill: none; --knob-mark: currentColor; font-size: 10px; }
-.fader .knob:hover { opacity: 1; }
-.fader .knob.on { color: var(--vscode-charts-green, #3fb950); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
-/* Red while it waits for a CC, blinking. */
-.fader .knob.learning { color: var(--vscode-charts-red, #f85149); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); animation: learn 1s ease-in-out infinite; }
-@keyframes learn { 50% { opacity: .45; } }
-.fader.off input { accent-color: var(--vscode-disabledForeground, #888); }
 
-/* The chain's scope under its faders: the theme's green, as upstream's scopes are a plain line. */
-.strip .scope { display: block; height: 28px; width: calc(100% - 12px); margin: 2px 6px 0; border-radius: 2px; cursor: pointer; color: var(--vscode-charts-green, #89d185); background: var(--vscode-editor-background, rgba(0, 0, 0, .3)); }
+/* Custom recessed vertical sub-control fader replacing raw native <input type="range">. */
+.sub-well {
+	position: relative;
+	width: 24px;
+	height: var(--track);
+	margin: 3px 0 5px;
+	display: flex;
+	justify-content: center;
+}
+.sub-track {
+	position: absolute;
+	top: 5px;
+	bottom: 5px;
+	width: 6px;
+	border-radius: 3px;
+	background: var(--strdltn-surface-recessed);
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, .55);
+	border: 1px solid rgba(128, 128, 128, .22);
+	pointer-events: none;
+	overflow: hidden;
+}
+.sub-fill {
+	position: absolute;
+	left: 0;
+	right: 0;
+	background: var(--track-color, var(--vscode-focusBorder, #3794ff));
+	border-radius: 2px;
+	pointer-events: none;
+}
+.sub-cap {
+	position: absolute;
+	left: 3px;
+	right: 3px;
+	height: 3px;
+	border-radius: 1.5px;
+	background: var(--vscode-foreground, #e6e6e6);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .6);
+	transform: translateY(-50%);
+	pointer-events: none;
+}
+.sub-well input[type="range"] {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	writing-mode: vertical-lr;
+	direction: rtl;
+	opacity: 0;
+	cursor: ns-resize;
+}
+.sub-well:hover .sub-cap,
+.sub-well:focus-within .sub-cap {
+	background: #ffffff;
+	box-shadow: 0 0 0 1px var(--track-color, var(--vscode-focusBorder, #3794ff));
+}
+
+/* MIDI learn for the fader's slider. Filled, with its CC, once a knob is mapped. */
+.fader .knob { display: inline-flex; align-items: center; gap: 2px; margin-top: 2px; padding: 0 2px; border: 0; background: none; cursor: pointer; color: var(--vscode-descriptionForeground); opacity: .65; --knob-fill: none; --knob-mark: currentColor; font-size: 10px; font-variant-numeric: tabular-nums; }
+.fader .knob:hover { opacity: 1; }
+.fader .knob.on { color: var(--strdltn-play); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); }
+.fader .knob.learning { color: var(--strdltn-rec); opacity: 1; --knob-fill: currentColor; --knob-mark: var(--vscode-editor-background, #1f2328); animation: learn 1s ease-in-out infinite; }
+@keyframes learn { 50% { opacity: .45; } }
+
+/* Track-colored pump scope with recessed bezel. */
+.strip .scope {
+	display: block;
+	height: 28px;
+	width: calc(100% - 12px);
+	margin: 3px 6px 0;
+	border-radius: 3px;
+	border: 1px solid rgba(128, 128, 128, .22);
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, .45);
+	cursor: pointer;
+	color: var(--track-color, var(--strdltn-play));
+	background: var(--strdltn-surface-recessed);
+}
 .strip .scope.off { color: var(--vscode-disabledForeground, #888); opacity: .6; }
-.strip .scope:hover { outline: 1px solid var(--vscode-focusBorder, #3794ff); }
+.strip .scope:hover { border-color: var(--track-color, var(--vscode-focusBorder, #3794ff)); }
+
 .strip footer { margin-top: auto; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; padding: 4px 6px; min-height: 32px; }
 .route { flex: 1; font-size: 10px; color: var(--vscode-descriptionForeground); }
 .note { width: 100%; text-align: center; font-size: 10px; color: var(--vscode-descriptionForeground); }
-.jack { display: block; width: 24px; height: 24px; color: var(--sidechain); }
+.jack { display: block; width: 24px; height: 24px; color: var(--sidechain); cursor: grab; border-radius: 50%; }
+.jack.plugged { box-shadow: 0 0 0 2px color-mix(in srgb, var(--track-color, var(--sidechain)) 65%, transparent); }
 .jack svg { display: block; }
 
-/* The layer of the cables, over the strips, scrolled and clipped with them. It is 1 pixel
-   big and draws outside itself: sized to the scroll area it would grow the scroll area. */
+/* The layer of the cables, over the strips, scrolled and clipped with them. */
 .cables { position: absolute; left: 0; top: 0; width: 1px; height: 1px; pointer-events: none; overflow: visible; }
-.cable path { fill: none; stroke-width: 2.5; stroke-linecap: round; }
-.cable.sidechain path { stroke: var(--sidechain); stroke-dasharray: 7 5; }
+.cable path.cable-halo { fill: none; stroke: rgba(0, 0, 0, 0.45); stroke-width: 5.5; stroke-linecap: round; }
+.cable path.cable-wire { fill: none; stroke-width: 2.5; stroke-linecap: round; transition: stroke-width 90ms ease, filter 90ms ease; }
+.cable.sidechain path.cable-wire { stroke: var(--sidechain); stroke-dasharray: 7 5; }
+.cable.sidechain.pulsing path.cable-wire { stroke: #ffb347; stroke-width: 3.6; filter: drop-shadow(0 0 4px rgba(255, 179, 71, 0.75)); }
 .cable.sidechain circle { fill: var(--sidechain); }
-.cable text { fill: var(--sidechain); font-size: 10px; text-anchor: middle; }
-/* The cable in the hand: orange while it can be dropped, red where it would be refused. */
-.cable.drag path { stroke: var(--sidechain); stroke-dasharray: 7 5; }
+.cable.sidechain.pulsing circle { fill: #ffb347; }
+.cable rect.cable-pill { fill: rgba(18, 20, 24, 0.85); stroke: color-mix(in srgb, var(--sidechain) 65%, transparent); stroke-width: 1; }
+.cable text { fill: var(--sidechain); font-size: 9.5px; font-weight: 600; text-anchor: middle; }
+.cable.drag path.cable-wire { stroke: var(--sidechain); stroke-dasharray: 7 5; }
 .cable.drag circle { fill: var(--sidechain); }
-.refusing .cable.drag path { stroke: var(--vscode-errorForeground, #f14c4c); }
+.refusing .cable.drag path.cable-wire { stroke: var(--vscode-errorForeground, #f14c4c); }
 .refusing .cable.drag circle { fill: var(--vscode-errorForeground, #f14c4c); }
 .ghost { position: absolute; width: 1px; height: 1px; pointer-events: none; }
-.jack { cursor: grab; }
 .strip.drop-ok { outline: 2px solid var(--vscode-focusBorder, #3794ff); outline-offset: -1px; }
 .strip.drop-refused { outline: 2px solid var(--vscode-errorForeground, #f14c4c); outline-offset: -1px; }
 
-/* A tall panel: M, S and G in a row above the fader, as on a mixing desk. A low panel keeps
-   them beside it, where they take no height. */
-@media (min-height: 420px) {
-	.body { flex-direction: column; gap: 2px; padding: 0 6px; }
-	.badges { flex-direction: row; justify-content: center; padding-top: 2px; }
-	:root { --track: clamp(60px, calc(100vh - 290px), 400px); }
-}
-
-/* Level meters, as Live's. Left to right in the well: the fader's lane (13 pixels, METER_LANE in main.ts) with its
-   triangle pointing at the bars, the two bars, the scale. The fader's track is clear, so the meter is the track. The
-   peak sits above: orange above 0 dB. */
-/* As wide as its content (lane, two bars, scale), so it sits centered in the strip. */
-.fader.metered { width: 50px; }
+/* Level meters, as Live's, with segmented LED gaps, peak ticks, and wider stereo bars on Master. */
+.fader.metered { width: 52px; }
+.strip.master .fader.metered { width: 58px; }
 .meter-well { position: relative; width: 100%; height: var(--track); margin: 3px 0 5px; }
 .peakhold { height: 17px; }
-/* The numbers of the scale, right of the ticks: 13 (the fader's lane) + 2 bars of 5 + 1 + 2 + the tick of 3 + 2. */
 .meter-scale { position: absolute; inset: 0; pointer-events: none; }
 .meter-scale span {
 	position: absolute;
-	left: 31px;
+	left: 32px;
 	transform: translateY(-50%);
-	font-size: 11px;
+	font-size: 10px;
 	line-height: 1;
+	font-variant-numeric: tabular-nums;
 	color: var(--vscode-descriptionForeground);
 }
+.strip.master .meter-scale span { left: 37px; }
 .meter-well canvas.meter { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--vscode-descriptionForeground); font-family: var(--vscode-font-family); }
 .fader.metered .meter-well input {
 	position: absolute;
@@ -198,43 +328,42 @@ button:disabled { cursor: default; opacity: .35; }
 .fader.metered .meter-well input:focus-visible { outline: none; }
 .fader.metered .meter-well input:focus-visible::-webkit-slider-thumb { background: var(--vscode-focusBorder, #3794ff); }
 .peakhold {
-	min-width: 44px;
-	padding: 0 4px;
+	min-width: 46px;
+	padding: 0 5px;
 	border-radius: 9px;
 	font-family: var(--vscode-editor-font-family, monospace);
-	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	font-size: 10.5px;
 	line-height: 17px;
-	background: rgba(0, 0, 0, .35);
+	background: var(--strdltn-surface-recessed);
+	border: 1px solid rgba(128, 128, 128, .22);
 	color: var(--vscode-foreground);
 	cursor: pointer;
 }
-.peakhold.over { background: #f0a23a; color: #1e1e1e; font-weight: 600; }
+.peakhold.over { background: #f0a23a; color: #1e1e1e; border-color: transparent; font-weight: 700; }
 .fader.metered .label { font-size: 11px; }
 .fader.metered .value { font-size: 11px; }
-/* A chain without a gain fader still has its meter at full strength; only the dead fader is dim. */
 .fader.off.metered { opacity: 1; }
 .fader.off.metered .label, .fader.off.metered .value, .fader.off.metered input { opacity: .45; }
-.strip.master .name { font-weight: 600; }
-@media (min-height: 420px) {
-}
+.strip.master .name { font-weight: 700; letter-spacing: .03em; }
 
 /* M and S side by side above the scope. */
-.ms { display: flex; justify-content: center; gap: 4px; margin: 4px 6px 0; }
-/* The scope with the gain's value in its middle. The value covers the scope's own box (its margins as in .strip .scope). */
+.ms { display: flex; justify-content: center; gap: 5px; margin: 4px 6px 0; }
 .scope-box { position: relative; }
 .scope-box .scope-value {
 	position: absolute;
-	inset: 2px 6px 0;
+	inset: 3px 6px 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-family: var(--vscode-editor-font-family, monospace);
+	font-variant-numeric: tabular-nums;
 	font-size: 11px;
 	color: var(--vscode-foreground);
-	opacity: .85;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, .7);
+	opacity: .9;
 	pointer-events: none;
 }
-/* No gain fader: a dim triangle at the bottom of the fader's lane, which puts one in the code. */
 .off-thumb {
 	position: absolute;
 	left: 0;
@@ -250,28 +379,42 @@ button:disabled { cursor: default; opacity: .35; }
 }
 .off-thumb:hover { opacity: 1; background: var(--vscode-focusBorder, #3794ff); }
 
-/* The column of utility buttons left of the strips, written upright to stay narrow. */
-.main { flex: 1; display: flex; min-height: 0; }
-.main .strips { flex: 1; }
-.tools { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 0 0 0 10px; min-height: 0; overflow-y: auto; }
-/* A low panel: the upright buttons keep their size, the column scrolls instead of cutting them. */
-.tool { flex: none; }
-.tool {
-	writing-mode: vertical-rl;
-	transform: rotate(180deg);
-	padding: 8px 3px;
-	border: 1px solid var(--vscode-button-border, var(--vscode-panel-border, rgba(128, 128, 128, .35)));
-	border-radius: 3px;
-	background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, .15));
-	color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-	font-size: 11px;
-	white-space: nowrap;
+/* Track color palette popover when clicking a strip's top accent bar. */
+.color-popover {
+	position: fixed;
+	z-index: 20;
+	padding: 8px;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-panel-border, #555);
+	background: var(--vscode-editorWidget-background, #252526);
+	box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 }
-.tool:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, .3)); }
+.color-grid { display: grid; grid-template-columns: repeat(7, 18px); gap: 5px; }
+.color-swatch {
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	border: 2px solid transparent;
+	transition: transform 90ms ease;
+}
+.color-swatch:hover { transform: scale(1.16); }
+.color-swatch.active { border-color: #ffffff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .7); }
+.color-actions { display: flex; gap: 4px; justify-content: space-between; border-top: 1px solid rgba(128, 128, 128, .25); padding-top: 5px; }
+.color-actions button {
+	font-size: 10.5px;
+	padding: 2px 6px;
+	border-radius: 3px;
+	background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, .2));
+	color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+}
+.color-actions button:hover { background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, .35)); }
 
 /* "Show MIDI Mappings", as Live's MIDI Mappings: a table on a dimmed panel. */
 .modal-back { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-start; justify-content: center; padding-top: 24px; background: rgba(0, 0, 0, .35); }
-.modal { min-width: 320px; max-width: calc(100vw - 40px); max-height: calc(100vh - 48px); overflow: auto; border: 1px solid var(--vscode-panel-border, #555); border-radius: 4px; background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526)); box-shadow: 0 4px 16px rgba(0, 0, 0, .4); }
+.modal { min-width: 320px; max-width: calc(100vw - 40px); max-height: calc(100vh - 48px); overflow: auto; border: 1px solid var(--vscode-panel-border, #555); border-radius: 5px; background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526)); box-shadow: 0 6px 24px rgba(0, 0, 0, .45); }
 .modal-head { display: flex; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--vscode-panel-border, #555); }
 .modal-head .title { flex: 1; font-weight: 600; }
 .modal-head .close { font-size: 16px; line-height: 1; padding: 0 4px; }
@@ -279,33 +422,17 @@ button:disabled { cursor: default; opacity: .35; }
 table.mappings { border-collapse: collapse; width: 100%; font-size: 12px; }
 table.mappings th { text-align: left; font-weight: 600; padding: 4px 10px; color: var(--vscode-descriptionForeground); border-bottom: 1px solid var(--vscode-panel-border, #555); }
 table.mappings td { padding: 3px 10px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .2)); }
-table.mappings td.cc, table.mappings td.line { font-family: var(--vscode-editor-font-family, monospace); white-space: nowrap; }
+table.mappings td.cc, table.mappings td.line { font-family: var(--vscode-editor-font-family, monospace); font-variant-numeric: tabular-nums; white-space: nowrap; }
 table.mappings td.code { font-family: var(--vscode-editor-font-family, monospace); max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 table.mappings .remove { padding: 1px 8px; border: 1px solid var(--vscode-panel-border, #555); border-radius: 2px; font-size: 11px; }
 table.mappings .remove:hover { background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, .3)); }
-/* Expand all and collapse all, at the top of the column: short, upright, in the button blue. */
-.tool.accent {
-	writing-mode: horizontal-tb;
-	transform: none;
-	padding: 3px 0;
-	font-weight: 700;
-	background: var(--vscode-button-background, #0e639c);
-	color: var(--vscode-button-foreground, #fff);
-	border-color: transparent;
-}
-.tool.accent:hover:not(:disabled) { background: var(--vscode-button-hoverBackground, #1177bb); }
 
-/* A slider no chain uses: it changes nothing, so it is dimmed (the Master's inner sliders). */
 .fader.unused { opacity: .45; }
 .fader.unused .detail { font-style: italic; }
-/* A slider other strips use too: "shared: oh" under it, in the accent color. */
-.fader.shared .detail { color: var(--vscode-charts-blue, #3794ff); }
-/* Show MIDI Mappings: a CC that moves more than one slider. */
-.modal .note.warn { color: var(--vscode-editorWarning-foreground, #cca700); max-width: none; padding: 6px 10px; }
-table.mappings tr.twice td.cc { color: var(--vscode-editorWarning-foreground, #cca700); font-weight: 700; }
+.fader.shared .detail { color: var(--strdltn-solo); }
+.modal .note.warn { color: var(--strdltn-warn); max-width: none; padding: 6px 10px; }
+table.mappings tr.twice td.cc { color: var(--strdltn-warn); font-weight: 700; }
 
-/* The dim second handle of a knob that waits for pickup: where the knob is. It changes
-   nothing; it goes when the knob reaches the fader's value. */
 .fader, .meter-well { position: relative; }
 .ghost-thumb { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--vscode-foreground, #ccc); opacity: .35; pointer-events: none; transition: top 40ms linear; }
 .ghost-thumb.lane { left: 0; width: 11px; border-radius: 0; clip-path: polygon(0 0, 100% 50%, 0 100%); }

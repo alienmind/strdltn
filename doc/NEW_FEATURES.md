@@ -14,75 +14,6 @@ either reflects the code or writes clean, undoable Strudel code that plays ident
 
 ---
 
-## 1. Visual Redesign & Track Colors (`UX-1`)
-
-Most views currently rely on flat VS Code defaults (`1px solid var(--vscode-panel-border)`, raw
-native `<input type="range">`, monochrome mixer strips, bare `#unlock` overlay). Elevate them
-into a tactile instrument without adding a UI framework or breaking VS Code light/dark/high-contrast
-theme harmony.
-
-### Track Colors (`// @color <name>`)
-
-Each chain gets a color kept in the song as a normalized comment on the line directly above
-the chain (other comment lines may sit between them; an empty line breaks the link):
-
-```js
-// @color orange
-$kick: s("bd*4").gain(KICK_VOL)
-```
-
-- Value is a curated Ableton-inspired 12-16 palette name (lowercase) or `#rrggbb`, fixed across
-  themes so Mixer, editor gutter, Devices, and later Session/Arrangement match.
-- **Auto-assign:** A chain without `// @color` gets the next unused palette color written
-  above it via the same versioned edit as faders. Picking a color from a strip header color
-  swatch updates or removes that single comment line in one undo step.
-- Parsed by `readChains()` into `MixerChain.color` so every view shares one source of truth.
-- **Where it shows:**
-  - **Mixer:** 3px top accent bar on each strip header, subtle tinted hover/selected glow,
-    track-colored active pump scope (soft vertical gradient fill), and color-coded plug collar
-    on the jack (keeping sidechain cables dashed orange and MIDI cables solid purple).
-  - **Editor gutter:** thin 2-3px vertical colored bar in the `strdltn-actions` gutter along
-    each chain block so code lines map to mixer strips at a glance.
-  - **Devices:** owning chain's color swatch in the device/effect header.
-
-### Shared Tokens & Typography
-
-- Shared CSS variable layer (`--strdltn-play`, `--strdltn-rec`, `--strdltn-warn`,
-  `--strdltn-sidechain`, `--strdltn-midi`, `--strdltn-surface-raised`,
-  `--strdltn-surface-recessed`) across Browser, Mixer, Devices, and Stage.
-- Enforce `font-variant-numeric: tabular-nums` on every live numeric readout (`BPM`,
-  `.peakhold`, `.fader .value`, `.scope-value`, `.param .pvalue`, pane counts).
-
-### Mixer Polish (`src/mixer/main.ts`, `src/mixer/mixer.css`, `src/mixer/cables.ts`)
-
-1. **Custom sub-control faders:** Replace raw `<input type="range">` on unfolded sub-controls
-   (`lpenv`, `lpf`, `dist`) with recessed vertical tracks, a filled value bar (bottom-up accent
-   fill, or center-out bipolar fill for `pan`), and a crisp 2px horizontal cap thumb.
-2. **Pro-grade level meters (`drawMeter`):** Subtle 1px segmented LED gaps or a crisp 2px
-   floating peak-hold tick inside L/R bars, -6 dB / 0 dB guide hairlines, red clip LED cap at
-   top, and a darker/recessed Master strip with thicker right separator and wider stereo meter.
-3. **M / S / Activity micro-interactions:** Distinct active colors for **M** (amber/orange
-   `#e5a00d`) and **S** (vivid blue `#3794ff`) harmonized across Mixer and Editor; 6px pulsing
-   chain activity LED beside strip name driven by existing `ScopeFrame.level` (50 ms); soft
-   vertical gradient fill beneath pump scope waveform with recessed bezel.
-4. **Cables (`src/mixer/cables.ts`):** Dark under-stroke halo (`rgba(0,0,0,0.45)`,
-   `stroke-width: 5`) behind crossing cables; rounded pill backdrop (`<rect rx="3">`) behind
-   orbit labels; briefly brighten/thicken outgoing orange sidechain cables when a ducking chain
-   fires (`frame.level > 0.2`).
-5. **Utility column ergonomics (`.tools`):** Replace sideways rotated text buttons
-   (`writing-mode: vertical-rl`) with a crisp top Mixer toolbar or icon-with-tooltip rail.
-
-### Editor & Stage Polish (`src/webview/main.ts`, `src/extension/session.ts`)
-
-- **Upgrade `#unlock` overlay:** Glassmorphic card with the `[str]dltn` mark, prominent Play
-  button, and 1-line hint.
-- **Stage dock cards:** Frosted dark backdrop (`backdrop-filter: blur(8px)`) on `.dock-group`
-  so visuals remain legible over Hydra backgrounds.
-- **Inline error toast in Strudel editor:** Compact dismissible bottom toast with a *"Jump to
-  error"* button wired to `locateError()` (compensating for lack of native squiggles in webview).
-
----
-
 ## 2. Beat-Synced Transport HUD & Master Safety Limiter (`UX-2`)
 
 - **Browser Controls transport (`src/browser/controls.ts`):**
@@ -478,7 +409,7 @@ undoable Strudel mini-notation back into the song (Spikes Q1-Q2).
 
 | Batch | Scope | Effort | Spikes / Dependencies |
 |---|---|---|---|
-| **Batch A (Active: `feat/ui-overhaul`)** | Visual UX/UI Overhaul (`UX-1` Track Colors & Mixer/Editor/Stage Polish, `UX-11` Two-Column Browser with Results on Right, `UX-3` Waveforms & Breadcrumbs, `UX-2` Beat-Synced Transport HUD, `UX-10` Full-Screen Synths Gallery, `UX-5` Welcome Screen with screenshots, `UX-6` Devices SVG Rotary Knobs/Param Search/Bezel) | 2-3 sessions | None (pure visual/ergonomic wins; no deep DAW spikes) |
+| **Batch A (Active: `feat/ui-overhaul`)** | Visual UX/UI Overhaul (`UX-11` Two-Column Browser with Results on Right, `UX-3` Waveforms & Breadcrumbs, `UX-2` Beat-Synced Transport HUD, `UX-10` Full-Screen Synths Gallery, `UX-5` Welcome Screen with screenshots, `UX-6` Devices SVG Rotary Knobs/Param Search/Bezel) | 2-3 sessions | None (pure visual/ergonomic wins; no deep DAW spikes) |
 | **Batch B (Interactive Tools)** | `UX-4` In-Place Sound Hot-Swap + `#6d` Interactive Minigame Tutorial (`rustlings` for Strudel + Hardcore Mode) + `#5` Songs as Files & Places + `UX-6` Runtime (per-firmware stream FX bus like `djf`, `.vp()`, `vibe_host_store`, `.midi("vibefm1:...")`, cache clear) | 2-3 sessions | Decision 14/19 |
 | **Batch C1 (Track DSP UI)** | `UX-7` Per-Chain Effect Rack (`src/shared/rack.ts`) + `UX-8` Visual Filter Curve & Live FFT | 3-4 sessions | Existing `chains.ts` & `meterOrbits()` |
 | **Batch C2 (Mixer MIDI & DJ)** | `#6b` Mixer Stacks + `DAW-5` Mixer MIDI strips/cables + `DAW-8` DJ Two-Deck Suite & Split-Mono Cue | 3-4 sessions | Spikes J1, J2, J4 |

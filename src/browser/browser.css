@@ -1,4 +1,5 @@
 /* The Browser view. Every color is a theme variable of VS Code, so it fits any theme. */
+@import '../shared/tokens.css';
 :root {
 	--row: 22px;
 	/* A firmware's row: its name, then its picture, 480 x 320 shown at 108 x 72. */

@@ -8,6 +8,7 @@
 // in Music Controls, at the top of the Library (src/browser/controls.ts).
 import './mixer.css';
 import type { MixerChain, MixerModel, MixerSlider } from '../shared/chains.ts';
+import { TRACK_PALETTE } from '../shared/colors.ts';
 import { DROP_MIME } from '../shared/drop.ts';
 import type { FromMixer, ToMixer } from '../shared/mixer.ts';
 import type { ScopeFrame } from '../shared/protocol.ts';
@@ -37,31 +38,28 @@ app.insertAdjacentHTML('beforeend', jackSymbols());
 const bar = app.appendChild(el('div', 'bar'));
 const songName = bar.appendChild(el('span', 'song'));
 const staleNote = bar.appendChild(el('span', 'stale', 'code does not parse, showing the last good state'));
-// Left of the strips, a column of utility buttons, written upright to stay narrow (the
-// maintainer, 2026-11-22). More will come here.
-const main = app.appendChild(el('div', 'main'));
-const tools = main.appendChild(el('div', 'tools'));
+bar.appendChild(el('span', 'spacer'));
+const toolbar = bar.appendChild(el('div', 'toolbar'));
 const tool = (text: string, title: string, onClick?: () => void) => {
-	const button = tools.appendChild(el('button', 'tool', text));
+	const button = toolbar.appendChild(el('button', 'tool', text));
 	button.title = title;
 	if (onClick) button.addEventListener('click', onClick);
 	else button.disabled = true;
 	return button;
 };
-// Expand and collapse every strip at once, at the top of the column (the maintainer,
-// 2026-11-22): ">" shows every inner slider of every chain and the Master's global
-// sliders, "<" folds them all back to their gain.
 const foldAll = (open: boolean) => {
 	unfolded.clear();
 	if (open && model) for (const name of [MASTER, ...model.chains.map((chain) => chain.name)]) unfolded.add(name);
 	keep();
 	draw();
 };
-tool('>', 'Expand every strip: all their sliders', () => foldAll(true)).classList.add('accent');
-tool('<', 'Collapse every strip to its gain', () => foldAll(false)).classList.add('accent');
-const resetMappings = tool('Reset MIDI Mappings', 'Take every .knob(...) and the knob snippet out of the song. Ctrl+Z in the editor brings them back', () => post({ type: 'unmapKnobs' }));
-tool('Show MIDI Mappings', 'Every knob mapped in this song: its CC and the line it moves', () => showMappings(true));
-tool('Show MIDI Routing', 'The cables that route MIDI instruments. Not built yet (doc/TODO.md)');
+tool('Expand', 'Expand every strip: all their sliders', () => foldAll(true)).classList.add('accent');
+tool('Collapse', 'Collapse every strip to its gain', () => foldAll(false)).classList.add('accent');
+const saveColorsBtn = tool('Save Colors', 'Write auto-assigned // @color comments into the song for chains without one', () => post({ type: 'assignColors' }));
+tool('MIDI Mappings', 'Every knob mapped in this song: its CC and the line it moves', () => showMappings(true));
+const resetMappings = tool('Reset MIDI', 'Take every .knob(...) and the knob snippet out of the song. Ctrl+Z in the editor brings them back', () => post({ type: 'unmapKnobs' }));
+tool('MIDI Routing', 'The cables that route MIDI instruments. Not built yet (doc/TODO.md)');
+const main = app.appendChild(el('div', 'main'));
 const strips = main.appendChild(el('div', 'strips'));
 const cables = new CableLayer(strips);
 
@@ -165,7 +163,10 @@ window.addEventListener('message', (event: MessageEvent<ToMixer>) => {
 			// Not while a fader is held: that move is the one coming back.
 			const slider = !dragging && model?.sliders.find((s) => s.from === message.from);
 			if (!slider) break;
-			for (const input of strips.querySelectorAll<HTMLInputElement>(`input[data-slider="${slider.index}"]`)) input.value = String(message.value);
+			for (const input of strips.querySelectorAll<HTMLInputElement>(`input[data-slider="${slider.index}"]`)) {
+				input.value = String(message.value);
+				updateSubFaderVisual(input, slider, message.value);
+			}
 			for (const out of strips.querySelectorAll(`output[data-slider="${slider.index}"]`)) out.textContent = formatValue(message.value, slider);
 			break;
 		}
@@ -222,13 +223,59 @@ function showMappings(open: boolean): void {
 		remove.addEventListener('click', () => post({ type: 'knob', index: slider.index }));
 	}
 }
+let colorPopover: HTMLElement | undefined;
+function closeColorPopover(): void {
+	colorPopover?.remove();
+	colorPopover = undefined;
+}
+function openColorPopover(anchor: HTMLElement, chainIndex: number, chain: MixerChain): void {
+	closeColorPopover();
+	const pop = app.appendChild(el('div', 'color-popover'));
+	colorPopover = pop;
+	const grid = pop.appendChild(el('div', 'color-grid'));
+	for (const swatch of TRACK_PALETTE) {
+		const btn = grid.appendChild(el('button', `color-swatch${chain.color?.toLowerCase() === swatch.hex.toLowerCase() ? ' active' : ''}`));
+		btn.style.background = swatch.hex;
+		btn.title = `${swatch.name} (// @color ${swatch.name})`;
+		btn.addEventListener('click', () => {
+			post({ type: 'setColor', chain: chainIndex, color: swatch.name });
+			closeColorPopover();
+		});
+	}
+	const actions = pop.appendChild(el('div', 'color-actions'));
+	const clear = actions.appendChild(el('button', '', 'Auto'));
+	clear.title = 'Remove // @color comment and use automatic color';
+	clear.addEventListener('click', () => {
+		post({ type: 'setColor', chain: chainIndex, color: undefined });
+		closeColorPopover();
+	});
+	const saveAll = actions.appendChild(el('button', '', 'Save all'));
+	saveAll.title = 'Write // @color comments for all chains without one';
+	saveAll.addEventListener('click', () => {
+		post({ type: 'assignColors' });
+		closeColorPopover();
+	});
+	const rect = anchor.getBoundingClientRect();
+	const left = Math.min(window.innerWidth - 180, Math.max(6, rect.left));
+	const top = Math.min(window.innerHeight - 110, rect.bottom + 4);
+	pop.style.left = `${left}px`;
+	pop.style.top = `${top}px`;
+}
+document.addEventListener('pointerdown', (event) => {
+	if (colorPopover && !colorPopover.contains(event.target as Node)) closeColorPopover();
+});
 document.addEventListener('keydown', (event) => {
-	if (event.key === 'Escape' && mappings) showMappings(false);
+	if (event.key === 'Escape') {
+		if (mappings) showMappings(false);
+		closeColorPopover();
+	}
 });
 
 function draw(): void {
+	closeColorPopover();
 	songName.textContent = song ?? 'No song';
 	resetMappings.disabled = !model?.sliders.some((s) => s.knob !== undefined);
+	saveColorsBtn.disabled = !model?.chains.some((c) => !c.colorExplicit);
 	staleNote.hidden = !error;
 	staleNote.title = error ?? '';
 	strips.classList.toggle('old', !!error);
@@ -252,7 +299,14 @@ function draw(): void {
 	outJacks = jacks.out;
 	drawnCables = model.ducks
 		.filter((duck) => duck.to !== undefined && jacks.out[duck.from] && jacks.in[duck.to])
-		.map((duck) => ({ key: cableKey(duck.from, duck.to!, duck.orbit), from: jacks.out[duck.from], to: jacks.in[duck.to!], kind: 'sidechain', label: `orbit ${duck.orbit}` }));
+		.map((duck) => ({
+			key: cableKey(duck.from, duck.to!, duck.orbit),
+			from: jacks.out[duck.from],
+			to: jacks.in[duck.to!],
+			kind: 'sidechain',
+			fromChain: duck.from,
+			label: `orbit ${duck.orbit}`,
+		}));
 	drawCables();
 	// A redraw makes new faders: the dim handles of waiting knobs go on them again.
 	for (const from of ghosts.keys()) drawGhost(from);
@@ -275,7 +329,7 @@ function chainOf(label: string): number {
 	return model.chains.findIndex((chain) => chain.label === label);
 }
 
-/** Each chain's level joins its history, and the boxes of chains with `._scope()` draw it. */
+/** Each chain's level joins its history, pulses its activity LED and duck cables, and redraws its scope. */
 function drawScopes(frames: ScopeFrame[]): void {
 	if (!model) return;
 	feedMeters(frames);
@@ -286,7 +340,17 @@ function drawScopes(frames: ScopeFrame[]): void {
 		if (history.length > HISTORY) history.shift();
 		histories.set(frame.chain, history);
 		const chain = chainOf(frame.chain);
-		if (chain < 0 || !model.chains[chain].scope) continue;
+		if (chain < 0) continue;
+		const led = strips.querySelector<HTMLElement>(`.activity-led[data-chain="${chain}"]`);
+		if (led) {
+			const active = frame.level > 0.05;
+			led.classList.toggle('lit', active);
+			led.style.opacity = active ? String(Math.min(1, 0.35 + frame.level * 0.85)) : '';
+		}
+		if (frame.level > 0.2 && model.chains[chain]?.ducks?.length) {
+			cables.pulseFrom(chain);
+		}
+		if (!model.chains[chain].scope) continue;
 		const canvas = strips.querySelector<HTMLCanvasElement>(`canvas.scope[data-chain="${chain}"]`);
 		if (canvas) drawWave(canvas, history);
 	}
@@ -295,7 +359,7 @@ function drawScopes(frames: ScopeFrame[]): void {
 	scopesIdle = setTimeout(clearScopes, 500);
 }
 
-/** A pump line: the level over the last seconds, from the bottom up. A flat line when there is none. */
+/** A pump line with a soft vertical gradient fill beneath it, from the bottom up. */
 function drawWave(canvas: HTMLCanvasElement, history: number[]): void {
 	if (!canvas.isConnected) return;
 	const style = getComputedStyle(canvas);
@@ -303,17 +367,32 @@ function drawWave(canvas: HTMLCanvasElement, history: number[]): void {
 	const height = (canvas.height = Math.max(1, canvas.clientHeight * devicePixelRatio));
 	const g = canvas.getContext('2d')!;
 	g.clearRect(0, 0, width, height);
-	g.strokeStyle = style.color;
-	g.lineWidth = 1.5 * devicePixelRatio;
-	g.beginPath();
+	const color = style.color;
 	const points = history.length > 1 ? history : [0, 0];
 	const bottom = height - 2 * devicePixelRatio;
-	points.forEach((value, i) => {
-		const x = width - ((points.length - 1 - i) / (HISTORY - 1)) * width;
-		const y = bottom - Math.min(1, value) * (bottom - 2 * devicePixelRatio);
-		if (i) g.lineTo(x, y);
-		else g.moveTo(x, y);
-	});
+	const coords = points.map((value, i) => ({
+		x: width - ((points.length - 1 - i) / (HISTORY - 1)) * width,
+		y: bottom - Math.min(1, value) * (bottom - 2 * devicePixelRatio),
+	}));
+	if (history.length > 1) {
+		g.beginPath();
+		g.moveTo(coords[0].x, bottom);
+		coords.forEach((p) => g.lineTo(p.x, p.y));
+		g.lineTo(coords[coords.length - 1].x, bottom);
+		g.closePath();
+		const fill = g.createLinearGradient(0, 0, 0, bottom);
+		fill.addColorStop(0, color);
+		fill.addColorStop(1, 'transparent');
+		g.save();
+		g.globalAlpha = 0.28;
+		g.fillStyle = fill;
+		g.fill();
+		g.restore();
+	}
+	g.strokeStyle = color;
+	g.lineWidth = 1.5 * devicePixelRatio;
+	g.beginPath();
+	coords.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
 	g.stroke();
 }
 
@@ -321,6 +400,10 @@ function clearScopes(): void {
 	histories.clear();
 	for (const state of meterStates.values()) state.left = state.right = -Infinity;
 	drawMeters();
+	strips.querySelectorAll<HTMLElement>('.activity-led').forEach((led) => {
+		led.classList.remove('lit');
+		led.style.opacity = '';
+	});
 	strips.querySelectorAll<HTMLCanvasElement>('canvas.scope').forEach((canvas) => drawWave(canvas, []));
 }
 
@@ -401,6 +484,14 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 	const sliders = [chain.gain, ...chain.controls].filter((i) => i !== undefined);
 	const strip = el('section', `strip${open ? ' open' : ''}${chain.muted ? ' muted' : ''}${chain.solo ? ' solo' : ''}`);
 	strip.dataset.chain = String(index);
+	if (chain.color) strip.style.setProperty('--track-color', chain.color);
+
+	const colorBar = strip.appendChild(el('button', 'color-bar'));
+	colorBar.title = `Track color: ${chain.colorName ?? chain.color ?? 'auto'}${chain.colorExplicit ? '' : ' (auto)'}. Click to change`;
+	colorBar.addEventListener('click', (event) => {
+		event.stopPropagation();
+		openColorPopover(colorBar, index, chain);
+	});
 
 	const head = strip.appendChild(el('header'));
 	const fold = head.appendChild(el('button', 'fold', open ? '▾' : '▸'));
@@ -412,6 +503,9 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 		keep();
 		draw();
 	});
+	const led = head.appendChild(el('span', 'activity-led'));
+	led.dataset.chain = String(index);
+	led.title = 'Chain note activity';
 	// A bare chain (a song without labels, as most snippets) is the whole song: it takes the file's name.
 	const name = head.appendChild(el('button', 'name', chain.bare && song ? song.replace(/\.strudel$/, '') : chain.name));
 	name.title = chain.bare
@@ -419,15 +513,15 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 		: `${chain.label}:  -  click to show it in the code${chain.nameRule !== 'label' ? `\n(named from: ${chain.nameRule})` : ''}`;
 	name.addEventListener('click', () => post({ type: 'reveal', chain: index }));
 
-	// M, S and G stacked beside the faders, as the track buttons of Live's mixer.
 	const body = strip.appendChild(el('div', 'body'));
 	const faders = body.appendChild(el('div', 'faders'));
 	const shown = open ? sliders : chain.gain !== undefined ? [chain.gain] : [];
 	const toggleGain = () => post({ type: 'toggle', chain: index, button: 'gain' });
 	for (const i of shown) {
-		const box = faders.appendChild(fader(m.sliders[i!], index));
+		const isGain = i === chain.gain;
+		const box = faders.appendChild(fader(m.sliders[i!], index, isGain));
 		// The gain fader sits on the chain's level meter, as in Live's mixer, with no text: its value is over the scope.
-		if (i === chain.gain) {
+		if (isGain) {
 			// Blank rows, but a shared gain still says so: two strips on one gain move together.
 			box.querySelectorAll(box.classList.contains('shared') ? '.label, .value' : '.label, .detail, .value').forEach((node) => node.classList.add('blank'));
 			addMeter(box, String(index));
@@ -444,13 +538,13 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
 		blankRows(box);
 	}
 
-	// M and S side by side above the scope, as the track buttons under Live's meters.
+	// M and S side by side above the scope, harmonized amber (M) and vivid blue (S).
 	const ms = strip.appendChild(el('div', 'ms'));
 	const button = (text: string, on: boolean, title: string, which: 'mute' | 'solo') => {
-		const b = ms.appendChild(el('button', `badge${on ? ' on' : ''}`, text));
+		const cls = which === 'mute' ? 'm' : 's';
+		const b = ms.appendChild(el('button', `badge ${cls}${on ? ' on' : ''}`, text));
 		b.title = title;
 		b.addEventListener('click', () => post({ type: 'toggle', chain: index, button: which }));
-		// Mute and solo write on the label, and a bare chain has none.
 		if (chain.bare) {
 			b.disabled = true;
 			b.title = 'No label to mute or solo: put $: in front of the line to make it a chain';
@@ -515,17 +609,53 @@ function chainStrip(m: MixerModel, chain: MixerChain, index: number, isDucked: b
  * ("shared with oh"), and one that nothing uses is dimmed: the maintainer took both for
  * bugs (2026-11-22).
  */
-function fader(slider: MixerSlider, chain?: number): HTMLElement {
+/** Updates the custom recessed sub-control fader fill bar and cap thumb position. */
+function updateSubFaderVisual(input: HTMLInputElement, slider: MixerSlider, value: number): void {
+	const well = input.closest('.sub-well');
+	if (!well) return;
+	const fill = well.querySelector<HTMLElement>('.sub-fill');
+	const cap = well.querySelector<HTMLElement>('.sub-cap');
+	const span = slider.max - slider.min || 1;
+	const share = Math.max(0, Math.min(1, (value - slider.min) / span));
+	const bipolar = slider.label.toLowerCase() === 'pan' || (slider.min < 0 && slider.max > 0);
+	if (fill) {
+		if (bipolar) {
+			const mid = slider.min < 0 && slider.max > 0 ? (0 - slider.min) / span : 0.5;
+			const lo = Math.min(share, mid);
+			const hi = Math.max(share, mid);
+			fill.style.bottom = `${lo * 100}%`;
+			fill.style.height = `${Math.max(1, (hi - lo) * 100)}%`;
+		} else {
+			fill.style.bottom = '0%';
+			fill.style.height = `${share * 100}%`;
+		}
+	}
+	if (cap) {
+		cap.style.top = `calc(5px + (100% - 10px) * ${1 - share})`;
+	}
+}
+
+function fader(slider: MixerSlider, chain?: number, metered = false): HTMLElement {
 	const others = (slider.chains ?? []).filter((c) => c !== chain).map((c) => model?.chains[c]?.name).filter(Boolean);
 	const box = el('div', `fader${slider.unused ? ' unused' : ''}${others.length ? ' shared' : ''}`);
 	box.appendChild(el('span', 'top'));
-	const input = box.appendChild(el('input'));
+	const input = el('input');
 	input.type = 'range';
 	input.min = String(slider.min);
 	input.max = String(slider.max);
 	input.step = String(slider.step ?? (slider.max - slider.min) / 1000);
 	input.value = String(slider.value);
 	input.dataset.slider = String(slider.index);
+	if (metered) {
+		box.appendChild(input);
+	} else {
+		const well = box.appendChild(el('div', 'sub-well'));
+		const track = well.appendChild(el('div', 'sub-track'));
+		track.appendChild(el('div', 'sub-fill'));
+		well.appendChild(el('div', 'sub-cap'));
+		well.appendChild(input);
+		updateSubFaderVisual(input, slider, slider.value);
+	}
 	box.title = `${slider.label}${slider.constant ? ` (${slider.constant})` : ''}: from ${slider.min} to ${slider.max}. Changes the sound at once and the number in the code after a moment.`;
 	box.appendChild(el('span', 'label', slider.label));
 	const detail = slider.unused ? 'not used' : others.length ? `shared: ${others.join(', ')}` : slider.constant || slider.detail !== slider.label ? slider.detail : '';
@@ -544,9 +674,16 @@ function fader(slider: MixerSlider, chain?: number): HTMLElement {
 	knob.addEventListener('click', () => post({ type: 'knob', index: slider.index }));
 	input.addEventListener('pointerdown', () => (dragging = true));
 	input.addEventListener('input', () => {
-		const value = formatValue(Number(input.value), slider);
+		const num = Number(input.value);
+		const value = formatValue(num, slider);
+		updateSubFaderVisual(input, slider, num);
 		// A slider used by two chains has a fader in each strip. They are one slider.
-		for (const other of strips.querySelectorAll<HTMLInputElement>(`input[data-slider="${slider.index}"]`)) if (other !== input) other.value = input.value;
+		for (const other of strips.querySelectorAll<HTMLInputElement>(`input[data-slider="${slider.index}"]`)) {
+			if (other !== input) {
+				other.value = input.value;
+				updateSubFaderVisual(other, slider, num);
+			}
+		}
 		for (const out of strips.querySelectorAll(`output[data-slider="${slider.index}"]`)) out.textContent = value;
 		post({ type: 'slider', index: slider.index, value });
 	});
@@ -610,11 +747,18 @@ const METER_FALL = 24;
  * (above 0 dB) still stays orange until a click, so it is not missed.
  */
 const PEAK_HOLD_MS = 3000;
-const meterStates = new Map<string, { left: number; right: number; hold: number; holdAt: number; clipped: boolean; at: number }>();
+const meterStates = new Map<
+	string,
+	{ left: number; right: number; holdL: number; holdR: number; holdLAt: number; holdRAt: number; hold: number; holdAt: number; clipped: boolean; at: number }
+>();
 
 function meterState(key: string) {
 	let state = meterStates.get(key);
-	if (!state) meterStates.set(key, (state = { left: -Infinity, right: -Infinity, hold: -Infinity, holdAt: 0, clipped: false, at: 0 }));
+	if (!state)
+		meterStates.set(
+			key,
+			(state = { left: -Infinity, right: -Infinity, holdL: -Infinity, holdR: -Infinity, holdLAt: 0, holdRAt: 0, hold: -Infinity, holdAt: 0, clipped: false, at: 0 }),
+		);
 	return state;
 }
 
@@ -629,6 +773,14 @@ function feedMeters(frames: ScopeFrame[]): void {
 		const [l, r] = frame.peak.map((v) => (v === null ? -Infinity : v));
 		state.left = Math.max(l, state.left - fall);
 		state.right = Math.max(r, state.right - fall);
+		if (l >= state.holdL || now - state.holdLAt > PEAK_HOLD_MS) {
+			state.holdL = l;
+			state.holdLAt = now;
+		}
+		if (r >= state.holdR || now - state.holdRAt > PEAK_HOLD_MS) {
+			state.holdR = r;
+			state.holdRAt = now;
+		}
 		const peak = Math.max(l, r);
 		if (peak >= state.hold || now - state.holdAt > PEAK_HOLD_MS) {
 			state.hold = peak;
@@ -671,7 +823,7 @@ function peakHold(key: string): HTMLElement {
 	hold.title = 'Peak: the highest level of the last 3 seconds, in dB below full scale. Orange: it went above 0 and clipped. Click to clear';
 	hold.addEventListener('click', () => {
 		const state = meterState(key);
-		state.hold = -Infinity;
+		state.hold = state.holdL = state.holdR = -Infinity;
 		state.clipped = false;
 		drawMeters();
 	});
@@ -690,6 +842,7 @@ function masterStrip(m: MixerModel | undefined): HTMLElement {
 	const globals = m?.global ?? [];
 	const open = unfolded.has(MASTER) && globals.length > 0;
 	const strip = el('section', `strip master${open ? ' open' : ''}${m ? '' : ' disabled'}`);
+	strip.appendChild(el('span', 'color-bar'));
 	const head = strip.appendChild(el('header'));
 	const fold = head.appendChild(el('button', 'fold', open ? '\u25be' : '\u25b8'));
 	fold.disabled = !globals.length;
@@ -721,7 +874,10 @@ function drawMeters(): void {
 	}
 }
 
-function drawMeter(canvas: HTMLCanvasElement, state: { left: number; right: number }): void {
+function drawMeter(
+	canvas: HTMLCanvasElement,
+	state: { left: number; right: number; holdL: number; holdR: number; clipped: boolean },
+): void {
 	if (!canvas.isConnected) return;
 	const dpr = devicePixelRatio;
 	const width = (canvas.width = Math.max(1, Math.round(canvas.clientWidth * dpr)));
@@ -729,32 +885,59 @@ function drawMeter(canvas: HTMLCanvasElement, state: { left: number; right: numb
 	const g = canvas.getContext('2d')!;
 	g.clearRect(0, 0, width, height);
 	const style = getComputedStyle(canvas);
-	// The top and the bottom of the scale sit where the fader's thumb can reach (its half height, 6 pixels), with
-	// room for the half height of the "0" and "60" labels.
+	const isMaster = canvas.dataset.meter === 'master';
 	const pad = METER_PAD * dpr;
-	const top = pad;
+	const clipCap = 3 * dpr;
+	const top = pad + clipCap + dpr;
 	const bottom = height - pad;
 	const y = (db: number) => top + (Math.min(0, Math.max(METER_FLOOR, db)) / METER_FLOOR) * (bottom - top);
-	// As in Live, left to right: the lane of the fader's triangle (METER_LANE), two bars, the scale.
-	const bar = 5 * dpr;
+	const bar = (isMaster ? 7 : 5) * dpr;
+	const gap = Math.max(1, Math.round(dpr));
 	const x0 = METER_LANE * dpr;
 	const gradient = g.createLinearGradient(0, bottom, 0, top);
 	gradient.addColorStop(0, '#3fb950');
-	gradient.addColorStop(0.75, '#3fb950');
-	gradient.addColorStop(0.9, '#d4b84a');
+	gradient.addColorStop(0.74, '#3fb950');
+	gradient.addColorStop(0.89, '#e5a00d');
 	gradient.addColorStop(1, '#f14c4c');
-	[state.left, state.right].forEach((db, i) => {
-		const x = x0 + i * (bar + dpr);
-		g.fillStyle = 'rgba(0, 0, 0, .45)';
+	const channels: [number, number][] = [
+		[state.left, state.holdL],
+		[state.right, state.holdR],
+	];
+	channels.forEach(([db, holdDb], i) => {
+		const x = x0 + i * (bar + gap);
+		// Recessed clip LED cap at top of each stereo bar.
+		g.fillStyle = state.clipped ? '#f14c4c' : 'rgba(0, 0, 0, .55)';
+		g.fillRect(x, pad, bar, clipCap);
+		// Recessed meter well.
+		g.fillStyle = 'rgba(0, 0, 0, .48)';
 		g.fillRect(x, top, bar, bottom - top);
-		if (db <= METER_FLOOR) return;
-		g.fillStyle = db > 0 ? '#f14c4c' : gradient;
-		g.fillRect(x, y(db), bar, bottom - y(db));
+		if (db > METER_FLOOR) {
+			const levelY = y(db);
+			g.fillStyle = db > 0 ? '#f14c4c' : gradient;
+			g.fillRect(x, levelY, bar, bottom - levelY);
+		}
+		// Subtle 1px segmented LED gaps across the active bar.
+		g.fillStyle = 'rgba(0, 0, 0, .38)';
+		const segStep = Math.max(3, Math.round(4 * dpr));
+		for (let sy = bottom - segStep; sy > top; sy -= segStep) {
+			g.fillRect(x, Math.round(sy), bar, Math.max(1, Math.round(dpr)));
+		}
+		// Crisp 2px floating peak-hold tick inside each channel bar.
+		if (holdDb > METER_FLOOR) {
+			const hy = Math.max(top, Math.round(y(holdDb)));
+			g.fillStyle = holdDb > 0 ? '#f14c4c' : holdDb > -6 ? '#e5a00d' : '#b7f5be';
+			g.fillRect(x, hy, bar, Math.max(2, Math.round(2 * dpr)));
+		}
 	});
-	// The ticks only. Their numbers are text in the page (`meterScale`): numbers drawn here were stretched as a
-	// picture when the panel grew, until the next draw (seen by the maintainer on 2026-11-22).
+	// -6 dB and 0 dB guide hairlines across both bars.
+	const totalBarsW = 2 * bar + gap;
+	g.fillStyle = 'rgba(255, 255, 255, .28)';
+	g.fillRect(x0, Math.round(y(0)), totalBarsW, Math.max(1, Math.round(dpr)));
+	g.fillStyle = 'rgba(229, 160, 13, .35)';
+	g.fillRect(x0, Math.round(y(-6)), totalBarsW, Math.max(1, Math.round(dpr)));
+
 	g.fillStyle = style.color;
-	const xs = x0 + 2 * bar + dpr + 2 * dpr;
+	const xs = x0 + totalBarsW + 2 * dpr;
 	for (let db = 0; db >= METER_FLOOR; db -= 12) g.fillRect(xs, Math.round(y(db)), 3 * dpr, dpr);
 }
 
@@ -796,7 +979,7 @@ function drawGhost(from: number): void {
 	if (!slider) return;
 	const value = ghosts.get(from);
 	for (const input of strips.querySelectorAll<HTMLInputElement>(`input[data-slider="${slider.index}"]`)) {
-		const host = (input.closest('.meter-well') ?? input.closest('.fader')) as HTMLElement | null;
+		const host = (input.closest('.meter-well') ?? input.closest('.sub-well') ?? input.closest('.fader')) as HTMLElement | null;
 		if (!host) continue;
 		let mark = host.querySelector<HTMLElement>(':scope > .ghost-thumb');
 		if (value === undefined) {

@@ -8,6 +8,8 @@ export interface LineAction {
 	chain?: number;
 	muted?: boolean;
 	solo?: boolean;
+	/** Owning chain's track color (`#rrggbb`) for every line spanning that chain block. */
+	color?: string;
 	/** Character offset where the first `slider(...)` number on this line starts (for MIDI Capture). */
 	sliderFrom?: number;
 	/** Mapped CC number on that slider, if `.knob(cc)` is present. */
@@ -58,9 +60,13 @@ export function lineActionMap(code: string): Map<number, LineAction> {
 	const model = readChains(code);
 	if (!('error' in model)) {
 		model.chains.forEach((chain, index) => {
+			const startLine = lineOfOffset(starts, chain.from);
+			const endLine = lineOfOffset(starts, Math.max(chain.from, chain.to - 1));
+			if (chain.color) {
+				for (let l = startLine; l <= endLine; l++) put(l).color = chain.color;
+			}
 			if (chain.bare) return;
-			const line = lineOfOffset(starts, chain.from);
-			const entry = put(line);
+			const entry = put(startLine);
 			entry.chain = index;
 			entry.muted = chain.muted;
 			entry.solo = chain.solo;
@@ -102,24 +108,28 @@ export function lineActionMap(code: string): Map<number, LineAction> {
  * editor decorations across edits. Returns `'empty'` for lines with no actions.
  */
 export function lineActionStateKey(action: LineAction | undefined, learning = false): string {
-	if (!action || (action.chain === undefined && action.sliderFrom === undefined)) return 'empty';
+	if (!action || (action.chain === undefined && action.sliderFrom === undefined && !action.color)) return 'empty';
 	const m = action.chain === undefined ? '_' : action.muted ? '1' : '0';
 	const s = action.chain === undefined ? '_' : action.solo ? '1' : '0';
 	const c = action.sliderFrom === undefined ? '_' : learning ? '2' : action.cc === undefined ? '0' : '1';
-	return `m${m}-s${s}-c${c}`;
+	const col = action.color ?? '_';
+	return `m${m}-s${s}-c${c}-col${col}`;
 }
 
 /**
- * Renders the 3-column aligned M / S / C badge strip (49x15 px) matching the Strudel editor's
- * `.strdltn-act-row` CSS (`15px 15px 15px`, 2px gap). Absent slots stay transparent so every
- * line keeps identical horizontal alignment.
+ * Renders the track-color bar + 3-column aligned M / S / C badge strip (54x15 px) matching the Strudel editor's
+ * `.strdltn-act-row` CSS (`3px bar + 15px 15px 15px`). M active is amber (#e5a00d); S active is vivid blue (#3794ff).
  */
 export function lineActionSvg(action: LineAction | undefined, learning = false): string {
 	const parts: string[] = [];
+	if (action?.color) {
+		parts.push(`<rect x="0" y="0" width="3" height="15" rx="1" fill="${action.color}"/>`);
+	}
+	const ox = 5;
 	const pill = (x: number, label: 'M' | 'S' | 'C', fill: string, stroke: string, text: string) => {
 		parts.push(
-			`<rect x="${x + 0.5}" y="0.5" width="14" height="14" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="1"/>` +
-				`<text x="${x + 7.5}" y="10.8" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="9.5" font-weight="700" fill="${text}">${label}</text>`,
+			`<rect x="${ox + x + 0.5}" y="0.5" width="14" height="14" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="1"/>` +
+				`<text x="${ox + x + 7.5}" y="10.8" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="9.5" font-weight="700" fill="${text}">${label}</text>`,
 		);
 	};
 	const offFill = 'rgba(128,128,128,0.14)';
@@ -127,9 +137,9 @@ export function lineActionSvg(action: LineAction | undefined, learning = false):
 	const offText = '#8b949e';
 
 	if (action?.chain !== undefined) {
-		if (action.muted) pill(0, 'M', '#3794ff', '#3794ff', '#ffffff');
+		if (action.muted) pill(0, 'M', '#e5a00d', '#e5a00d', '#111111');
 		else pill(0, 'M', offFill, offStroke, offText);
-		if (action.solo) pill(17, 'S', '#d29922', '#d29922', '#111111');
+		if (action.solo) pill(17, 'S', '#3794ff', '#3794ff', '#ffffff');
 		else pill(17, 'S', offFill, offStroke, offText);
 	}
 	if (action?.sliderFrom !== undefined) {
@@ -138,5 +148,5 @@ export function lineActionSvg(action: LineAction | undefined, learning = false):
 		else pill(34, 'C', offFill, offStroke, offText);
 	}
 
-	return `<svg xmlns="http://www.w3.org/2000/svg" width="49" height="15" viewBox="0 0 49 15">${parts.join('')}</svg>`;
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="54" height="15" viewBox="0 0 54 15">${parts.join('')}</svg>`;
 }

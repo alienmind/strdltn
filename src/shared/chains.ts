@@ -14,6 +14,7 @@
 //
 // To change the behavior, add a case to chains.test.ts first.
 import { parse } from 'acorn';
+import { buildColorEdit, findColorComment, nextUnusedColor } from './colors.ts';
 import { sliderLabel, visualLabel } from './context.ts';
 
 export interface MixerSlider {
@@ -79,6 +80,12 @@ export interface MixerChain {
 	gain?: number;
 	/** Every other slider it uses, in the order of the code. */
 	controls: number[];
+	/** Track color hex (`#rrggbb`), either from `// @color` above the chain or auto-assigned from the palette. */
+	color?: string;
+	/** Lowercase palette name when matched (e.g. `orange`, `sky`). */
+	colorName?: string;
+	/** True when the color comes from an explicit `// @color` comment in the code. */
+	colorExplicit?: boolean;
 }
 
 export interface DuckCable {
@@ -207,6 +214,28 @@ export function labelEdit(code: string, chain: number, button: 'mute' | 'solo'):
 	const target = model.chains[chain];
 	if (!target || target.bare || code.slice(target.from, target.from + target.label.length) !== target.label) return undefined;
 	return { from: target.from, to: target.from + target.label.length, insert: toggledLabel(target.label, button) };
+}
+
+/** The edit that sets, updates, or clears `// @color <name>` above chain `chain`. */
+export function colorEdit(code: string, chain: number, color: string | undefined): { from: number; to: number; insert: string } | undefined {
+	const model = readChains(code);
+	if ('error' in model) return undefined;
+	const target = model.chains[chain];
+	if (!target) return undefined;
+	return buildColorEdit(code, target.from, color);
+}
+
+/** Edits that write auto-assigned `// @color <name>` comments above every chain that lacks one, sorted bottom-up. */
+export function assignMissingColorEdits(code: string): { from: number; to: number; insert: string }[] {
+	const model = readChains(code);
+	if ('error' in model) return [];
+	const edits: { from: number; to: number; insert: string }[] = [];
+	for (const chain of model.chains) {
+		if (chain.colorExplicit || !chain.color) continue;
+		const edit = buildColorEdit(code, chain.from, chain.colorName ?? chain.color);
+		if (edit) edits.push(edit);
+	}
+	return edits.sort((a, b) => b.from - a.from);
 }
 
 /**
@@ -403,6 +432,7 @@ export function readChains(code: string): MixerModel | { error: string } {
 		const expression = expressionOf(statement);
 		const fallback = named ? undefined : visualLabel(code, statement.start);
 		const instrument = !named && fallback?.rule === 'code' ? chainInstrument(expression) : undefined;
+		const explicitColor = findColorComment(code, statement.start);
 		chains.push({
 			label,
 			...(bare ? { bare } : {}),
@@ -415,9 +445,21 @@ export function readChains(code: string): MixerModel | { error: string } {
 			controls: [],
 			...routing(expression),
 			...(spineCall(expression, ['_scope']) ? { scope: true } : {}),
+			...(explicitColor
+				? { color: explicitColor.hex, colorName: explicitColor.name, colorExplicit: true }
+				: { colorExplicit: false }),
 		});
 		chainNodes.push(statement);
 	}
+	// Assign deterministic unused palette colors to chains without an explicit `// @color` comment.
+	const usedColors = new Set<string>(chains.map((c) => c.color).filter((c): c is string => !!c));
+	chains.forEach((chain, index) => {
+		if (chain.color) return;
+		const picked = nextUnusedColor(usedColors, index);
+		chain.color = picked.hex;
+		chain.colorName = picked.name;
+		usedColors.add(picked.hex);
+	});
 
 	// Sliders, in the order of the code.
 	const sliders: MixerSlider[] = [];

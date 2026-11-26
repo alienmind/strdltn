@@ -137,6 +137,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		manageRepos: () => market.manageRepos(),
 		flashHardware: (id) => fm1Flasher.flash(id),
 		install: (id) => market.install(id),
+		installAll: (ids) => market.installAll(ids),
 		firmwareFile: async (id) => (await market.screenSource(id))?.file,
 		emuWasmFile: () => market.emuWasmFile().catch(() => undefined),
 		previewMidi: (portHint, durationMs) => midi.previewNote(portHint, durationMs),
@@ -491,6 +492,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		}),
 		vscode.commands.registerCommand('strdltn.stopNativeFm1', () => nativeFm1.stopAll()),
 		vscode.commands.registerCommand('strdltn.manageFirmwareRepos', () => market.manageRepos()),
+		vscode.commands.registerCommand('strdltn.installAllFirmwares', () => market.installAll()),
 		vscode.commands.registerCommand('strdltn.flashFm1Hardware', (id?: string) => fm1Flasher.flash(typeof id === 'string' ? id : undefined)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('strdltn.experimental.fm1Flash')) {

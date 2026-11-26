@@ -150,6 +150,10 @@
 				"title": "strdltn: Manage FM-1 firmware repositories..."
 			},
 			{
+				"command": "strdltn.installAllFirmwares",
+				"title": "strdltn: Download all available FM-1 firmwares"
+			},
+			{
 				"command": "strdltn.flashFm1Hardware",
 				"title": "strdltn: Flash .fwsc firmware to M-VAVE FM-1 hardware (experimental)..."
 			},

@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { unzipSync } from 'fflate';
-import { FM1_NATIVE_TARGETS } from '../src/shared/nativeFm1.ts';
+import { findZipBinaryEntry, FM1_NATIVE_TARGETS } from '../src/shared/nativeFm1.ts';
 
 const targetKey = process.argv[2];
 const target = targetKey && FM1_NATIVE_TARGETS[targetKey];
@@ -37,9 +37,7 @@ const outPath = join(outDir, target.binary);
 
 if (target.archive === 'zip') {
 	const entries = unzipSync(bytes);
-	const match = Object.entries(entries).find(
-		([name]) => name.toLowerCase().endsWith(`/${target.binary}`) || name.toLowerCase() === target.binary,
-	);
+	const match = findZipBinaryEntry(entries, target.binary);
 	if (!match) {
 		console.error(`${target.binary} not found in ${target.asset}`);
 		process.exit(1);

@@ -601,6 +601,13 @@ function drawResultbar(): void {
 	if (filter.place) parts.push(PLACES.find((p) => p.id === filter.place)?.label ?? '');
 	if (filter.builtin !== undefined) parts.push(filter.builtin ? 'built in' : 'not built in');
 	resultbar.appendChild(el('span', 'summary', parts.filter(Boolean).join(' ')));
+	const installable = results.filter((item) => item.kind === 'firmware' && item.available && !item.externalUrl);
+	if (installable.length > 0 && (filter.category === 'fm1' || filter.category === 'plugins' || filter.query.trim())) {
+		const batch = resultbar.appendChild(el('button', 'elsewhere batch-install'));
+		batch.innerHTML = `${icon('install')}<span>Download all (${installable.length})</span>`;
+		batch.title = `Download and install all ${installable.length} available FM-1 firmwares shown here into firmware/`;
+		batch.addEventListener('click', () => post({ type: 'installAll', ids: installable.map((item) => item.id) }));
+	}
 	if (filtered()) {
 		resultbar.appendChild(button('save', 'Save this search under Collections', () => saveSearch()));
 		resultbar.appendChild(
@@ -728,9 +735,8 @@ function drawRow(row: Row, index: number): HTMLElement {
 		const index_ = row.type === 'variation' ? row.index : undefined;
 		if (isTall(row)) {
 			node.classList.add('tall');
-			// The firmware's display, made by the host from a moment of running it (src/extension/previews.ts).
+			// The firmware's display, centered in the row and pre-loaded from Hub/vendor thumbnails or the worker.
 			const picture = node.appendChild(el('div', 'picture'));
-			picture.style.left = `${4 + depth * 14 + 42}px`;
 			if (item.image) {
 				const image = picture.appendChild(el('img'));
 				image.src = item.image;

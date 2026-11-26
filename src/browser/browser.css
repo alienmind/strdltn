@@ -434,6 +434,27 @@ svg {
 	text-decoration: underline;
 }
 
+.resultbar .batch-install {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 1px 6px;
+	border-radius: 3px;
+	background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, .2));
+	color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+	text-decoration: none;
+}
+
+.resultbar .batch-install:hover {
+	background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, .35));
+	text-decoration: none;
+}
+
+.resultbar .batch-install svg {
+	width: 12px;
+	height: 12px;
+}
+
 .results {
 	flex: 1;
 	min-height: 60px;
@@ -558,6 +579,8 @@ svg {
 .row .picture {
 	position: absolute;
 	top: calc(var(--row) - 1px);
+	left: 50%;
+	transform: translateX(-50%);
 	width: 108px;
 	height: 72px;
 	border-radius: 3px;
@@ -693,7 +716,7 @@ svg {
 	width: 100%;
 	max-width: 240px;
 	aspect-ratio: 3 / 2;
-	margin: 4px 0;
+	margin: 6px auto;
 	border-radius: 3px;
 	background: #000;
 }

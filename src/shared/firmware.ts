@@ -156,10 +156,25 @@ export function midimapLoadEdit(text: string, profile: HardwareFirmwareProfile):
 export const HUB_INDEX = 'https://play.thefirmwarehub.com/firmware/index.json';
 /** The Firmware Hub's full catalog of real FM-1 `.fwsc` firmwares. */
 export const HUB_CATALOG = 'https://thefirmwarehub.com/catalog.json';
-/** Xfer Records SHRUB official page (external marketplace listing; never redistributed). */
+/** Xfer Records SHRUB official page, direct .fwsc download, and screen preview image. */
 export const SHRUB_HOME = 'https://shrub.audio/';
+export const SHRUB_FWSC_URL = 'https://shrub.audio/editor/firmware/SHRUB.fwsc';
+export const SHRUB_THUMB_URL = 'https://shrub.audio/art/screens/wavetables-in-3d.png';
 /** MIT fm1-emu web emulator wasm (github.com/joakimeriksson/fm1-emu), fetched on demand into global storage. */
 export const FM1_EMU_WASM_URL = 'https://joakimeriksson.github.io/fm1-emu/fm1_web.wasm';
+
+/**
+ * Returns a lightweight remote screen thumbnail URL (~2-7 KB) for an FM-1 synth so previews
+ * pre-load immediately without downloading full firmware binaries.
+ */
+export function firmwareThumbnailUrl(id: string, runtime?: FirmwareRuntime): string | undefined {
+	const clean = id.toLowerCase();
+	if (clean.includes('shrub')) return SHRUB_THUMB_URL;
+	if (clean === 'fm1-stock' || runtime === 'hardware') return undefined;
+	const base = clean.replace(/-vibe$/, '');
+	if (!/^[a-z0-9._-]+$/.test(base)) return undefined;
+	return `https://thefirmwarehub.com/img/w160/${base}.webp`;
+}
 
 /** A firmware marketplace repository: official Hub, external vendor page (e.g. SHRUB), or user URL. */
 export interface FirmwareRepo {
@@ -232,12 +247,11 @@ export const DEFAULT_FIRMWARE_REPOS: FirmwareRepo[] = [
 				id: 'shrub',
 				name: 'SHRUB',
 				author: 'Xfer Records',
-				license: 'Proprietary (get from shrub.audio)',
+				license: 'Proprietary (from shrub.audio)',
 				description:
-					'Xfer Records wavetable synth firmware for M-VAVE FM-1. Closed-source: click Get on shrub.audio to download SHRUB.fwsc, then drop it in firmware/ or click Run Native for 240 MHz JIT emulation.',
+					'Xfer Records wavetable synth firmware for M-VAVE FM-1. Click Install to download SHRUB.fwsc directly from shrub.audio into firmware/, or click Run Native for 240 MHz JIT emulation.',
 				runtime: 'fwsc',
-				url: SHRUB_HOME,
-				externalUrl: SHRUB_HOME,
+				url: SHRUB_FWSC_URL,
 				repo: 'shrub.audio',
 				editor: 'https://shrub.audio/editor/',
 				order: 0,

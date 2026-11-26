@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { FM1_NATIVE_VERSION, isShrubFileName, nativeFm1Args, nativeTargetFor } from './nativeFm1.ts';
+import { findZipBinaryEntry, FM1_NATIVE_VERSION, isShrubFileName, nativeFm1Args, nativeTargetFor } from './nativeFm1.ts';
 
 test('resolves official fm1-emu native release targets for Windows, macOS arm64, and Linux', () => {
 	const win = nativeTargetFor('win32', 'x64');
@@ -39,4 +39,15 @@ test('recognizes user SHRUB .fwsc file names', () => {
 	assert.equal(isShrubFileName('shrub.fwsc'), true);
 	assert.equal(isShrubFileName('felucca.fwsc'), false);
 	assert.equal(isShrubFileName('shrub.wasm'), false);
+});
+
+test('findZipBinaryEntry matches Windows backslash paths, POSIX paths, and bare names', () => {
+	const win = {
+		'fm1-emu-0.5.1-windows-x86_64\\fm1-emu.exe': 'emu',
+		'fm1-emu-0.5.1-windows-x86_64\\fm1-live.exe': 'live',
+	};
+	assert.deepEqual(findZipBinaryEntry(win, 'fm1-live.exe'), ['fm1-emu-0.5.1-windows-x86_64\\fm1-live.exe', 'live']);
+	assert.deepEqual(findZipBinaryEntry({ 'dir/FM1-LIVE.EXE': 'live' }, 'fm1-live.exe'), ['dir/FM1-LIVE.EXE', 'live']);
+	assert.deepEqual(findZipBinaryEntry({ 'fm1-live.exe': 'live' }, 'fm1-live.exe'), ['fm1-live.exe', 'live']);
+	assert.equal(findZipBinaryEntry({ 'dir/other.exe': 'x' }, 'fm1-live.exe'), undefined);
 });

@@ -406,6 +406,7 @@ export function firmwareItems(
 				{ name: 'license', value: profile.license },
 				...(profile.editor ? [{ name: 'editor', value: profile.editor }] : []),
 			],
+			image: images[id],
 		};
 	});
 	const hub: CatalogItem[] = [...available]

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { availableFirmware, HARDWARE_FM1_PROFILES, type HubFirmware } from '../shared/firmware';
+import { availableFirmware, firmwareThumbnailUrl, HARDWARE_FM1_PROFILES, type HubFirmware } from '../shared/firmware';
 import type { ScreenFirmware } from '../shared/screen';
 import type { BrowserView } from './browser';
 import type { FirmwareLibrary } from './firmware';
@@ -61,15 +61,37 @@ export class FirmwareMarket implements vscode.Disposable {
 	private async requestPictures(): Promise<void> {
 		const jobs: PreviewJob[] = [];
 		for (const fw of this.library.all()) {
-			if (fw.runtime === 'fwsc') continue;
+			const imageUrl = firmwareThumbnailUrl(fw.id, fw.runtime);
+			if (fw.runtime === 'fwsc') {
+				if (imageUrl) jobs.push({ itemId: `firmware:${fw.id}`, key: previewKey(`thumb:${imageUrl}`), imageUrl });
+				continue;
+			}
 			const stamp = await this.library.stamp(fw.id);
 			const file = this.library.file(fw.id);
 			if (!stamp || !file) continue;
-			jobs.push({ itemId: `firmware:${fw.id}`, key: previewKey(stamp), bytes: () => Promise.resolve(vscode.workspace.fs.readFile(file)) });
+			jobs.push({
+				itemId: `firmware:${fw.id}`,
+				key: imageUrl ? previewKey(`thumb:${imageUrl}`) : previewKey(stamp),
+				imageUrl,
+				bytes: () => Promise.resolve(vscode.workspace.fs.readFile(file)),
+			});
+		}
+		for (const profile of HARDWARE_FM1_PROFILES) {
+			const imageUrl = firmwareThumbnailUrl(profile.id, 'hardware');
+			if (imageUrl) jobs.push({ itemId: `firmware:${profile.id}`, key: previewKey(`thumb:${imageUrl}`), imageUrl });
 		}
 		for (const fw of this.available()) {
-			if (fw.runtime === 'fwsc') continue;
-			jobs.push({ itemId: `firmware:${fw.id}`, key: previewKey(fw.url), bytes: async () => vscode.workspace.fs.readFile(await this.previews.hubFile(fw.url)) });
+			const imageUrl = firmwareThumbnailUrl(fw.id, fw.runtime);
+			if (fw.runtime === 'fwsc') {
+				if (imageUrl) jobs.push({ itemId: `firmware:${fw.id}`, key: previewKey(`thumb:${imageUrl}`), imageUrl });
+				continue;
+			}
+			jobs.push({
+				itemId: `firmware:${fw.id}`,
+				key: imageUrl ? previewKey(`thumb:${imageUrl}`) : previewKey(fw.url),
+				imageUrl,
+				bytes: async () => vscode.workspace.fs.readFile(await this.previews.hubFile(fw.url)),
+			});
 		}
 		await this.previews.want(jobs);
 	}
@@ -110,6 +132,68 @@ export class FirmwareMarket implements vscode.Disposable {
 		} catch (error) {
 			void vscode.window.showErrorMessage(`${fw.name} could not be installed: ${(error as Error).message}`);
 		}
+	}
+
+	/** Batch-downloads and installs multiple Available firmwares (or all Available when `ids` is omitted). */
+	async installAll(ids?: string[]): Promise<void> {
+		if (!vscode.workspace.workspaceFolders?.length) {
+			void vscode.window.showWarningMessage('strdltn: open a workspace folder first to install firmwares into firmware/.');
+			return;
+		}
+		await this.hub.load();
+		const allow = ids ? new Set(ids.map((id) => id.replace(/^firmware:/, ''))) : undefined;
+		const list = this.available().filter((fw) => !fw.externalUrl && (!allow || allow.has(fw.id)));
+		if (!list.length) {
+			void vscode.window.showInformationMessage('strdltn: all matching FM-1 firmwares are already installed.');
+			return;
+		}
+		if (list.length > 5) {
+			const choice = await vscode.window.showInformationMessage(
+				`Download and install ${list.length} FM-1 firmwares into firmware/?`,
+				{ modal: true, detail: 'Each firmware is saved into firmware/<id>/. You can cancel at any time.' },
+				`Install ${list.length} firmwares`,
+			);
+			if (!choice) return;
+		}
+		const CONCURRENCY = 4;
+		let done = 0;
+		let ok = 0;
+		let failed = 0;
+		let cancelled = false;
+		await vscode.window.withProgress(
+			{ location: vscode.ProgressLocation.Notification, title: `Installing ${list.length} FM-1 firmwares`, cancellable: true },
+			async (progress, token) => {
+				let cursor = 0;
+				const worker = async () => {
+					while (cursor < list.length) {
+						if (token.isCancellationRequested) {
+							cancelled = true;
+							return;
+						}
+						const fw = list[cursor++];
+						progress.report({ message: `(${done + 1}/${list.length}) ${fw.name}` });
+						try {
+							const bytes = await vscode.workspace.fs.readFile(await this.previews.hubFile(fw.url));
+							await this.library.install(fw, bytes, false);
+							this.installed.push(fw.id);
+							ok++;
+						} catch (error) {
+							failed++;
+							this.output.appendLine(`[firmware] batch install failed for ${fw.name}: ${(error as Error).message}`);
+						}
+						done++;
+						progress.report({ increment: (1 / list.length) * 100 });
+					}
+				};
+				await Promise.all(Array.from({ length: Math.min(CONCURRENCY, list.length) }, () => worker()));
+			},
+		);
+		await this.library.refresh();
+		const parts = [`Installed ${ok} FM-1 firmware${ok === 1 ? '' : 's'}`];
+		if (failed) parts.push(`${failed} failed (see Output > strdltn)`);
+		if (cancelled) parts.push('cancelled early');
+		this.output.appendLine(`[firmware] batch: ${parts.join(', ')}`);
+		void vscode.window.showInformationMessage(`strdltn: ${parts.join(', ')}.`);
 	}
 
 	/** What the screen popup runs: an installed firmware from the project, an Available one from its downloaded copy. */

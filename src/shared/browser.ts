@@ -92,6 +92,8 @@ export type FromBrowser =
 	| { type: 'flashHardware'; id: string }
 	/** Installs an Available firmware into the project. */
 	| { type: 'install'; id: string }
+	/** Batch-installs all currently shown Available firmwares into the project. */
+	| { type: 'installAll'; ids: string[] }
 	/** Turns one color on or off for the items. `color` 0 clears every color. */
 	| { type: 'color'; ids: string[]; color: number; on: boolean }
 	| { type: 'tags'; ids: string[]; add: string[]; remove: string[] }

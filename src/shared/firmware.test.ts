@@ -9,6 +9,7 @@ import {
 	firmwareFileName,
 	firmwareIdFromUrl,
 	firmwareLoadEdit,
+	firmwareThumbnailUrl,
 	HARDWARE_FM1_PROFILES,
 	hardwareFirmwareCode,
 	mergeHubFirmwares,
@@ -17,6 +18,8 @@ import {
 	parseHubCatalog,
 	parseHubIndex,
 	parseRepoPayload,
+	SHRUB_FWSC_URL,
+	SHRUB_THUMB_URL,
 } from './firmware.ts';
 
 const A = 'https://raw.githubusercontent.com/Vibe-FM-SDK/vibe-fm-sdk/main/firmwares/obervave.wasm';
@@ -180,15 +183,24 @@ test('hardwareFirmwareCode and midimapLoadEdit generate and deduplicate MIDI pro
 	assert.equal(midimapLoadEdit(withMap, shrub), undefined);
 });
 
-test('built-in repositories include The Firmware Hub and external SHRUB on shrub.audio', () => {
+test('built-in repositories include The Firmware Hub and direct-download SHRUB from shrub.audio', () => {
 	const shrubRepo = DEFAULT_FIRMWARE_REPOS.find((r) => r.id === 'shrub-audio');
 	assert.ok(shrubRepo);
 	const entries = parseRepoPayload(shrubRepo);
 	assert.equal(entries.length, 1);
 	assert.equal(entries[0].id, 'shrub');
-	assert.equal(entries[0].externalUrl, 'https://shrub.audio/');
+	assert.equal(entries[0].url, SHRUB_FWSC_URL);
+	assert.equal(entries[0].externalUrl, undefined);
 	assert.equal(entries[0].editor, 'https://shrub.audio/editor/');
 	assert.equal(entries[0].repo, 'shrub.audio');
+});
+
+test('firmwareThumbnailUrl resolves lightweight Hub and SHRUB screen thumbnails', () => {
+	assert.equal(firmwareThumbnailUrl('shrub', 'fwsc'), SHRUB_THUMB_URL);
+	assert.equal(firmwareThumbnailUrl('shrub-midi', 'hardware'), SHRUB_THUMB_URL);
+	assert.equal(firmwareThumbnailUrl('fm1-stock', 'hardware'), undefined);
+	assert.equal(firmwareThumbnailUrl('felucca', 'fwsc'), 'https://thefirmwarehub.com/img/w160/felucca.webp');
+	assert.equal(firmwareThumbnailUrl('echofield-vibe', 'vibe'), 'https://thefirmwarehub.com/img/w160/echofield.webp');
 });
 
 test('parseCustomRepos and parseRepoPayload handle JSON catalogs, direct firmware URLs, and external pages', () => {

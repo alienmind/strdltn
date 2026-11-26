@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { unzipSync } from 'fflate';
 import * as vscode from 'vscode';
-import { FM1_NATIVE_VERSION, isShrubFileName, nativeFm1Args, nativeTargetFor } from '../shared/nativeFm1';
+import { SHRUB_FWSC_URL } from '../shared/firmware';
+import { findZipBinaryEntry, FM1_NATIVE_VERSION, isShrubFileName, nativeFm1Args, nativeTargetFor } from '../shared/nativeFm1';
 import type { FirmwareLibrary } from './firmware';
 import type { FirmwareMarket } from './market';
 
@@ -114,7 +115,7 @@ export class NativeFm1Host implements vscode.Disposable {
 		for (const id of [...this.running.keys()]) this.stop(id);
 	}
 
-	/** Finds or prompts for the `.fwsc` package to run natively. Never redistributes proprietary SHRUB. */
+	/** Finds or downloads the `.fwsc` package to run natively (falls back to a file picker offline). */
 	private async resolveFwsc(id: string): Promise<string | undefined> {
 		if (id === 'shrub' || id === 'shrub-midi') {
 			const installed = this.library.all().find((fw) => fw.runtime === 'fwsc' && (fw.id.includes('shrub') || isShrubFileName(fw.path)));
@@ -126,10 +127,25 @@ export class NativeFm1Host implements vscode.Disposable {
 			if (configured && existsSync(configured)) return configured;
 			const remembered = this.context.globalState.get<string>(SHRUB_PATH_KEY);
 			if (remembered && existsSync(remembered)) return remembered;
+			// Download SHRUB.fwsc directly from shrub.audio (into firmware/ if a workspace is open, else global cache).
+			try {
+				if (vscode.workspace.workspaceFolders?.length) {
+					await this.market.install('shrub');
+					const after = this.library.file('shrub');
+					if (after && existsSync(after.fsPath)) return after.fsPath;
+				}
+				const cached = await vscode.window.withProgress(
+					{ location: vscode.ProgressLocation.Notification, title: 'Downloading SHRUB.fwsc from shrub.audio...' },
+					() => this.market.previews.hubFile(SHRUB_FWSC_URL),
+				);
+				if (existsSync(cached.fsPath)) return cached.fsPath;
+			} catch (error) {
+				this.output.appendLine(`[fm1-native] direct SHRUB.fwsc download failed (${(error as Error).message}); falling back to file picker`);
+			}
 			const picked = await vscode.window.showOpenDialog({
 				canSelectMany: false,
 				openLabel: 'Run SHRUB .fwsc natively',
-				title: 'Select your SHRUB .fwsc firmware file (e.g. SHRUB-V1.11.fwsc)',
+				title: 'Select your SHRUB .fwsc firmware file (e.g. SHRUB.fwsc)',
 				filters: { 'FM-1 Firmware (.fwsc)': ['fwsc'] },
 			});
 			const chosen = picked?.[0]?.fsPath;
@@ -194,7 +210,7 @@ export class NativeFm1Host implements vscode.Disposable {
 					const bytes = new Uint8Array(await response.arrayBuffer());
 					if (target.archive === 'zip') {
 						const entries = unzipSync(bytes);
-						const match = Object.entries(entries).find(([name]) => name.toLowerCase().endsWith(`/${target.binary}`) || name.toLowerCase() === target.binary);
+						const match = findZipBinaryEntry(entries, target.binary);
 						if (!match) throw new Error(`${target.binary} not found inside ${target.asset}`);
 						writeFileSync(cached, match[1]);
 					} else {

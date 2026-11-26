@@ -127,7 +127,7 @@ export class FirmwareLibrary implements vscode.Disposable {
 	 * hub's fields, the layout of an unzipped package, at the root of the first workspace folder. From there every song
 	 * of the project finds it (`Session.firmwareFolder` looks in the parent folders), with no `firmware()` line.
 	 */
-	async install(fw: HubFirmware, bytes: Uint8Array): Promise<vscode.Uri> {
+	async install(fw: HubFirmware, bytes: Uint8Array, refresh = true): Promise<vscode.Uri> {
 		const workspace = vscode.workspace.workspaceFolders?.[0];
 		if (!workspace) throw new Error('open a folder first: a firmware is installed into the project');
 		if (fw.sha256) {
@@ -152,7 +152,7 @@ export class FirmwareLibrary implements vscode.Disposable {
 			cheat: fw.cheat,
 		};
 		await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder, 'firmware.json'), new TextEncoder().encode(`${JSON.stringify(meta, null, '\t')}\n`));
-		await this.refresh();
+		if (refresh) await this.refresh();
 		return folder;
 	}
 

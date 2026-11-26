@@ -73,3 +73,16 @@ export function nativeFm1Args(
 export function isShrubFileName(name: string): boolean {
 	return /shrub.*\.fwsc$/i.test(name);
 }
+
+/**
+ * Finds `binary` (e.g. `fm1-live.exe`) inside a zip's entry map, normalizing Windows backslashes
+ * (`fm1-emu-0.5.1-windows-x86_64\fm1-live.exe`) as well as POSIX forward slashes.
+ */
+export function findZipBinaryEntry<T>(entries: Record<string, T>, binary: string): [string, T] | undefined {
+	const needle = binary.toLowerCase();
+	const suffix = `/${needle}`;
+	return Object.entries(entries).find(([name]) => {
+		const norm = name.replace(/\\/g, '/').toLowerCase();
+		return norm === needle || norm.endsWith(suffix);
+	});
+}

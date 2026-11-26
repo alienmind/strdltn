@@ -57,6 +57,8 @@ export interface BrowserActions {
 	flashHardware(id: string): Promise<void>;
 	/** Installs a firmware of the hub into the project. */
 	install(id: string): Promise<void>;
+	/** Batch-installs multiple Available firmwares into the project. */
+	installAll(ids: string[]): Promise<void>;
 	/** Local file of a firmware (installed or cached from the hub) for standalone Browser preview. */
 	firmwareFile(id: string): Promise<vscode.Uri | undefined>;
 	/** Cached `fm1_web.wasm` for standalone `.fwsc` Browser preview. */
@@ -296,7 +298,9 @@ export class BrowserView {
 			case 'ready': {
 				// The first view: the pictures get their webview URLs now.
 				if (Object.keys(this.images).length && !this.items.some((item) => item.image)) this.rebuild();
-				if (this.filter.category === 'plugins' || this.filter.category === 'fm1') this.actions.wantFirmware();
+				// Pre-load the FM-1 catalog and lightweight (~2-7 KB) screen thumbnails right away so
+				// previews are ready even before firmwares are downloaded.
+				this.actions.wantFirmware();
 				const flashEnabled = vscode.workspace.getConfiguration('strdltn').get<boolean>('experimental.fm1Flash', false);
 				this.post({ type: 'init', page, items: this.items, user: this.user, preview: this.preview, filter: this.filter, flashEnabled }, page);
 				if (page === 'library' && this.controls) this.post({ type: 'controls', state: this.controls }, page);
@@ -375,6 +379,10 @@ export class BrowserView {
 			case 'install': {
 				const item = this.item(message.id);
 				if (item?.kind === 'firmware' && item.available) await this.actions.install(item.id.slice('firmware:'.length));
+				return;
+			}
+			case 'installAll': {
+				if (message.ids.length) await this.actions.installAll(message.ids);
 				return;
 			}
 			case 'screen': {

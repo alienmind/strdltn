@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { parseSnippet, type SnippetInfo } from '../shared/snippet';
+import { STRDLTN_EXCLUDE_GLOB } from '../shared/workspace';
 
 export interface Snippet extends SnippetInfo {
 	uri: vscode.Uri;
@@ -21,7 +22,7 @@ export class SnippetLibrary {
 
 	async refresh(): Promise<void> {
 		const folder = SnippetLibrary.folderName();
-		const files = await vscode.workspace.findFiles(`**/${folder}/**/*.strudel`, '**/node_modules/**');
+		const files = await vscode.workspace.findFiles(`**/${folder}/**/*.strudel`, STRDLTN_EXCLUDE_GLOB);
 		const marker = `/${folder}/`;
 		const snippets = await Promise.all(
 			files.map(async (uri) => {

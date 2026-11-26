@@ -52,8 +52,10 @@ const html = `<!doctype html>
 	.missing { color: #9a6700; font-style: italic; }
 </style></head><body>${body}</body></html>`;
 
-const tmp = join(root, 'tmp');
+const tmp = join(root, '.strdltn', 'tmp');
 mkdirSync(tmp, { recursive: true });
+const strdltnIgnore = join(root, '.strdltn', '.gitignore');
+if (!existsSync(strdltnIgnore)) writeFileSync(strdltnIgnore, '# Managed by strdltn (cache and temporary files). Safe to delete.\n*\n');
 const page = join(tmp, 'manual.html');
 writeFileSync(page, html);
 

@@ -18,7 +18,7 @@ if (!target) {
 
 const root = resolve(import.meta.dirname, '..');
 const outDir = join(root, 'bin', target.key);
-const tmpDir = join(root, 'tmp', `fm1-native-${target.key}`);
+const tmpDir = join(root, '.strdltn', 'tmp', `fm1-native-${target.key}`);
 rmSync(outDir, { recursive: true, force: true });
 rmSync(tmpDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });

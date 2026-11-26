@@ -1556,8 +1556,15 @@ hid the fact that a click was needed.
 
 The test can ask for a picture of the whole window. It drops a `<name>.request` file,
 the runner takes a screenshot with `Page.captureScreenshot` and writes
-`tmp/shots/<name>.png`. This is how we look at the UI without a person. The pictures in `doc/` that
+`.strdltn/tmp/shots/<name>.png`. This is how we look at the UI without a person. The pictures in `doc/` that
 `doc/ABOUT.md` shows are copies of these.
+
+**Workspace `.strdltn/` layout.** All extension-managed workspace folders live under `.strdltn/`
+(`src/shared/workspace.ts`, `src/extension/workspace.ts`) with a self-contained `.strdltn/.gitignore`
+ignoring `*` so user workspaces never collide with a project's own `tmp/` folder:
+- `.strdltn/cache/` - remote sample packs (`PackCache`) and cached firmware URLs (`FirmwareCache`).
+- `.strdltn/tmp/` - workspace scratch/temporary artifacts, local model weights, and temporary script/test outputs (`scripts/test-vscode.mjs`, `scripts/manual-pdf.mjs`, `scripts/fetch-fm1-native.mjs`).
+`SongList`, `SnippetLibrary`, and `FirmwareLibrary` all exclude `.strdltn/` via `STRDLTN_EXCLUDE_GLOB`.
 
 The test can also click and type with real input. It drops `<name>.input`: the text the
 target editor holds (`match`, because a Strudel editor kept in the background still says

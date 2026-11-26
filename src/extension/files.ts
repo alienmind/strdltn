@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import { songOfAudio } from '../shared/render';
+import { STRDLTN_EXCLUDE_GLOB } from '../shared/workspace';
 
-/** Never songs: packages, the cache of remote samples, and git's own folder. */
-const EXCLUDE = '**/{node_modules,.strdltn,.git}/**';
+/** Never songs: packages, the cache and temp files under `.strdltn/`, and git's own folder. */
+const EXCLUDE = STRDLTN_EXCLUDE_GLOB;
 
 /**
  * The songs of the workspace: every `.strudel` file. The Browser shows them in its Songs

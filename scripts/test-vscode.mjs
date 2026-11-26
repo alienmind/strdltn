@@ -31,10 +31,12 @@ env.VSTRUDEL_TEST_OUT = out;
 const quick = process.argv.includes('--quick') || process.env.VSTRUDEL_TEST_QUICK === '1';
 if (quick) env.VSTRUDEL_TEST_QUICK = '1';
 // The test asks for pictures of the window by dropping `<name>.request` files here.
-// They end up as tmp/shots/<name>.png, for a person or an agent to look at.
-const shots = join(root, 'tmp', 'shots');
+// They end up as .strdltn/tmp/shots/<name>.png, for a person or an agent to look at.
+const shots = join(root, '.strdltn', 'tmp', 'shots');
 rmSync(shots, { recursive: true, force: true });
 mkdirSync(shots, { recursive: true });
+const strdltnIgnore = join(root, '.strdltn', '.gitignore');
+if (!existsSync(strdltnIgnore)) writeFileSync(strdltnIgnore, '# Managed by strdltn (cache and temporary files). Safe to delete.\n*\n');
 env.VSTRUDEL_TEST_SHOTS = shots;
 
 // A quiet window for the screenshots: no welcome tab, no git question, no chat panel.

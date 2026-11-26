@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { cacheSegments, hasOwnBases, packAddress, packFiles, remoteFolder, unsafeFile, type PackInfo } from '../shared/packs';
+import { ensureStrdltnDir, strdltnCacheDir } from './workspace';
 
 interface PackState {
 	source: string;
@@ -48,7 +49,7 @@ export class PackCache {
 	}
 
 	private static cacheRoot(workspaceFolder: vscode.Uri): vscode.Uri {
-		return vscode.Uri.joinPath(workspaceFolder, '.strdltn', 'cache');
+		return strdltnCacheDir(workspaceFolder);
 	}
 
 	/**
@@ -203,13 +204,8 @@ export class PackCache {
 	/** Downloads `files` from `address` into `folder`, six at a time. Returns how many failed. */
 	private async fetchInto(workspaceFolder: vscode.Uri, folder: vscode.Uri, address: string, files: string[], title: string): Promise<number> {
 		const fs = vscode.workspace.fs;
-		const ignore = vscode.Uri.joinPath(workspaceFolder, '.strdltn', '.gitignore');
+		await ensureStrdltnDir(workspaceFolder, 'cache');
 		await fs.createDirectory(folder);
-		try {
-			await fs.stat(ignore);
-		} catch {
-			await fs.writeFile(ignore, new TextEncoder().encode('# Downloaded by strdltn. Safe to delete.\n*\n'));
-		}
 		let failed = 0;
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: `strdltn: caching ${title}` }, async (progress) => {
 			let done = 0;

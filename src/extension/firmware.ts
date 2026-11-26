@@ -3,6 +3,8 @@ import { unzipSync } from 'fflate';
 import * as vscode from 'vscode';
 import { firmwareFileName, firmwareIdFromUrl, type FirmwareRuntime, type HubFirmware, type InstalledFirmware } from '../shared/firmware';
 import type { FirmwareInfo } from '../shared/protocol';
+import { STRDLTN_EXCLUDE_GLOB } from '../shared/workspace';
+import { ensureStrdltnDir, strdltnCacheDir } from './workspace';
 
 /** A firmware id as the SDK allows it: letters, digits, `-`, `_`, `.`. Mini-notation keeps all of them in `vibefm1:<id>`. */
 const ID = /^[A-Za-z0-9._-]+$/;
@@ -75,7 +77,7 @@ function info(id: string, meta: Record<string, unknown>, url: vscode.Uri, runtim
 }
 
 /** Never firmware folders: packages and git's own folder. The cache is read on its own, below. */
-const EXCLUDE = '**/{node_modules,.strdltn,.git}/**';
+const EXCLUDE = STRDLTN_EXCLUDE_GLOB;
 
 const folderSetting = () => vscode.workspace.getConfiguration('strdltn').get<string>('firmwareFolder', 'firmware');
 
@@ -199,7 +201,7 @@ export class FirmwareLibrary implements vscode.Disposable {
 			}
 		}
 		for (const workspace of vscode.workspace.workspaceFolders ?? []) {
-			const root = vscode.Uri.joinPath(workspace.uri, '.strdltn', 'cache', 'firmware');
+			const root = strdltnCacheDir(workspace.uri, 'firmware');
 			let entries: [string, vscode.FileType][] = [];
 			try {
 				entries = await vscode.workspace.fs.readDirectory(root);
@@ -283,7 +285,7 @@ export class FirmwareCache {
 	/** `<workspace>/.strdltn/cache/firmware/<16 hex digits of the address' SHA-256>/`. */
 	private static folderOf(url: string, workspaceFolder: vscode.Uri): vscode.Uri {
 		const hash = createHash('sha256').update(url).digest('hex').slice(0, 16);
-		return vscode.Uri.joinPath(workspaceFolder, '.strdltn', 'cache', 'firmware', hash);
+		return strdltnCacheDir(workspaceFolder, 'firmware', hash);
 	}
 
 	/** The webview URL of the cached copy, or undefined while there is none. */
@@ -323,13 +325,8 @@ export class FirmwareCache {
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`${response.status} for ${url}`);
 		const bytes = new Uint8Array(await response.arrayBuffer());
+		await ensureStrdltnDir(workspaceFolder, 'cache');
 		await fs.createDirectory(folder);
-		const ignore = vscode.Uri.joinPath(workspaceFolder, '.strdltn', '.gitignore');
-		try {
-			await fs.stat(ignore);
-		} catch {
-			await fs.writeFile(ignore, new TextEncoder().encode('# Downloaded by strdltn. Safe to delete.\n*\n'));
-		}
 		await fs.writeFile(vscode.Uri.joinPath(folder, firmwareFileName(url)), bytes);
 		// Written last: cached() only trusts a folder that has it. It also says where the file came from.
 		await fs.writeFile(done, new TextEncoder().encode(`${url}\n`));

@@ -61,7 +61,7 @@ What to know about the real test:
   at the machine.
 - Do not build while it runs. A build empties `dist/`, and the test window loads from
   there.
-- It writes screenshots to `tmp/shots/`. Look at them: they are how we see the UI.
+- It writes screenshots to `.strdltn/tmp/shots/`. Look at them: they are how we see the UI.
 - It records, it does not assert. Read the JSON.
 - `template/demo.strudel` is the maintainer's own song and the subject of the test. Do
   not replace it with another one.
@@ -177,10 +177,10 @@ Do NOT re-explain how the host application works. Example of the whole thing:
 >
 > Expected still broken: sound stops when the tab is hidden.
 
-## Scratch work goes in `tmp/`
+## Scratch work goes in `.strdltn/tmp/`
 
 Anything exploratory - a standalone spike, a scratch harness, a dump you are reading
-once - goes under `tmp/`, which is gitignored. Not the repo root.
+once - goes under `.strdltn/tmp/`, which is gitignored. Not the repo root.
 
 A spike that answered its question is DELETED once the answer is written down (in
 `doc/ARCHITECTURE.md` or `doc/DRAWER_OF_FAILED_IDEAS.md`). The finding is what has

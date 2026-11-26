@@ -97,7 +97,7 @@ $kick: s("bd*4").gain(KICK_VOL)
 
 ---
 
-## 3. Browser Upgrades: Two-Column Results, Waveforms, Hot-Swap, Synths Gallery, `.strdltn/tmp/`, Songs as Files & Tutorial (`UX-3`, `UX-4`, `UX-10`, `UX-11`, `#5`, `#5b`, `#6d`)
+## 3. Browser Upgrades: Two-Column Results, Waveforms, Hot-Swap, Synths Gallery, Songs as Files & Tutorial (`UX-3`, `UX-4`, `UX-10`, `UX-11`, `#5`, `#6d`)
 
 ### Two-Column Browser Layout: Results to the Right (`UX-11` - maintainer 2026-11-26)
 
@@ -136,13 +136,6 @@ $kick: s("bd*4").gain(KICK_VOL)
   (`WASM`, `FWSC`, `MIDI`, synth/oscillator categories), search box, `Runtime/...` /
   `Repo/...` / tag filter chips, single-click audio preview, **Install** / **Download all**,
   **Insert** into the active song, and **Screen** / **Editor** actions.
-
-### Unify Workspace Temp & Cache Folders under `.strdltn/` (`#5b` - maintainer 2026-11-26)
-
-- Keep remote sample/firmware caches in `.strdltn/cache/` and migrate all other workspace
-  temporary artifacts (scratch files, local model weights, temporary test/export outputs)
-  from root `tmp/` into `.strdltn/tmp/` (with `.strdltn/.gitignore` ignoring `*`) so user
-  workspaces never collide with a project's own `tmp/` folder.
 
 ### Songs as Files & Custom Places (`#5`)
 
@@ -456,7 +449,7 @@ undoable Strudel mini-notation back into the song (Spikes Q1-Q2).
 
 | Batch | Scope | Effort | Spikes / Dependencies |
 |---|---|---|---|
-| **Batch A (Active: `feat/ui-overhaul`)** | Low-hanging fruits (`#5b` `.strdltn/tmp/` Migration) + Visual UX/UI Overhaul (`UX-1` Track Colors & Mixer/Editor/Stage Polish, `UX-11` Two-Column Browser with Results on Right, `UX-3` Waveforms & Breadcrumbs, `UX-2` Beat-Synced Transport HUD, `UX-10` Full-Screen Synths Gallery, `UX-5` Welcome Screen with screenshots, `UX-6` Devices SVG Rotary Knobs/Param Search/Bezel) | 2-3 sessions | None (pure visual/ergonomic wins; no deep DAW spikes) |
+| **Batch A (Active: `feat/ui-overhaul`)** | Visual UX/UI Overhaul (`UX-1` Track Colors & Mixer/Editor/Stage Polish, `UX-11` Two-Column Browser with Results on Right, `UX-3` Waveforms & Breadcrumbs, `UX-2` Beat-Synced Transport HUD, `UX-10` Full-Screen Synths Gallery, `UX-5` Welcome Screen with screenshots, `UX-6` Devices SVG Rotary Knobs/Param Search/Bezel) | 2-3 sessions | None (pure visual/ergonomic wins; no deep DAW spikes) |
 | **Batch B (Interactive Tools)** | `UX-4` In-Place Sound Hot-Swap + `#6d` Interactive Minigame Tutorial (`rustlings` for Strudel + Hardcore Mode) + `#5` Songs as Files & Places + `UX-6` Runtime (per-firmware stream FX bus like `djf`, `.vp()`, `vibe_host_store`, `.midi("vibefm1:...")`, cache clear) | 2-3 sessions | Decision 14/19 |
 | **Batch C1 (Track DSP UI)** | `UX-7` Per-Chain Effect Rack (`src/shared/rack.ts`) + `UX-8` Visual Filter Curve & Live FFT | 3-4 sessions | Existing `chains.ts` & `meterOrbits()` |
 | **Batch C2 (Mixer MIDI & DJ)** | `#6b` Mixer Stacks + `DAW-5` Mixer MIDI strips/cables + `DAW-8` DJ Two-Deck Suite & Split-Mono Cue | 3-4 sessions | Spikes J1, J2, J4 |

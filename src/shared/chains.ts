@@ -400,19 +400,21 @@ export function readChains(code: string): MixerModel | { error: string } {
 		const bare = statement.type !== 'LabeledStatement';
 		const label = bare ? '' : (statement.label.name as string);
 		const named = bare ? undefined : chainName(label);
+		const expression = expressionOf(statement);
 		const fallback = named ? undefined : visualLabel(code, statement.start);
+		const instrument = !named && fallback?.rule === 'code' ? chainInstrument(expression) : undefined;
 		chains.push({
 			label,
 			...(bare ? { bare } : {}),
-			name: named ?? fallback!.text,
-			nameRule: named ? 'label' : fallback!.rule,
+			name: named ?? instrument ?? fallback!.text,
+			nameRule: named ? 'label' : instrument ? 'instrument' : fallback!.rule,
 			from: statement.start,
 			to: statement.end,
 			muted: label.startsWith('_') || label.endsWith('_'),
 			solo: label.length > 1 && label.startsWith('S'),
 			controls: [],
-			...routing(expressionOf(statement)),
-			...(spineCall(expressionOf(statement), ['_scope']) ? { scope: true } : {}),
+			...routing(expression),
+			...(spineCall(expression, ['_scope']) ? { scope: true } : {}),
 		});
 		chainNodes.push(statement);
 	}
@@ -521,6 +523,70 @@ function chainName(label: string): string | undefined {
 	if (name.startsWith('S$')) name = name.slice(1);
 	name = name.replace(/^\$/, '');
 	return name || undefined;
+}
+
+/** Static string value of a Literal or plain TemplateLiteral argument. */
+function stringOf(node: Node | undefined): string | undefined {
+	if (node?.type === 'Literal' && typeof node.value === 'string') return node.value;
+	if (node?.type === 'TemplateLiteral' && node.expressions.length === 0) return node.quasis[0]?.value?.cooked;
+	return undefined;
+}
+
+/**
+ * Picks a readable instrument name for an anonymous chain (`$: ...`) when no explicit label or comment was given:
+ *   - `.s("vibefm1:obervave")` / `.s("fm1:felucca")` -> "obervave" / "felucca"
+ *   - `.s("supersaw")` / `.s("gm_acoustic_bass:1")` -> "supersaw" / "gm_acoustic_bass"
+ *   - `s("bd*4, ~ sd").bank("RolandTR909")` -> "RolandTR909"
+ *   - `.midi('M-VAVE FM-1').midimap('shrub')` -> "shrub" (or the MIDI port name)
+ */
+function chainInstrument(expression: Node | undefined): string | undefined {
+	if (!expression) return undefined;
+	let soundArg: string | undefined;
+	let bankArg: string | undefined;
+	let midimapArg: string | undefined;
+	let midiArg: string | undefined;
+
+	// Walk the chain's spine from outermost call down to the root call (e.g. `s(...)` or `note(...)`).
+	for (let node = expression; node?.type === 'CallExpression'; ) {
+		const callee = node.callee;
+		const name =
+			callee?.type === 'MemberExpression' && !callee.computed
+				? (callee.property?.name as string | undefined)
+				: callee?.type === 'Identifier'
+					? (callee.name as string | undefined)
+					: undefined;
+		const arg = stringOf(node.arguments?.[0]);
+		if (arg) {
+			if ((name === 's' || name === 'sound') && soundArg === undefined) soundArg = arg;
+			else if (name === 'bank' && bankArg === undefined) bankArg = arg;
+			else if (name === 'midimap' && midimapArg === undefined) midimapArg = arg;
+			else if (name === 'midi' && midiArg === undefined) midiArg = arg;
+		}
+		if (callee?.type === 'MemberExpression') node = callee.object;
+		else break;
+	}
+
+	if (soundArg) {
+		const fw = /^(?:vibefm1|fm1)\s*:\s*(.+)$/i.exec(soundArg.trim());
+		if (fw) {
+			const id = /[A-Za-z0-9][A-Za-z0-9._-]*/.exec(fw[1])?.[0];
+			if (id) return id;
+		}
+		const tokens = [
+			...new Set(
+				soundArg
+					.split(/[\s,[\]<>()]+/)
+					.map((part) => part.replace(/[:*/@!?].*$/, '').trim())
+					.filter((part) => part && part !== '~' && part !== '-'),
+			),
+		];
+		if (tokens.length === 1) return tokens[0];
+		if (bankArg) return bankArg.trim();
+		if (tokens.length > 1) return tokens.slice(0, 3).join(' ');
+	}
+	if (midimapArg) return midimapArg.trim();
+	if (midiArg) return midiArg.trim();
+	return undefined;
 }
 
 /**

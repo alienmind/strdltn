@@ -329,3 +329,32 @@ test('a slider with a knob says its CC', () => {
 		[{ line: 1, code: 'const CUT = slider(800, 200, 4000).knob(74)' }, { line: undefined, code: undefined }],
 	);
 });
+
+test('anonymous $: chains take the instrument name when no label or comment is declared', () => {
+	const m = model(
+		[
+			'$: note("c2 eb2 g2 bb2").s("vibefm1:obervave")',
+			'$: note("c2 eb2").s("fm1:felucca")',
+			'$: note("c3 e3 g3").s("supersaw").lpf(800)',
+			'$: note("c2*4").s("gm_acoustic_bass:1")',
+			'$: s("bd*4, ~ sd, hh*8").bank("RolandTR909")',
+			'$: note("c2 eb2 g2 bb2").midi("M-VAVE FM-1").midimap("shrub")',
+			'// Keep comment priority',
+			'$: note("c2").s("vibefm1:obervave")',
+			'$lead: note("c4").s("vibefm1:obervave")',
+		].join('\n'),
+	);
+	assert.deepEqual(
+		m.chains.map((c) => [c.name, c.nameRule]),
+		[
+			['obervave', 'instrument'],
+			['felucca', 'instrument'],
+			['supersaw', 'instrument'],
+			['gm_acoustic_bass', 'instrument'],
+			['RolandTR909', 'instrument'],
+			['shrub', 'instrument'],
+			['Keep comment priority', 'comment'],
+			['lead', 'label'],
+		],
+	);
+});

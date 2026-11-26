@@ -37,6 +37,8 @@ interface Saved {
 	/** Tree rows the user unfolded: a category id, or `<category>|<group>` is never needed. */
 	tree?: string[];
 	history?: BrowserHistoryState;
+	/** Persisted left column width ratio (0.25..0.65) in two-column split mode. */
+	splitRatio?: number;
 }
 
 /** The four panes of the view. */
@@ -82,7 +84,14 @@ const record = (options?: { replace?: boolean }) => {
 	if (!options?.replace) lastSearchAt = 0;
 	history.push(snapshot(), options);
 };
-const keep = () => vscode.setState({ sections, headings, chipsOpen: [...chipsOpen], panes, tree: [...tree], history: history.toState() } satisfies Saved);
+const DEFAULT_SPLIT_RATIO = 0.42;
+/** Below this sidebar width (px), collapse two-column split back to stacked accordion. */
+const SPLIT_MIN_WIDTH = 280;
+let splitRatio = typeof saved?.splitRatio === 'number' ? Math.max(0.25, Math.min(0.65, saved.splitRatio)) : DEFAULT_SPLIT_RATIO;
+let isSplit = false;
+
+const keep = () =>
+	vscode.setState({ sections, headings, chipsOpen: [...chipsOpen], panes, tree: [...tree], history: history.toState(), splitRatio } satisfies Saved);
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
 	const node = document.createElement(tag);
 	if (className) node.className = className;
@@ -112,8 +121,8 @@ const app = document.getElementById('app')!;
 app.hidden = true;
 
 /** A pane: a header like a VS Code section, and a body. */
-function pane(id: Pane, title: string): { box: HTMLElement; head: HTMLElement; title: HTMLElement; count: HTMLElement; body: HTMLElement } {
-	const box = app.appendChild(el('div', `pane pane-${id}`));
+function pane(parent: HTMLElement, id: Pane, title: string): { box: HTMLElement; head: HTMLElement; title: HTMLElement; count: HTMLElement; body: HTMLElement } {
+	const box = parent.appendChild(el('div', `pane pane-${id}`));
 	const head = box.appendChild(el('div', 'pane-head'));
 	head.tabIndex = 0;
 	head.innerHTML = icon('chevron');
@@ -129,10 +138,75 @@ function pane(id: Pane, title: string): { box: HTMLElement; head: HTMLElement; t
 	const body = box.appendChild(el('div', 'pane-body'));
 	return { box, head, title: name, count, body };
 }
-const controlsPane = pane('controls', 'Controls');
-const libraryPane = pane('library', 'Library');
-const contentsPane = pane('contents', 'Contents');
-const referencePane = pane('reference', 'Reference');
+const controlsPane = pane(app, 'controls', 'Controls');
+const columns = app.appendChild(el('div', 'browser-columns'));
+const leftCol = columns.appendChild(el('div', 'col-left'));
+const splitter = columns.appendChild(el('div', 'col-splitter'));
+splitter.title = 'Drag to resize columns. Double-click to reset';
+const rightCol = columns.appendChild(el('div', 'col-right'));
+const libraryPane = pane(leftCol, 'library', 'Library');
+const referencePane = pane(leftCol, 'reference', 'Reference');
+const contentsPane = pane(rightCol, 'contents', 'Contents');
+
+function applySplitLayout(): void {
+	isSplit = app.clientWidth >= SPLIT_MIN_WIDTH;
+	columns.classList.toggle('split', isSplit);
+	if (isSplit) {
+		const leftOpen = panes.library || panes.reference;
+		const rightOpen = panes.contents;
+		leftCol.classList.toggle('collapsed', !leftOpen);
+		rightCol.classList.toggle('collapsed', !rightOpen);
+		splitter.hidden = !leftOpen || !rightOpen;
+		if (leftOpen && rightOpen) {
+			leftCol.style.width = `${Math.round(splitRatio * 1000) / 10}%`;
+		} else {
+			leftCol.style.width = '';
+		}
+	} else {
+		leftCol.classList.remove('collapsed');
+		rightCol.classList.remove('collapsed');
+		splitter.hidden = true;
+		leftCol.style.width = '';
+	}
+}
+
+splitter.addEventListener('pointerdown', (event) => {
+	if (event.button !== 0 || !isSplit) return;
+	event.preventDefault();
+	splitter.setPointerCapture(event.pointerId);
+	splitter.classList.add('dragging');
+	const startX = event.clientX;
+	const startW = leftCol.getBoundingClientRect().width;
+	const totalW = columns.getBoundingClientRect().width || 1;
+	const move = (e: PointerEvent) => {
+		const nextW = Math.max(110, Math.min(totalW - 140, startW + (e.clientX - startX)));
+		splitRatio = Math.max(0.25, Math.min(0.65, nextW / totalW));
+		leftCol.style.width = `${Math.round(splitRatio * 1000) / 10}%`;
+		drawRows();
+	};
+	const end = () => {
+		splitter.classList.remove('dragging');
+		splitter.removeEventListener('pointermove', move);
+		splitter.removeEventListener('pointerup', end);
+		splitter.removeEventListener('pointercancel', end);
+		keep();
+	};
+	splitter.addEventListener('pointermove', move);
+	splitter.addEventListener('pointerup', end);
+	splitter.addEventListener('pointercancel', end);
+});
+splitter.addEventListener('dblclick', () => {
+	splitRatio = DEFAULT_SPLIT_RATIO;
+	keep();
+	applySplitLayout();
+	drawRows();
+});
+new ResizeObserver(() => {
+	const wasSplit = isSplit;
+	applySplitLayout();
+	if (wasSplit !== isSplit) drawPanes();
+	drawRows();
+}).observe(app);
 // Controls pane: Music Controls (centered BPM), then search + preview + Back/Forward on the right, then colors and Built-in.
 const controlsBox = controlsPane.body.appendChild(el('div'));
 const showControls = createControls(controlsBox, post);
@@ -171,14 +245,14 @@ const referenceNav = referencePane.body.appendChild(el('div', 'nav'));
  */
 function togglePane(id: Pane): void {
 	panes[id] = !panes[id];
-	if (id === 'reference' && panes.reference) panes.library = panes.contents = false;
+	if (!isSplit && id === 'reference' && panes.reference) panes.library = panes.contents = false;
 	record();
 	update();
 }
 
-/** Something was picked in a tree: Contents alone shows it below Controls, at full height. */
+/** Something was picked in a tree: in narrow stacked mode Contents takes full height; in split mode both columns stay visible. */
 function showContents(): void {
-	panes.library = panes.reference = false;
+	if (!isSplit) panes.library = panes.reference = false;
 	panes.contents = true;
 }
 
@@ -187,12 +261,19 @@ function drawPanes(): void {
 		part.box.classList.toggle('open', panes[id]);
 		part.head.setAttribute('aria-expanded', String(panes[id]));
 	}
-	// The pane that takes the height that is left: Contents when it is open, else Reference or Library. Controls never grows.
-	const grow: Pane | undefined = panes.contents ? 'contents' : panes.reference ? 'reference' : panes.library ? 'library' : undefined;
+	applySplitLayout();
 	controlsPane.box.classList.remove('grow');
-	libraryPane.box.classList.toggle('grow', grow === 'library');
-	contentsPane.box.classList.toggle('grow', grow === 'contents');
-	referencePane.box.classList.toggle('grow', grow === 'reference');
+	if (isSplit) {
+		// Left column: Library and Reference share height cleanly; right column: Contents fills the column.
+		libraryPane.box.classList.toggle('grow', panes.library);
+		referencePane.box.classList.toggle('grow', panes.reference && !panes.library);
+		contentsPane.box.classList.toggle('grow', panes.contents);
+	} else {
+		const grow: Pane | undefined = panes.contents ? 'contents' : panes.reference ? 'reference' : panes.library ? 'library' : undefined;
+		libraryPane.box.classList.toggle('grow', grow === 'library');
+		contentsPane.box.classList.toggle('grow', grow === 'contents');
+		referencePane.box.classList.toggle('grow', grow === 'reference');
+	}
 	// Results only while a search is typed; else it shows the contents of what is picked.
 	contentsPane.title.textContent = filter.query.trim() ? 'Results' : 'Contents';
 	contentsPane.count.textContent = String(results.length);

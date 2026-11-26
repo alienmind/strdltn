@@ -337,7 +337,12 @@ snippet go into its own header instead (`setSnippetTags` in `src/shared/snippet.
 replaces or adds the `// @tags` line), so they travel with the file; only free tags
 (`Tag/...`) go there.
 
-**The page.** Results are a virtual list: only the rows in sight exist, 22 pixels each,
+**The page.** Controls stays pinned across the top. Below it, `.browser-columns` uses an
+Ableton-style two-column layout whenever the sidebar is at least 280 px wide (`ResizeObserver`):
+Library and collapsible Reference sit on the left column, separated by a draggable vertical
+splitter (persisted ratio, double-click resets) from Contents/Results + Details on the right
+column. Narrowing the sidebar below 280 px falls back cleanly to a stacked accordion layout.
+Results are a virtual list: only the rows in sight exist, 22 pixels each,
 because 2000 rows made every keystroke slow. A heading opens by itself when it is the
 only one, or when there are at most 600 results and at most 24 headings or a filter is
 set; Drums with its 139 banks starts closed. What the user opened or closed is kept until

@@ -28,18 +28,7 @@ either reflects the code or writes clean, undoable Strudel code that plays ident
 
 ---
 
-## 3. Browser Upgrades: Two-Column Results, Waveforms, Hot-Swap, Synths Gallery, Songs as Files & Tutorial (`UX-3`, `UX-4`, `UX-10`, `UX-11`, `#5`, `#6d`)
-
-### Two-Column Browser Layout: Results to the Right (`UX-11` - maintainer 2026-11-26)
-
-- **Side-by-side Ableton-style columns (`src/browser/main.ts`, `browser.css`):** Move the
-  **Results / Contents** pane out of the stacked vertical accordion and place it **to the
-  right of Library as a second column** (with a draggable vertical splitter between Library
-  on the left and Results + Details on the right, keeping Controls pinned across the top and
-  Reference collapsible).
-- **Responsive fallback:** When the sidebar is narrowed below a comfortable threshold,
-  gracefully collapse back to stacked/toggle layout (or let the user widen the sidebar) so
-  Results always have room to breathe without vertical cramping.
+## 3. Browser Upgrades: Waveforms, Hot-Swap, Synths Gallery, Songs as Files & Tutorial (`UX-3`, `UX-4`, `UX-10`, `#5`, `#6d`)
 
 ### Waveform Sparklines, Trim Handles & Breadcrumbs (`UX-3`)
 
@@ -409,7 +398,7 @@ undoable Strudel mini-notation back into the song (Spikes Q1-Q2).
 
 | Batch | Scope | Effort | Spikes / Dependencies |
 |---|---|---|---|
-| **Batch A (Active: `feat/ui-overhaul`)** | Visual UX/UI Overhaul (`UX-11` Two-Column Browser with Results on Right, `UX-3` Waveforms & Breadcrumbs, `UX-2` Beat-Synced Transport HUD, `UX-10` Full-Screen Synths Gallery, `UX-5` Welcome Screen with screenshots, `UX-6` Devices SVG Rotary Knobs/Param Search/Bezel) | 2-3 sessions | None (pure visual/ergonomic wins; no deep DAW spikes) |
+| **Batch A (Active: `feat/ui-overhaul`)** | Visual UX/UI Overhaul (`UX-3` Waveforms & Breadcrumbs, `UX-2` Beat-Synced Transport HUD, `UX-10` Full-Screen Synths Gallery, `UX-5` Welcome Screen with screenshots, `UX-6` Devices SVG Rotary Knobs/Param Search/Bezel) | 2-3 sessions | None (pure visual/ergonomic wins; no deep DAW spikes) |
 | **Batch B (Interactive Tools)** | `UX-4` In-Place Sound Hot-Swap + `#6d` Interactive Minigame Tutorial (`rustlings` for Strudel + Hardcore Mode) + `#5` Songs as Files & Places + `UX-6` Runtime (per-firmware stream FX bus like `djf`, `.vp()`, `vibe_host_store`, `.midi("vibefm1:...")`, cache clear) | 2-3 sessions | Decision 14/19 |
 | **Batch C1 (Track DSP UI)** | `UX-7` Per-Chain Effect Rack (`src/shared/rack.ts`) + `UX-8` Visual Filter Curve & Live FFT | 3-4 sessions | Existing `chains.ts` & `meterOrbits()` |
 | **Batch C2 (Mixer MIDI & DJ)** | `#6b` Mixer Stacks + `DAW-5` Mixer MIDI strips/cables + `DAW-8` DJ Two-Deck Suite & Split-Mono Cue | 3-4 sessions | Spikes J1, J2, J4 |

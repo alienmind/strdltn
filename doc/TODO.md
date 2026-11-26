@@ -36,8 +36,7 @@ No blocking spikes; mostly visual, layout, and ergonomic improvements in the exi
 
 | Order | ID | What | Pointer |
 |---|---|---|---|
-| 1 | UX-11 | **Two-Column Browser Layout (Results to the Right)**: move the packed Results/Contents pane into a second column right of Library (Ableton-style split with draggable divider + narrow-sidebar fallback) | `doc/NEW_FEATURES.md` section 3 |
-| 5 | UX-3 | **Browser Waveform Sparklines, Trim Handles & Breadcrumbs**: 40px waveform `<canvas>` with playhead & `.begin()`/`.end()` trim handles, animated previewing-row mini-EQ indicator, removable `.resultbar` breadcrumb pill | `doc/NEW_FEATURES.md` section 3 |
+| 1 | UX-3 | **Browser Waveform Sparklines, Trim Handles & Breadcrumbs**: 40px waveform `<canvas>` with playhead & `.begin()`/`.end()` trim handles, animated previewing-row mini-EQ indicator, removable `.resultbar` breadcrumb pill | `doc/NEW_FEATURES.md` section 3 |
 | 6 | UX-2 | **Beat-Synced Transport HUD & Master Safety Limiter**: recessed Play/Stop/Rec/Render pill, live `BAR / BEAT` counter + 4-dot beat LEDs, Tap Tempo, vertical BPM drag, active-song status row + `arrange()`/`@length` progress bar, toggleable Master limiter | `doc/NEW_FEATURES.md` section 2 |
 | 7 | UX-10 | **Full-Screen Synths Gallery Tab**: optional, closable main-editor-area webview tab opened from Synths / FM-1 Synths with a spacious multi-column card grid, large centered screen previews, filter chips, single-click audition, install/download all, and insert | `doc/NEW_FEATURES.md` section 3 |
 | 8 | UX-5 | **Colorful First-Install Welcome Screen**: Eclipse-style onboarding tab (`Welcome to [str]dltn Live[code]`) using existing screenshots (skip video clips for now), "Play the demo song" / "Try it" actions, **"Import clean DAW Profile"** (`template/strdltn.code-profile`), and "Do not show me this again" checkbox | `doc/NEW_FEATURES.md` section 4 |

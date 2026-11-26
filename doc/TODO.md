@@ -87,7 +87,7 @@ and finished items are deleted from both files and consolidated into `doc/ARCHIT
 |---|---|---|
 | 5 | **Songs as files in the Browser & custom Places folders**: `+` Create new track, F2 rename, Delete, Reveal, `strdltn.browser.folders` | Planned. See `doc/NEW_FEATURES.md` section 3 |
 | 6b | **Stacks in the Mixer**: `stack(...)` foldable group strips | Designed. See `doc/NEW_FEATURES.md` section 7 |
-| 6d | **Tutorial in the Reference**: `dist/tutorial.json` (workshop + learn pages) | Planned (Decision 23). See `doc/NEW_FEATURES.md` section 3 |
+| 6d | **Interactive Minigame Reference Tutorial**: playable coding minigame with comment-guided `.strudel` stages, floating assistant HUD with **Verify** + concrete feedback, persistent red background on fail until fixed, Web Audio SFX, scores/streaks/ranks, and timed **Hardcore Mode** | Planned (Decision 23 + 2026-11-26). See `doc/NEW_FEATURES.md` section 3 |
 | 10 | **Import sample packs from file system**: drag OS files/folders, `patchbay` classification rules | Not designed. See "Importing sample packs" below |
 | 11 | **Wave editor panel**: built on `github:alienmind/AudioMass#strdltn-1` (Decision 16) | Not designed. See "Wave editor" below |
 | 14 | **Strudel editor keybindings**: Ctrl+H, Ctrl+D, Ctrl+Shift+L built; CodeMirror-owned defaults still ignore rebindings | Partial. See "Keybindings in the Strudel editor" below |

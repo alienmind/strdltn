@@ -127,15 +127,58 @@ Make the Browser's Songs category work like the Explorer for `.strudel` files:
 - Open questions: Reveal in Explorer vs OS File Explorer vs both; empty header vs starter beat
   in new track; whether `lib/` snippets share the same create/rename/remove menu.
 
-### Reference Tutorial (`#6d` - Decision 23 answered)
+### Interactive Minigame Reference Tutorial (`#6d` - Decision 23 answered + maintainer 2026-11-26)
 
-- `scripts/build-tutorial.mjs` already fetches Strudel's AGPL MDX workshop (6 pages) and learn
-  (19 pages) docs at the pinned commit. Extend it to also emit `dist/tutorial.json` split into
-  ordered lessons (`title`, `page`, Markdown text blocks, code examples).
-- Add `lessonItem` (`category: 'tutorial'`, `kind: 'lesson'`) under **Reference** (workshop
-  first, then learn pages, keeping reading order).
-- Details pane renders basic Markdown blocks with **"Insert at the cursor"** and **"Open as a
-  song"** (opens untitled `.strudel` document) per example, plus links to functions in Reference.
+Upgrade the Reference Tutorial from static Markdown into an **interactive Strudel coding
+minigame** - a playable, sound-driven live-coding coach that runs alongside a `.strudel`
+file:
+
+- **Lesson & level source (`dist/tutorial.json`):** Extend `scripts/build-tutorial.mjs`
+  (which already fetches Strudel's AGPL MDX workshop and learn docs at the pinned commit) and
+  pair it with structured minigame levels (`id`, `chapter`, `title`, `brief`, `starterCode`
+  with comment instructions, `hints[]`, `checks[]`, `solution`, `parSeconds` for Hardcore
+  mode).
+- **Guided `.strudel` workspace file:** Picking a level under **Reference > Tutorial** (or
+  from the Welcome Screen) opens a scratch/lesson `.strudel` file in the Strudel editor with
+  clear inline comment prompts marking where to write or modify code (for example,
+  `// TODO: add a kick drum on every beat using s("bd*4")`). Both reading mode ("Insert at
+  cursor" / "Open as a song" from the Details pane) and interactive minigame mode coexist.
+- **Floating Tutorial Assistant HUD:** A compact, draggable/collapsible floating overlay
+  inside the Strudel editor webview that runs alongside the user like a minigame HUD:
+  - Shows the current stage prompt, progress bar (`Stage 2 / 6`), live **Score**, **Streak /
+    Combo** counter, and **Hardcore Mode** toggle + countdown clock.
+  - Primary **"Verify"** button (plus keyboard shortcut): runs the user's `.strudel` code in
+    the real Strudel engine, inspects syntax/runtime status, AST/source structure, and
+    evaluated pattern haps (e.g. expected sounds, notes, effects, cycle structure, or audio
+    activity), and reports **concrete, actionable feedback** on exactly what passed and what
+    still needs fixing.
+  - Progressive **"Hint"** button (reveals tiered hints at a small score penalty) and
+    **"Next stage"** / **"Retry"** controls.
+- **Immediate visual and audio feedback:**
+  - **Fail state:** Turns the editor screen background **red** (translucent red wash/tint that
+    **stays red until the user fixes the code and passes verification**), plays a short
+    fail/buzz arcade SFX cue, and highlights the specific line or missing requirement in the
+    floating window.
+  - **Pass state:** Clears the red background, flashes a crisp green victory confirmation,
+    plays a synthesized Web Audio success/level-up fanfare alongside the user's playing
+    Strudel pattern, increments score/streak, and unlocks the next stage (letting the user
+    jam before clicking Next).
+- **Minigame progression & persistence (`context.globalState`):**
+  - **Scoring:** Base points per stage + first-try bonus + no-hint bonus + streak combo
+    multiplier (`x1`, `x2`, `x3`...).
+  - **Streaks, ranks & replayability:** Tracks active consecutive-pass streak, best streak,
+    stars/rank per level/chapter, personal best times, and unlockable badges in
+    `context.globalState`.
+  - **Sound effects:** Dedicated Web Audio minigame SFX channel (respecting a mute-SFX
+    toggle) for stage start, verify pass, verify fail, streak milestone, and Hardcore
+    countdown ticks.
+- **Hardcore Mode (time-sensitive arcade mode):**
+  - Toggleable per level or globally in the floating assistant.
+  - Starts a live **countdown timer** (`parSeconds`, scaled by stage complexity) with a visual
+    urgency bar and subtle tick/heartbeat audio cues in the final seconds.
+  - Verifying before time runs out awards a **speed multiplier** and Hardcore completion mark;
+    running out of time turns the background red, breaks the Hardcore streak (or costs a
+    life / forces stage restart), and prompts a fresh timed run.
 
 ---
 

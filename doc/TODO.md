@@ -52,31 +52,49 @@ so SHRUB behaves as a regular synth. Pending manual checks live in `doc/PENDING-
 and the handover spec for the next UX/UI overhaul + DJ features lives in `doc/UX-ROADMAP.md`.
 Item 20 (melody and drum-rack line actions) waits for the maintainer's go.
 
-Next in line:
+Next in line (unified backlog merged from `doc/TODO.md`, `doc/UX-ROADMAP.md`, and the
+remaining unbuilt phases of `doc/DAW-PLAN.md`; finished items are removed):
 
-| # | What | State |
+### Visual Redesign, Polish and Welcome (`doc/UX-ROADMAP.md`)
+
+| ID | What | State / Pointer |
 |---|---|---|
-| 19 | Line actions: a gutter left of the line numbers, in the Strudel editor and the native editor, with a knob button on every line that has a slider. A click captures the next knob (MIDI learn). Lines without an action keep an empty gap, so everything stays aligned; more line actions will come. The same knob button on every fader of the Mixer. Replaces Ctrl+Alt+K as the main way to learn a knob, which the maintainer finds too convoluted. On `feat/knobs`: the maintainer wants this branch to close with every MIDI feature in it (2026-11-22). See "Line actions" | Built on `feat/knobs`, waiting for the hand test |
-| 14 | The Strudel editor takes VS Code's keybindings: Ctrl+F searches, and so on, as the user has bound them. See "Keybindings in the Strudel editor" | Ctrl+F and Ctrl+G passed the hand test; Ctrl+H, Ctrl+D, Ctrl+Shift+L built, waiting for it. Keys CodeMirror takes first do not follow a rebinding yet |
-| 15 | Every slider also a knob: a slider on screen that a physical knob moves too, by a CC the user maps with MIDI learn. The way to use physical knobs (the maintainer, 2026-11-22). See "Sliders on knobs" | Built on `feat/knobs`, waiting for the hand test |
-| 16 | Welcome screen on first install: colorful Eclipse-style welcome tab shown once on first start, explaining the main features with visual screenshots (and optional short clips / "Try it" actions) plus a "Do not show me this again" checkbox (updated by the maintainer on 2026-11-26) | Planned, not built. Spikes W1 to W4 first. See "Welcome screen" in `doc/DAW-PLAN.md` |
-| 17 | Render a pattern to MIDI: a `.mid` file of a song or a chain, and later into the piano roll | Planned, not built. See "MIDI clips: render and record" in `doc/DAW-PLAN.md` |
-| 18 | Record MIDI into a pattern, as Ableton does: arm, play a keyboard while the song plays, the notes written into the song | Planned, not built. Same section |
-| 20 | More line actions: a melody button on every line that plays notes, which opens a piano roll fitted to that line and records notes from a MIDI keyboard, quantized to the tempo; and a drum rack button on every drum line, a grid of pads as Live's Drum Rack, each pad mapped to a note, with a record button per rack (the maintainer, 2026-11-22). Goes with items 18 and 7 | To plan, not designed. See "Line actions: melody and drums" |
-| 1 | MIDI: devices in the Browser, playing through them, mappings. Next: MIDI routing in the Mixer, cables from a chain to the MIDI instrument it plays; its button "Show MIDI Routing" is in the Mixer's utility column, disabled until then (the maintainer, 2026-11-22) | Playing and inputs built on `feat/midi`, waiting for the hand test; the Browser and the Mixer next. Phase 5 of `doc/DAW-PLAN.md`. See "MIDI" |
-| 2 | A list of sound cards to send the sound to | Not possible in the webview (S6: the microphone is refused, so no names or ids). Windows' per-app output does it by hand. See "Sound card" |
-| 4 | Firmware Marketplace: the hub's firmwares in the Library, Installed and Available, install, a snippet into the code, a picture of each one's screen, the screen in a popup (the maintainer, 2026-11-22 and 2026-11-24) | Built on `feat/firmware-marketplace`, waiting for the hand test. See "Firmware Marketplace" under "Firmware Hub" |
-| 5 | Songs as files in the Browser: "Create new track", rename, remove, reveal | Planned, not built, three questions open. See "Songs as files" in `doc/DAW-PLAN.md` |
-| 6a | Songs: an "Insert at the cursor" button beside "Open", which types the song's code without its header | Built on `feat/knobs`, waiting for the hand test |
-| 6b | Stacks in the Mixer: a chain made of `stack(...)` as a strip that groups strips | Designed, not built. See "Stacks" in `doc/DAW-PLAN.md` |
-| 6 | Functions: an "Insert an example" button beside "Insert at the cursor" | Built on `feat/knobs`, waiting for the hand test |
-| 6c | Dock and float for the stage and later windows (the Mixer has it) | The stage waits for phase 6 (decision 22). See "Dock and float" in `doc/DAW-PLAN.md` |
-| 6e | Track colors: every chain gets a color by itself (the next of the palette), kept as `// @color <name>` on the line above the chain, changeable in the Mixer, used later by the session view | Planned, not built. Decision 24 answered: colored by themselves. See "Track colors" in `doc/DAW-PLAN.md` |
-| 6d | Tutorial in the Reference, from the workshop and learn pages of strudel.cc | Planned, not built. Decision 23 answered: the workshop first, then the learn pages. See "Reference and tutorial" in `doc/DAW-PLAN.md` |
-| 7 | Advanced sequencing: devices that write patterns from taps (drum pad, step sequencer, piano roll, slicer) | Planned as the last phase. See "Phase 11" in `doc/DAW-PLAN.md` |
-| 8 | A promo video: a walkthrough of the features, captured from a real VS Code window, with voice-over and our own song | First cut rendered (36 s), not watched yet. See `doc/VIDEO.md` |
-| 10 | Sample packs from the file system: drag files or a folder from the OS onto the Browser, or "Add folder", and the pack is imported and sorted by what each sound is (kick, snare, hat, ...) into a folder structure of its own | Asked for on 2026-11-21, not designed. See "Importing sample packs" |
-| 11 | A wave editor panel: open a sample from the Browser or the project and edit it in the IDE (select, cut, copy, paste, trim, fade, normalize), saved back as a file | Asked for on 2026-11-21, not designed. Built on AudioMass, not written by us: decision 16. See "Wave editor" |
+| UX-1 | **Track Colors (`// @color <name>`) + Visual Polish Pass**: auto-assigned track colors across Mixer headers, editor gutter bars, and Devices; custom recessed sub-control faders; LED meters with floating peak-hold tick, -6/0 dB guides, and darker Master strip; amber M / blue S; chain activity LED; cable halos & sidechain pulse; top Mixer toolbar replacing rotated vertical buttons; `tabular-nums`; frosted `#unlock` & Stage dock; inline error toast in Strudel editor | Planned (Wave 1). Decision 24 answered. See `doc/UX-ROADMAP.md` section 1 and `doc/DAW-PLAN.md` "Track colors" |
+| UX-2 | **Beat-Synced Transport HUD & Master Safety Limiter**: `BAR / BEAT` counter, 4-dot beat LEDs, Tap Tempo, vertical BPM drag, active-song sub-row with status dot, clickable `arrange()` / `@length` progress bar, toggleable `DynamicsCompressorNode` brickwall limiter on `destinationGain` | Planned (Wave 2). See `doc/UX-ROADMAP.md` sections 1.C, 3.7 |
+| UX-3 | **Browser Waveform Sparklines, Trim Handles & Breadcrumbs**: 40px waveform `<canvas>` with playhead & draggable `.begin()`/`.end()` trim handles from `playPreview()`'s decoded `AudioBuffer`; animated playing EQ indicator on previewing row; removable category/group breadcrumb pill in `.resultbar` | Planned (Wave 2). See `doc/UX-ROADMAP.md` sections 1.C, 3.3 |
+| UX-4 | **In-Place Sound Hot-Swap ("Live Audition in the Mix")**: Ableton `Q`-style lock to `s("...")`/`.bank("...")` under cursor; `Up`/`Down` swaps sounds live in the playing mix, `Enter` keeps, `Esc` reverts in 1 undo | Planned (Wave 2). See `doc/UX-ROADMAP.md` section 3.5 and `doc/DAW-PLAN.md` "Hot-swap" |
+| UX-5 | **Welcome Screen on First Install**: colorful Eclipse-style welcome tab shown once on first start, explaining main features with visual screenshots (and optional short clips / "Try it" actions) plus a "Do not show me this again" checkbox and `strdltn: Open Welcome Screen` command | Planned (Wave 3). See `doc/UX-ROADMAP.md` section 1.F and `doc/DAW-PLAN.md` "Welcome screen" (spikes W1-W4) |
+| UX-6 | **Devices Rotary Knob Grid, Parameter Search & `.vp()` / Firmware Store**: SVG rotary arc knobs, prefix auto-grouping (`OSC`/`FLT`/`ENV`/`FX`), param search box, hardware display bezel, `.vp(id, value)` copy/code, and `vibe_host_store` persistence in `.strdltn/firmware-store/<id>/` | Planned (Wave 3). See `doc/UX-ROADMAP.md` section 1.D and `doc/DAW-PLAN.md` Phase 4 |
+
+### Tactile Track Instruments, DJ Suite and DAW Phases (`doc/UX-ROADMAP.md` + `doc/DAW-PLAN.md`)
+
+| ID | What | State / Pointer |
+|---|---|---|
+| UX-7 | **Ableton-Style Per-Chain Effect Rack (`src/shared/rack.ts`)**: AST spine parser grouping related calls into logical Device Cards in true `superdough` DSP order + reorderable Pattern FX; `strudel.cc`-safe `/* ... */` bypass LED; `+ Add Effect` popover; `Pin as Slider` | Planned (Wave 4). See `doc/UX-ROADMAP.md` section 2.A |
+| UX-8 | **Visual Filter Curve + Live Per-Chain FFT Spectrum**: 64-bin log FFT from existing `meterOrbits()` `AnalyserNode` behind exact RBJ biquad curve; draggable HPF/BPF/LPF nodes, Q wheel, `.ftype()` slope pill, `.lpenv` ghost curve, vowel formant markers | Planned (Wave 4). See `doc/UX-ROADMAP.md` section 2.B |
+| DAW-5 | **MIDI in Mixer (Phase 5 remainder)**: MIDI device strips (`+ device`, port + channel), purple MIDI routing cables, `[ ALL \| CHAINS \| MIDI ]` view switch (enabling "Show MIDI Routing"), and Codespaces hint in Browser MIDI category | Partial (engine & Browser MIDI done in 0.4/0.5). See "MIDI" below and `doc/DAW-PLAN.md` Phase 5 |
+| DAW-8 | **DJ Two-Deck Performance Suite + Split-Mono Headphone Cueing (Phase 8)**: `[ DECKS ]` view, twin decks with 4-beat phase bars, Sync/nudge, equal-power crossfader, 3-band kill-isolator EQ, bipolar filter, beat-repeat pads, plus Split-Mono Cue (`L=Master / R=Cue` via `ChannelMergerNode(2)` working around Spike S6) | Planned (Wave 5). Spikes J1, J2, J4 first. See `doc/UX-ROADMAP.md` section 3.1 and `doc/DAW-PLAN.md` Phase 8 |
+| DAW-9 | **Performance & Automation Recording (Phase 9)**: Record Automation button capturing evaluations, sliders, mute/solo, and deck controls into `*.arrangement.json` with punch-in and cycle-accurate playback | Planned. Spikes A1, A2 first. See `doc/DAW-PLAN.md` Phase 9 |
+| DAW-10 | **Arrangement View & Live Session Clip Matrix (Phase 10)**: custom editor for `*.arrangement.json` (lanes, ruler, curves, mute ranges, export to plain Strudel `arrange()`) + Session View clip/section launcher grid over `arrange()`/`pick()`/`mask()` with next-bar launch countdown | Planned (Wave 6). Spike A3 for export. See `doc/UX-ROADMAP.md` section 3.2 and `doc/DAW-PLAN.md` Phase 10 |
+| DAW-11 | **Advanced Sequencing & Melody/Drum Line Actions (Phase 11)**: piano roll & Drum Rack line actions (`M/S/C` + melody/drum buttons), step sequencer + circular Euclidean Rhythm Ring, Visual Breakbeat Slicer (`.slice()`/`.splice()`), chords/arp, groove, chance, echo, and **Visual LFO / Parameter Modulation Drawer** | Planned (Wave 6). Spikes Q1, Q2 first. See "Line actions: melody and drums" below, `doc/UX-ROADMAP.md` sections 3.3, 3.4, 3.8, and `doc/DAW-PLAN.md` Phase 11 |
+| UX-9 | **Global Performance Macro Rack & Morphable Scene Snapshots**: 8-knob macro bar mapping one knob to multiple sliders with custom/inverted ranges + 8 recallable/morphable slider snapshots in `strdltn.index.json` | Planned (Wave 6). See `doc/UX-ROADMAP.md` section 3.6 |
+| DAW-6 | **One Shared Engine in the Browser (Phase 6)**: move audio engine into Browser webview + scheduler in Web Worker so audio survives Strudel/native editor switches and unlocks once per window; also enables Stage dock/float (decision 22) | Planned, gated by spikes E1, E2, E4, E5. See `doc/DAW-PLAN.md` Phase 6 |
+| DAW-7 | **Engine as a Browser Page (Phase 7)**: serve engine over local/forwarded port + WebSocket so Codespaces gets WebMIDI and IDE runs as a dumb client | Planned, gated by spike E3 (decision 7). See `doc/DAW-PLAN.md` Phase 7 |
+
+### Other Open Features & Tools
+
+| ID | What | State / Pointer |
+|---|---|---|
+| 5 | **Songs as files in the Browser & custom Places folders**: `+` "Create new track", F2 rename, Delete to trash, Reveal in Explorer/OS, plus `strdltn.browser.folders` custom folders | Planned, three open questions. See `doc/DAW-PLAN.md` "Songs as files" |
+| 6b | **Stacks in the Mixer**: a `stack(...)` chain rendered as a foldable group strip holding its member strips | Designed, not built. See `doc/DAW-PLAN.md` "Stacks" |
+| 6d | **Tutorial in the Reference**: `dist/tutorial.json` from Strudel's workshop (first) and learn pages, with "Insert" and "Open as a song" | Planned (Decision 23 answered). See `doc/DAW-PLAN.md` "Reference and tutorial" |
+| 10 | **Import sample packs from file system**: drag files/folders from OS onto Browser or "Add folder", auto-classified using `patchbay` rules into a `strudel.json` pack | Not designed. See "Importing sample packs" below |
+| 11 | **Wave editor panel**: edit samples in IDE (select, cut, trim, fade, normalize) built on `github:alienmind/AudioMass#strdltn-1` (Decision 16) | Not designed. See "Wave editor" below |
+| 14 | **Strudel editor keybindings**: Ctrl+F/G passed; Ctrl+H, Ctrl+D, Ctrl+Shift+L built (verify); keys CodeMirror takes first do not follow user rebindings yet | Partial. See "Keybindings in the Strudel editor" below |
+| 17 | **Render a pattern to MIDI (`.mid`)**: export song or chain to standard format-1 `.mid` file | Planned. See `doc/DAW-PLAN.md` "MIDI clips: render and record" |
+| 18 | **Record MIDI into a pattern**: arm, play MIDI keyboard with count-in/quantize, write mini-notation into the song | Planned. Same section |
+| 2 | **Sound card output picker**: not possible inside VS Code webview (Spike S6: microphone refused, no device ids). Use Windows per-app output, Split-Mono Cue (DAW-8), or Phase 7 browser page | Blocked in webview (S6). See "Sound card" below |
+| 8 | **Promo video**: walkthrough captured from a real VS Code window with voice-over | First cut rendered (36 s), not watched yet. See `doc/VIDEO.md` |
 
 ## Next: test by hand
 
@@ -132,6 +150,7 @@ it.
 | 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. On 2026-11-26 the experimental SHRUB panel and setting were removed so SHRUB is treated as a regular synth in `Plugins > FM-1 Synths` (external `shrub.audio` repo link + Hardware MIDI profile + native `fm1-live` runner for user-supplied `SHRUB.fwsc`). Its web editor opens in the external browser |
 | 16 | The wave editor (item 11) builds on AudioMass, which is not on npm and has no releases or tags. How does it come in? | Answered 2026-11-22: from the maintainer's fork `alienmind/AudioMass`, pinned to a tag we make there. The tag `strdltn-1` is made. See "Wave editor" |
 | 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Answered 2026-11-22: behind a setting, off. Built on `feat/open-snippets` as `strdltn.midi.highPriority`, passed the hand test |
+| 18 | SHRUB native WASM (`https://shrub.audio/play` -> `/sim/shrub_sim.wasm`, measured 2026-11-26): true compiled WASM (`ss_boot`/`ss_render`/`ss_midi`/`ss_lcd`, zero imports, ~few % CPU), NOT emulated, but marked `Copyright (C) 2026 Xfer Records. All rights reserved.` with no CORS header. Keep as external link ("Play in Browser...") only, ask Xfer for permission, or build a clean-room user-fetched host? | Waiting for maintainer |
 
 
 ## MIDI
@@ -670,8 +689,7 @@ planned yet.
 - Notes that are playing are not highlighted in the native editor.
 - A sample that was deleted stays in the Browser until the editor is reloaded.
 - Before a `.strudel` file is open, the Browser shows the sound list the last engine
-  reported. It can name a sample that was deleted since, and preview needs an open
-  file.
+  reported. It can name a sample that was deleted since.
 - An error in the code shows no squiggle in the Strudel editor, only in the Problems
   view and in the status bar.
 - The place of an error is found by rule from its message. For a name that is written
@@ -690,9 +708,6 @@ planned yet.
   keyboard handling is our own (arrows, Enter, Space, 1 to 7). Not tested with a reader.
 - The tags of samples come from their names. 20 of the 1649 sounds on the maintainer's
   list get no Drums or Sounds tag (the tabla syllables `ka`, `dhin`, and `jazz`, `metal`).
-- In the Browser a row cannot be dragged into the editor yet (spike D4 of
-  `doc/DAW-PLAN.md`). Enter, a double click (not on a snippet or a song, which open) or
-  the insert button types it.
 - The samples of a map written in the song (`samples({...}, 'github:...')`) are not
   listed and not cached before the song has played once.
 - Not cached: a map where a sound has its own `_base`, an address with a query (what
@@ -729,12 +744,28 @@ column says, then delete the spike. None of these is started unless it says so.
 | S3 | Does a completion extension with a local server complete `.strudel` files? | Install llama.cpp (or Ollama) on the host and `llama.vscode` (or Continue) in the test profile. Type in a `.strudel` file in the native editor | Whether it offers anything, whether it needs `.strudel` mapped to JavaScript, tokens per second on the CPU | "Completion from another extension" below |
 | S4 | Do local reference files change what stock completion offers? | With Copilot on, type the start of a rare function in a `.strudel` file, first without and then with a reference file open in another tab, then with it only on disk | What was offered in each of the three cases | "Strudel's documentation as local examples" below |
 | S7 | Does the pack cache work in Codespaces? | Open `examples/05-coastline.strudel` in a Codespace | Whether the files arrive in `.strdltn/cache/` and play from there | "Measured" in `doc/ARCHITECTURE.md` |
+| J1 | How closely do two webviews agree on time through `getOutputTimestamp()` and the wall clock? | Two engines play clicks on every beat; compare reported wall times | Offset in ms (gates DAW-8 Two Decks) | "Decks" in `doc/ARCHITECTURE.md` |
+| J2 | Can the deck EQ/filter/fader chain sit between superdough's `destinationGain` and destination and survive `reset()`? | In webview with `demo.strudel` | Works across `reset()` (gates DAW-8) | "Decks" in `doc/ARCHITECTURE.md` |
+| J4 | How close does Sync by tempo nudge align two downbeats, and how fast? | Two songs at 128 and 124 BPM, Sync, log offset per bar | Offset per bar (bar is 5 ms, gates DAW-8) | "Decks" in `doc/ARCHITECTURE.md` |
+| A1 | How long does an evaluation take, and can a recorded one apply ahead so it lands on its cycle? | `demo.strudel`: evaluate at known cycles, log first event cycle | Lead time ms (gates DAW-9 Recording) | "Recording" in `doc/ARCHITECTURE.md` |
+| A2 | How many slider values/sec does a drag emit, and does replay sound smooth? | Drag gain slider while recording, replay | Rate and smoothness (gates DAW-9) | "Recording" in `doc/ARCHITECTURE.md` |
+| A3 | Does a recording exported with `arrange()` and value patterns match its playback? | Export short recording, compare haps cycle by cycle | Parity check (gates DAW-10 export) | "Recording" in `doc/ARCHITECTURE.md` |
+| E1 | Does a webview view with `retainContextWhenHidden` keep playing and keep timers when hidden? | Play in Browser, switch to Explorer, log scheduler tick times | Drift/throttling (gates DAW-6) | "Engine" in `doc/ARCHITECTURE.md` |
+| E2 | Can the editor highlight and draw from events sent by another webview? | Feed engine events to a silent `StrudelMirror` | Works or not (gates DAW-6) | "Engine" in `doc/ARCHITECTURE.md` |
+| E3 | Does the engine page work in a normal browser from a forwarded port with WebMIDI? | Serve `dist/` from host, open in Chrome desktop + Codespace | Works or not (gates DAW-7) | "Engine" in `doc/ARCHITECTURE.md` |
+| E4 | Can a Web Worker evaluate a song and feed superdough in the Browser page on time? | Play `demo.strudel` vs editor engine; compare event times | Timing offset (gates DAW-6) | "Engine" in `doc/ARCHITECTURE.md` |
+| E5 | Does one click in Browser keep its `AudioContext` running across sidebar switches / minimize / 1 hour? | Click once, play from command at those points | Running or suspended (gates DAW-6) | "Starting audio" in `doc/ARCHITECTURE.md` |
+| Q1 | How exact is a tap from a bottom-panel view after host relay to the engine? | Tap on 32 beats of a click, log offset | Offset ms (gates DAW-11) | "Measured" in `doc/ARCHITECTURE.md` |
+| Q2 | Can the parser write back mini-notation while preserving user spaces and comments? | Unit test cases on `template/demo.strudel` and examples | Pass/fail (gates DAW-11) | `src/shared/chains.test.ts` |
+| W1-W4 | Welcome screen video codec (VP9 `.webm`), bundle size, first-start version state, and VS Code walkthrough integration | Test clip in `pnpm test:vscode` (optional if Welcome uses screenshots first) | Codec + size (gates UX-5 clips) | "Welcome screen" in `doc/DAW-PLAN.md` |
 
-Already done, with their answers in `doc/ARCHITECTURE.md` and the drawer: sound in a
-webview, WebMIDI in a webview (refused), WebGPU in a webview (works), a native MIDI
-module in the extension host (works, but a plain timer is too late), sending MIDI on
-time from a worker thread (S5, passed), audio outputs seen by a webview (one, without a
-name), the microphone in a webview to name them (S6, refused).
+Already done (removed from open spikes, answers in `doc/ARCHITECTURE.md` and the drawer):
+sound in a webview, WebMIDI in a webview (refused), WebGPU in a webview (works), native MIDI
+module in extension host, worker-thread MIDI timing (S5, passed), audio outputs seen by a
+webview / microphone permission (S6, refused -> superseded J3 with Split-Mono Cue in DAW-8),
+chain event tagging (D1, built), Browser drag-and-drop into editor & Mixer (D4, built),
+Devices framebuffer & SDK events (F1, F2, built), SHRUB iframe (F3, built then removed),
+`fm1-emu` `.fwsc` worklet + native `fm1-live` (F4, built), and Mixer dock/float (`Place`, W1).
 ## Local model
 
 Planned, not started. No code until the maintainer says so. The goal: completion and

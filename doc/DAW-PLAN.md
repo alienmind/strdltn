@@ -1,10 +1,27 @@
 # DAW plan
 
-The plan to turn [str]dltn Live[code] from an editor with side views into a DAW that is
-written in code. Nothing in this file is built. The maintainer reads it, answers the
-questions in "Decisions for the maintainer", and then we start with phase 0.
+> **Status (updated 2026-11-26):** This is the original architectural design document. Much of
+> it is now **implemented in full**:
+> - **Done:** Phase 1 (Browser, tags, colors, search, insert as code), Phase 1b (standalone
+>   Browser previews for all sounds/synths/firmwares without an open song), Phase 2 & Phase 3
+>   (Mixer strips, faders, Master strip, meters, pump meter, M/S/G, sidechain cables, dock/float),
+>   Phase 4 (Devices view for running VIBE firmwares; experimental SHRUB iframe panel was later
+>   removed), Phase 5 core (desktop `@julusian/midi` bridge, worker clock S5, `.midi()`, `midin()`,
+>   `midikeys()`, `midimaps()`, Browser MIDI category, slider MIDI learn + `M/S/C` editor line
+>   actions), Spike D1, Spike D4 (full Browser drag-and-drop into editors & Mixer), Spikes F1-F4
+>   (`fm1-emu` `.fwsc` worklet + native `fm1-live` + Hardware MIDI profiles), and `Place` dock/float.
+> - **Still to build (merged into `doc/TODO.md` and `doc/UX-ROADMAP.md`):**
+>   Phase 5 Mixer MIDI strips/cables, Phase 6 (one shared engine in Browser), Phase 7 (engine as
+>   browser page for Codespaces WebMIDI), Phase 8 (Two DJ Decks + Split-Mono Cue), Phase 9
+>   (Recording), Phase 10 (Arrangement view & Session Clip Matrix), Phase 11 (Advanced sequencing),
+>   Track colors, Stacks, Songs as files, Reference Tutorial, Hot-Swap, Welcome Screen, and the
+>   full visual polish & Effect Rack / Filter Curve specs in `doc/UX-ROADMAP.md`.
+>
+> Use `doc/TODO.md` as the single live backlog and `doc/UX-ROADMAP.md` as the UX/DJ handover.
+> Detailed architecture designs below remain kept as reference for the unbuilt phases.
 
-Each claim says where it comes from: "measured" (we ran it, the record is in
+The original plan to turn [str]dltn Live[code] from an editor with side views into a DAW that is
+written in code. Each claim says where it comes from: "measured" (we ran it, the record is in
 `doc/ARCHITECTURE.md` or `doc/TODO.md`), "read" (we read the code or the manual), or
 "expected" (not tested). The spikes in "Spikes" turn the expected ones into measured
 ones before the work that depends on them starts.

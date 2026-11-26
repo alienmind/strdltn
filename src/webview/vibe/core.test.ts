@@ -137,3 +137,46 @@ test('a firmware for a host protocol we do not know is refused', () => {
 		(globalThis as any).WebAssembly.Instance = real;
 	}
 });
+
+test('auto-detects ss_* native WASM builds (e.g. SHRUB WASM) inside VibeCore', () => {
+	// Build a minimal valid WASM module exporting ss_boot, ss_render, ss_midi, ss_flash, ss_master, ss_running, ss_lcd, memory.
+	const types = vec([
+		[0x60, 0, 1, I32], // () -> i32
+		[0x60, 1, I32, 0], // (i32) -> ()
+		[0x60, 1, I32, 1, I32], // (i32) -> i32
+		[0x60, 3, I32, I32, I32, 0], // (i32, i32, i32) -> ()
+	]);
+	const funcs = vec([[0], [1], [1], [0], [2], [3], [0]]);
+	const memory = vec([[0x00, 4]]);
+	const exports = vec([
+		[...name('memory'), 0x02, 0],
+		[...name('ss_flash'), 0x00, 0],
+		[...name('ss_master'), 0x00, 1],
+		[...name('ss_boot'), 0x00, 2],
+		[...name('ss_running'), 0x00, 3],
+		[...name('ss_render'), 0x00, 4],
+		[...name('ss_midi'), 0x00, 5],
+		[...name('ss_lcd'), 0x00, 6],
+	]);
+	const code = vec([
+		fn([0], [0x41, 0]), // ss_flash -> 0
+		fn([0], []), // ss_master
+		fn([0], []), // ss_boot
+		fn([0], [0x41, 1]), // ss_running -> 1
+		fn([0], [0x41, 0x80, 0x08]), // ss_render -> 1024 (interleaved f32 buffer)
+		fn([0], [0x41, 0, 0x20, 1, 0x36, 2, 0]), // ss_midi -> mem[0] = d1 (note)
+		fn([0], [0x41, 0x80, 0x20]), // ss_lcd -> 4096 (240*240*2 bytes)
+	]);
+	const mod = new WebAssembly.Module(new Uint8Array([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0, ...section(1, types), ...section(3, funcs), ...section(5, memory), ...section(7, exports), ...section(10, code)]));
+	const core = new VibeCore(mod, 48000);
+	assert.equal(core.params.length, 6);
+	assert.equal(core.paramValue(0), 900);
+	core.schedule({ frame: 0, kind: 'midi', status: 0x90, d1: 60, d2: 100 });
+	core.schedule({ frame: 0, kind: 'param', index: 1, value: 42 });
+	const l = new Float32Array(128);
+	const r = new Float32Array(128);
+	core.render(l, r);
+	assert.equal(core.paramValue(1), 42);
+	const lcd = core.draw();
+	assert.equal(lcd?.length, 480 * 320);
+});

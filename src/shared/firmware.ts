@@ -156,9 +156,10 @@ export function midimapLoadEdit(text: string, profile: HardwareFirmwareProfile):
 export const HUB_INDEX = 'https://play.thefirmwarehub.com/firmware/index.json';
 /** The Firmware Hub's full catalog of real FM-1 `.fwsc` firmwares. */
 export const HUB_CATALOG = 'https://thefirmwarehub.com/catalog.json';
-/** Xfer Records SHRUB official page, direct .fwsc download, and screen preview image. */
+/** Xfer Records SHRUB official page, direct .fwsc/.wasm downloads, and screen preview image. */
 export const SHRUB_HOME = 'https://shrub.audio/';
 export const SHRUB_FWSC_URL = 'https://shrub.audio/editor/firmware/SHRUB.fwsc';
+export const SHRUB_WASM_URL = 'https://shrub.audio/sim/shrub_sim.wasm';
 export const SHRUB_THUMB_URL = 'https://shrub.audio/art/screens/wavetables-in-3d.png';
 /** MIT fm1-emu web emulator wasm (github.com/joakimeriksson/fm1-emu), fetched on demand into global storage. */
 export const FM1_EMU_WASM_URL = 'https://joakimeriksson.github.io/fm1-emu/fm1_web.wasm';
@@ -244,17 +245,30 @@ export const DEFAULT_FIRMWARE_REPOS: FirmwareRepo[] = [
 		homepage: SHRUB_HOME,
 		entries: [
 			{
+				id: 'shrub-wasm',
+				name: 'SHRUB (WASM)',
+				author: 'Xfer Records',
+				license: 'Proprietary (from shrub.audio)',
+				description:
+					'Xfer Records SHRUB compiled natively to WebAssembly (~1% CPU, zero dropouts, live screen & Devices panel on desktop & Codespaces). Click Install to download directly from shrub.audio without a browser.',
+				runtime: 'vibe',
+				url: SHRUB_WASM_URL,
+				repo: 'shrub.audio',
+				editor: 'https://shrub.audio/editor/',
+				order: 0,
+			},
+			{
 				id: 'shrub',
 				name: 'SHRUB',
 				author: 'Xfer Records',
 				license: 'Proprietary (from shrub.audio)',
 				description:
-					'Xfer Records wavetable synth firmware for M-VAVE FM-1. Click Install to download SHRUB.fwsc directly from shrub.audio into firmware/, or click Run Native for 240 MHz JIT emulation.',
+					'Xfer Records wavetable synth firmware (.fwsc) for M-VAVE FM-1 hardware. Click Install to download SHRUB.fwsc directly from shrub.audio into firmware/, or click Run Native for 240 MHz JIT emulation.',
 				runtime: 'fwsc',
 				url: SHRUB_FWSC_URL,
 				repo: 'shrub.audio',
 				editor: 'https://shrub.audio/editor/',
-				order: 0,
+				order: 1,
 			},
 		],
 	},

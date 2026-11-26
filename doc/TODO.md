@@ -17,8 +17,8 @@ showcase video of the demo, captured as one take (`video/scripts/showcase.mjs`, 
 `template/sea_of_souls.strudel`, the demo without its explanatory comments and with Hydra only
 in the drops, which the video plays; the user manual opening with the logo.
 
-The plan to make this a DAW is in `doc/DAW-PLAN.md`, with the order of work the
-maintainer set ("Order of work"). Merged so far: phase 1, the Browser (PR #4); phases 2
+The detailed pending architecture and design specs for unbuilt features live in
+`doc/NEW_FEATURES.md`. Merged so far: phase 1, the Browser (PR #4); phases 2
 and 3, the Music panel, the Mixer and the side bar views (PR #5, 0.2.0, never tagged);
 phase 4, Devices, with Firmware Hub, the SHRUB editor panel and the demo as an
 arrangement (PR #6, 0.3.0); phase 5, MIDI on desktop through the extension host, Render
@@ -49,52 +49,52 @@ SysEx flashing (`strdltn.experimental.fm1Flash`, off by default, use at your own
 under one `Plugins > FM-1 Synths` category (`Installed` / `Available`) with technology badges
 and `Runtime/...` / `Repo/...` tag chips. Experimental SHRUB panel special-casing was removed
 so SHRUB behaves as a regular synth. Pending manual checks live in `doc/PENDING-TESTING.md`,
-and the handover spec for the next UX/UI overhaul + DJ features lives in `doc/UX-ROADMAP.md`.
+and detailed designs for all remaining unbuilt features live in `doc/NEW_FEATURES.md`.
 Item 20 (melody and drum-rack line actions) waits for the maintainer's go.
 
-Next in line (unified backlog merged from `doc/TODO.md`, `doc/UX-ROADMAP.md`, and the
-remaining unbuilt phases of `doc/DAW-PLAN.md`; finished items are removed):
+Next in line (concise pointer list; detailed pending designs live in `doc/NEW_FEATURES.md`,
+and finished items are deleted from both files and consolidated into `doc/ARCHITECTURE.md`):
 
-### Visual Redesign, Polish and Welcome (`doc/UX-ROADMAP.md`)
-
-| ID | What | State / Pointer |
-|---|---|---|
-| UX-1 | **Track Colors (`// @color <name>`) + Visual Polish Pass**: auto-assigned track colors across Mixer headers, editor gutter bars, and Devices; custom recessed sub-control faders; LED meters with floating peak-hold tick, -6/0 dB guides, and darker Master strip; amber M / blue S; chain activity LED; cable halos & sidechain pulse; top Mixer toolbar replacing rotated vertical buttons; `tabular-nums`; frosted `#unlock` & Stage dock; inline error toast in Strudel editor | Planned (Wave 1). Decision 24 answered. See `doc/UX-ROADMAP.md` section 1 and `doc/DAW-PLAN.md` "Track colors" |
-| UX-2 | **Beat-Synced Transport HUD & Master Safety Limiter**: `BAR / BEAT` counter, 4-dot beat LEDs, Tap Tempo, vertical BPM drag, active-song sub-row with status dot, clickable `arrange()` / `@length` progress bar, toggleable `DynamicsCompressorNode` brickwall limiter on `destinationGain` | Planned (Wave 2). See `doc/UX-ROADMAP.md` sections 1.C, 3.7 |
-| UX-3 | **Browser Waveform Sparklines, Trim Handles & Breadcrumbs**: 40px waveform `<canvas>` with playhead & draggable `.begin()`/`.end()` trim handles from `playPreview()`'s decoded `AudioBuffer`; animated playing EQ indicator on previewing row; removable category/group breadcrumb pill in `.resultbar` | Planned (Wave 2). See `doc/UX-ROADMAP.md` sections 1.C, 3.3 |
-| UX-4 | **In-Place Sound Hot-Swap ("Live Audition in the Mix")**: Ableton `Q`-style lock to `s("...")`/`.bank("...")` under cursor; `Up`/`Down` swaps sounds live in the playing mix, `Enter` keeps, `Esc` reverts in 1 undo | Planned (Wave 2). See `doc/UX-ROADMAP.md` section 3.5 and `doc/DAW-PLAN.md` "Hot-swap" |
-| UX-5 | **Welcome Screen on First Install**: colorful Eclipse-style welcome tab shown once on first start, explaining main features with visual screenshots (and optional short clips / "Try it" actions) plus a "Do not show me this again" checkbox and `strdltn: Open Welcome Screen` command | Planned (Wave 3). See `doc/UX-ROADMAP.md` section 1.F and `doc/DAW-PLAN.md` "Welcome screen" (spikes W1-W4) |
-| UX-6 | **Devices Rotary Knob Grid, Parameter Search & `.vp()` / Firmware Store**: SVG rotary arc knobs, prefix auto-grouping (`OSC`/`FLT`/`ENV`/`FX`), param search box, hardware display bezel, `.vp(id, value)` copy/code, and `vibe_host_store` persistence in `.strdltn/firmware-store/<id>/` | Planned (Wave 3). See `doc/UX-ROADMAP.md` section 1.D and `doc/DAW-PLAN.md` Phase 4 |
-
-### Tactile Track Instruments, DJ Suite and DAW Phases (`doc/UX-ROADMAP.md` + `doc/DAW-PLAN.md`)
+### Visual Redesign, Polish and Welcome
 
 | ID | What | State / Pointer |
 |---|---|---|
-| UX-7 | **Ableton-Style Per-Chain Effect Rack (`src/shared/rack.ts`)**: AST spine parser grouping related calls into logical Device Cards in true `superdough` DSP order + reorderable Pattern FX; `strudel.cc`-safe `/* ... */` bypass LED; `+ Add Effect` popover; `Pin as Slider` | Planned (Wave 4). See `doc/UX-ROADMAP.md` section 2.A |
-| UX-8 | **Visual Filter Curve + Live Per-Chain FFT Spectrum**: 64-bin log FFT from existing `meterOrbits()` `AnalyserNode` behind exact RBJ biquad curve; draggable HPF/BPF/LPF nodes, Q wheel, `.ftype()` slope pill, `.lpenv` ghost curve, vowel formant markers | Planned (Wave 4). See `doc/UX-ROADMAP.md` section 2.B |
-| DAW-5 | **MIDI in Mixer (Phase 5 remainder)**: MIDI device strips (`+ device`, port + channel), purple MIDI routing cables, `[ ALL \| CHAINS \| MIDI ]` view switch (enabling "Show MIDI Routing"), and Codespaces hint in Browser MIDI category | Partial (engine & Browser MIDI done in 0.4/0.5). See "MIDI" below and `doc/DAW-PLAN.md` Phase 5 |
-| DAW-8 | **DJ Two-Deck Performance Suite + Split-Mono Headphone Cueing (Phase 8)**: `[ DECKS ]` view, twin decks with 4-beat phase bars, Sync/nudge, equal-power crossfader, 3-band kill-isolator EQ, bipolar filter, beat-repeat pads, plus Split-Mono Cue (`L=Master / R=Cue` via `ChannelMergerNode(2)` working around Spike S6) | Planned (Wave 5). Spikes J1, J2, J4 first. See `doc/UX-ROADMAP.md` section 3.1 and `doc/DAW-PLAN.md` Phase 8 |
-| DAW-9 | **Performance & Automation Recording (Phase 9)**: Record Automation button capturing evaluations, sliders, mute/solo, and deck controls into `*.arrangement.json` with punch-in and cycle-accurate playback | Planned. Spikes A1, A2 first. See `doc/DAW-PLAN.md` Phase 9 |
-| DAW-10 | **Arrangement View & Live Session Clip Matrix (Phase 10)**: custom editor for `*.arrangement.json` (lanes, ruler, curves, mute ranges, export to plain Strudel `arrange()`) + Session View clip/section launcher grid over `arrange()`/`pick()`/`mask()` with next-bar launch countdown | Planned (Wave 6). Spike A3 for export. See `doc/UX-ROADMAP.md` section 3.2 and `doc/DAW-PLAN.md` Phase 10 |
-| DAW-11 | **Advanced Sequencing & Melody/Drum Line Actions (Phase 11)**: piano roll & Drum Rack line actions (`M/S/C` + melody/drum buttons), step sequencer + circular Euclidean Rhythm Ring, Visual Breakbeat Slicer (`.slice()`/`.splice()`), chords/arp, groove, chance, echo, and **Visual LFO / Parameter Modulation Drawer** | Planned (Wave 6). Spikes Q1, Q2 first. See "Line actions: melody and drums" below, `doc/UX-ROADMAP.md` sections 3.3, 3.4, 3.8, and `doc/DAW-PLAN.md` Phase 11 |
-| UX-9 | **Global Performance Macro Rack & Morphable Scene Snapshots**: 8-knob macro bar mapping one knob to multiple sliders with custom/inverted ranges + 8 recallable/morphable slider snapshots in `strdltn.index.json` | Planned (Wave 6). See `doc/UX-ROADMAP.md` section 3.6 |
-| DAW-6 | **One Shared Engine in the Browser (Phase 6)**: move audio engine into Browser webview + scheduler in Web Worker so audio survives Strudel/native editor switches and unlocks once per window; also enables Stage dock/float (decision 22) | Planned, gated by spikes E1, E2, E4, E5. See `doc/DAW-PLAN.md` Phase 6 |
-| DAW-7 | **Engine as a Browser Page (Phase 7)**: serve engine over local/forwarded port + WebSocket so Codespaces gets WebMIDI and IDE runs as a dumb client | Planned, gated by spike E3 (decision 7). See `doc/DAW-PLAN.md` Phase 7 |
+| UX-1 | **Track Colors (`// @color <name>`) + Visual Polish Pass**: auto-assigned track colors across Mixer, editor gutter, and Devices; custom sub-faders; LED meters; amber M / blue S; activity LED; cable halos & pulse; top Mixer toolbar; `tabular-nums`; frosted `#unlock` & Stage dock; inline error toast | Wave 1. Decision 24 answered. See `doc/NEW_FEATURES.md` section 1 |
+| UX-2 | **Beat-Synced Transport HUD & Master Safety Limiter**: `BAR / BEAT` counter, 4-dot beat LEDs, Tap Tempo, vertical BPM drag, active-song status row, `arrange()` progress bar, toggleable Master brickwall limiter | Wave 2. See `doc/NEW_FEATURES.md` section 2 |
+| UX-3 | **Browser Waveform Sparklines, Trim Handles & Breadcrumbs**: 40px waveform `<canvas>` with playhead & `.begin()`/`.end()` trim, previewing-row EQ indicator, removable `.resultbar` breadcrumb pill | Wave 2. See `doc/NEW_FEATURES.md` section 3 |
+| UX-4 | **In-Place Sound Hot-Swap ("Live Audition in the Mix")**: Ableton `Q`-style lock to `s("...")`/`.bank("...")` under cursor with live `Up`/`Down` audition | Wave 2. See `doc/NEW_FEATURES.md` section 3 |
+| UX-5 | **Welcome Screen on First Install**: colorful Eclipse-style welcome tab with visual screenshots, "Try it" actions, and "Do not show me this again" checkbox | Wave 3. See `doc/NEW_FEATURES.md` section 4 (spikes W1-W4 for optional clips) |
+| UX-6 | **Devices Rotary Knob Grid, Parameter Search & `.vp()` / Firmware Store**: SVG rotary arc knobs, prefix auto-grouping, param search, `.vp(id, value)`, `vibe_host_store` persistence | Wave 3. See `doc/NEW_FEATURES.md` section 5 |
+
+### Tactile Track Instruments, DJ Suite and DAW Phases
+
+| ID | What | State / Pointer |
+|---|---|---|
+| UX-7 | **Ableton-Style Per-Chain Effect Rack (`src/shared/rack.ts`)**: logical Device Cards in true `superdough` DSP order + reorderable Pattern FX; `/* ... */` bypass LED; `+ Add Effect`; `Pin as Slider` | Wave 4. See `doc/NEW_FEATURES.md` section 6 |
+| UX-8 | **Visual Filter Curve + Live Per-Chain FFT Spectrum**: 64-bin log FFT on existing `meterOrbits()` `AnalyserNode` + analytical RBJ biquad curve + draggable HPF/BPF/LPF nodes | Wave 4. See `doc/NEW_FEATURES.md` section 6 |
+| DAW-5 | **MIDI in Mixer (Phase 5 remainder)**: MIDI device strips, purple MIDI routing cables, `[ ALL \| CHAINS \| MIDI ]` view switch, Codespaces MIDI hint | Wave 5. See `doc/NEW_FEATURES.md` section 7 and "MIDI" below |
+| DAW-8 | **DJ Two-Deck Performance Suite + Split-Mono Headphone Cueing (Phase 8)**: `[ DECKS ]` view, twin decks, Sync/nudge, crossfader, 3-band kill-isolator EQ, filter, beat-repeat pads, Split-Mono Cue (`L=Master / R=Cue`) | Wave 5. Spikes J1, J2, J4 first. See `doc/NEW_FEATURES.md` section 8 |
+| DAW-9 | **Performance & Automation Recording (Phase 9)**: Record Automation into `*.arrangement.json` with punch-in and cycle-accurate playback | Wave 6. Spikes A1, A2 first. See `doc/NEW_FEATURES.md` section 9 |
+| DAW-10 | **Arrangement View & Live Session Clip Matrix (Phase 10)**: custom timeline editor for `*.arrangement.json`, export to `arrange()`, plus Session View clip/section launcher over `arrange()`/`pick()`/`mask()` | Wave 6. Spike A3 for export. See `doc/NEW_FEATURES.md` section 9 |
+| DAW-11 | **Advanced Sequencing & Melody/Drum Line Actions (Phase 11)**: piano roll & Drum Rack line actions, step sequencer + Euclid ring, Visual Breakbeat Slicer, chords/arp, groove, chance, echo, Visual LFO Drawer | Wave 6. Spikes Q1, Q2 first. See `doc/NEW_FEATURES.md` section 10 and "Line actions: melody and drums" below |
+| UX-9 | **Global Performance Macro Rack & Morphable Scene Snapshots**: 8-knob macro bar + 8 recallable/morphable slider snapshots in `strdltn.index.json` | Wave 6. See `doc/NEW_FEATURES.md` section 10 |
+| DAW-6 | **One Shared Engine in the Browser (Phase 6)**: shared `AudioContext` in Browser + Web Worker scheduler (audio across editor switches, unlocks Stage dock/float) | Wave 7. Spikes E1, E2, E4, E5 first. See `doc/NEW_FEATURES.md` section 11 |
+| DAW-7 | **Engine as a Browser Page (Phase 7)**: local/forwarded browser engine over WebSocket for Codespaces WebMIDI | Wave 7. Spike E3 first (Decision 7). See `doc/NEW_FEATURES.md` section 11 |
 
 ### Other Open Features & Tools
 
 | ID | What | State / Pointer |
 |---|---|---|
-| 5 | **Songs as files in the Browser & custom Places folders**: `+` "Create new track", F2 rename, Delete to trash, Reveal in Explorer/OS, plus `strdltn.browser.folders` custom folders | Planned, three open questions. See `doc/DAW-PLAN.md` "Songs as files" |
-| 6b | **Stacks in the Mixer**: a `stack(...)` chain rendered as a foldable group strip holding its member strips | Designed, not built. See `doc/DAW-PLAN.md` "Stacks" |
-| 6d | **Tutorial in the Reference**: `dist/tutorial.json` from Strudel's workshop (first) and learn pages, with "Insert" and "Open as a song" | Planned (Decision 23 answered). See `doc/DAW-PLAN.md` "Reference and tutorial" |
-| 10 | **Import sample packs from file system**: drag files/folders from OS onto Browser or "Add folder", auto-classified using `patchbay` rules into a `strudel.json` pack | Not designed. See "Importing sample packs" below |
-| 11 | **Wave editor panel**: edit samples in IDE (select, cut, trim, fade, normalize) built on `github:alienmind/AudioMass#strdltn-1` (Decision 16) | Not designed. See "Wave editor" below |
-| 14 | **Strudel editor keybindings**: Ctrl+F/G passed; Ctrl+H, Ctrl+D, Ctrl+Shift+L built (verify); keys CodeMirror takes first do not follow user rebindings yet | Partial. See "Keybindings in the Strudel editor" below |
-| 17 | **Render a pattern to MIDI (`.mid`)**: export song or chain to standard format-1 `.mid` file | Planned. See `doc/DAW-PLAN.md` "MIDI clips: render and record" |
-| 18 | **Record MIDI into a pattern**: arm, play MIDI keyboard with count-in/quantize, write mini-notation into the song | Planned. Same section |
-| 2 | **Sound card output picker**: not possible inside VS Code webview (Spike S6: microphone refused, no device ids). Use Windows per-app output, Split-Mono Cue (DAW-8), or Phase 7 browser page | Blocked in webview (S6). See "Sound card" below |
-| 8 | **Promo video**: walkthrough captured from a real VS Code window with voice-over | First cut rendered (36 s), not watched yet. See `doc/VIDEO.md` |
+| 5 | **Songs as files in the Browser & custom Places folders**: `+` Create new track, F2 rename, Delete, Reveal, `strdltn.browser.folders` | Planned. See `doc/NEW_FEATURES.md` section 3 |
+| 6b | **Stacks in the Mixer**: `stack(...)` foldable group strips | Designed. See `doc/NEW_FEATURES.md` section 7 |
+| 6d | **Tutorial in the Reference**: `dist/tutorial.json` (workshop + learn pages) | Planned (Decision 23). See `doc/NEW_FEATURES.md` section 3 |
+| 10 | **Import sample packs from file system**: drag OS files/folders, `patchbay` classification rules | Not designed. See "Importing sample packs" below |
+| 11 | **Wave editor panel**: built on `github:alienmind/AudioMass#strdltn-1` (Decision 16) | Not designed. See "Wave editor" below |
+| 14 | **Strudel editor keybindings**: Ctrl+H, Ctrl+D, Ctrl+Shift+L built; CodeMirror-owned defaults still ignore rebindings | Partial. See "Keybindings in the Strudel editor" below |
+| 17 | **Render a pattern to MIDI (`.mid`)**: export song/chain to format-1 `.mid` | Planned. See `doc/NEW_FEATURES.md` section 10 |
+| 18 | **Record MIDI into a pattern**: arm, count-in, quantize MIDI keyboard input into mini-notation | Planned. See `doc/NEW_FEATURES.md` section 10 |
+| 2 | **Sound card output picker**: blocked in VS Code webview (Spike S6); use Windows per-app output, Split-Mono Cue (`DAW-8`), or `DAW-7` | Blocked in webview (S6). See "Sound card" below |
+| 8 | **Promo video**: walkthrough captured from real VS Code window | First cut rendered (36 s), not watched yet. See `doc/VIDEO.md` |
 
 ## Next: test by hand
 
@@ -150,7 +150,7 @@ it.
 | 15 | SHRUB: write to Xfer and ask for a VIBE FM build? See "SHRUB" | Answered on 2026-11-21: Steve Duda prefers to keep SHRUB closed and has no time for it. We keep to open firmwares. On 2026-11-26 the experimental SHRUB panel and setting were removed so SHRUB is treated as a regular synth in `Plugins > FM-1 Synths` (external `shrub.audio` repo link + Hardware MIDI profile + native `fm1-live` runner for user-supplied `SHRUB.fwsc`). Its web editor opens in the external browser |
 | 16 | The wave editor (item 11) builds on AudioMass, which is not on npm and has no releases or tags. How does it come in? | Answered 2026-11-22: from the maintainer's fork `alienmind/AudioMass`, pinned to a tag we make there. The tag `strdltn-1` is made. See "Wave editor" |
 | 17 | MIDI: may the extension raise the process priority of the extension host (`os.setPriority`)? It removed MIDI's long outliers in S5, but it raises every extension in that host | Answered 2026-11-22: behind a setting, off. Built on `feat/open-snippets` as `strdltn.midi.highPriority`, passed the hand test |
-| 18 | SHRUB native WASM (`https://shrub.audio/play` -> `/sim/shrub_sim.wasm`, measured 2026-11-26): true compiled WASM (`ss_boot`/`ss_render`/`ss_midi`/`ss_lcd`, zero imports, ~few % CPU), NOT emulated, but marked `Copyright (C) 2026 Xfer Records. All rights reserved.` with no CORS header. Keep as external link ("Play in Browser...") only, ask Xfer for permission, or build a clean-room user-fetched host? | Waiting for maintainer |
+| 18 | SHRUB native WASM (`https://shrub.audio/play` -> `/sim/shrub_sim.wasm`, measured 2026-11-26): true compiled WASM (`ss_boot`/`ss_render`/`ss_midi`/`ss_lcd`, zero imports, ~0.4% CPU), NOT emulated, marked `Copyright (C) 2026 Xfer Records. All rights reserved.` | Maintainer requested direct runtime download labeled `SHRUB (WASM)` inside the existing `VibeCore` (`vibefm1`) engine (never bundled in `.vsix`). Built on `feat/firmware-marketplace` |
 
 
 ## MIDI
@@ -193,7 +193,7 @@ device yet ("Next: test by hand"). Left, in this order:
 1. Built 2026-11-22: the MIDI category of the Library, outputs and inputs, kept current.
    Left: in a Codespace it is empty, and should say that devices need desktop.
 2. The MIDI strips, the "midi" jack and the MIDI cables of the Mixer; MIDI learn on
-   faders, mute and solo ("MIDI in the Browser and the Mixer" in `doc/DAW-PLAN.md`).
+   faders, mute and solo (`doc/NEW_FEATURES.md` section 7).
 3. In Codespaces the MIDI category says that devices need desktop. Today `midin()` there
    fails after 5 s with "MIDI works on desktop VS Code only"; not tried in a Codespace.
 4. The demo with its `midin` lines back in, for the maintainer's MPK mini 3.
@@ -384,36 +384,21 @@ right for monophonic lines only. Decision 14.
 
 ### SHRUB
 
-SHRUB is Xfer's stripped-down Serum for the FM-1: firmware for the device, an editor in
-the browser (`shrub.audio/editor/`) and a VST3. It is closed ("All rights reserved"). It
-cannot play in `vibefm1`: its `SHRUB.fwsc` is native code for the FM-1, see the drawer.
-The ways it could reach a song, best first:
+SHRUB is Xfer's wavetable synth for the FM-1 (`shrub.audio`, closed-source, "All rights
+reserved"). All three runtime paths are now integrated in `Plugins > FM-1 Synths` (never
+bundled in the `.vsix`; downloaded on demand from `shrub.audio` by the user):
 
-1. Xfer builds SHRUB as a VIBE FM firmware with the SDK. Then it is one more `vibefm1`
-   firmware, with patches through `.progNum()`. Only Xfer can do it: ask
-   steve@xferrecords.com (decision 15).
-2. A real FM-1 with SHRUB installed, played through the MIDI bridge of "MIDI" above
-   (desktop only). Patches by program change, if SHRUB takes them.
-3. A panel with the editor in a webview, as asked. Possible only if the site allows
-   framing. It would be a second, separate synth: its own audio, not in our mix and not in
-   time, and no MIDI (a webview, and a frame inside it, may not use WebMIDI). It would be a
-   browser tab inside VS Code, good for editing patches for a real FM-1 and nothing else.
-   The maintainer wants it as a panel of the Devices view of `doc/DAW-PLAN.md`, so it is
-   in that plan (phase 4, spike F3) with these limits. A mockup exists, off by default: the setting
-   `strdltn.experimental.shrubEditor` and the command "strdltn: Open SHRUB editor
-   (experimental)". Spike F3 answered: the site loads in a webview view and plays after a
-   click inside its frame.
-4. An emulator of the FM-1's chip that plays the `.fwsc` as it is. One exists:
-   fm1-emu (`github.com/joakimeriksson/fm1-emu`, MIT, Rust built to wasm, with a JIT that
-   turns the firmware's hot code into wasm). It plays 200 FM-1 firmwares and M-VAVE's stock
-   firmware. Measured on 2026-11-21 with fm1-emu's own `fm1_web.wasm` (its GitHub Pages
-   deploy of that day) and its headless `web/bench.mjs` in Node 24 on the maintainer's
-   Windows PC: SHRUB V1.11 (`SHRUB-V1.11.fwsc`, from the maintainer) boots and its default
-   chord sounds, but it runs at 0.76x real time at 240 MHz, 0.84x at 160 and 0.88x at 120,
-   with most 128-frame blocks over their 2.9 ms. Felucca 1.8.2 in the same setup runs at
-   2.7x. So SHRUB in wasm would drop out on this PC; in Chrome it is expected to be about
-   the same, not measured. How late its sound is and Xfer's terms for running it in an
-   emulator are not known. Spike F4 in `doc/DAW-PLAN.md`.
+1. **`SHRUB (WASM)` (`s("vibefm1:shrub-wasm")`):** natively compiled WebAssembly build from
+   `https://shrub.audio/sim/shrub_sim.wasm` (731 KB, ~0.013 ms/block = ~0.4% CPU, live 240x240
+   RGB565 screen upscaled into Devices & Screen popup, Master/Cutoff/Macro sliders), auto-detected
+   inside `VibeCore` (`src/webview/vibe/core.ts`).
+2. **`SHRUB` (`.fwsc` + `Run Native`):** direct download from `https://shrub.audio/editor/firmware/SHRUB.fwsc`
+   for native `fm1-live` 240 MHz JIT or experimental hardware flashing (`strdltn.experimental.fm1Flash`).
+   Note: emulating `SHRUB.fwsc` in WebAssembly (`fm1-emu`) ran at 0.76x real-time and trips the
+   real-time overload guard cleanly; use `SHRUB (WASM)` or `Run Native` instead.
+3. **`SHRUB (FM-1 Hardware MIDI)`:** plays a physical FM-1 over desktop MIDI with CC 74 cutoff
+   and CC 16-19 macros, plus `Editor...` opening `https://shrub.audio/editor/` externally.
+   (The old experimental `strdltn.experimental.shrubEditor` iframe panel was removed on 2026-11-26.)
 
 ### Coverage of the hub's firmwares
 
@@ -459,7 +444,7 @@ to switch to. The editor's page cannot pick its own sound card. What is left:
 
 - Windows' per-app output (Settings, System, Sound, Volume mixer): moves VS Code's sound
   alone, not all of Windows. Works today, by hand.
-- The browser page of phase 7 (`doc/DAW-PLAN.md`): a real browser tab may ask for the
+- The browser page of phase 7 (`doc/NEW_FEATURES.md` section 11): a real browser tab may ask for the
   microphone and then pick an output. Not tried.
 - A Chrome device id cannot be made in the extension host: Chrome salts it per origin.
 
@@ -579,8 +564,8 @@ line actions (see "Line actions"), beside the knob button, on the lines they fit
   M and S and a play button on each). Each pad is mapped to a note of a MIDI controller,
   and the mapping can be changed. Each rack has a record button: arm it, play the pads while
   the song plays, and the hits are written into the line, quantized.
-- Goes with item 18 (record MIDI into a pattern) and phase 11 of `doc/DAW-PLAN.md`
-  (devices that write patterns from taps: drum pad, step sequencer, piano roll). Those are
+- Goes with item 18 (record MIDI into a pattern) and `DAW-11` (`doc/NEW_FEATURES.md` section 10:
+  devices that write patterns from taps: drum pad, step sequencer, piano roll). Those are
   the same need, reached from the line of code instead of from a device.
 - Open: how a line is recognized as a melody or a drum line (the parser of
   `src/shared/chains.ts` reads calls already); a line with both; lines that build their
@@ -757,7 +742,7 @@ column says, then delete the spike. None of these is started unless it says so.
 | E5 | Does one click in Browser keep its `AudioContext` running across sidebar switches / minimize / 1 hour? | Click once, play from command at those points | Running or suspended (gates DAW-6) | "Starting audio" in `doc/ARCHITECTURE.md` |
 | Q1 | How exact is a tap from a bottom-panel view after host relay to the engine? | Tap on 32 beats of a click, log offset | Offset ms (gates DAW-11) | "Measured" in `doc/ARCHITECTURE.md` |
 | Q2 | Can the parser write back mini-notation while preserving user spaces and comments? | Unit test cases on `template/demo.strudel` and examples | Pass/fail (gates DAW-11) | `src/shared/chains.test.ts` |
-| W1-W4 | Welcome screen video codec (VP9 `.webm`), bundle size, first-start version state, and VS Code walkthrough integration | Test clip in `pnpm test:vscode` (optional if Welcome uses screenshots first) | Codec + size (gates UX-5 clips) | "Welcome screen" in `doc/DAW-PLAN.md` |
+| W1-W4 | Welcome screen video codec (VP9 `.webm`), bundle size, first-start version state, and VS Code walkthrough integration | Test clip in `pnpm test:vscode` (optional if Welcome uses screenshots first) | Codec + size (gates UX-5 clips) | `doc/NEW_FEATURES.md` section 4 |
 
 Already done (removed from open spikes, answers in `doc/ARCHITECTURE.md` and the drawer):
 sound in a webview, WebMIDI in a webview (refused), WebGPU in a webview (works), native MIDI

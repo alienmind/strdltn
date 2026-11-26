@@ -211,7 +211,7 @@ the side bar is webviews only now. The plan it comes from is phase 1 of `doc/DAW
 | Controls | Open by default, collapsible by its header, never auto-folded: Music Controls (Play, Stop, Record, Render, Undo, Redo, BPM, song); Back and Forward history buttons beside the search field and the preview toggle; one row with the seven colors and the Built-in button |
 | Library | Collections with the saved searches, when there are any; the Library tree: All, Sounds, Drums, Samples, Plugins (with FM-1 Synths under it), Render, MIDI, Songs, Snippets; the link to the manual |
 | Contents | What the trees pick, as a flat list: the chips, the result bar, the rows and the details pane. Its header says Results while a search is typed, else Contents, with the number of rows |
-| Reference | The Reference tree: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
+| Reference | The Reference tree: All, Functions, later Tutorial (`doc/NEW_FEATURES.md` section 3) |
 
 Each pane has a header drawn as VS Code draws the sections of a side bar, and folds by it. The rules, asked by the
 maintainer: Controls stays open at the top so transport, history, search and quick filters remain reachable after a
@@ -465,7 +465,7 @@ first statement after the header comments (`tempoEdit`). A double click takes th
 out, line and all. A tempo that is not plain arithmetic (a slider) disables the box. The
 row is built once and updated in place, so a redraw while typing keeps the field. In a
 narrow side bar it wraps onto two lines.
-Record and record automation come here later (see "Recording" in `doc/DAW-PLAN.md`).
+Record and record automation come here later (`doc/NEW_FEATURES.md` section 9).
 
 **Layout.** Top to bottom: the name, the peak of the level meter, the gain fader on its
 meter (as tall as the panel allows), M and S side by side, the scope with the gain's value
@@ -487,7 +487,7 @@ shown, it gets a `vscode.Webview` through `attach`. A move gives a new page, whi
 with every strip folded, so the host remembers which strips the page reported unfolded
 and sends them on `ready`. A floating tab is not restored after a reload of the window
 (no serializer): the Mixer comes back docked. The stage is to follow the same way after
-phase 6, see "Dock and float" in `doc/DAW-PLAN.md`.
+phase 6 (`doc/NEW_FEATURES.md` section 11).
 
 **The model.** `readChains` in `src/shared/chains.ts` parses the song with acorn 8.19.0,
 the version and the options upstream's transpiler uses (`ecmaVersion: 2022`,

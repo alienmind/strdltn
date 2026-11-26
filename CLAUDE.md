@@ -23,11 +23,10 @@ grew beyond a VS Code extension.
 | `github.com/alienmind/strdltn` | This repo |
 | `../alienmind-www` | The maintainer's home page. It shows `doc/ABOUT.md` of this repo |
 | `README.md` | What a user gets, with the full feature list |
-| `doc/ARCHITECTURE.md` | How every part works, and every fact we measured about VS Code |
-| `doc/TODO.md` | What is left and the decisions waiting for the maintainer |
+| `doc/ARCHITECTURE.md` | How every shipped part works, and every fact we measured about VS Code |
+| `doc/TODO.md` | Concise live pointer list of remaining work, open spikes, and decisions waiting for the maintainer |
+| `doc/NEW_FEATURES.md` | Detailed pending architecture and designs for UNBUILT features only (shrinks as TODO items land) |
 | `doc/PENDING-TESTING.md` | Live, branch-agnostic checklist of features waiting for the maintainer's batched manual test run |
-| `doc/UX-ROADMAP.md` | Handover spec for the UX/UI overhaul, Welcome Screen, Track Rack / Filter Curve, and DJ features |
-| `doc/DAW-PLAN.md` | The plan to make this a DAW, phase by phase, with "Order of work". Phase 1 (the Browser) is built; the Mixer is next |
 | `doc/DRAWER_OF_FAILED_IDEAS.md` | What we tried or designed and dropped, with the reason. Read it before a spike |
 | `doc/VIDEO.md` | How to make the promo video: script, voice, scripted capture of a VS Code window, Remotion |
 
@@ -86,8 +85,13 @@ What to know about the real test:
 - **Other people's work.** A file by somebody else goes in only with a license that
   allows it. A technique learned from somebody is written again as our own code, and the
   snippet says `// @credits <name>`, the name and nothing else.
-- **Docs are part of the work.** `doc/TODO.md`, `doc/PENDING-TESTING.md`, `doc/ARCHITECTURE.md` and the drawer are
-  updated in the same change, by the rules below.
+- **Docs are part of the work.** `doc/TODO.md`, `doc/NEW_FEATURES.md`, `doc/PENDING-TESTING.md`,
+  `doc/ARCHITECTURE.md` and the drawer are updated in the same change, by the rules below.
+- **Shrink `doc/NEW_FEATURES.md` when a TODO item ships.** `doc/TODO.md` is the concise pointer
+  list and `doc/NEW_FEATURES.md` holds detailed specs for pending, unbuilt features only. When
+  you complete a TODO element: delete it from `doc/TODO.md`, remove its planned section from
+  `doc/NEW_FEATURES.md` so the file shrinks as features land, and consolidate the implemented
+  design and architecture details into `doc/ARCHITECTURE.md`.
 - **Keep `doc/PENDING-TESTING.md` live and branch-agnostic.** Every feature change or
   behavioral tweak updates `doc/PENDING-TESTING.md` in place (adding new checks, revising
   or merging superseded ones, and removing items once verified) without tying entries to a
@@ -263,9 +267,14 @@ drawer of failed ideas, the remaining work in `doc/TODO.md`.
 
 Keep these files current as part of the work, not after it.
 
-`doc/TODO.md` is the live ledger: what is in flight, the open questions, and the concrete
-list of things to try. Finished work is DELETED from it rather than kept as a done-list -
-git history is the record of what shipped.
+`doc/TODO.md` is the live pointer list: what is in flight, the open questions, open spikes,
+and pointers to pending designs. Finished work is DELETED from it rather than kept as a
+done-list - git history is the record of what shipped.
+
+`doc/NEW_FEATURES.md` holds the detailed pending architecture and designs for unbuilt features
+referenced by `doc/TODO.md`. When a TODO item is completed, delete its design from
+`doc/NEW_FEATURES.md` so the file shrinks, and consolidate the real implemented architecture
+and details into `doc/ARCHITECTURE.md`.
 
 `doc/PENDING-TESTING.md` is the live manual test checklist. Any feature change updates it
 in place (adding, editing, or removing superseded checks) so the maintainer can batch

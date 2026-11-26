@@ -222,6 +222,16 @@ svg { display: block; flex: none; }
 	background: var(--vscode-badge-background);
 	color: var(--vscode-badge-foreground);
 }
+.row .picture .badge.runtime {
+	left: 2px;
+	right: auto;
+	top: 2px;
+	bottom: auto;
+	font-weight: 600;
+}
+.row .picture .badge.runtime-vibe { background: rgba(63, 185, 80, 0.85); color: #000; }
+.row .picture .badge.runtime-fwsc { background: rgba(209, 134, 22, 0.9); color: #000; }
+.row .picture .badge.runtime-hardware { background: rgba(177, 128, 215, 0.9); color: #000; }
 
 
 .details {

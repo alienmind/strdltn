@@ -654,7 +654,13 @@ function drawRow(row: Row, index: number): HTMLElement {
 				image.src = item.image;
 				image.alt = `The screen of ${item.label}`;
 				image.draggable = false;
-			} else picture.appendChild(el('span', '', 'No preview yet'));
+			} else {
+				picture.appendChild(
+					el('span', '', item.runtime === 'hardware' ? 'FM-1 MIDI' : item.runtime === 'fwsc' ? 'FM-1 .fwsc' : 'No preview yet'),
+				);
+			}
+			const runtimeLabel = item.runtime === 'hardware' ? 'MIDI' : item.runtime === 'fwsc' ? 'FWSC' : 'WASM';
+			picture.appendChild(el('span', `badge runtime runtime-${item.runtime ?? 'vibe'}`, runtimeLabel));
 			// Said by the badge unless the tree's Available is picked, which says it already.
 			if (item.available && filter.group !== 'Available') picture.appendChild(el('span', 'badge', 'Available'));
 		}
@@ -666,8 +672,9 @@ function drawRow(row: Row, index: number): HTMLElement {
 		if (item.kind === 'song') actions.appendChild(button('insert', 'Insert at the cursor: the song\'s code, without its header', () => post({ type: 'insertSong', id: item.id })));
 		// A function's example from the reference, as it is (DAW-PLAN "Insert an example").
 		if (item.kind === 'function' && item.code) actions.appendChild(button('snippet', 'Insert an example', () => post({ type: 'insertText', text: item.code! })));
-		// The firmware's display, run in a popup without sound (Firmware Marketplace in doc/TODO.md).
-		if (item.kind === 'firmware') actions.appendChild(button('screen', 'Show the screen', () => post({ type: 'screen', id: item.id })));
+		// The firmware's display, run in a popup without sound (VIBE .wasm firmwares only).
+		if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') actions.appendChild(button('screen', 'Show the screen', () => post({ type: 'screen', id: item.id })));
+		if (item.kind === 'firmware' && item.editorUrl) actions.appendChild(button('open', 'Open synth editor', () => post({ type: 'openEditor', id: item.id })));
 		if (item.kind === 'snippet') actions.appendChild(button('open', 'Open the file', () => post({ type: 'open', id: item.id })));
 		else if (!opens(item)) actions.appendChild(button('copy', 'Copy the name', () => post({ type: 'copy', id: item.id, index: index_ })));
 		// Colors and tags have their own button: a right click or the keys 1 to 7 were the
@@ -743,10 +750,15 @@ function drawDetails(): void {
 		install.title = 'Install it into the firmware folder of the project';
 		install.addEventListener('click', () => post({ type: 'install', id: item.id }));
 	}
-	if (item.kind === 'firmware') {
+	if (item.kind === 'firmware' && item.runtime !== 'hardware' && item.runtime !== 'fwsc') {
 		const screen = collect.appendChild(el('button', 'chip more', 'Screen...'));
 		screen.title = "Show the firmware's display, run without sound";
 		screen.addEventListener('click', () => post({ type: 'screen', id: item.id }));
+	}
+	if (item.kind === 'firmware' && item.editorUrl) {
+		const editorBtn = collect.appendChild(el('button', 'chip more', 'Editor...'));
+		editorBtn.title = `Open ${item.editorUrl}`;
+		editorBtn.addEventListener('click', () => post({ type: 'openEditor', id: item.id }));
 	}
 	const tagButton = collect.appendChild(el('button', 'chip more', 'Tags...'));
 	tagButton.title = 'Add or remove your own tags';

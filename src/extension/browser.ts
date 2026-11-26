@@ -18,7 +18,7 @@ import {
 	type UserIndex,
 	writeUserIndex,
 } from '../shared/catalog';
-import { availableFirmware, firmwareCode, type HubFirmware, type InstalledFirmware } from '../shared/firmware';
+import { availableFirmware, firmwareCode, HARDWARE_FM1_PROFILES, type HubFirmware, type InstalledFirmware } from '../shared/firmware';
 import type { SoundInfo } from '../shared/protocol';
 import { filterItems } from '../shared/search';
 import { parseSnippet, setSnippetTags } from '../shared/snippet';
@@ -43,12 +43,20 @@ export interface BrowserActions {
 	insert(text: string, bare?: string, argument?: InsertArgument): Promise<void>;
 	/** As insert, and a cached firmware's `firmware('<url>')` line at the top of the song when it has none. */
 	insertFirmware(text: string, bare: string, url?: string): Promise<void>;
+	/** Inserts a real FM-1 hardware MIDI profile line plus its `midimaps(...)` definition. */
+	insertHardware(id: string): Promise<void>;
 	/** Opens the popup with a firmware's screen. */
 	showScreen(id: string): void;
+	/** Opens a firmware's companion web editor (e.g. SHRUB editor). */
+	openEditor(id: string): void;
 	/** Installs a firmware of the hub into the project. */
 	install(id: string): Promise<void>;
 	/** Local file of a firmware (installed or cached from the hub) for standalone Browser preview. */
 	firmwareFile(id: string): Promise<vscode.Uri | undefined>;
+	/** Cached `fm1_web.wasm` for standalone `.fwsc` Browser preview. */
+	emuWasmFile(): Promise<vscode.Uri | undefined>;
+	/** Sends a 1-loop preview note to a real FM-1 hardware MIDI device, returning the matched port name if connected. */
+	previewMidi(portHint: string, durationMs: number): Promise<string | undefined>;
 	/** FM-1 Synths is in sight: read the hub's list and make the pictures that are missing. */
 	wantFirmware(): void;
 }
@@ -213,12 +221,13 @@ export class BrowserView {
 		const snippetItems = this.snippets.all().map((snippet) => snippetItem(snippet, vscode.workspace.asRelativePath(snippet.uri)));
 		const renders = this.songs.renders().map((audio) => renderItem(audio.path, audio.song));
 		const midi = [...this.midiPorts.outputs.map((name) => midiItem(name, 'out')), ...this.midiPorts.inputs.map((name) => midiItem(name, 'in'))];
-		// The engine's order of its firmwares: a row plays by its position, as `vibefm1:3` does.
-		const engine = this.sounds.find((sound) => sound.type === 'firmware')?.variations ?? [];
+		// The engine's order of its firmwares: a row plays by its position, as `vibefm1:3` or `fm1:0` does.
+		const engine = this.sounds.find((sound) => sound.name === 'vibefm1')?.variations ?? [];
+		const fm1Engine = this.sounds.find((sound) => sound.name === 'fm1')?.variations ?? [];
 		// A webview URL is the same for every view of the Browser; without a view yet there are no pictures to show.
 		const webview = [...this.views.values()][0]?.webview;
 		const images = webview ? Object.fromEntries(Object.entries(this.images).map(([id, uri]) => [id, webview.asWebviewUri(uri).toString()])) : {};
-		this.items = [...soundItems(this.sounds), ...firmwareItems(this.firmware, availableFirmware(this.hub, this.firmware), engine, images), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
+		this.items = [...soundItems(this.sounds), ...firmwareItems(this.firmware, availableFirmware(this.hub, this.firmware), engine, images, fm1Engine), ...snippetItems, ...this.songs.all().map(songItem), ...renders, ...midi, ...this.functions.map(functionItem)];
 		// A pack loads hundreds of sounds one by one, and each change would send 2000 items.
 		clearTimeout(this.pushTimer);
 		this.pushTimer = setTimeout(() => this.post({ type: 'items', items: this.items }), 150);
@@ -277,6 +286,14 @@ export class BrowserView {
 				const index = message.index ?? item.index ?? 0;
 				const bpm = this.controls?.tempo?.bpm ?? DEFAULT_PREVIEW_BPM;
 				const duration = previewCycleSeconds({ bpm });
+				if (item.kind === 'firmware' && item.runtime === 'hardware') {
+					const id = item.id.slice('firmware:'.length);
+					const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === id);
+					const sent = await this.actions.previewMidi(profile?.defaultPort ?? 'FM-1', Math.round(duration * 1000));
+					if (sent) this.output.appendLine(`browser: preview ${item.label} -> MIDI ${sent}`);
+					else void vscode.window.setStatusBarMessage(`strdltn: connect ${profile?.defaultPort ?? 'M-VAVE FM-1'} over MIDI to preview ${item.label}`, 4000);
+					return;
+				}
 				// While a song plays, route previews to its engine so they land on the next beat.
 				// Exception: a firmware the playing engine does not hold yet (e.g. Available) plays in the Browser.
 				if (this.actions.playing()) {
@@ -290,6 +307,18 @@ export class BrowserView {
 					const webview = this.views.get(page)?.webview;
 					const file = webview ? await this.actions.firmwareFile(id) : undefined;
 					if (!file || !webview) return;
+					if (item.runtime === 'fwsc') {
+						const emu = await this.actions.emuWasmFile();
+						if (!emu) return;
+						const workletUrl = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'fm1-worklet.js')).toString();
+						return this.post(
+							{
+								type: 'playPreview',
+								plan: { kind: 'fm1', id, url: webview.asWebviewUri(file).toString(), emuUrl: webview.asWebviewUri(emu).toString(), workletUrl, bpm, duration },
+							},
+							page,
+						);
+					}
 					const workletUrl = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'vibe-worklet.js')).toString();
 					return this.post({ type: 'playPreview', plan: { kind: 'firmware', id, url: webview.asWebviewUri(file).toString(), workletUrl, bpm, duration } }, page);
 				}
@@ -304,9 +333,10 @@ export class BrowserView {
 				if (item.kind === 'song' || item.kind === 'render') return this.open(item);
 				// An Available firmware is installed first: Enter and a double click do that.
 				if (item.kind === 'firmware' && item.available) return this.actions.install(item.id.slice('firmware:'.length));
+				if (item.kind === 'firmware' && item.runtime === 'hardware') return this.actions.insertHardware(item.id.slice('firmware:'.length));
 				if (item.kind === 'firmware') {
-					const code = firmwareCode(item.id.slice('firmware:'.length));
-					return this.actions.insertFirmware(code.code, code.name, item.url);
+					const code = firmwareCode(item.id.slice('firmware:'.length), item.runtime);
+					return this.actions.insertFirmware(code.code, code.name, item.runtime === 'fwsc' ? undefined : item.url);
 				}
 				if (item.kind === 'sound') {
 					const sound = soundCode(item, message.index);
@@ -330,6 +360,11 @@ export class BrowserView {
 				if (item?.kind === 'firmware') this.actions.showScreen(item.id.slice('firmware:'.length));
 				return;
 			}
+			case 'openEditor': {
+				const item = this.item(message.id);
+				if (item?.kind === 'firmware') this.actions.openEditor(item.id.slice('firmware:'.length));
+				return;
+			}
 			case 'insertSong': {
 				const item = this.item(message.id);
 				const uri = item?.kind === 'song' && item.path ? this.songs.uri(item.path) : undefined;
@@ -342,7 +377,19 @@ export class BrowserView {
 			}
 			case 'copy': {
 				const item = this.item(message.id);
-				const text = item && (item.kind === 'sound' ? soundCode(item, message.index)?.name : item.kind === 'firmware' ? firmwareCode(item.id.slice('firmware:'.length)).name : item.kind === 'song' || item.kind === 'render' ? item.path : item.kind === 'midi' ? item.label : item.insert);
+				const text =
+					item &&
+					(item.kind === 'sound'
+						? soundCode(item, message.index)?.name
+						: item.kind === 'firmware'
+							? item.runtime === 'hardware'
+								? (HARDWARE_FM1_PROFILES.find((p) => p.id === item.id.slice('firmware:'.length))?.defaultPort ?? 'M-VAVE FM-1')
+								: firmwareCode(item.id.slice('firmware:'.length), item.runtime).name
+							: item.kind === 'song' || item.kind === 'render'
+								? item.path
+								: item.kind === 'midi'
+									? item.label
+									: item.insert);
 				if (text) await vscode.env.clipboard.writeText(text);
 				return;
 			}

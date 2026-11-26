@@ -110,6 +110,15 @@ const builds = [
 		format: 'iife',
 		target: 'es2022',
 	},
+	{
+		...shared,
+		// Emulates real FM-1 hardware firmwares (.fwsc) via fm1-emu's WebAssembly runtime.
+		entryPoints: ['src/webview/fm1/worklet.ts'],
+		outfile: 'dist/fm1-worklet.js',
+		platform: 'browser',
+		format: 'iife',
+		target: 'es2022',
+	},
 ];
 
 if (process.argv.includes('--test')) {

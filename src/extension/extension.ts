@@ -9,7 +9,7 @@ import { SongList } from './files';
 import { FirmwareCache, FirmwareLibrary } from './firmware';
 import { FirmwareScreen } from './screen';
 import { FirmwareMarket } from './market';
-import { firmwareLoadEdit, type InstalledFirmware } from '../shared/firmware';
+import { firmwareLoadEdit, HARDWARE_FM1_PROFILES, hardwareFirmwareCode, type InstalledFirmware, midimapLoadEdit } from '../shared/firmware';
 import { DevicesView } from './devices';
 import { KnobLearn } from './knobs';
 import { MidiBridge } from './midi';
@@ -124,9 +124,13 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		control: (message) => mixer.control(message),
 		insert: (text, bare, argument) => insertText(text, bare, argument),
 		insertFirmware: (text, bare, url) => insertFirmware(text, bare, url),
+		insertHardware: (id) => insertHardware(id),
 		showScreen: (id) => void screen.show(id),
+		openEditor: (id) => market.openEditor(id),
 		install: (id) => market.install(id),
 		firmwareFile: async (id) => (await market.screenSource(id))?.file,
+		emuWasmFile: () => market.emuWasmFile().catch(() => undefined),
+		previewMidi: (portHint, durationMs) => midi.previewNote(portHint, durationMs),
 		wantFirmware: () => market.want(),
 	});
 	const market = new FirmwareMarket(context, firmwareLibrary, browser, output);
@@ -181,6 +185,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			return { recording: of.some((s) => s.recording), rendering: of.some((s) => s.rendering) };
 		},
 		controls: (state) => browser.setControls(state),
+		dropItem: (document, info) => dropOntoDocument(document, lf(document.getText()).length, info),
 	});
 	// The Mixer docks in the bottom panel or floats in a window of its own. See "Dock and float" in doc/DAW-PLAN.md.
 	// The Devices view keeps no page while hidden: a hidden page draws nothing, and the worklet stops at the frame it
@@ -216,6 +221,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		onKnobGhost: (document, from, value) => mixer.knobGhost(document, from, value),
 		onKnobLearn: (document, from, toggle) => knobs.learn(document, from, toggle),
 		onDrop: (document, offset, info) => dropOntoDocument(document, offset, info),
+		onWantEmuWasm: () => market.emuWasmFile().catch(() => undefined),
 		onDevices: (session, list) => devices.setDevices(session, list),
 		onFrame: (session, key, px, values) => devices.frame(session, key, px, values),
 		onAudio: async (session, kind, wav, info) => {
@@ -322,11 +328,13 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// that plays in another tab, so the key always ends a sound you hear.
 		vscode.commands.registerCommand('strdltn.stop', () => {
 			browser.stopPreview();
+			midi.stopPreview();
 			const front = frontSession();
 			(front?.started ? front : (playingElsewhere() ?? front))?.stop();
 		}),
 		vscode.commands.registerCommand('strdltn.stopAll', () => {
 			browser.stopPreview();
+			midi.stopPreview();
 			sessions.forEach((s) => s.stop());
 		}),
 		// Dropping a synth, firmware, drum or snippet from the Browser onto the native VS Code editor.
@@ -352,9 +360,17 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 				}
 				const text = lf(document.getText());
 				const offset = textOffset(text, position);
-				const change = dropEdit(item, text, offset, resolved.index);
+				const midiPort = item.kind === 'firmware' && item.runtime === 'hardware' ? midi.findOutput('fm-1') : undefined;
+				const change = dropEdit(item, text, offset, resolved.index, { midiPort });
 				const edit = new vscode.WorkspaceEdit();
-				if (item.kind === 'firmware' && !item.available && item.url) {
+				if (item.kind === 'firmware' && item.runtime === 'hardware') {
+					const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === item.id.slice('firmware:'.length));
+					const mapLoad = profile ? midimapLoadEdit(text, profile) : undefined;
+					if (mapLoad) {
+						const p = lineColumn(text, mapLoad.offset);
+						edit.insert(document.uri, new vscode.Position(p.line, p.character), mapLoad.text);
+					}
+				} else if (item.kind === 'firmware' && !item.available && item.runtime !== 'fwsc' && item.url) {
 					const load = firmwareLoadEdit(text, item.url);
 					if (load) {
 						const p = lineColumn(text, load.offset);
@@ -564,9 +580,17 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 			await Promise.all([...sessions].map((s) => s.refreshFirmware()));
 		}
 		const fresh = lf(document.getText());
-		const change = dropEdit(item, fresh, offset, resolved.index);
+		const midiPort = item.kind === 'firmware' && item.runtime === 'hardware' ? midi.findOutput('fm-1') : undefined;
+		const change = dropEdit(item, fresh, offset, resolved.index, { midiPort });
 		const edit = new vscode.WorkspaceEdit();
-		if (item.kind === 'firmware' && !item.available && item.url) {
+		if (item.kind === 'firmware' && item.runtime === 'hardware') {
+			const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === item.id.slice('firmware:'.length));
+			const mapLoad = profile ? midimapLoadEdit(fresh, profile) : undefined;
+			if (mapLoad) {
+				const p = lineColumn(fresh, mapLoad.offset);
+				edit.insert(document.uri, new vscode.Position(p.line, p.character), mapLoad.text);
+			}
+		} else if (item.kind === 'firmware' && !item.available && item.runtime !== 'fwsc' && item.url) {
 			const load = firmwareLoadEdit(fresh, item.url);
 			if (load) {
 				const p = lineColumn(fresh, load.offset);
@@ -579,6 +603,27 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		if (await vscode.workspace.applyEdit(edit)) {
 			evaluateIfPlaying(document);
 		}
+	}
+
+	/** Inserts a real FM-1 hardware MIDI profile line plus its `midimaps(...)` header when missing. */
+	async function insertHardware(id: string): Promise<void> {
+		const profile = HARDWARE_FM1_PROFILES.find((p) => p.id === id);
+		if (!profile) return;
+		const port = midi.findOutput('fm-1') ?? profile.defaultPort;
+		const snippet = hardwareFirmwareCode(profile, port);
+		const native = vscode.window.activeTextEditor;
+		const target = activeEditorSession()?.document ?? (isStrudel(native) ? native.document : lastSession()?.document);
+		if (target) {
+			const text = lf(target.getText());
+			const mapLoad = midimapLoadEdit(text, profile);
+			if (mapLoad) {
+				const p = lineColumn(text, mapLoad.offset);
+				const edit = new vscode.WorkspaceEdit();
+				edit.insert(target.uri, new vscode.Position(p.line, p.character), mapLoad.text);
+				await vscode.workspace.applyEdit(edit);
+			}
+		}
+		await insertText(snippet.code, snippet.name);
 	}
 
 	function previewSound(name: string, index: number): void {

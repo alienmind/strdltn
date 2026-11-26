@@ -6,12 +6,15 @@ import * as strudelSoundfonts from '@strudel/soundfonts';
 import * as strudelWebaudio from '@strudel/webaudio';
 import { unzipSync } from 'fflate';
 import { PREVIEW_FADE, type PreviewPlan, previewCycleSeconds } from '../shared/preview.ts';
+import type { FromFm1Worklet, ToFm1Worklet } from '../webview/fm1/worklet.ts';
 import type { ToVibeWorklet } from '../webview/vibe/worklet.ts';
 
 let audio: AudioContext | undefined;
 const buffers = new Map<string, Promise<AudioBuffer>>();
 const wasmModules = new Map<string, Promise<WebAssembly.Module>>();
+const binaryCache = new Map<string, Promise<ArrayBuffer>>();
 let vibeWorkletReady: Promise<void> | undefined;
+let fm1WorkletReady: Promise<void> | undefined;
 let superdoughReady: Promise<void> | undefined;
 let activeStop: (() => void) | undefined;
 let previewSeq = 0;
@@ -27,6 +30,7 @@ function getContext(): AudioContext {
 	if (!audio || audio.state === 'closed') {
 		audio = new AudioContext();
 		vibeWorkletReady = undefined;
+		fm1WorkletReady = undefined;
 		superdoughReady = undefined;
 	}
 	// Not awaited: without a click in the page (the integration test sends the message from the host) the promise may
@@ -160,6 +164,88 @@ export async function playPreview(plan: PreviewPlan, log: (message: string) => v
 		return;
 	}
 
+	if (plan.kind === 'fm1') {
+		try {
+			fm1WorkletReady ??= ctx.audioWorklet.addModule(plan.workletUrl).catch((error) => {
+				fm1WorkletReady = undefined;
+				throw error;
+			});
+			const fetchBin = (url: string) => {
+				let p = binaryCache.get(url);
+				if (!p) {
+					p = fetch(url)
+						.then((r) => {
+							if (!r.ok) throw new Error(`${r.status} for ${url}`);
+							return r.arrayBuffer();
+						})
+						.catch((error) => {
+							binaryCache.delete(url);
+							throw error;
+						});
+					binaryCache.set(url, p);
+				}
+				return p;
+			};
+			const [, emu, pkg] = await Promise.all([fm1WorkletReady, fetchBin(plan.emuUrl), fetchBin(plan.url)]);
+			if (seq !== previewSeq) return;
+			const node = new AudioWorkletNode(ctx, 'strdltn-fm1', {
+				numberOfInputs: 0,
+				numberOfOutputs: 1,
+				outputChannelCount: [2],
+			});
+			const gain = ctx.createGain();
+			node.connect(gain);
+			gain.connect(ctx.destination);
+
+			let disposed = false;
+			const timers: ReturnType<typeof setTimeout>[] = [];
+			const disposeNow = () => {
+				if (disposed) return;
+				disposed = true;
+				timers.forEach(clearTimeout);
+				try {
+					node.port.postMessage({ t: 'dispose' } satisfies ToFm1Worklet);
+				} catch {
+					// Closed.
+				}
+				node.disconnect();
+				gain.disconnect();
+				if (activeStop === stop) activeStop = undefined;
+			};
+			const stop = () => {
+				if (disposed) return;
+				timers.forEach(clearTimeout);
+				const t = ctx.currentTime;
+				gain.gain.cancelScheduledValues(t);
+				gain.gain.setValueAtTime(gain.gain.value, t);
+				gain.gain.linearRampToValueAtTime(0, t + 0.03);
+				timers.push(setTimeout(disposeNow, 50));
+			};
+			activeStop = stop;
+
+			await new Promise<void>((resolveReady, rejectReady) => {
+				node.port.onmessage = (event: MessageEvent<FromFm1Worklet>) => {
+					if (event.data.t === 'ready') resolveReady();
+					else rejectReady(new Error(event.data.message));
+				};
+				node.port.postMessage({ t: 'boot', wasm: emu.slice(0), pkg: pkg.slice(0) } satisfies ToFm1Worklet);
+			});
+			if (seq !== previewSeq || disposed) return disposeNow();
+
+			const startAt = ctx.currentTime + 0.05;
+			timers.push(setTimeout(() => node.port.postMessage({ t: 'midi', bytes: [0x90, 57, 100] } satisfies ToFm1Worklet), 50));
+			timers.push(setTimeout(() => node.port.postMessage({ t: 'midi', bytes: [0x80, 57, 0] } satisfies ToFm1Worklet), Math.ceil(duration * 1000) + 50));
+			gain.gain.setValueAtTime(1, startAt);
+			gain.gain.setValueAtTime(1, startAt + duration);
+			gain.gain.linearRampToValueAtTime(0, startAt + duration + PREVIEW_FADE);
+			timers.push(setTimeout(disposeNow, Math.ceil((duration + PREVIEW_FADE) * 1000) + 140));
+			log(`preview: fm1:${plan.id} (${ctx.state})`);
+		} catch (error) {
+			log(`preview: ${(error as Error).message}`);
+		}
+		return;
+	}
+
 	if (plan.kind === 'superdough') {
 		try {
 			await ensureSuperdough(ctx);
@@ -167,7 +253,8 @@ export async function playPreview(plan: PreviewPlan, log: (message: string) => v
 			const startAt = ctx.currentTime + 0.03;
 			const controller = strudelWebaudio.getSuperdoughAudioController();
 			const orbit = controller.getOrbit(99);
-			const outGain: GainNode | undefined = (orbit as any)?.outputGain ?? (orbit as any)?.postgain;
+			// superdough's Orbit exposes `output` (stereo GainNode) in superdoughoutput.mjs.
+			const outGain: GainNode | undefined = (orbit as any)?.output;
 			if (outGain?.gain) {
 				outGain.gain.cancelScheduledValues(startAt);
 				outGain.gain.setValueAtTime(1, startAt);
@@ -187,7 +274,7 @@ export async function playPreview(plan: PreviewPlan, log: (message: string) => v
 			};
 			activeStop = stop;
 			await strudelWebaudio.superdough(
-				{ s: plan.name, n: plan.index, orbit: 99, clip: 1, release: PREVIEW_FADE, ...(plan.pitched ? { note: 'a3' } : {}) },
+				{ s: plan.name, n: plan.index, orbit: 99, gain: 0.7, clip: 1, release: PREVIEW_FADE, ...(plan.pitched ? { note: 'a3' } : {}) },
 				startAt,
 				duration,
 			);

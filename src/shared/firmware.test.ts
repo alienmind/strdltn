@@ -1,7 +1,20 @@
 // Cases for finding `firmware(...)` addresses in a song. Run with `pnpm test:unit`.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { availableFirmware, findFirmwareUrls, firmwareCode, firmwareFileName, firmwareIdFromUrl, firmwareLoadEdit, parseHubIndex } from './firmware.ts';
+import {
+	availableFirmware,
+	findFirmwareUrls,
+	firmwareCode,
+	firmwareFileName,
+	firmwareIdFromUrl,
+	firmwareLoadEdit,
+	HARDWARE_FM1_PROFILES,
+	hardwareFirmwareCode,
+	mergeHubFirmwares,
+	midimapLoadEdit,
+	parseHubCatalog,
+	parseHubIndex,
+} from './firmware.ts';
 
 const A = 'https://raw.githubusercontent.com/Vibe-FM-SDK/vibe-fm-sdk/main/firmwares/obervave.wasm';
 const B = 'https://thefirmwarehub.com/fw/vibe/boom-native-vibe.zip';
@@ -100,4 +113,66 @@ test('Available leaves out what is installed, by the hub id or by the id its add
 	];
 	assert.deepEqual(availableFirmware(hub, installed).map((f) => f.id), ['valve']);
 	assert.deepEqual(availableFirmware(hub, [{ id: 'echofield', name: 'E', from: 'cache', path: 'x' }]).map((f) => f.id), ['obervave', 'valve']);
+});
+
+test('firmwareCode switches instrument prefix by runtime', () => {
+	assert.deepEqual(firmwareCode('felucca', 'fwsc'), { code: '$: note("c2 eb2 g2 bb2").s("fm1:felucca")', name: 'fm1:felucca' });
+});
+
+test('parseHubCatalog reads real FM-1 .fwsc packages and skips invalid entries', () => {
+	const list = parseHubCatalog({
+		firmwares: [
+			{
+				id: 'felucca',
+				name: 'Felucca',
+				version: '1.8.2',
+				author: 'foo',
+				lic: 'GPL-3.0',
+				what: 'Wavetable synth',
+				pkg: 'https://github.com/foo/felucca/releases/download/v1.8.2/felucca.fwsc',
+				sha256: 'abc123',
+				editor: 'https://example.com/editor',
+			},
+			{ id: 'obervave', name: 'OberVave', pkg: 'fw/obervave.fwsc' },
+			{ id: 'not-fwsc', pkg: 'fw/other.zip' },
+			{ id: 'bad id!', pkg: 'fw/bad.fwsc' },
+		],
+	});
+	assert.deepEqual(list.map((f) => f.id), ['felucca', 'obervave']);
+	assert.equal(list[0].runtime, 'fwsc');
+	assert.equal(list[0].license, 'GPL-3.0');
+	assert.equal(list[0].description, 'Wavetable synth');
+	assert.equal(list[0].sha256, 'abc123');
+	assert.equal(list[0].editor, 'https://example.com/editor');
+	assert.equal(list[1].url, 'https://thefirmwarehub.com/fw/obervave.fwsc');
+});
+
+test('mergeHubFirmwares prefers VIBE .wasm over .fwsc when both exist for the same synth', () => {
+	const vibe = parseHubIndex(INDEX);
+	const fwsc = parseHubCatalog({
+		firmwares: [
+			{ id: 'obervave', name: 'OberVave FWSC', pkg: 'fw/obervave.fwsc' },
+			{ id: 'echofield', name: 'Echofield FWSC', pkg: 'fw/echofield.fwsc' },
+			{ id: 'felucca', name: 'Felucca', pkg: 'fw/felucca.fwsc' },
+		],
+	});
+	const merged = mergeHubFirmwares(vibe, fwsc);
+	assert.deepEqual(
+		merged.map((f) => `${f.id}:${f.runtime}`),
+		['echofield-vibe:vibe', 'obervave:vibe', 'valve:vibe', 'felucca:fwsc'],
+	);
+});
+
+test('hardwareFirmwareCode and midimapLoadEdit generate and deduplicate MIDI profile lines', () => {
+	const shrub = HARDWARE_FM1_PROFILES.find((p) => p.id === 'shrub')!;
+	assert.deepEqual(hardwareFirmwareCode(shrub, 'M-VAVE FM-1 0'), {
+		code: `$shrub: note("c2 eb2 g2 bb2").midi('M-VAVE FM-1 0').midimap('shrub')`,
+		name: 'M-VAVE FM-1 0',
+	});
+	const song = '// @title jam\n$: s("bd")';
+	const edit = midimapLoadEdit(song, shrub);
+	assert.ok(edit);
+	const withMap = insertAt(song, edit);
+	assert.equal(withMap, `// @title jam\nmidimaps({ 'shrub': { cutoff: 74, macro1: 16, macro2: 17, macro3: 18, macro4: 19 } })\n$: s("bd")`);
+	assert.equal(midimapLoadEdit(withMap, shrub), undefined);
 });

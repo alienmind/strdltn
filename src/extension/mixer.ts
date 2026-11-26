@@ -27,6 +27,8 @@ export interface MixerActions {
 	busy(document: vscode.TextDocument): { recording: boolean; rendering: boolean };
 	/** What Music Controls show changed. */
 	controls(state: ControlsState): void;
+	/** A Browser item was dropped onto the Mixer to append as a new chain. */
+	dropItem?(document: vscode.TextDocument, info: { id?: string; index?: number; text?: string }): Promise<void>;
 }
 
 /** How long a fader waits after its last move before it writes the code, when no engine has the song. As the stage's sliders did. */
@@ -231,6 +233,9 @@ export class MixerView implements Surface {
 			case 'duck':
 			case 'unduck':
 				return void this.handleAsync(message);
+			case 'dropItem':
+				if (this.document) void this.actions.dropItem?.(this.document, message);
+				return;
 			case 'state':
 				this.lastState = message;
 				if (message.strips.length) this.unfolded = message.strips.filter((strip) => strip.unfolded).map((strip) => strip.name);

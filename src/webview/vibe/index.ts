@@ -70,7 +70,7 @@ export function initFirmware(h: VibeHost): void {
  * one whose file changed is loaded again on its next note; one that is gone stops.
  */
 export function registerFirmware(list: FirmwareInfo[]): void {
-	local = list;
+	local = list.filter((fw) => fw.runtime !== 'fwsc');
 	apply();
 }
 

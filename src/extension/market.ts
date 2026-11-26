@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
-import { availableFirmware, type HubFirmware } from '../shared/firmware';
+import { availableFirmware, HARDWARE_FM1_PROFILES, type HubFirmware } from '../shared/firmware';
 import type { ScreenFirmware } from '../shared/screen';
 import type { BrowserView } from './browser';
 import type { FirmwareLibrary } from './firmware';
 import { HubCatalog } from './hub';
 import { FirmwarePreviews, type PreviewJob, previewKey } from './previews';
+import { SHRUB_SETTING, ShrubPanel } from './shrub';
 
 /**
  * The marketplace of FM-1 Synths: the firmwares installed in the project (FirmwareLibrary), the hub's list (HubCatalog),
@@ -20,7 +21,7 @@ export class FirmwareMarket implements vscode.Disposable {
 	readonly installed: string[] = [];
 
 	constructor(
-		context: vscode.ExtensionContext,
+		private readonly context: vscode.ExtensionContext,
 		private readonly library: FirmwareLibrary,
 		private readonly browser: BrowserView,
 		private readonly output: vscode.OutputChannel,
@@ -61,12 +62,14 @@ export class FirmwareMarket implements vscode.Disposable {
 	private async requestPictures(): Promise<void> {
 		const jobs: PreviewJob[] = [];
 		for (const fw of this.library.all()) {
+			if (fw.runtime === 'fwsc') continue;
 			const stamp = await this.library.stamp(fw.id);
 			const file = this.library.file(fw.id);
 			if (!stamp || !file) continue;
 			jobs.push({ itemId: `firmware:${fw.id}`, key: previewKey(stamp), bytes: () => Promise.resolve(vscode.workspace.fs.readFile(file)) });
 		}
 		for (const fw of this.available()) {
+			if (fw.runtime === 'fwsc') continue;
 			jobs.push({ itemId: `firmware:${fw.id}`, key: previewKey(fw.url), bytes: async () => vscode.workspace.fs.readFile(await this.previews.hubFile(fw.url)) });
 		}
 		await this.previews.want(jobs);
@@ -95,8 +98,9 @@ export class FirmwareMarket implements vscode.Disposable {
 			const folder = await this.library.install(fw, bytes);
 			this.installed.push(fw.id);
 			const where = vscode.workspace.asRelativePath(folder);
+			const playAs = fw.runtime === 'fwsc' ? `fm1:${fw.id}` : `vibefm1:${fw.id}`;
 			this.output.appendLine(`[firmware] ${fw.name} installed into ${where}`);
-			void vscode.window.showInformationMessage(`${fw.name} is installed in ${where}. Songs play it as vibefm1:${fw.id}.`);
+			void vscode.window.showInformationMessage(`${fw.name} is installed in ${where}. Songs play it as ${playAs}.`);
 		} catch (error) {
 			void vscode.window.showErrorMessage(`${fw.name} could not be installed: ${(error as Error).message}`);
 		}
@@ -110,6 +114,24 @@ export class FirmwareMarket implements vscode.Disposable {
 		const hub = this.available().find((f) => f.id === id);
 		if (!hub) return undefined;
 		return { firmware: { ...hub, available: true }, file: await this.previews.hubFile(hub.url) };
+	}
+
+	/** Cached `fm1_web.wasm` for emulating `.fwsc` firmwares inside VS Code. */
+	emuWasmFile(): Promise<vscode.Uri> {
+		return this.previews.emuWasmFile();
+	}
+
+	/** Opens the companion web editor for a firmware (or the built-in SHRUB panel when its setting is enabled). */
+	openEditor(id: string): void {
+		if (id === 'shrub' && vscode.workspace.getConfiguration('strdltn').get<boolean>(SHRUB_SETTING, false)) {
+			ShrubPanel.show(this.context);
+			return;
+		}
+		const url =
+			HARDWARE_FM1_PROFILES.find((p) => p.id === id)?.editor ??
+			this.library.all().find((f) => f.id === id)?.editor ??
+			this.available().find((f) => f.id === id)?.editor;
+		if (url) void vscode.env.openExternal(vscode.Uri.parse(url));
 	}
 
 	dispose(): void {

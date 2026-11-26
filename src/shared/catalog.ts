@@ -4,7 +4,7 @@
 import type { SoundInfo } from './protocol.ts';
 import type { InsertArgument } from './context.ts';
 import type { SnippetInfo } from './snippet.ts';
-import { firmwareCode, type HubFirmware, type InstalledFirmware } from './firmware.ts';
+import { firmwareCode, type FirmwareRuntime, HARDWARE_FM1_PROFILES, hardwareFirmwareCode, type HubFirmware, type InstalledFirmware } from './firmware.ts';
 import { functionGroup, isPackTag, snippetTags, soundTags, splitBank, splitWords } from './tags.ts';
 
 export type ItemKind = 'sound' | 'snippet' | 'song' | 'function' | 'render' | 'midi' | 'firmware';
@@ -96,6 +96,10 @@ export interface CatalogItem {
 	image?: string;
 	/** A firmware of the hub that is not installed: a double click installs it. */
 	available?: boolean;
+	/** For FM-1 synths: VIBE `.wasm`, emulated `.fwsc`, or real FM-1 hardware over MIDI. */
+	runtime?: FirmwareRuntime;
+	/** Companion web editor URL for a firmware (e.g. SHRUB's `shrub.audio/editor/`). */
+	editorUrl?: string;
 }
 
 /** What the user gave the items, kept in `strdltn.index.json` of the project. */
@@ -301,21 +305,40 @@ const quoted = (name: string) => name.replace(/\\/g, '\\\\').replace(/'/g, "\\'"
  * their position, as `vibefm1:3` would. `images` is the picture of each item's screen, by item id. An Available row keeps
  * the id it will have once installed, so its colors and tags stay with it.
  */
-export function firmwareItems(installed: InstalledFirmware[], available: HubFirmware[] = [], engine: string[] = [], images: Record<string, string> = {}): CatalogItem[] {
+const RUNTIME_TAGS: Record<FirmwareRuntime, string> = {
+	vibe: 'Runtime/VIBE WASM',
+	fwsc: 'Runtime/FM-1 Emulated',
+	hardware: 'Runtime/Hardware MIDI',
+};
+
+export function firmwareItems(
+	installed: InstalledFirmware[],
+	available: HubFirmware[] = [],
+	engine: string[] = [],
+	images: Record<string, string> = {},
+	fm1Engine: string[] = [],
+): CatalogItem[] {
 	const byId = new Map<string, InstalledFirmware>();
 	for (const fw of installed) {
 		const known = byId.get(fw.id);
 		if (!known || (known.from === 'cache' && fw.from === 'folder')) byId.set(fw.id, fw);
 	}
 	const describe = (fw: { name: string; version?: string; author?: string }) => [fw.version && `v${fw.version.replace(/^v/i, '')}`, fw.author].filter(Boolean).join('  ') || undefined;
-	const tagsOf = (fw: { author?: string }) => ['Source/Firmware', 'Sounds/Synth', ...(fw.author ? [`Maker/${fw.author}`] : [])];
-	const textOf = (fw: { id: string; name: string; author?: string; license?: string; description?: string }) =>
-		[fw.id, fw.name, fw.author ?? '', fw.license ?? '', fw.description ?? '', 'firmware vibe fm fm-1 synth plugin'].join(' ').toLowerCase();
-	const own = [...byId.values()]
+	const tagsOf = (fw: { author?: string; runtime?: FirmwareRuntime }) => [
+		'Source/Firmware',
+		'Sounds/Synth',
+		RUNTIME_TAGS[fw.runtime ?? 'vibe'],
+		...(fw.author ? [`Maker/${fw.author}`] : []),
+	];
+	const textOf = (fw: { id: string; name: string; author?: string; license?: string; description?: string; runtime?: FirmwareRuntime }) =>
+		[fw.id, fw.name, fw.author ?? '', fw.license ?? '', fw.description ?? '', fw.runtime ?? 'vibe', 'firmware vibe fm fm-1 synth plugin'].join(' ').toLowerCase();
+	const own: CatalogItem[] = [...byId.values()]
 		.sort((a, b) => a.name.localeCompare(b.name))
 		.map((fw) => {
-			const index = engine.indexOf(fw.id);
+			const runtime: FirmwareRuntime = fw.runtime ?? 'vibe';
+			const index = runtime === 'fwsc' ? fm1Engine.indexOf(fw.id) : engine.indexOf(fw.id);
 			const id = `firmware:${fw.id}`;
+			const snippet = firmwareCode(fw.id, runtime);
 			return {
 				id,
 				kind: 'firmware',
@@ -325,17 +348,20 @@ export function firmwareItems(installed: InstalledFirmware[], available: HubFirm
 				place: 'project',
 				group: 'Installed',
 				groupRank: 0,
-				tags: tagsOf(fw),
-				text: textOf(fw),
-				insert: firmwareCode(fw.id).code,
-				sound: 'vibefm1',
+				tags: tagsOf({ ...fw, runtime }),
+				text: textOf({ ...fw, runtime }),
+				insert: snippet.code,
+				sound: runtime === 'fwsc' ? 'fm1' : 'vibefm1',
 				...(index >= 0 ? { index } : {}),
 				soundType: 'firmware',
+				runtime,
+				editorUrl: fw.editor,
 				description: fw.description,
 				// What insert types, with the load line a cached one also gets when the song has none (firmwareLoadEdit).
-				code: fw.url ? `firmware('${fw.url}')\n${firmwareCode(fw.id).code}` : firmwareCode(fw.id).code,
+				code: fw.url && runtime === 'vibe' ? `firmware('${fw.url}')\n${snippet.code}` : snippet.code,
 				fields: [
-					{ name: 'id', value: `vibefm1:${fw.id}` },
+					{ name: 'id', value: snippet.name },
+					{ name: 'runtime', value: runtime === 'fwsc' ? 'FM-1 .fwsc (fm1-emu)' : 'VIBE FM (.wasm)' },
 					...(fw.version ? [{ name: 'version', value: fw.version }] : []),
 					...(fw.author ? [{ name: 'author', value: fw.author }] : []),
 					...(fw.license ? [{ name: 'license', value: fw.license }] : []),
@@ -344,12 +370,45 @@ export function firmwareItems(installed: InstalledFirmware[], available: HubFirm
 				path: fw.path,
 				url: fw.url,
 				image: images[id],
-			} satisfies CatalogItem;
+			};
 		});
-	const hub = [...available]
+	const hardware: CatalogItem[] = HARDWARE_FM1_PROFILES.map((profile) => {
+		const id = `firmware:${profile.id}`;
+		const snippet = hardwareFirmwareCode(profile);
+		return {
+			id,
+			kind: 'firmware',
+			label: profile.name,
+			detail: profile.author,
+			category: 'fm1',
+			place: 'builtin',
+			group: 'Hardware (MIDI)',
+			groupRank: 1,
+			tags: tagsOf({ author: profile.author, runtime: 'hardware' }),
+			text: `${textOf({ ...profile, runtime: 'hardware' })} midi hardware`.toLowerCase(),
+			insert: snippet.code,
+			sound: 'midi',
+			soundType: 'firmware',
+			runtime: 'hardware',
+			editorUrl: profile.editor,
+			description: profile.description,
+			code: snippet.code,
+			fields: [
+				{ name: 'runtime', value: 'Real M-VAVE FM-1 over desktop MIDI' },
+				{ name: 'port', value: profile.defaultPort },
+				{ name: 'CC map', value: Object.entries(profile.midimap).map(([k, v]) => `${k}=CC${v}`).join(', ') },
+				{ name: 'author', value: profile.author },
+				{ name: 'license', value: profile.license },
+				...(profile.editor ? [{ name: 'editor', value: profile.editor }] : []),
+			],
+		};
+	});
+	const hub: CatalogItem[] = [...available]
 		.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
 		.map((fw) => {
+			const runtime: FirmwareRuntime = fw.runtime ?? 'vibe';
 			const id = `firmware:${fw.id}`;
+			const snippet = firmwareCode(fw.id, runtime);
 			return {
 				id,
 				kind: 'firmware',
@@ -358,26 +417,31 @@ export function firmwareItems(installed: InstalledFirmware[], available: HubFirm
 				category: 'fm1',
 				place: 'packs',
 				group: 'Available',
-				groupRank: 1,
-				tags: tagsOf(fw),
-				text: textOf(fw),
-				sound: 'vibefm1',
+				groupRank: 2,
+				tags: tagsOf({ ...fw, runtime }),
+				text: textOf({ ...fw, runtime }),
+				sound: runtime === 'fwsc' ? 'fm1' : 'vibefm1',
 				soundType: 'firmware',
+				runtime,
+				editorUrl: fw.editor,
 				available: true,
 				description: fw.description,
+				code: snippet.code,
 				fields: [
-					{ name: 'id once installed', value: `vibefm1:${fw.id}` },
+					{ name: 'id once installed', value: snippet.name },
+					{ name: 'runtime', value: runtime === 'fwsc' ? 'FM-1 .fwsc (fm1-emu)' : 'VIBE FM (.wasm)' },
 					...(fw.version ? [{ name: 'version', value: fw.version }] : []),
 					...(fw.author ? [{ name: 'author', value: fw.author }] : []),
 					...(fw.license ? [{ name: 'license', value: fw.license }] : []),
+					...(fw.editor ? [{ name: 'editor', value: fw.editor }] : []),
 					{ name: 'from', value: fw.url },
 					...(fw.cheat ? [{ name: 'cheat sheet', value: fw.cheat }] : []),
 				],
 				url: fw.url,
 				image: images[id],
-			} satisfies CatalogItem;
+			};
 		});
-	return [...own, ...hub];
+	return [...own, ...hardware, ...hub];
 }
 
 /** Songs and audio open when picked; everything else is typed at the cursor. */

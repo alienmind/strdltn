@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 import * as vscode from 'vscode';
+import { FM1_EMU_WASM_URL } from '../shared/firmware';
 
 /** A picture to make: for an item of the Library, from a firmware file, under a key that changes when the file does. */
 export interface PreviewJob {
@@ -82,15 +83,24 @@ export class FirmwarePreviews implements vscode.Disposable {
 		return run;
 	}
 
+	/**
+	 * Downloads and caches MIT `fm1-emu`'s `fm1_web.wasm` on demand into global storage so `.fwsc` firmwares can be
+	 * previewed and played inside VS Code without bundling a 3.4 MB binary in the `.vsix`.
+	 */
+	emuWasmFile(): Promise<vscode.Uri> {
+		return this.hubFile(FM1_EMU_WASM_URL);
+	}
+
 	private async download(url: string): Promise<vscode.Uri> {
-		const file = vscode.Uri.joinPath(this.root, 'files', `${previewKey(url)}.wasm`);
+		const ext = /\.fwsc(\?|$)/i.test(url) ? 'fwsc' : 'wasm';
+		const file = vscode.Uri.joinPath(this.root, 'files', `${previewKey(url)}.${ext}`);
 		if (await exists(file)) return file;
 		const response = await fetch(url, { headers: { 'User-Agent': this.userAgent } });
 		if (!response.ok) throw new Error(`${response.status} for ${url}`);
 		const bytes = new Uint8Array(await response.arrayBuffer());
 		await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(this.root, 'files'));
 		await vscode.workspace.fs.writeFile(file, bytes);
-		this.output.appendLine(`[firmware] ${url}: downloaded for its picture, ${Math.round(bytes.length / 1024)} KB`);
+		this.output.appendLine(`[firmware] ${url}: downloaded, ${Math.round(bytes.length / 1024)} KB`);
 		return file;
 	}
 

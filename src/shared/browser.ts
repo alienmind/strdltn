@@ -76,6 +76,8 @@ export type FromBrowser =
 	| { type: 'open'; id: string }
 	/** A firmware's screen, in a popup. */
 	| { type: 'screen'; id: string }
+	/** Opens a firmware's companion web editor (e.g. SHRUB editor, zp12 editor). */
+	| { type: 'openEditor'; id: string }
 	/** Installs an Available firmware into the project. */
 	| { type: 'install'; id: string }
 	/** Turns one color on or off for the items. `color` 0 clears every color. */

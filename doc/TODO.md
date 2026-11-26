@@ -38,11 +38,14 @@ On 2026-11-25 the Browser became one view with three panes (Library, Contents, R
 rules, and the groups moved from Contents into the Library tree (FM-1 Synths > Installed and
 Available). On 2026-11-26 the maintainer tested all 9 checks (all passed) and asked for: (1) a top Controls
 pane (open by default, collapsible, never auto-folded) with Back/Forward Browser history buttons
-and song Undo/Redo buttons; (2) time-limited, smooth fade-out, auto-disposed previews for all
-sounds including synths, soundfonts and FM-1 firmwares both with and without an open song; and
-(3) dragging a synth/instrument from the Browser into the editor to expand a full playable `$name:`
-line. All three are built and waiting for the hand test below. Item 20 (melody and drum-rack line
-actions) waits for the maintainer's go.
+and song Undo/Redo buttons; (2) time-limited, smooth fade-out, auto-disposed single-click previews
+for all sounds, synths, soundfonts and FM-1 firmwares both with and without an open song; (3) full
+drag-and-drop from the Browser into the editor (playable `$name:` lines, bare names inside strings,
+and effect drops appended onto existing chains) and onto the Mixer to append new strips; and (4)
+real FM-1 `.fwsc` firmwares (`thefirmwarehub.com/catalog.json` + on-demand `fm1-emu` `fm1:<id>`
+AudioWorklet + local `.fwsc` drop-in) and Hardware MIDI profiles (SHRUB with CC 74/16-19 + editor
+link, and FM-1 Stock) alongside VIBE `.wasm` synths. All four are built and waiting for the hand
+test below. Item 20 (melody and drum-rack line actions) waits for the maintainer's go.
 
 Next in line:
 
@@ -73,22 +76,21 @@ Next in line:
 ## Next: test by hand
 
 `feat/firmware-marketplace`. Test on **desktop VS Code, the Extension Development Host
-launched with F5**, folder `template/`. The 9 checks of 2026-11-25 passed; these test the new
-Controls pane and Back/Forward history.
+launched with F5**, folder `template/`. The previous Controls/history/Undo/preview/basic-drag round
+passed; these checks cover the full all-synth previews, effect & Mixer drag-and-drop, and real FM-1
+`.fwsc` + Hardware MIDI profiles.
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Open the side bar | Four panes from the top: Controls (open), Library, Contents, Reference. Controls holds Music Controls, Back/Forward buttons beside the search field, and the colors/Built-in row |
-| 2 | In Library, click Sounds | Library and Reference fold, Contents fills the space below Controls, and Controls stays open |
-| 3 | Click Back (or press Alt+Left) | Library reopens, Sounds folds back to its previous tree state, and Contents returns to the prior view |
-| 4 | Click Forward (or press Alt+Right) | Returns to Sounds with Library folded and Contents showing Sounds |
-| 5 | Type `909` in the search field, then click Back | Typing `909` is one history step; Back returns straight to before the search (search box clears, header says Contents again) |
-| 6 | Open Reference by its header, then click Back | Opening Reference folds Library and Contents while Controls stays open; Back restores the prior panes |
-| 7 | Collapse Controls by its header, then press Ctrl+F | Controls reopens with the cursor in the search field |
-| 8 | Edit the song (e.g. click Mute in Mixer or type a line), then click Undo and Redo in Controls | Undo reverts the edit (and updates playback if playing); Redo restores it; buttons disable at stack bounds |
-| 9 | Close all `.strudel` tabs, then click an FM-1 synth (Installed or Available) and a synth like `supersaw` or `gm_acoustic_bass` | Sound plays for 1 loop at 120 BPM (2 s), fades out smoothly over 0.5 s, and stops cleanly; clicking Stop cuts it off at once |
-| 10 | Open a song, play it, and click an FM-1 synth preview | Previews on the next beat for 1 loop of the song, fades out cleanly, and disposes (does not stay sounding or linger in Devices) |
-| 11 | Drag a synth (e.g. `supersaw`, `gm_synth_bass_1`, or an FM-1 synth) from the Browser into the Strudel editor or native editor | Inserts a complete playable `$name:` line with an example pattern and gain slider on its own line (Available FM-1 synths install first); dropping inside `"..."` inserts only the bare name |
+| 1 | Close all `.strudel` tabs, open Sounds > Synths, and single-click several synths (`sine`, `sawtooth`, `supersaw`, `gm_acoustic_bass`, `zzfx`) | Every synth plays a single-click preview for 1 loop at 120 BPM (2 s), fades out smoothly over 0.5 s, and stops cleanly |
+| 2 | Open a song, play it, and drag an effect function (e.g. `lpf` or `room` from Reference > Functions) onto an existing `$name:` chain line in the Strudel editor | Appends `.lpf(800)` or `.room(0.4)` onto that chain without breaking it |
+| 3 | Drag any synth, drum, sample, or FM-1 synth from the Browser and drop it onto the Mixer strip area | The Mixer strip area highlights with a dashed outline while dragging, and dropping appends a new playable `$name:` strip at the bottom of the song |
+| 4 | In Library, open Plugins > FM-1 Synths | Shows three groups: Installed, Hardware (MIDI), and Available, with color-coded `WASM`, `FWSC`, and `MIDI` badges and `Runtime/...` filter chips |
+| 5 | Open Hardware (MIDI) and click SHRUB (FM-1 Hardware) | Details show CC 74 cutoff, macros CC 16-19, and an Editor button; clicking Editor opens `shrub.audio/editor/` (or the SHRUB panel if `strdltn.experimental.shrubEditor` is on); single-click sends a preview note if an FM-1 is connected over MIDI |
+| 6 | Drag SHRUB (FM-1 Hardware) into a song (editor or Mixer) | Inserts `midimaps({ 'shrub': { cutoff: 74, macro1: 16, macro2: 17, macro3: 18, macro4: 19 } })` at the top (once) and `$shrub: note("c2 eb2 g2 bb2").midi('<port>').midimap('shrub').gain(slider(...))` |
+| 7 | Open Available, filter by the `Runtime/FM-1 Emulated` chip, and single-click an `.fwsc` synth (e.g. Felucca) | Downloads `fm1_web.wasm` (once) and the `.fwsc`, previews for 1 loop + smooth fade-out, and disposes cleanly |
+| 8 | Drag or double-click an Available `.fwsc` synth to install and insert it, then play the song | Installs `<id>.fwsc` into `firmware/<id>/` (verifying SHA-256), moves it to Installed, inserts `s("fm1:<id>")`, and plays in time with the song |
+| 9 | (Optional, if you have a local `.fwsc` like `SHRUB-V1.11.fwsc`) Drop it into `template/firmware/shrub-local/` | Appears under Installed with the `FWSC` badge without restarting VS Code |
 
 `pnpm test:quick` passed on 2026-11-25 before the last small change (the tree unfolding for a
 filter set by a command): every Browser step showed Contents alone, FM-1 Synths > Installed 1

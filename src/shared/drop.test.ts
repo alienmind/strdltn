@@ -56,3 +56,22 @@ test('dropping onto a non-empty line inserts below it; inside a string inserts t
 test('uniqueLabel skips labels already taken in muted or soloed forms', () => {
 	assert.equal(uniqueLabel('pad', '_pad: s("sawtooth")\n$pad2: s("sine")'), '$pad3');
 });
+
+test('dropping an effect function onto an existing chain appends the effect call to its spine', () => {
+	const code = '$bass: note("c2 eb2").s("sawtooth")\n';
+	const lpf = item({ id: 'fn:lpf', kind: 'function', label: 'lpf', category: 'functions', code: 's("sawtooth").lpf(800)' });
+	const edit = dropEdit(lpf, code, 12);
+	assert.deepEqual(edit, { from: 35, to: 35, insert: '.lpf(slider(1200, 100, 8000))' });
+
+	// Dropped on an empty line away from any chain -> inserts the example line.
+	const blank = dropEdit(lpf, `${code}\n`, code.length + 1);
+	assert.equal(blank.insert, 's("sawtooth").lpf(800)');
+});
+
+test('dropping fwsc and hardware FM-1 profiles generates fm1: and midi() lines', () => {
+	const fwsc = dropLine(item({ id: 'firmware:felucca', kind: 'firmware', label: 'Felucca', category: 'fm1', runtime: 'fwsc' }), '');
+	assert.equal(fwsc.line, '$felucca: note("c3 eb3 g3 bb3").s("fm1:felucca").gain(slider(0.8, 0, 1))');
+
+	const hw = dropLine(item({ id: 'firmware:shrub', kind: 'firmware', label: 'SHRUB', category: 'fm1', runtime: 'hardware' }), '', undefined, { midiPort: 'M-VAVE FM-1' });
+	assert.equal(hw.line, `$shrub: note("c3 eb3 g3 bb3").midi('M-VAVE FM-1').midimap('shrub')`);
+});

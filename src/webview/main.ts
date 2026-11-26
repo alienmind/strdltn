@@ -23,6 +23,7 @@ import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, ty
 import { initMidi, listenEverywhere, midiMessage, midiScope, midiStopped, onControlChange, setMidiMuted } from './midi';
 import { findKnobs, type KnobBinding, type Pickup, pickup, sliderAt } from '../shared/knob';
 import { PREVIEW_FADE, previewCycleSeconds } from '../shared/preview';
+import { initFm1, previewFm1, registerFm1Firmware, stopFm1Preview, stopFm1Transport } from './fm1';
 import { addFirmware, deviceRequest, initFirmware, previewFirmware, registerFirmware, setFirmwareCache, stopFirmwarePreview, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
@@ -49,6 +50,15 @@ let pushTimer: ReturnType<typeof setTimeout> | undefined;
 const syncId = Math.random().toString(36).slice(2);
 /** What to do once the user has clicked the "enable audio" overlay. */
 let afterUnlock: (() => unknown) | undefined;
+
+/** Resolvers waiting for the host to return the cached `fm1_web.wasm` URL. */
+const emuWasmWaiters: ((url: string | undefined) => void)[] = [];
+function requestEmuWasm(): Promise<string | undefined> {
+	return new Promise((resolve) => {
+		emuWasmWaiters.push(resolve);
+		post({ type: 'wantEmuWasm' });
+	});
+}
 
 window.addEventListener('error', (event) => log('error', `${event.message} (${event.filename}:${event.lineno})`));
 window.addEventListener('unhandledrejection', (event) => log('error', `unhandled rejection: ${event.reason?.message ?? event.reason}`));
@@ -84,6 +94,10 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'firmware':
 			registerFirmware(message.firmware);
+			registerFm1Firmware(message.firmware);
+			break;
+		case 'emuWasm':
+			while (emuWasmWaiters.length) emuWasmWaiters.shift()!(message.url);
 			break;
 		case 'firmwareCache':
 			setFirmwareCache(message.map);
@@ -99,6 +113,8 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			break;
 		case 'stop':
 			stopFirmwarePreview();
+			stopFm1Preview();
+			stopFm1Transport();
 			mirror?.stop();
 			break;
 		case 'device':
@@ -194,6 +210,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		meter: meterInput,
 		frame: (key, px, values) => post({ type: 'frame', key, px, values }),
 	});
+	initFm1({ log, emuWasmUrl: requestEmuWasm, meter: meterInput });
 
 	mirror = new strudelCodemirror.StrudelMirror({
 		id: REPL_ID,
@@ -242,6 +259,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 			strudelWebaudio.registerSamplesPrefix('github:', resolveGithubPack);
 			await loadLocalSamples(samples);
 			registerFirmware(firmware);
+			registerFm1Firmware(firmware);
 			log('info', `local samples: ${Object.keys(samples).join(', ') || 'none'}`);
 			// The first play waits for the default packs, or "bd" is not found yet (measured
 			// on a slow network). The wait is capped so that offline use still starts.
@@ -263,7 +281,10 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		onToggle: (started: boolean) => {
 			// The firmwares follow the transport of the song.
 			transport(started);
-			if (!started) midiStopped();
+			if (!started) {
+				stopFm1Transport();
+				midiStopped();
+			}
 			sendLevels();
 			postState();
 		},
@@ -764,11 +785,19 @@ function preview(name: string, index: number): Promise<void> {
 			synced = ` on beat ${(Math.round(next * beats) % beats) + 1}`;
 		}
 		if (name === 'vibefm1') {
+			stopFm1Preview();
 			await previewFirmware(index, at, duration, PREVIEW_FADE);
 			log('info', `preview: ${name}:${index}${synced}`);
 			return;
 		}
+		if (name === 'fm1') {
+			stopFirmwarePreview();
+			await previewFm1(index, at, duration, PREVIEW_FADE);
+			log('info', `preview: ${name}:${index}${synced}`);
+			return;
+		}
 		stopFirmwarePreview();
+		stopFm1Preview();
 		const value = { s: name, n: index, orbit: 99, clip: 1, release: PREVIEW_FADE, ...(pitched ? { note: 'a3' } : {}) };
 		await strudelWebaudio.superdough(value, at, duration);
 		log('info', `preview: ${name}:${index}${synced}`);

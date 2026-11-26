@@ -10,6 +10,8 @@ test('samples play their file, wrapped like superdough', () => {
 
 test('plain waves and noise use plain Web Audio; other synths and soundfonts use superdough in Browser', () => {
 	assert.deepEqual(previewPlan({ name: 'sawtooth', type: 'synth', count: 1 }, 0), { kind: 'oscillator', wave: 'sawtooth' });
+	assert.deepEqual(previewPlan({ name: 'sin', type: 'synth', count: 1 }, 0), { kind: 'oscillator', wave: 'sine' });
+	assert.deepEqual(previewPlan({ name: 'sqr', type: 'synth', count: 1 }, 0), { kind: 'oscillator', wave: 'square' });
 	assert.deepEqual(previewPlan({ name: 'tri', type: 'synth', count: 1 }, 0), { kind: 'oscillator', wave: 'triangle' });
 	assert.deepEqual(previewPlan({ name: 'pink', type: 'synth', count: 1 }, 0), { kind: 'noise', color: 'pink' });
 	assert.deepEqual(previewPlan({ name: 'supersaw', type: 'synth', count: 1 }, 0), { kind: 'superdough', name: 'supersaw', index: 0, pitched: true });

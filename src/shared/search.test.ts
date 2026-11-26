@@ -46,9 +46,9 @@ test('every word must match, in the name, the text or a tag', () => {
 
 test('categories and places', () => {
 	assert.deepEqual(find('', { category: 'drums' }), ['sound:rolandtr909_bd', 'sound:rolandtr909_sd', 'sound:linndrum_bd']);
-	assert.deepEqual(find('', { category: 'fm1' }), ['firmware:obervave', 'firmware:sloop', 'firmware:echofield-vibe']);
+	assert.deepEqual(find('', { category: 'fm1' }), ['firmware:obervave', 'firmware:sloop', 'firmware:shrub', 'firmware:fm1-stock', 'firmware:echofield-vibe']);
 	// Plugins, the parent, shows what its children hold.
-	assert.deepEqual(find('', { category: 'plugins' }), ['firmware:obervave', 'firmware:sloop', 'firmware:echofield-vibe']);
+	assert.deepEqual(find('', { category: 'plugins' }), ['firmware:obervave', 'firmware:sloop', 'firmware:shrub', 'firmware:fm1-stock', 'firmware:echofield-vibe']);
 	assert.deepEqual(find('', { place: 'project', category: 'samples' }), ['sound:kick']);
 });
 
@@ -117,9 +117,9 @@ test('a group picked in the tree: only its rows', () => {
 	assert.deepEqual(find('', { category: 'drums', group: 'linndrum' }), ['sound:linndrum_bd']);
 });
 
-test('Installed before Available, whatever the names', () => {
+test('Installed before Hardware (MIDI) before Available, whatever the names', () => {
 	const groups = groupItems(items.filter((item) => item.kind === 'firmware'), false);
-	assert.deepEqual(groups.map((g) => g.label), ['Installed', 'Available']);
+	assert.deepEqual(groups.map((g) => g.label), ['Installed', 'Hardware (MIDI)', 'Available']);
 });
 
 test('categories of earlier versions', () => {

@@ -20,7 +20,9 @@ export type PreviewPlan =
 	/** Any other Strudel synth or soundfont played through superdough in the Browser (supersaw, gm_*, zzfx...). */
 	| { kind: 'superdough'; name: string; index: number; pitched: boolean; duration?: number }
 	/** A VIBE FM firmware (.wasm or .zip) run in a temporary AudioWorklet in the Browser and disposed after. */
-	| { kind: 'firmware'; id: string; url: string; workletUrl: string; bpm: number; duration?: number };
+	| { kind: 'firmware'; id: string; url: string; workletUrl: string; bpm: number; duration?: number }
+	/** A real FM-1 hardware firmware (.fwsc) emulated in a temporary fm1-emu AudioWorklet and disposed after. */
+	| { kind: 'fm1'; id: string; url: string; emuUrl: string; workletUrl: string; bpm: number; duration?: number };
 
 /** Length of one preview loop (1 cycle), clamped to [0.5, 4] s. Defaults to 120 BPM (2.0 s). */
 export function previewCycleSeconds(tempo?: { bpm?: number; cps?: number }): number {
@@ -36,7 +38,9 @@ export function previewCycleSeconds(tempo?: { bpm?: number; cps?: number }): num
 /** superdough's names of the plain waveforms, as Web Audio calls them. */
 const WAVES: Record<string, OscillatorType> = {
 	sine: 'sine',
+	sin: 'sine',
 	square: 'square',
+	sqr: 'square',
 	sawtooth: 'sawtooth',
 	saw: 'sawtooth',
 	triangle: 'triangle',

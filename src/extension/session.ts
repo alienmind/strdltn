@@ -38,6 +38,8 @@ export interface SessionHost {
 	onAudio?(session: Session, kind: 'record' | 'render', wav: Uint8Array, info: { seconds: number; peak?: number }): Promise<void>;
 	/** An item (from the Browser) or plain text was dropped onto the Strudel editor. */
 	onDrop?(document: vscode.TextDocument, offset: number, info: { id?: string; index?: number; text?: string }): Promise<void>;
+	/** Engine asks for the cached `fm1_web.wasm` file so it can emulate `.fwsc` firmwares. */
+	onWantEmuWasm?(): Promise<vscode.Uri | undefined>;
 }
 
 /** The settings `strdltn.editor.*`. An empty font and a size of 0 mean: as the VS Code editor. */
@@ -99,6 +101,7 @@ export class Session {
 			enableScripts: true,
 			localResourceRoots: [
 				vscode.Uri.joinPath(context.extensionUri, 'dist'),
+				vscode.Uri.joinPath(context.globalStorageUri, 'firmware'),
 				vscode.Uri.joinPath(document.uri, '..'),
 				...workspaceFolders,
 			],
@@ -312,6 +315,12 @@ export class Session {
 				break;
 			case 'dropItem':
 				void this.host.onDrop?.(this.document, message.offset, message);
+				break;
+			case 'wantEmuWasm':
+				void this.host.onWantEmuWasm?.().then(
+					(uri) => this.post({ type: 'emuWasm', url: uri ? this.panel.webview.asWebviewUri(uri).toString() : undefined }),
+					() => this.post({ type: 'emuWasm', url: undefined }),
+				);
 				break;
 			case 'cacheFiles': {
 				const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;

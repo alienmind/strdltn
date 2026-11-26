@@ -1,7 +1,7 @@
 // Cases for the MIDI rules in midi.ts. Run with `pnpm test:unit`.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ClockOffset, findPort, hapMessages, MIDI_DEFAULTS, MidiQueue, normalize, unifyMap, type MidiMap } from './midi.ts';
+import { ClockOffset, findPort, hapMessages, knobOptions, MIDI_DEFAULTS, MidiQueue, normalize, unifyMap, type MidiMap } from './midi.ts';
 
 const none = new Map<string, MidiMap>();
 const toMidi = (name: string) => ({ c4: 60, a4: 69 })[name] ?? NaN;
@@ -103,4 +103,13 @@ test('a MIDI message reads as text for the debug lines', async () => {
 	assert.equal(describeMidi([0xe0, 0, 64]), 'pitch bend 0.00 (ch 1)');
 	assert.equal(describeMidi([0xf8]), 'clock');
 	assert.equal(describeMidi([0xf0, 0x43, 1, 0xf7]), 'sysex 4 bytes');
+});
+
+test('a knob of midin: a channel as upstream, or a starting value until it moves', () => {
+	assert.deepEqual(knobOptions(undefined), { channel: undefined, start: 0 });
+	assert.deepEqual(knobOptions(2), { channel: 2, start: 0 });
+	assert.deepEqual(knobOptions({ start: 0.8 }), { channel: undefined, start: 0.8 });
+	assert.deepEqual(knobOptions({ channel: 3, start: 0.5 }), { channel: 3, start: 0.5 });
+	assert.deepEqual(knobOptions({ start: 4 }), { channel: undefined, start: 1 });
+	assert.deepEqual(knobOptions({ start: Number.NaN }), { channel: undefined, start: 0 });
 });

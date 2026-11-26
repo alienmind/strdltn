@@ -7,7 +7,7 @@
 // @credits Strudel contributors
 import { getControlName, getCps, getIsStarted, getPattern, getTime, getTriggerFunc, Hap, isPattern, noteToMidi, Pattern, ref, reify, TimeSpan } from '@strudel/core';
 import { getAudioContext } from '@strudel/webaudio';
-import { ClockOffset, epochNow, findPort, hapMessages, MIDI_DEFAULTS, unifyMap, type MidiConfig, type MidiMap, type MidiOut, type MidiPorts } from '../shared/midi';
+import { ClockOffset, epochNow, findPort, hapMessages, type KnobOptions, knobOptions, MIDI_DEFAULTS, unifyMap, type MidiConfig, type MidiMap, type MidiOut, type MidiPorts } from '../shared/midi';
 import type { FromWebview, ToWebview } from '../shared/protocol';
 
 let post: (message: FromWebview) => void = () => undefined;
@@ -218,14 +218,20 @@ async function openInput(given: string | number | undefined): Promise<string> {
 }
 
 /**
- * Opens a MIDI input. Returns `cc(n, channel?)`, a pattern with the last value of CC `n`, 0 to 1.
+ * Opens a MIDI input. Returns `cc(n, channel?)`, a pattern with the last value of CC `n`, 0 to 1. Ours, not upstream's:
+ * `cc(n, { start: .8 })` is .8 until the knob first sends a value, so a song can sound before a knob is touched
+ * (upstream's is 0 until then). `{ channel, start }` takes both.
  * @example const cc = await midin('MPK mini 3'); note("c a f e").lpf(cc(0).range(0, 1000))
  */
-export async function midin(input?: string | number): Promise<(cc: number, channel?: number) => unknown> {
+export async function midin(input?: string | number): Promise<(cc: number, second?: number | KnobOptions) => unknown> {
 	const name = await openInput(input);
 	ccs[name] ??= {};
 	ccsByChannel[name] ??= {};
-	return (cc: number, channel?: number) => (channel !== undefined ? ref(() => ccsByChannel[name][cc]?.[channel] || 0) : ref(() => ccs[name][cc] || 0));
+	return (cc: number, second?: number | KnobOptions) => {
+		const { channel, start } = knobOptions(second);
+		// `??`, not `||`: a knob turned all the way down is 0, and must stay 0, not jump back to `start`.
+		return channel !== undefined ? ref(() => ccsByChannel[name][cc]?.[channel] ?? start) : ref(() => ccs[name][cc] ?? start);
+	};
 }
 
 /** Notes played on a midikeys() input since the scheduler last asked. */

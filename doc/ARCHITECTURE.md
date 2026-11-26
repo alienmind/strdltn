@@ -1712,6 +1712,13 @@ stop -> midiPanic                  -> panic(engine)              -> notes off of
   with loopMIDI on 2026-11-22). Inside a string it types the name alone, inside the empty
   parentheses of `.midi()`, `midin()` or `midikeys()` the name in quotes (`chooseInsert` in
   `src/shared/context.ts`, the item's `argument`). Copy copies the name.
+- A knob's starting value, ours and not upstream's: `cc(n, { start: .8 })` reads .8 until the
+  knob first sends a value (`knobOptions`); a channel number as the second argument works as
+  upstream. Upstream reads 0 until then, so a song whose levels are knobs starts silent. The
+  example `09-midi-out.strudel` uses it, and catches a missing controller
+  (`midin(...).catch(...)` returning `pure(start)` per knob), because `midin` of a device that
+  is not there throws and the whole song then plays nothing (seen 2026-11-24 with the MPK mini
+  3 unplugged). Expected to play the band without the controller; not run since the change.
 - Debugging: the setting `strdltn.midi.debug` (the command "strdltn: Show MIDI messages in
   the Output" turns it on and off) writes every message in and out to Output > strdltn as
   text (`describeMidi`): `in <- MPK mini 3: CC 70 = 64 (ch 1)`, `out -> M-VAVE FM-1: note on

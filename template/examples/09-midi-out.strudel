@@ -7,18 +7,20 @@ setcpm(124/4)
 
 // Your devices. A click on one in the Library's MIDI category types its name.
 const SYNTH = 'M-VAVE FM-1'
-const knobs = await midin('MPK mini 3')
+// Without the controller, every knob stays at its starting value and the band plays anyway.
+// Without the synth, its chords are not heard and the rest plays.
+const knobs = await midin('MPK mini 3').catch(() => (cc, { start = 0 } = {}) => pure(start))
 
-// The MPK mini 3's knobs send CC 1 to 8. The band starts silent: bring each part in with its
-// knob, as on a mixer.
-const KICK = knobs(1)
-const HATS = knobs(2)
-const BASS = knobs(3)
-const PAD = knobs(4)
-const BASS_OPEN = knobs(5)
-const SYNTH_HARD = knobs(6)
-const SYNTH_OPEN = knobs(7)
-const SYNTH_MACRO = knobs(8)
+// The MPK mini 3's knobs send CC 1 to 8. Each starts where the band sounds right
+// ({ start: ... }) and takes over once you turn it, as on a mixer.
+const KICK = knobs(1, { start: .8 })
+const HATS = knobs(2, { start: .6 })
+const BASS = knobs(3, { start: .7 })
+const PAD = knobs(4, { start: .5 })
+const BASS_OPEN = knobs(5, { start: .3 })
+const SYNTH_HARD = knobs(6, { start: .7 })
+const SYNTH_OPEN = knobs(7, { start: .5 })
+const SYNTH_MACRO = knobs(8, { start: 0 })
 
 // What the synth listens to: SHRUB on the FM-1 takes its cutoff on CC 74 and its first macro
 // on CC 16.

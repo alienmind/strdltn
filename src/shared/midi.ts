@@ -28,6 +28,20 @@ export function epochNow(): number {
 	return performance.timeOrigin + performance.now();
 }
 
+/** The second argument of a knob of `midin`: a channel, as upstream, or ours with a starting value. */
+export interface KnobOptions {
+	channel?: number;
+	/** The value until the knob first sends one. 0 when not given, as upstream. */
+	start?: number;
+}
+
+/** `cc(n, 2)` and `cc(n, { channel: 2, start: .5 })` alike. A start outside 0 to 1 is clamped, as a CC value is. */
+export function knobOptions(second: number | KnobOptions | undefined): { channel?: number; start: number } {
+	if (typeof second === 'number') return { channel: second, start: 0 };
+	const start = typeof second?.start === 'number' && Number.isFinite(second.start) ? Math.min(1, Math.max(0, second.start)) : 0;
+	return { channel: typeof second?.channel === 'number' ? second.channel : undefined, start };
+}
+
 /**
  * The port a song means, as upstream picks it: a number is an index, a name matches
  * exactly or as a part of the port's name, nothing means the first IAC port or else the

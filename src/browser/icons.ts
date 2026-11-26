@@ -19,6 +19,8 @@ export const ICONS: Record<string, string> = {
 	copy: svg('<rect x="5" y="5" width="8.5" height="8.5" rx="1"/><path d="M11 5V3.5c0-.6-.4-1-1-1H3.5c-.6 0-1 .4-1 1V10c0 .6.4 1 1 1H5"/>'),
 	open: svg('<path d="M9 2.5h4.5V7M13.5 2.5L7.5 8.5M11.5 9.5v4h-9v-9h4"/>'),
 	chevron: svg('<path d="M6 4l4 4-4 4"/>'),
+	back: svg('<path d="M12.5 8H3.5M7.5 4L3.5 8l4 4" stroke-width="1.4"/>'),
+	forward: svg('<path d="M3.5 8h9M8.5 4l4 4-4 4" stroke-width="1.4"/>'),
 	speaker: svg('<path d="M2.5 6v4h2.5l3.5 3V3L5 6z"/><path d="M11 5.5c1 1.4 1 3.6 0 5M12.8 4c1.8 2.3 1.8 5.7 0 8"/>'),
 	mute: svg('<path d="M2.5 6v4h2.5l3.5 3V3L5 6z"/><path d="M11 6l3.5 4M14.5 6L11 10"/>'),
 	search: svg('<circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3l3.7 3.7"/>'),

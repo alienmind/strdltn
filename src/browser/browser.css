@@ -31,7 +31,21 @@ svg { display: block; flex: none; }
 
 
 .searchbar[hidden] { display: none; }
-.searchbar { flex: none; display: flex; align-items: center; gap: 4px; padding: 6px 8px; }
+.searchbar { flex: none; display: flex; align-items: center; gap: 4px; padding: 5px 8px; }
+.nav-buttons { flex: none; display: flex; align-items: center; gap: 2px; }
+.nav-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 22px;
+	border-radius: 3px;
+	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35));
+	color: var(--vscode-foreground);
+	opacity: 0.9;
+}
+.nav-button:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .2)); opacity: 1; }
+.nav-button:disabled { opacity: 0.3; cursor: default; }
 .search {
 	flex: 1;
 	display: flex;
@@ -50,11 +64,13 @@ svg { display: block; flex: none; }
 .icon-button:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
 .icon-button.on { color: var(--vscode-focusBorder); opacity: 1; }
 
-/* The three panes: Library, Contents, Reference. Headers as VS Code draws the sections of a side bar. An open pane
-   that does not grow keeps its own height, at most half the view, and scrolls; the one that grows takes the rest. */
+/* The four panes: Controls, Library, Contents, Reference. Headers as VS Code draws the sections of a side bar.
+   Controls keeps its own compact height; another open pane that does not grow takes at most half the view and scrolls;
+   the one that grows takes the rest. */
 .pane { flex: none; display: flex; flex-direction: column; min-height: 0; }
 .pane + .pane { border-top: 1px solid var(--vscode-sideBarSectionHeader-border, var(--vscode-panel-border, transparent)); }
 .pane.open:not(.grow) { flex: 0 1 auto; max-height: 50%; }
+.pane-controls.open:not(.grow) { flex: none; max-height: none; }
 .pane.open.grow { flex: 1 1 0; }
 .pane-head {
 	flex: none;

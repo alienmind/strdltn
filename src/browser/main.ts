@@ -1,11 +1,13 @@
-// The page of the Browser: one view with three panes, Library, Contents and Reference. Library and Reference are
-// trees that pick what is shown (Library also holds the search and the colors); Contents shows what they pick, a flat
-// list with its chips and details, and is called Results while a search is typed. The panes fold like the sections of
-// a VS Code side bar, but by our rules: picking something shows Contents alone, at full height. One view, because VS
-// Code gives an extension no way to fold one of its views (measured in 1.147). See "Browser" in doc/ARCHITECTURE.md.
+// The page of the Browser: one view with four panes, Controls, Library, Contents and Reference. Controls stays open at
+// the top (collapsible) with Music Controls, Back/Forward history, the search field and the color/built-in filters;
+// Library and Reference are trees that pick what is shown; Contents shows what they pick, a flat list with its chips
+// and details, and is called Results while a search is typed. The panes fold like the sections of a VS Code side bar,
+// by our rules: picking something shows Contents alone below Controls, at full height. One view, because VS Code gives
+// an extension no way to fold one of its views (measured in 1.147). See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
-import { type BrowserFilterState, type BrowserPage, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
+import { type BrowserFilterState, type BrowserPage, type BrowserPanes, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
 import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, inCategory, opens, parentOf, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
+import { BrowserHistory, type BrowserHistoryState, type BrowserSnapshot, describeSnapshot } from '../shared/history.ts';
 import type { PreviewPlan } from '../shared/preview.ts';
 import { chipGroups, filterItems, groupItems } from '../shared/search.ts';
 import { TAG_GROUPS } from '../shared/tags.ts';
@@ -30,13 +32,14 @@ interface Saved {
 	sections: Record<string, boolean>;
 	headings: Record<string, boolean>;
 	chipsOpen: string[];
-	panes?: Record<Pane, boolean>;
+	panes?: Partial<BrowserPanes>;
 	/** Tree rows the user unfolded: a category id, or `<category>|<group>` is never needed. */
 	tree?: string[];
+	history?: BrowserHistoryState;
 }
 
-/** The three panes of the view. */
-type Pane = 'library' | 'contents' | 'reference';
+/** The four panes of the view. */
+type Pane = keyof BrowserPanes;
 
 const saved = (vscode.getState() as Saved | undefined) ?? undefined;
 let items: CatalogItem[] = [];
@@ -55,10 +58,30 @@ const selection = new Set<string>();
 let cursor = -1;
 let anchor = -1;
 
-const panes: Record<Pane, boolean> = saved?.panes ?? { library: true, contents: true, reference: false };
+const panes: BrowserPanes = {
+	controls: saved?.panes?.controls ?? true,
+	library: saved?.panes?.library ?? true,
+	contents: saved?.panes?.contents ?? true,
+	reference: saved?.panes?.reference ?? false,
+};
 /** Categories unfolded in the trees, so their groups show under them. */
 const tree = new Set<string>(saved?.tree ?? []);
-const keep = () => vscode.setState({ sections, headings, chipsOpen: [...chipsOpen], panes, tree: [...tree] } satisfies Saved);
+const history = new BrowserHistory(saved?.history);
+let initialized = false;
+/** Coalesces rapid typing in the search field into one history entry. */
+let lastSearchAt = 0;
+const snapshot = (): BrowserSnapshot => ({
+	filter: { ...filter, chips: [...filter.chips] },
+	panes: { ...panes },
+	tree: [...tree],
+	sections: { ...sections },
+});
+const record = (options?: { replace?: boolean }) => {
+	if (!initialized) return;
+	if (!options?.replace) lastSearchAt = 0;
+	history.push(snapshot(), options);
+};
+const keep = () => vscode.setState({ sections, headings, chipsOpen: [...chipsOpen], panes, tree: [...tree], history: history.toState() } satisfies Saved);
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
 	const node = document.createElement(tag);
 	if (className) node.className = className;
@@ -105,13 +128,17 @@ function pane(id: Pane, title: string): { box: HTMLElement; head: HTMLElement; t
 	const body = box.appendChild(el('div', 'pane-body'));
 	return { box, head, title: name, count, body };
 }
+const controlsPane = pane('controls', 'Controls');
 const libraryPane = pane('library', 'Library');
 const contentsPane = pane('contents', 'Contents');
 const referencePane = pane('reference', 'Reference');
-// Music Controls on top of the Library, then the search.
-const controlsBox = libraryPane.body.appendChild(el('div'));
+// Controls pane: Music Controls, then Back/Forward + search + preview, then the colors and Built-in button.
+const controlsBox = controlsPane.body.appendChild(el('div'));
 const showControls = createControls(controlsBox, post);
-const searchbar = libraryPane.body.appendChild(el('div', 'searchbar'));
+const searchbar = controlsPane.body.appendChild(el('div', 'searchbar'));
+const navButtons = searchbar.appendChild(el('div', 'nav-buttons'));
+const backButton = navButtons.appendChild(button('back', 'Back (Alt+Left)', () => goBack(), 'nav-button'));
+const forwardButton = navButtons.appendChild(button('forward', 'Forward (Alt+Right)', () => goForward(), 'nav-button'));
 const searchBox = searchbar.appendChild(el('div', 'search'));
 searchBox.innerHTML = icon('search');
 const search = searchBox.appendChild(el('input'));
@@ -121,7 +148,7 @@ search.spellcheck = false;
 const clearSearch = searchBox.appendChild(button('close', 'Clear the search (Esc)', () => setQuery('')));
 const previewButton = searchbar.appendChild(button('speaker', '', () => post({ type: 'setPreview', on: !preview })));
 // The colors and the Built-in button, right under the search: they filter like it does.
-const colorbar = libraryPane.body.appendChild(el('div', 'colorbar'));
+const colorbar = controlsPane.body.appendChild(el('div', 'colorbar'));
 const nav = libraryPane.body.appendChild(el('div', 'nav'));
 // The user manual of the latest release, at the foot of the Library (the maintainer, 2026-11-22).
 const manual = libraryPane.body.appendChild(el('button', 'manual-link', 'User manual (PDF)'));
@@ -136,34 +163,73 @@ const details = contentsPane.body.appendChild(el('div', 'details'));
 const referenceNav = referencePane.body.appendChild(el('div', 'nav'));
 
 /**
- * The fold rules the maintainer asked for (2026-11-25). Opening Reference folds the other two, so it gets the height.
- * Library and Contents fold and open by their headers.
+ * The fold rules the maintainer asked for (2026-11-25 and 2026-11-26). Controls stays open unless folded by its own
+ * header. Opening Reference folds Library and Contents so Reference gets the height.
  */
 function togglePane(id: Pane): void {
 	panes[id] = !panes[id];
 	if (id === 'reference' && panes.reference) panes.library = panes.contents = false;
+	record();
 	update();
 }
 
-/** Something was picked in a tree: Contents alone shows it, at full height. */
+/** Something was picked in a tree: Contents alone shows it below Controls, at full height. */
 function showContents(): void {
 	panes.library = panes.reference = false;
 	panes.contents = true;
 }
 
 function drawPanes(): void {
-	for (const [id, part] of [['library', libraryPane], ['contents', contentsPane], ['reference', referencePane]] as const) {
+	for (const [id, part] of [['controls', controlsPane], ['library', libraryPane], ['contents', contentsPane], ['reference', referencePane]] as const) {
 		part.box.classList.toggle('open', panes[id]);
 		part.head.setAttribute('aria-expanded', String(panes[id]));
 	}
-	// The pane that takes the height that is left: Contents when it is open, else the one open pane.
+	// The pane that takes the height that is left: Contents when it is open, else Reference or Library. Controls never grows.
 	const grow: Pane | undefined = panes.contents ? 'contents' : panes.reference ? 'reference' : panes.library ? 'library' : undefined;
+	controlsPane.box.classList.remove('grow');
 	libraryPane.box.classList.toggle('grow', grow === 'library');
 	contentsPane.box.classList.toggle('grow', grow === 'contents');
 	referencePane.box.classList.toggle('grow', grow === 'reference');
 	// Results only while a search is typed; else it shows the contents of what is picked.
 	contentsPane.title.textContent = filter.query.trim() ? 'Results' : 'Contents';
 	contentsPane.count.textContent = String(results.length);
+}
+
+function drawHistory(): void {
+	const prev = history.peekBack();
+	const next = history.peekForward();
+	backButton.disabled = !prev;
+	forwardButton.disabled = !next;
+	backButton.title = prev ? `Back to ${describeSnapshot(prev)} (Alt+Left)` : 'Back (Alt+Left)';
+	forwardButton.title = next ? `Forward to ${describeSnapshot(next)} (Alt+Right)` : 'Forward (Alt+Right)';
+}
+
+function applySnapshot(next: BrowserSnapshot): void {
+	clearTimeout(searchTimer);
+	lastSearchAt = 0;
+	filter = { ...next.filter, chips: [...next.filter.chips] };
+	panes.controls = next.panes.controls;
+	panes.library = next.panes.library;
+	panes.contents = next.panes.contents;
+	panes.reference = next.panes.reference;
+	tree.clear();
+	for (const id of next.tree) tree.add(id);
+	for (const key of Object.keys(sections)) delete sections[key];
+	Object.assign(sections, next.sections);
+	headings = {};
+	searchbarSync();
+	post({ type: 'filter', filter });
+	update();
+}
+
+function goBack(): void {
+	const prev = history.back();
+	if (prev) applySnapshot(prev);
+}
+
+function goForward(): void {
+	const next = history.forward();
+	if (next) applySnapshot(next);
 }
 let menu: HTMLElement | undefined;
 let dialog: HTMLElement | undefined;
@@ -181,7 +247,25 @@ document.addEventListener('keydown', (event) => {
 		event.preventDefault();
 		focusSearch();
 	}
+	if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			goBack();
+		} else if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			goForward();
+		}
+	}
 	if (event.key === 'Escape') closePopups();
+});
+document.addEventListener('mouseup', (event) => {
+	if (event.button === 3) {
+		event.preventDefault();
+		goBack();
+	} else if (event.button === 4) {
+		event.preventDefault();
+		goForward();
+	}
 });
 document.addEventListener('mousedown', (event) => {
 	if (menu && !menu.contains(event.target as Node)) closeMenu();
@@ -190,10 +274,11 @@ resultsBox.addEventListener('scroll', () => drawRows());
 new ResizeObserver(() => drawRows()).observe(resultsBox);
 resultsBox.addEventListener('keydown', onResultsKey);
 
-/** The search field is in the Library: the Library opens for it. */
+/** The search field is in Controls: Controls opens for it if it was folded. */
 function focusSearch(): void {
-	if (!panes.library) {
-		panes.library = true;
+	if (!panes.controls) {
+		panes.controls = true;
+		record();
 		update();
 	}
 	search.focus();
@@ -203,15 +288,21 @@ function focusSearch(): void {
 function setQuery(query: string): void {
 	search.value = query;
 	if (query === filter.query) return;
-	// What a search finds shows in Contents, under the Library where it is typed.
-	if (query.trim()) panes.contents = true;
-	setFilter({ query });
+	const wasEmpty = !filter.query.trim();
+	const isEmpty = !query.trim();
+	// What a search finds shows in Contents, under Controls where it is typed.
+	if (!isEmpty) panes.contents = true;
+	const now = Date.now();
+	const replace = !wasEmpty && !isEmpty && lastSearchAt > 0 && now - lastSearchAt < 1200;
+	lastSearchAt = isEmpty ? 0 : now;
+	setFilter({ query }, { replace });
 }
 
-/** A change made in this view. The host hands it to the other three. */
-function setFilter(change: Partial<BrowserFilterState>): void {
+/** A change made in this view. The host keeps it across reloads. */
+function setFilter(change: Partial<BrowserFilterState>, options?: { replace?: boolean }): void {
 	filter = { ...filter, ...change };
 	headings = {};
+	record(options);
 	post({ type: 'filter', filter });
 	update();
 }
@@ -224,6 +315,7 @@ function update(): void {
 	previewButton.innerHTML = icon(preview ? 'speaker' : 'mute');
 	previewButton.classList.toggle('on', preview);
 	previewButton.title = preview ? 'Preview on click is ON. Press to turn it off' : 'Preview on click is OFF. Press to turn it on';
+	drawHistory();
 	drawNav();
 	const shown = drawChips();
 	results = filterItems(scoped(items, filter), filter, user);
@@ -243,6 +335,7 @@ function section(id: string, title: string, body: (into: HTMLElement) => void): 
 	head.appendChild(el('span', '', title));
 	head.addEventListener('click', () => {
 		sections[id] = !sections[id];
+		record();
 		update();
 	});
 	body(box.appendChild(el('div', 'section-body')));
@@ -328,6 +421,7 @@ function drawTree(body: HTMLElement, of: BrowserPage): void {
 			if ((event.target as HTMLElement).closest('.twisty')) {
 				if (unfolded) tree.delete(category.id);
 				else tree.add(category.id);
+				record();
 				return update();
 			}
 			if (foldable) tree.add(category.id);
@@ -426,7 +520,12 @@ function drawResultbar(): void {
 	resultbar.appendChild(el('span', 'summary', parts.filter(Boolean).join(' ')));
 	if (filtered()) {
 		resultbar.appendChild(button('save', 'Save this search under Collections', () => saveSearch()));
-		resultbar.appendChild(button('close', 'Clear the search and the filters', () => setFilter({ query: '', chips: [], color: undefined, place: undefined, builtin: undefined })));
+		resultbar.appendChild(
+			button('close', 'Clear the search and the filters', () => {
+				setFilter({ query: '', chips: [], color: undefined, place: undefined, builtin: undefined });
+				searchbarSync();
+			}),
+		);
 	}
 }
 
@@ -1097,6 +1196,8 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 			preview = message.preview;
 			app.hidden = false;
 			searchbarSync();
+			initialized = true;
+			history.seed(snapshot());
 			return update();
 		case 'items':
 			items = message.items;
@@ -1124,6 +1225,7 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 				if (parent) tree.add(parent);
 				if (filter.group || CATEGORIES.some((c) => parentOf(c.id) === filter.category)) tree.add(filter.category);
 			}
+			record();
 			update();
 			return;
 	}

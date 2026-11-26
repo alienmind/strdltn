@@ -36,7 +36,10 @@ Playground's `index.json` (the maintainer, 2026-11-24, which answers the "what l
 it into `firmware/<id>/`; Insert types a `$:` line; the screen popup runs any of them without sound.
 On 2026-11-25 the Browser became one view with three panes (Library, Contents, Reference) and fold
 rules, and the groups moved from Contents into the Library tree (FM-1 Synths > Installed and
-Available). Waiting for the hand test below. Item 20 (melody and drum-rack line actions) waits for
+Available). On 2026-11-26 the maintainer tested all 9 checks (all passed) and asked for a top
+Controls pane (open by default, collapsible, never auto-folded) holding Music Controls, search,
+colors and Back/Forward browser history buttons over searches, pane folds and unfolded subtrees.
+Built and waiting for the hand test below. Item 20 (melody and drum-rack line actions) waits for
 the maintainer's go.
 
 Next in line:
@@ -68,20 +71,18 @@ Next in line:
 ## Next: test by hand
 
 `feat/firmware-marketplace`. Test on **desktop VS Code, the Extension Development Host
-launched with F5**, folder `template/`. The checks of 2026-11-24 passed; these are about the
-Browser's new panes.
+launched with F5**, folder `template/`. The 9 checks of 2026-11-25 passed; these test the new
+Controls pane and Back/Forward history.
 
 | # | Do this | Should happen |
 |---|---------|---------------|
-| 1 | Open the side bar | One view, Browser, with three panes from the top: Library, Contents, Reference |
-| 2 | In Library, click Sounds | Library and Reference fold, Contents fills the side bar with the sounds, a flat list with no headings |
-| 3 | Open Library again by its header; Sounds has unfolded: click Soundfonts under it | Only soundfonts in Contents; Library folds again |
-| 4 | Plugins > FM-1 Synths > Available | Only the Available firmwares, with their pictures |
-| 5 | Ctrl+F and type `909` | Library opens with the cursor in the search; Contents' header says Results |
-| 6 | Clear the search | The header says Contents again |
-| 7 | Open Reference by its header | Library and Contents fold, Reference has the height |
-| 8 | Click Functions | Contents alone shows the functions |
-| 9 | Drums, unfold it, hover a bank | The bank's insert button types `.bank("...")` |
+| 1 | Open the side bar | Four panes from the top: Controls (open), Library, Contents, Reference. Controls holds Music Controls, Back/Forward buttons beside the search field, and the colors/Built-in row |
+| 2 | In Library, click Sounds | Library and Reference fold, Contents fills the space below Controls, and Controls stays open |
+| 3 | Click Back (or press Alt+Left) | Library reopens, Sounds folds back to its previous tree state, and Contents returns to the prior view |
+| 4 | Click Forward (or press Alt+Right) | Returns to Sounds with Library folded and Contents showing Sounds |
+| 5 | Type `909` in the search field, then click Back | Typing `909` is one history step; Back returns straight to before the search (search box clears, header says Contents again) |
+| 6 | Open Reference by its header, then click Back | Opening Reference folds Library and Contents while Controls stays open; Back restores the prior panes |
+| 7 | Collapse Controls by its header, then press Ctrl+F | Controls reopens with the cursor in the search field |
 
 `pnpm test:quick` passed on 2026-11-25 before the last small change (the tree unfolding for a
 filter set by a command): every Browser step showed Contents alone, FM-1 Synths > Installed 1

@@ -197,25 +197,34 @@ One run without retries lost every pack until the window was closed.
 
 ## Browser
 
-The side bar is the browser of Ableton Live: one webview view, `strdltn.browser`, named Browser, with three panes.
+The side bar is the browser of Ableton Live: one webview view, `strdltn.browser`, named Browser, with four panes.
 It replaced four other views: the logo, Files, Sounds and Snippets. A tree cannot draw color squares, chips or a
 search field, and a webview between trees looked out of place (see "Snippet cards in a webview" in the drawer), so
 the side bar is webviews only now. The plan it comes from is phase 1 of `doc/DAW-PLAN.md`.
 
-**Three panes.** From the top, as the maintainer ordered them on 2026-11-25:
+**Four panes.** From the top, as the maintainer ordered them on 2026-11-25 and 2026-11-26:
 
 | Pane | Shows |
 |---|---|
-| Library | Music Controls; the search field; one row with the seven colors and the Built-in button; Collections with the saved searches, when there are any; the Library tree: All, Sounds, Drums, Samples, Plugins (with FM-1 Synths under it), Render, MIDI, Songs, Snippets; the link to the manual |
+| Controls | Open by default, collapsible by its header, never auto-folded: Music Controls (Play, Stop, Record, Render, BPM, song); Back and Forward history buttons beside the search field and the preview toggle; one row with the seven colors and the Built-in button |
+| Library | Collections with the saved searches, when there are any; the Library tree: All, Sounds, Drums, Samples, Plugins (with FM-1 Synths under it), Render, MIDI, Songs, Snippets; the link to the manual |
 | Contents | What the trees pick, as a flat list: the chips, the result bar, the rows and the details pane. Its header says Results while a search is typed, else Contents, with the number of rows |
 | Reference | The Reference tree: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
 
 Each pane has a header drawn as VS Code draws the sections of a side bar, and folds by it. The rules, asked by the
-maintainer: a click on a row of a tree shows Contents alone, at full height (Library and Reference fold); opening
-Reference folds the other two, so it gets the height; Ctrl+F opens the Library for the search; typing a search opens
-Contents under it. An open pane that is not the growing one keeps its own height, at most half the view, and
-scrolls. Until 2026-11-25 these were three views of their own; VS Code gives an extension no way to fold a view (see
-"Three views of the Browser" in the drawer), so these rules need one page.
+maintainer: Controls stays open at the top so transport, history, search and quick filters remain reachable after a
+tree collapses; a click on a row of a tree shows Contents alone below Controls, at full height (Library and Reference
+fold); opening Reference folds Library and Contents, so it gets the height; Ctrl+F opens Controls if it was folded and
+focuses the search; typing a search opens Contents under it. Controls keeps its compact height; another open pane that
+is not the growing one keeps at most half the view and scrolls. Until 2026-11-25 Library, Reference and Results were
+three views of their own; VS Code gives an extension no way to fold a view (see "Three views of the Browser" in the
+drawer), so these rules need one page.
+
+**History.** Back and Forward buttons sit to the left of the search field (`Alt+Left` / `Alt+Right`, or mouse side
+buttons 3 and 4). `BrowserHistory` in `src/shared/history.ts` keeps up to 50 stops in webview state across reloads:
+the active filter (search, category, group, scope, color, built-in, chips), which panes are open, which tree categories
+are unfolded, and which Library sections are open. Consecutive keystrokes while typing one search query within 1.2 s
+replace the current stop so Back returns to the state before the search.
 
 **Trees.** A category with children (Plugins > FM-1 Synths), or whose items fall in two or more groups, has an arrow,
 and unfolds when it is picked. Under it are its groups: Installed and Available, Synths and Soundfonts, the banks of
@@ -274,6 +283,7 @@ the sizes it had, until "View: Reset View Locations".
 | `src/shared/catalog.ts` | The item of the Browser (`CatalogItem`), the categories and places, how sounds, snippets, songs and functions become items, and the project file `strdltn.index.json` |
 | `src/shared/tags.ts` | The rules that tag an item from its name. `tags.test.ts` holds the cases |
 | `src/shared/search.ts` | Search, chips, the grouping under headings. Used by the webview and by the host for the test. `search.test.ts` holds the cases |
+| `src/shared/history.ts` | Browser Back/Forward history stack over filter, pane fold states, unfolded trees and sections. `history.test.ts` holds the cases |
 | `src/shared/browser.ts` | The messages between the host and the Browser |
 | `src/extension/browser.ts` | `BrowserView`: builds the items, keeps the project file, does what a row asks |
 | `src/extension/snippets.ts`, `src/extension/files.ts` | `SnippetLibrary` and `SongList`: the files under `lib/` and every `.strudel` file |

@@ -21,11 +21,19 @@ export interface BrowserFilterState {
 	chips: string[];
 }
 
+/** Which panes of the Browser view are open. */
+export interface BrowserPanes {
+	controls: boolean;
+	library: boolean;
+	contents: boolean;
+	reference: boolean;
+}
+
 /**
  * Where an item is picked: the Library tree or the Reference tree. Both are panes of the one Browser view
- * (`strdltn.browser`), with Contents between them. They were three views of their own until 2026-11-25; see "Three
- * views of the Browser" in the drawer of failed ideas. `results` is the Contents pane, where the old Results view
- * stood; the host still names it so.
+ * (`strdltn.browser`), under Controls and around Contents. They were three views of their own until 2026-11-25; see
+ * "Three views of the Browser" in the drawer of failed ideas. `results` is the Contents pane, where the old Results
+ * view stood; the host still names it so.
  */
 export type BrowserPage = 'library' | 'reference' | 'results';
 /** The one view of the Browser. */
@@ -80,7 +88,7 @@ export type FromBrowser =
 	/** Ctrl+F in a view without a search field: the Library's field gets the cursor. */
 	| { type: 'focusSearch' }
 	/** What Results shows now. The integration test reads it. */
-	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number; panes: { library: boolean; contents: boolean; reference: boolean } }
+	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number; panes: BrowserPanes }
 	| { type: 'log'; message: string }
 	/** "User manual (PDF)": the PDF of the latest release, in the user's browser. */
 	| { type: 'openManual' };

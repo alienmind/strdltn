@@ -63,6 +63,7 @@ and finished items are deleted from both files and consolidated into `doc/ARCHIT
 | UX-2 | **Beat-Synced Transport HUD & Master Safety Limiter**: `BAR / BEAT` counter, 4-dot beat LEDs, Tap Tempo, vertical BPM drag, active-song status row, `arrange()` progress bar, toggleable Master brickwall limiter | Wave 2. See `doc/NEW_FEATURES.md` section 2 |
 | UX-3 | **Browser Waveform Sparklines, Trim Handles & Breadcrumbs**: 40px waveform `<canvas>` with playhead & `.begin()`/`.end()` trim, previewing-row EQ indicator, removable `.resultbar` breadcrumb pill | Wave 2. See `doc/NEW_FEATURES.md` section 3 |
 | UX-4 | **In-Place Sound Hot-Swap ("Live Audition in the Mix")**: Ableton `Q`-style lock to `s("...")`/`.bank("...")` under cursor with live `Up`/`Down` audition | Wave 2. See `doc/NEW_FEATURES.md` section 3 |
+| UX-10 | **Full-Screen Synths Gallery Tab**: expand the Synths / FM-1 Synths explorer into a closable main-editor-area webview tab with a multi-column card grid, large previews, filters, audition, install, and insert | Wave 3. See `doc/NEW_FEATURES.md` section 3 |
 | UX-5 | **Welcome Screen on First Install**: colorful Eclipse-style welcome tab with visual screenshots, "Try it" actions, and "Do not show me this again" checkbox | Wave 3. See `doc/NEW_FEATURES.md` section 4 (spikes W1-W4 for optional clips) |
 | UX-6 | **Devices Rotary Knob Grid, Parameter Search & `.vp()` / Firmware Store**: SVG rotary arc knobs, prefix auto-grouping, param search, `.vp(id, value)`, `vibe_host_store` persistence | Wave 3. See `doc/NEW_FEATURES.md` section 5 |
 

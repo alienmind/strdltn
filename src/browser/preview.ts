@@ -19,11 +19,56 @@ let superdoughReady: Promise<void> | undefined;
 let activeStop: (() => void) | undefined;
 let previewSeq = 0;
 
+export interface ActiveSamplePlay {
+	url: string;
+	startedAt: number;
+	playDuration: number;
+	begin: number;
+	end: number;
+	ctx: AudioContext;
+}
+
+let activeSample: ActiveSamplePlay | undefined;
+const stateListeners = new Set<(active: ActiveSamplePlay | undefined) => void>();
+
+/** Subscribes to Browser sample playback start/end so waveform canvases can animate their playhead. */
+export function onSamplePlay(listener: (active: ActiveSamplePlay | undefined) => void): () => void {
+	stateListeners.add(listener);
+	return () => stateListeners.delete(listener);
+}
+
+export function currentSamplePlay(): ActiveSamplePlay | undefined {
+	return activeSample;
+}
+
+function setActiveSample(next: ActiveSamplePlay | undefined): void {
+	activeSample = next;
+	for (const listener of stateListeners) listener(next);
+}
+
+/** Fetches and decodes a sample URL once, reusing the Browser preview buffer cache for waveform rendering. */
+export function decodeSampleUrl(url: string): Promise<AudioBuffer> {
+	let buffer = buffers.get(url);
+	if (!buffer) {
+		const ctx = getContext();
+		buffer = fetch(url)
+			.then((response) => {
+				if (!response.ok) throw new Error(`${response.status} for ${url}`);
+				return response.arrayBuffer();
+			})
+			.then((bytes) => ctx.decodeAudioData(bytes));
+		buffers.set(url, buffer);
+		buffer.catch(() => buffers.delete(url));
+	}
+	return buffer;
+}
+
 /** Smoothly fades out and disposes whatever preview is currently playing in the Browser. */
 export function stopPreview(): void {
 	previewSeq++;
 	activeStop?.();
 	activeStop = undefined;
+	if (activeSample) setActiveSample(undefined);
 }
 
 function getContext(): AudioContext {
@@ -295,35 +340,35 @@ export async function playPreview(plan: PreviewPlan, log: (message: string) => v
 	let source: AudioScheduledSourceNode;
 	let length = duration;
 	let fade = PREVIEW_FADE;
+	let sampleOffset = 0;
+	let sampleRangeDuration: number | undefined;
+	let sampleUrl: string | undefined;
+	let sampleBegin = 0;
+	let sampleEnd = 1;
 	try {
 		if (plan.kind === 'sample') {
-			let buffer = buffers.get(plan.url);
-			if (!buffer) {
-				const url = plan.url;
-				buffer = fetch(url)
-					.then((response) => {
-						if (!response.ok) throw new Error(`${response.status} for ${url}`);
-						return response.arrayBuffer();
-					})
-					.then((bytes) => ctx.decodeAudioData(bytes));
-				buffers.set(url, buffer);
-				buffer.catch(() => buffers.delete(url));
-			}
-			const decoded = await buffer;
+			const decoded = await decodeSampleUrl(plan.url);
 			if (seq !== previewSeq) {
 				gain.disconnect();
 				return;
 			}
 			const node = ctx.createBufferSource();
 			node.buffer = decoded;
+			sampleUrl = plan.url;
+			sampleBegin = Math.max(0, Math.min(0.98, plan.begin ?? 0));
+			sampleEnd = Math.max(sampleBegin + 0.02, Math.min(1, plan.end ?? 1));
 			if (plan.loop) {
 				// One cycle of a wavetable, looped at A3 for one preview loop, then faded out.
 				node.loop = true;
 				node.playbackRate.value = 220 * decoded.duration;
-			} else if (decoded.duration <= duration) {
-				// Short one-shot drum hit plays its natural length cleanly.
-				length = decoded.duration;
-				fade = Math.min(0.05, length * 0.2);
+			} else {
+				sampleOffset = sampleBegin * decoded.duration;
+				const sliceLen = Math.max(0.02, (sampleEnd - sampleBegin) * decoded.duration);
+				if (sliceLen <= duration) {
+					length = sliceLen;
+					fade = Math.min(0.05, length * 0.2);
+				}
+				sampleRangeDuration = Math.min(sliceLen, length + fade);
 			}
 			source = node;
 		} else if (plan.kind === 'oscillator') {
@@ -350,8 +395,15 @@ export async function playPreview(plan: PreviewPlan, log: (message: string) => v
 	gain.gain.setValueAtTime(level, now + Math.max(0, length));
 	gain.gain.linearRampToValueAtTime(0, stopAt);
 	source.connect(gain);
-	source.start(now);
-	source.stop(stopAt + 0.02);
+	if (source instanceof AudioBufferSourceNode && sampleRangeDuration !== undefined) {
+		source.start(now, sampleOffset, sampleRangeDuration);
+	} else {
+		source.start(now);
+		source.stop(stopAt + 0.02);
+	}
+	if (sampleUrl && !(plan.kind === 'sample' && plan.loop)) {
+		setActiveSample({ url: sampleUrl, startedAt: now, playDuration: Math.max(0.02, length), begin: sampleBegin, end: sampleEnd, ctx });
+	}
 
 	let disposed = false;
 	const cleanup = () => {
@@ -365,6 +417,7 @@ export async function playPreview(plan: PreviewPlan, log: (message: string) => v
 		source.disconnect();
 		gain.disconnect();
 		if (activeStop === stop) activeStop = undefined;
+		if (sampleUrl && activeSample?.url === sampleUrl && activeSample.startedAt === now) setActiveSample(undefined);
 	};
 	let timer = setTimeout(cleanup, Math.ceil((stopAt - ctx.currentTime) * 1000) + 60);
 	const stop = () => {

@@ -13,7 +13,7 @@ const MAX_CYCLE_SECONDS = 4;
 
 export type PreviewPlan =
 	/** A sample file: drum machines, the project's samples, packs. `loop` for a one-cycle wavetable. */
-	| { kind: 'sample'; url: string; loop?: boolean; duration?: number }
+	| { kind: 'sample'; url: string; loop?: boolean; duration?: number; begin?: number; end?: number }
 	/** One of the plain waveforms of superdough. */
 	| { kind: 'oscillator'; wave: OscillatorType; duration?: number }
 	| { kind: 'noise'; color: 'white' | 'pink' | 'brown'; duration?: number }

@@ -77,6 +77,8 @@ export interface CatalogItem {
 	/** A sound with numbered variations. */
 	count?: number;
 	variations?: string[];
+	/** Audio file URLs for sample/wavetable variations, for Browser waveform preview. */
+	urls?: string[];
 	/** The sound name to preview, and which variation: a firmware of `vibefm1` is picked by its position. */
 	sound?: string;
 	index?: number;
@@ -208,6 +210,7 @@ export function soundItems(sounds: SoundInfo[]): CatalogItem[] {
 			insert: sound.name,
 			count: sound.count > 1 ? sound.count : undefined,
 			variations: sound.variations,
+			...(sound.urls?.length ? { urls: sound.urls } : {}),
 			sound: sound.name,
 			soundType: sound.type,
 			bank: inBank ? split.bank : undefined,

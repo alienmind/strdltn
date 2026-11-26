@@ -6,7 +6,7 @@
 // an extension no way to fold one of its views (measured in 1.147). See "Browser" in doc/ARCHITECTURE.md.
 import './browser.css';
 import { type BrowserFilterState, type BrowserPage, type BrowserPanes, type FromBrowser, pageOf, scoped, type ToBrowser } from '../shared/browser.ts';
-import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, inCategory, opens, parentOf, PLACES, type SavedSearch, tagsOf, type UserIndex } from '../shared/catalog.ts';
+import { CATEGORIES, type CatalogItem, COLOR_COUNT, colorsOf, emptyUserIndex, inCategory, opens, parentOf, PLACES, type SavedSearch, soundCode, tagsOf, type UserIndex } from '../shared/catalog.ts';
 import { DROP_MIME, dropLine } from '../shared/drop.ts';
 import { BrowserHistory, type BrowserHistoryState, type BrowserSnapshot, describeSnapshot } from '../shared/history.ts';
 import { chipGroups, filterItems, groupItems } from '../shared/search.ts';
@@ -14,6 +14,7 @@ import { TAG_GROUPS } from '../shared/tags.ts';
 import { createControls } from './controls.ts';
 import { icon } from './icons.ts';
 import { playPreview, stopPreview } from './preview.ts';
+import { mountWaveform, type TrimRange, trimSuffix } from './waveform.ts';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): unknown; setState(state: unknown): void };
 const vscode = acquireVsCodeApi();
@@ -60,6 +61,26 @@ let results: CatalogItem[] = [];
 const selection = new Set<string>();
 let cursor = -1;
 let anchor = -1;
+/** Row currently previewing, for the animated mini-EQ indicator. */
+let previewingKey: string | undefined;
+let previewingTimer: ReturnType<typeof setTimeout> | undefined;
+/** Per-row `.begin()`/`.end()` trim range adjusted in the Details waveform. */
+const trims = new Map<string, TrimRange>();
+let disposeWaveform: (() => void) | undefined;
+
+function setPreviewing(key: string | undefined, ms = 2200): void {
+	clearTimeout(previewingTimer);
+	previewingKey = key;
+	drawRows();
+	if (key) {
+		previewingTimer = setTimeout(() => {
+			if (previewingKey === key) {
+				previewingKey = undefined;
+				drawRows();
+			}
+		}, ms);
+	}
+}
 
 const panes: BrowserPanes = {
 	controls: saved?.panes?.controls ?? true,
@@ -674,14 +695,31 @@ function drawResultbar(): void {
 	resultbar.replaceChildren();
 	const scopes: Record<BrowserPage, string> = { library: 'Library', reference: 'Reference', results: '' };
 	const category = filter.category !== 'all' ? CATEGORIES.find((c) => c.id === filter.category)?.label : filter.scope ? scopes[filter.scope] : '';
-	const where = [category, filter.group].filter(Boolean).join(' > ');
-	// "Results" only for a search, as the pane's title: else it is what the tree picked.
 	const noun = filter.query.trim() ? (results.length === 1 ? 'result' : 'results') : results.length === 1 ? 'item' : 'items';
-	const parts = [`${results.length} ${noun}`, where ? `in ${where}` : ''];
-	if (filter.color) parts.push(user.colorNames[filter.color - 1]);
-	if (filter.place) parts.push(PLACES.find((p) => p.id === filter.place)?.label ?? '');
-	if (filter.builtin !== undefined) parts.push(filter.builtin ? 'built in' : 'not built in');
-	resultbar.appendChild(el('span', 'summary', parts.filter(Boolean).join(' ')));
+	const summaryParts = [`${results.length} ${noun}`];
+	if (filter.color) summaryParts.push(user.colorNames[filter.color - 1]);
+	if (filter.place) summaryParts.push(PLACES.find((p) => p.id === filter.place)?.label ?? '');
+	if (filter.builtin !== undefined) summaryParts.push(filter.builtin ? 'built in' : 'not built in');
+	resultbar.appendChild(el('span', 'summary', summaryParts.filter(Boolean).join(' - ')));
+	// Removable category / group breadcrumb pill (e.g. `Drums > RolandTR909 x`).
+	if (category || filter.group) {
+		const crumb = resultbar.appendChild(el('span', 'crumb'));
+		if (category) {
+			const catBtn = crumb.appendChild(el('button', 'crumb-part', category));
+			catBtn.title = filter.group ? `Show all of ${category}` : `Clear ${category} filter`;
+			catBtn.addEventListener('click', () => {
+				if (filter.group) setFilter({ group: undefined });
+				else setFilter({ category: 'all', scope: undefined, group: undefined });
+			});
+		}
+		if (filter.group) {
+			if (category) crumb.appendChild(el('span', 'crumb-sep', '>'));
+			crumb.appendChild(el('span', 'crumb-group', filter.group));
+		}
+		const clearCrumb = crumb.appendChild(el('button', 'crumb-clear', '\u00d7'));
+		clearCrumb.title = 'Clear category/group filter';
+		clearCrumb.addEventListener('click', () => setFilter({ category: 'all', scope: undefined, group: undefined }));
+	}
 	const installable = results.filter((item) => item.kind === 'firmware' && item.available && !item.externalUrl);
 	if (installable.length > 0 && (filter.category === 'fm1' || filter.category === 'plugins' || filter.query.trim())) {
 		const batch = resultbar.appendChild(el('button', 'elsewhere batch-install'));
@@ -778,7 +816,8 @@ function emptyText(): string {
 
 function drawRow(row: Row, index: number): HTMLElement {
 	const key = rowKey(row);
-	const node = el('div', `row${selection.has(key) ? ' selected' : ''}${index === cursor ? ' cursor' : ''}`);
+	const isPreviewing = previewingKey === key;
+	const node = el('div', `row${selection.has(key) ? ' selected' : ''}${index === cursor ? ' cursor' : ''}${isPreviewing ? ' previewing' : ''}`);
 	node.style.top = `${tops[index]}px`;
 	node.style.height = `${heightAt(index)}px`;
 	const depth = row.type === 'heading' ? 0 : row.depth;
@@ -807,6 +846,11 @@ function drawRow(row: Row, index: number): HTMLElement {
 		node.appendChild(kindIcon);
 		const label = row.type === 'variation' ? variationLabel(item, row.index) : item.label;
 		node.appendChild(el('span', 'label', label));
+		if (isPreviewing) {
+			const eq = node.appendChild(el('span', 'mini-eq'));
+			eq.title = 'Previewing';
+			eq.innerHTML = '<i></i><i></i><i></i>';
+		}
 		// The bank or folder, unless a group is picked in the tree and says it already.
 		const detail = item.detail ?? (!filter.group && item.group !== '.' ? item.group : '');
 		node.appendChild(el('span', 'detail', row.type === 'item' ? [item.count ? String(item.count) : '', detail].filter(Boolean).join('  ') : ''));
@@ -833,7 +877,13 @@ function drawRow(row: Row, index: number): HTMLElement {
 			// Said by the badge unless the tree's Available is picked, which says it already.
 			if (item.available && filter.group !== 'Available') picture.appendChild(el('span', 'badge', 'Available'));
 		}
-		if (item.sound && !item.externalUrl) actions.appendChild(button('play', 'Play once', () => post({ type: 'play', id: item.id, index: index_ })));
+		if (item.sound && !item.externalUrl)
+			actions.appendChild(
+				button('play', 'Play once', () => {
+					setPreviewing(key);
+					post({ type: 'play', id: item.id, index: index_ });
+				}),
+			);
 		if (item.available)
 			actions.appendChild(
 				button(
@@ -911,15 +961,38 @@ function iconOf(item: CatalogItem): string {
 }
 
 function drawDetails(): void {
+	disposeWaveform?.();
+	disposeWaveform = undefined;
 	details.replaceChildren();
 	const row = rows[cursor];
 	if (!row || row.type === 'heading') return;
 	const { item } = row;
+	const key = rowKey(row);
+	const variationIndex = row.type === 'variation' ? row.index : undefined;
 	const title = details.appendChild(el('h3'));
 	title.innerHTML = icon(iconOf(item));
 	title.appendChild(el('span', '', row.type === 'variation' ? variationLabel(item, row.index) : item.label));
 	const kind = CATEGORIES.find((c) => c.id === item.category)?.label ?? item.kind;
 	details.appendChild(el('div', 'sub', [kind, item.group, item.count ? `${item.count} variations` : '', item.path ?? ''].filter(Boolean).join('  -  ')));
+	// 40px zoomable waveform with live playhead and `.begin()`/`.end()` trim handles for samples and drums.
+	if (item.kind === 'sound' && item.urls?.length) {
+		const idx = variationIndex ?? 0;
+		const url = item.urls[((idx % item.urls.length) + item.urls.length) % item.urls.length];
+		const initialTrim = trims.get(key) ?? { begin: 0, end: 1 };
+		disposeWaveform = mountWaveform(details, {
+			url,
+			trim: initialTrim,
+			onTrimChange: (next) => trims.set(key, next),
+			onPlay: (t) => {
+				setPreviewing(key);
+				void playPreview({ kind: 'sample', url, begin: t.begin, end: t.end }, (text) => post({ type: 'log', message: text }));
+			},
+			onInsertTrimmed: (t) => {
+				const base = soundCode(item, variationIndex)?.code ?? `s("${item.label}")`;
+				post({ type: 'insertText', text: `${base}${trimSuffix(t)}` });
+			},
+		});
+	}
 	const tags = tagsOf(item, user);
 	const colors = colorsOf(item, user);
 	// The collections of this item, as the dots of Collections: a click puts it in one or
@@ -1048,6 +1121,15 @@ function onRowClick(index: number, event: MouseEvent): void {
 
 function playRow(row: Row): void {
 	if (row.type === 'heading' || !row.item.sound) return;
+	const key = rowKey(row);
+	setPreviewing(key);
+	const trim = trims.get(key);
+	if (trim && (trim.begin > 0.005 || trim.end < 0.995) && row.item.urls?.length) {
+		const idx = row.type === 'variation' ? row.index : 0;
+		const url = row.item.urls[((idx % row.item.urls.length) + row.item.urls.length) % row.item.urls.length];
+		void playPreview({ kind: 'sample', url, begin: trim.begin, end: trim.end }, (text) => post({ type: 'log', message: text }));
+		return;
+	}
 	post({ type: 'play', id: row.item.id, index: row.type === 'variation' ? row.index : undefined });
 }
 
@@ -1364,8 +1446,10 @@ window.addEventListener('message', (event: MessageEvent<ToBrowser>) => {
 		case 'controls':
 			return showControls(message.state);
 		case 'playPreview':
+			if (message.plan.duration) setPreviewing(previewingKey, Math.ceil((message.plan.duration + 0.5) * 1000));
 			return void playPreview(message.plan, (text) => post({ type: 'log', message: text }));
 		case 'stopPreview':
+			setPreviewing(undefined);
 			return stopPreview();
 		case 'nativeRunning':
 			nativeRunning = new Set(message.ids);

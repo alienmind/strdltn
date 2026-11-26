@@ -363,7 +363,7 @@ a click selects, or selects and previews, and putting text into the code is Ente
 double click or the insert button. Until the Sounds view had that rule, a click on a
 sound typed its name, and it did so into any file that had the focus.
 
-**Preview.** With preview on (the speaker beside the search, kept in `globalState`), a
+**Preview, waveform, trim handles, and breadcrumbs.** With preview on (the speaker beside the search, kept in `globalState`), a
 click on a sound plays it once through `superdough()`, with the note `a3` for anything
 that is not a plain sample list, as the sounds tab of strudel.cc does. While the song
 plays, the preview starts on the next beat of the song and lasts one beat: the webview
@@ -372,6 +372,12 @@ works out the audio time of a cycle with the formula of upstream's Cyclist
 `cyclist.mjs` of `@strudel/core` 1.2.6), one cycle being four beats. Measured in the quick
 test: "preview: bd:0 on beat 2" while the stage played. Whether it is heard on the beat
 is for the hand test.
+The row currently previewing shows a 3-bar animated mini-EQ indicator (`.mini-eq`). For sample
+and drum sounds (`CatalogItem.urls`), the Details pane renders a 40px zoomable waveform
+`<canvas>` (`src/browser/waveform.ts`) reusing `preview.ts`'s `AudioBuffer` cache, with live
+playhead, duration, sample rate, draggable `.begin()`/`.end()` trim handles (auditioning the
+trimmed slice on release), and an **Insert trimmed** button. `.resultbar` displays a removable
+category/group breadcrumb pill (`Drums > RolandTR909 x`).
 
 **Insert as code.** A sound is inserted as the code that plays it (`soundCode` in
 `src/shared/catalog.ts`): `s("bd")`, `s("bd:3")`, `s("bd").bank("RolandTR909")` for a

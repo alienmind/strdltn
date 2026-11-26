@@ -1,9 +1,9 @@
 # Pending Manual Testing
 
-Live checklist of unverified features on the current branch (`feat/firmware-marketplace`).
-Agents update this file as features change - adding new checks, revising or removing
-superseded checks, and deleting items once the maintainer confirms they passed - so the
-maintainer can run one batched test pass instead of re-testing after every small change.
+Live, branch-agnostic checklist of unverified features across branches and merges.
+Agents update this file in place as features change - adding new checks, revising or
+removing superseded checks, and deleting items once the maintainer confirms they passed -
+so the maintainer can batch many features into one manual test pass.
 
 Target: **desktop VS Code, Extension Development Host launched with F5**, workspace `template/`.
 

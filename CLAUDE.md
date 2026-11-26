@@ -87,10 +87,11 @@ What to know about the real test:
   snippet says `// @credits <name>`, the name and nothing else.
 - **Docs are part of the work.** `doc/TODO.md`, `docs/PENDING-TESTING.md`, `doc/ARCHITECTURE.md` and the drawer are
   updated in the same change, by the rules below.
-- **Keep `docs/PENDING-TESTING.md` live.** Every feature change or behavioral tweak updates
-  `docs/PENDING-TESTING.md` in place (adding new checks, revising or merging superseded ones,
-  and removing items once verified) so the maintainer can batch many features into a single
-  manual test pass instead of re-running repeated tests.
+- **Keep `docs/PENDING-TESTING.md` live and branch-agnostic.** Every feature change or
+  behavioral tweak updates `docs/PENDING-TESTING.md` in place (adding new checks, revising
+  or merging superseded ones, and removing items once verified) without tying entries to a
+  branch name, so the file carries cleanly across merges and the maintainer can batch many
+  feature branches into a single manual test pass.
 
 ### What VS Code does that is easy to forget
 

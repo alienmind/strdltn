@@ -25,7 +25,7 @@ import { parseSnippet, setSnippetTags } from '../shared/snippet';
 import type { SongList } from './files';
 import type { SnippetLibrary } from './snippets';
 import type { ControlsState, FromControls } from '../shared/controls';
-import { previewPlan } from '../shared/preview';
+import { DEFAULT_PREVIEW_BPM, previewCycleSeconds, previewPlan } from '../shared/preview';
 import { setPage } from './surface';
 
 /** The file in the root of the project that keeps the colors, tags and saved searches. */
@@ -47,6 +47,8 @@ export interface BrowserActions {
 	showScreen(id: string): void;
 	/** Installs a firmware of the hub into the project. */
 	install(id: string): Promise<void>;
+	/** Local file of a firmware (installed or cached from the hub) for standalone Browser preview. */
+	firmwareFile(id: string): Promise<vscode.Uri | undefined>;
 	/** FM-1 Synths is in sight: read the hub's list and make the pictures that are missing. */
 	wantFirmware(): void;
 }
@@ -85,6 +87,8 @@ export class BrowserView {
 	private user: UserIndex = readUserIndex(undefined);
 	private preview: boolean;
 	private pushTimer?: ReturnType<typeof setTimeout>;
+	/** Last item dragged from the Browser, so cross-webview drops work even if Chromium strips custom MIME data. */
+	private lastDrag?: { id: string; index?: number; at: number };
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -138,11 +142,15 @@ export class BrowserView {
 		return {
 			resolveWebviewView: (view) => {
 				this.views.set(page, view);
-				// The page plays previews itself: sample files from the web, from the project and
-				// from the pack cache in it (`.strdltn/cache`).
+				// The page plays previews itself: sample files, superdough synths/soundfonts and VIBE FM-1 worklets.
 				setPage(this.context, view.webview, 'browser', {
 					roots: [...(vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri), this.imageRoot],
-					csp: [`connect-src ${view.webview.cspSource} https:`, `media-src ${view.webview.cspSource} https: data: blob:`],
+					script: [view.webview.cspSource, 'data:', 'blob:', "'unsafe-eval'"],
+					csp: [
+						`worker-src ${view.webview.cspSource} data: blob:`,
+						`connect-src ${view.webview.cspSource} https: data: blob:`,
+						`media-src ${view.webview.cspSource} https: data: blob:`,
+					],
 				});
 				view.webview.onDidReceiveMessage((message: FromBrowser) => void this.handle(message, page));
 				view.onDidDispose(() => this.views.get(page) === view && this.views.delete(page));
@@ -173,6 +181,27 @@ export class BrowserView {
 
 	all(): CatalogItem[] {
 		return this.items;
+	}
+
+	/** Stops any standalone preview playing in the Browser view. */
+	stopPreview(): void {
+		this.post({ type: 'stopPreview' });
+	}
+
+	/** Resolves a dropped item by its MIME id, falling back to the last Browser drag within 15 seconds. */
+	resolveDrop(id?: string, index?: number): { item: CatalogItem; index?: number } | undefined {
+		if (id) {
+			this.lastDrag = undefined;
+			const item = this.item(id);
+			return item ? { item, index } : undefined;
+		}
+		if (this.lastDrag && Date.now() - this.lastDrag.at < 15000) {
+			const drag = this.lastDrag;
+			this.lastDrag = undefined;
+			const item = this.item(drag.id);
+			return item ? { item, index: drag.index } : undefined;
+		}
+		return undefined;
 	}
 
 	async refresh(): Promise<void> {
@@ -246,10 +275,26 @@ export class BrowserView {
 				const item = this.item(message.id);
 				if (!item?.sound) return;
 				const index = message.index ?? item.index ?? 0;
-				// While a song plays the engine plays it, on the next beat of the song. Else
-				// the page that was clicked plays it itself, so a preview needs no song at all.
-				const plan = this.actions.playing() ? undefined : previewPlan(this.sounds.find((sound) => sound.name === item.sound), index);
-				if (plan) return this.post({ type: 'playPreview', plan }, page);
+				const bpm = this.controls?.tempo?.bpm ?? DEFAULT_PREVIEW_BPM;
+				const duration = previewCycleSeconds({ bpm });
+				// While a song plays, route previews to its engine so they land on the next beat.
+				// Exception: a firmware the playing engine does not hold yet (e.g. Available) plays in the Browser.
+				if (this.actions.playing()) {
+					if (item.kind !== 'firmware' || item.index !== undefined) {
+						this.actions.preview(item.sound, index);
+						return;
+					}
+				}
+				if (item.kind === 'firmware') {
+					const id = item.id.slice('firmware:'.length);
+					const webview = this.views.get(page)?.webview;
+					const file = webview ? await this.actions.firmwareFile(id) : undefined;
+					if (!file || !webview) return;
+					const workletUrl = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'vibe-worklet.js')).toString();
+					return this.post({ type: 'playPreview', plan: { kind: 'firmware', id, url: webview.asWebviewUri(file).toString(), workletUrl, bpm, duration } }, page);
+				}
+				const plan = previewPlan(this.sounds.find((sound) => sound.name === item.sound), index);
+				if (plan) return this.post({ type: 'playPreview', plan: { ...plan, duration } }, page);
 				this.actions.preview(item.sound, index);
 				return;
 			}
@@ -339,8 +384,13 @@ export class BrowserView {
 			case 'focusSearch':
 				return this.focusSearch();
 			case 'transport':
+				if (message.action === 'stop') this.post({ type: 'stopPreview' });
+				return this.actions.control(message);
 			case 'tempo':
 				return this.actions.control(message);
+			case 'dragItem':
+				this.lastDrag = { id: message.id, index: message.index, at: Date.now() };
+				return;
 			case 'openManual':
 				return void vscode.env.openExternal(vscode.Uri.parse(MANUAL_URL));
 			case 'log':

@@ -36,6 +36,8 @@ export interface SessionHost {
 	onFrame?(session: Session, key: string, px: Uint8Array, values: number[]): void;
 	/** A recording or a render came back: write it next to the song. */
 	onAudio?(session: Session, kind: 'record' | 'render', wav: Uint8Array, info: { seconds: number; peak?: number }): Promise<void>;
+	/** An item (from the Browser) or plain text was dropped onto the Strudel editor. */
+	onDrop?(document: vscode.TextDocument, offset: number, info: { id?: string; index?: number; text?: string }): Promise<void>;
 }
 
 /** The settings `strdltn.editor.*`. An empty font and a size of 0 mean: as the VS Code editor. */
@@ -307,6 +309,9 @@ export class Session {
 				break;
 			case 'knobLearnAt':
 				void this.host.onKnobLearn?.(this.document, message.from, message.toggle);
+				break;
+			case 'dropItem':
+				void this.host.onDrop?.(this.document, message.offset, message);
 				break;
 			case 'cacheFiles': {
 				const folder = vscode.workspace.getWorkspaceFolder(this.document.uri)?.uri;

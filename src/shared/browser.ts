@@ -56,6 +56,8 @@ export type ToBrowser =
 	| { type: 'controls'; state: ControlsState }
 	/** Plays a preview in this page, without the engine. */
 	| { type: 'playPreview'; plan: PreviewPlan }
+	/** Stops any running Browser preview immediately (e.g. when Stop is pressed in Controls). */
+	| { type: 'stopPreview' }
 	/** The filter changed in another view, or by a command. `open` opens headings in Results, for the integration test. */
 	| { type: 'filter'; filter: BrowserFilterState; show?: boolean };
 
@@ -90,5 +92,7 @@ export type FromBrowser =
 	/** What Results shows now. The integration test reads it. */
 	| { type: 'state'; filter: BrowserFilterState; results: number; rows: number; chips: number; panes: BrowserPanes }
 	| { type: 'log'; message: string }
+	/** The user started dragging a Browser row, so a cross-webview drop can resolve the item even if MIME is stripped. */
+	| { type: 'dragItem'; id: string; index?: number }
 	/** "User manual (PDF)": the PDF of the latest release, in the user's browser. */
 	| { type: 'openManual' };

@@ -15,6 +15,8 @@ export type ToVibeWorklet =
 	| { t: 'events'; events: VibeEvent[] }
 	| { t: 'clock'; frame: number; cycle: number; cps: number; playing: boolean }
 	| { t: 'stop' }
+	/** Ends this processor permanently so Chrome releases its WASM memory (used by disposable previews). */
+	| { t: 'dispose' }
 	/** A panel of the Devices view shows this copy: draw, or stop drawing. */
 	| { t: 'draw'; on: boolean }
 	/** The view painted the last frame. Only then is the next one sent: one frame in flight (spike F1). */
@@ -53,6 +55,10 @@ class VibeProcessor extends AudioWorkletProcessor {
 			if (m.t === 'events') for (const e of m.events) this.core.schedule(e);
 			else if (m.t === 'clock') this.clock = m;
 			else if (m.t === 'stop') this.core.stop();
+			else if (m.t === 'dispose') {
+				this.core.stop();
+				this.core = undefined;
+			}
 			else if (m.t === 'draw') this.drawing = { ...this.drawing, on: m.on, waiting: false, last: undefined, values: '' };
 			else if (m.t === 'painted') this.drawing.waiting = false;
 		};

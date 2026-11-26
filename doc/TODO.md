@@ -36,11 +36,13 @@ Playground's `index.json` (the maintainer, 2026-11-24, which answers the "what l
 it into `firmware/<id>/`; Insert types a `$:` line; the screen popup runs any of them without sound.
 On 2026-11-25 the Browser became one view with three panes (Library, Contents, Reference) and fold
 rules, and the groups moved from Contents into the Library tree (FM-1 Synths > Installed and
-Available). On 2026-11-26 the maintainer tested all 9 checks (all passed) and asked for a top
-Controls pane (open by default, collapsible, never auto-folded) holding Music Controls, search,
-colors and Back/Forward browser history buttons over searches, pane folds and unfolded subtrees.
-Built and waiting for the hand test below. Item 20 (melody and drum-rack line actions) waits for
-the maintainer's go.
+Available). On 2026-11-26 the maintainer tested all 9 checks (all passed) and asked for: (1) a top Controls
+pane (open by default, collapsible, never auto-folded) with Back/Forward Browser history buttons
+and song Undo/Redo buttons; (2) time-limited, smooth fade-out, auto-disposed previews for all
+sounds including synths, soundfonts and FM-1 firmwares both with and without an open song; and
+(3) dragging a synth/instrument from the Browser into the editor to expand a full playable `$name:`
+line. All three are built and waiting for the hand test below. Item 20 (melody and drum-rack line
+actions) waits for the maintainer's go.
 
 Next in line:
 
@@ -83,6 +85,10 @@ Controls pane and Back/Forward history.
 | 5 | Type `909` in the search field, then click Back | Typing `909` is one history step; Back returns straight to before the search (search box clears, header says Contents again) |
 | 6 | Open Reference by its header, then click Back | Opening Reference folds Library and Contents while Controls stays open; Back restores the prior panes |
 | 7 | Collapse Controls by its header, then press Ctrl+F | Controls reopens with the cursor in the search field |
+| 8 | Edit the song (e.g. click Mute in Mixer or type a line), then click Undo and Redo in Controls | Undo reverts the edit (and updates playback if playing); Redo restores it; buttons disable at stack bounds |
+| 9 | Close all `.strudel` tabs, then click an FM-1 synth (Installed or Available) and a synth like `supersaw` or `gm_acoustic_bass` | Sound plays for 1 loop at 120 BPM (2 s), fades out smoothly over 0.5 s, and stops cleanly; clicking Stop cuts it off at once |
+| 10 | Open a song, play it, and click an FM-1 synth preview | Previews on the next beat for 1 loop of the song, fades out cleanly, and disposes (does not stay sounding or linger in Devices) |
+| 11 | Drag a synth (e.g. `supersaw`, `gm_synth_bass_1`, or an FM-1 synth) from the Browser into the Strudel editor or native editor | Inserts a complete playable `$name:` line with an example pattern and gain slider on its own line (Available FM-1 synths install first); dropping inside `"..."` inserts only the bare name |
 
 `pnpm test:quick` passed on 2026-11-25 before the last small change (the tree unfolding for a
 filter set by a command): every Browser step showed Contents alone, FM-1 Synths > Installed 1

@@ -305,7 +305,8 @@ svg { display: block; flex: none; }
 .controls .song { margin-left: 4px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 /* Play green, Stop a red square, as asked by the maintainer; fixed colors, the same in every theme. */
 .controls button { display: grid; place-items: center; width: 24px; height: 22px; border-radius: 3px; border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35)); }
-.controls button:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .2)); }
+.controls button:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .2)); }
+.controls button:disabled { opacity: 0.35; cursor: default; }
 .controls .play { color: #3fb950; }
 .controls .play.on { background: rgba(63, 185, 80, .25); border-color: #3fb950; }
 .controls .stop { color: #f14c4c; }
@@ -318,6 +319,7 @@ svg { display: block; flex: none; }
 .controls .render { margin-left: 4px; }
 .controls .render.busy { animation: rendering 1.2s ease-in-out infinite; }
 @keyframes rendering { 50% { opacity: .35; } }
+.controls .undo { margin-left: 4px; }
 .bpm { display: flex; gap: 4px; align-items: center; font-size: 11px; font-weight: 600; color: var(--vscode-descriptionForeground); }
 .bpm input {
 	width: 52px;

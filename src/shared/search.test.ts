@@ -106,7 +106,7 @@ test('a firmware row: its own line, a test note by its position in the engine, I
 	assert.deepEqual([ob.sound, ob.index], ['vibefm1', 0]);
 	assert.equal(items.find((item) => item.id === 'firmware:sloop')!.index, 1);
 	const echo = items.find((item) => item.id === 'firmware:echofield-vibe')!;
-	assert.deepEqual([echo.group, echo.available, echo.insert, echo.sound], ['Available', true, undefined, undefined]);
+	assert.deepEqual([echo.group, echo.available, echo.insert, echo.sound], ['Available', true, undefined, 'vibefm1']);
 	// The firmware host itself is no row of its own any more.
 	assert.equal(items.some((item) => item.id.startsWith('sound:vibefm1')), false);
 });

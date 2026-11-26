@@ -33,6 +33,13 @@ export function createControls(into: HTMLElement, post: (message: FromControls) 
 	// Render: the whole song made offline, at full speed and silent, into a .wav and an .mp3 next to it.
 	const render = button('render', 'Render audio', '<path d="M8 2v8M4.5 6.5 8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 13h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>');
 	render.addEventListener('click', () => post({ type: 'transport', action: 'render' }));
+	// Undo and Redo for edits to the active song (typing, Mixer toggles, cables, inserts).
+	const undo = button('undo', 'Undo last edit to the song', '<path d="M4.5 6.5h5a3.5 3.5 0 1 1 0 7H7M4.5 6.5 7 4M4.5 6.5 7 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>');
+	undo.disabled = true;
+	undo.addEventListener('click', () => post({ type: 'transport', action: 'undo' }));
+	const redo = button('redo', 'Redo edit to the song', '<path d="M11.5 6.5h-5a3.5 3.5 0 1 0 0 7H9M11.5 6.5 9 4M11.5 6.5 9 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>');
+	redo.disabled = true;
+	redo.addEventListener('click', () => post({ type: 'transport', action: 'redo' }));
 	const bpmBox = row.appendChild(document.createElement('label'));
 	bpmBox.className = 'bpm';
 	bpmBox.appendChild(document.createElement('span')).textContent = 'BPM';
@@ -79,6 +86,8 @@ export function createControls(into: HTMLElement, post: (message: FromControls) 
 		render.classList.toggle('busy', !!next.rendering);
 		render.disabled = !!next.rendering;
 		render.title = next.rendering ? 'Rendering...' : 'Render audio';
+		undo.disabled = !next.canUndo;
+		redo.disabled = !next.canRedo;
 		song.textContent = next.song ?? 'No song';
 		song.title = next.song ? `Play, Stop and BPM act on ${next.song}, the song the Mixer shows` : 'Open a .strudel file';
 		showTempo();

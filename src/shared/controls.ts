@@ -2,7 +2,7 @@
 // the song the Mixer shows. The Mixer's host keeps that song and its model; the Browser's
 // host passes this state to the Library page and the clicks back. Both sides import this.
 
-export type TransportAction = 'play' | 'stop' | 'record' | 'render';
+export type TransportAction = 'play' | 'stop' | 'record' | 'render' | 'undo' | 'redo';
 
 /** Strudel's tempo when a song sets none: 0.5 cycles a second (cyclist.mjs of @strudel/core 1.2.6), 4 beats a cycle. */
 export const DEFAULT_BPM = 120;
@@ -19,6 +19,9 @@ export interface ControlsState {
 	recording?: boolean;
 	/** A render of the whole song is being made, offline. */
 	rendering?: boolean;
+	/** Whether the active song has edits to undo or redo. */
+	canUndo?: boolean;
+	canRedo?: boolean;
 }
 
 export type FromControls =

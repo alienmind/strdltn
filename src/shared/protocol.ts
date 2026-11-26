@@ -163,7 +163,9 @@ export type FromWebview =
 	/** A slider's value changed live (a drag, a knob, a fader): `from` is where its number is now. For the Mixer. */
 	| { type: 'sliderLive'; from: number; value: number }
 	/** MIDI learn for the slider whose number starts at `from` (undefined: no slider there). The host does the learn. */
-	| { type: 'knobLearnAt'; from?: number; toggle?: boolean };
+	| { type: 'knobLearnAt'; from?: number; toggle?: boolean }
+	/** Something (a Browser synth/sound/firmware or plain text) was dropped onto the Strudel editor at `offset`. */
+	| { type: 'dropItem'; id?: string; index?: number; text?: string; offset: number };
 
 export interface TextChange {
 	from: number;

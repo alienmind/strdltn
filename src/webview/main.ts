@@ -16,12 +16,14 @@ import * as strudelWebaudio from '@strudel/webaudio';
 import { chooseInsert, type InsertArgument, visualLabel } from '../shared/context';
 import { toggleComment } from '../shared/comment';
 import { locateError } from '../shared/diagnostic';
+import { DROP_MIME } from '../shared/drop';
 import { githubBase, hasOwnBases, isRemote, packFiles, type PackInfo } from '../shared/packs';
 import { SyncClient, type SyncUpdate } from '../shared/sync';
 import { type EditorSettings, type FirmwareInfo, type FromWebview, type Mode, type SampleMap, type SoundInfo, type ToWebview } from '../shared/protocol';
 import { initMidi, listenEverywhere, midiMessage, midiScope, midiStopped, onControlChange, setMidiMuted } from './midi';
 import { findKnobs, type KnobBinding, type Pickup, pickup, sliderAt } from '../shared/knob';
-import { addFirmware, deviceRequest, initFirmware, registerFirmware, setFirmwareCache, transport } from './vibe';
+import { PREVIEW_FADE, previewCycleSeconds } from '../shared/preview';
+import { addFirmware, deviceRequest, initFirmware, previewFirmware, registerFirmware, setFirmwareCache, stopFirmwarePreview, transport } from './vibe';
 
 declare function acquireVsCodeApi(): { postMessage(message: FromWebview): void };
 
@@ -96,6 +98,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 			void play();
 			break;
 		case 'stop':
+			stopFirmwarePreview();
 			mirror?.stop();
 			break;
 		case 'device':
@@ -287,6 +290,7 @@ function init(text: string, initialMode: Mode, samples: SampleMap, firmware: Fir
 		),
 	});
 	mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(slashComment()) });
+	mirror.editor.dispatch({ effects: StateEffect.appendConfig.of(browserDrop()) });
 
 	// For the integration test, which clicks and types with real input through the DevTools
 	// protocol: where a character is on screen, and what the editor holds. Read only.
@@ -596,6 +600,60 @@ function insert(text: string, bare?: string, argument?: InsertArgument): void {
 }
 
 /**
+ * Accepts items dragged from the Browser (synths, firmwares, drums, samples, snippets) onto the Strudel editor,
+ * letting the host expand them into a full playable `$name:` line at the drop position. Internal text drags inside
+ * CodeMirror itself are left to CodeMirror.
+ */
+function browserDrop() {
+	let internal = false;
+	return EditorView.domEventHandlers({
+		dragstart: () => {
+			internal = true;
+			return false;
+		},
+		dragend: () => {
+			internal = false;
+			return false;
+		},
+		dragover: (event, view) => {
+			if (internal) return false;
+			const types = event.dataTransfer?.types;
+			if (!types || (!types.includes(DROP_MIME) && !types.includes('text/plain'))) return false;
+			event.preventDefault();
+			if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+			const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+			if (pos !== null) view.dispatch({ selection: { anchor: pos } });
+			return true;
+		},
+		drop: (event, view) => {
+			if (internal) {
+				internal = false;
+				return false;
+			}
+			const raw = event.dataTransfer?.getData(DROP_MIME);
+			const text = event.dataTransfer?.getData('text/plain');
+			if (!raw && !text) return false;
+			event.preventDefault();
+			const offset = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head;
+			let id: string | undefined;
+			let index: number | undefined;
+			if (raw) {
+				try {
+					const parsed = JSON.parse(raw) as { id?: string; index?: number };
+					id = parsed.id;
+					index = parsed.index;
+				} catch {
+					// Fall back to text/plain + host's lastDrag.
+				}
+			}
+			view.focus();
+			post({ type: 'dropItem', id, index, text: text || undefined, offset });
+			return true;
+		},
+	});
+}
+
+/**
  * `//` typed over a selection comments the selected lines, and the same keys again take
  * the comment off (the rule is `toggleComment` in src/shared/comment.ts). The first `/`
  * waits for the second: any other key, or a pause of half a second, types the `/` as usual,
@@ -686,11 +744,10 @@ function preview(name: string, index: number): Promise<void> {
 		const data = (strudelWebaudio.soundMap.get() as Record<string, { data?: any }>)[name]?.data ?? {};
 		// Synths, soundfonts and pitched sample maps need a note to make a sound.
 		const pitched = data.type !== 'sample' || !Array.isArray(data.samples);
-		const value = { s: name, n: index, clip: 1, release: 0.5, ...(pitched ? { note: 'a3' } : {}) };
 		const context: AudioContext = strudelWebaudio.getAudioContext();
 		const scheduler = mirror?.repl?.scheduler;
 		let at = context.currentTime + 0.05;
-		let duration = 0.5;
+		let duration = previewCycleSeconds({ cps: scheduler?.cps });
 		let synced = '';
 		if (scheduler?.started && scheduler.cps > 0) {
 			const beats = 4;
@@ -703,9 +760,16 @@ function preview(name: string, index: number): Promise<void> {
 			// Not a beat closer than 50 ms: the sound could not start in time.
 			while (timeOf(next) < context.currentTime + 0.05) next += 1 / beats;
 			at = timeOf(next);
-			duration = 1 / beats / scheduler.cps;
+			duration = previewCycleSeconds({ cps: scheduler.cps });
 			synced = ` on beat ${(Math.round(next * beats) % beats) + 1}`;
 		}
+		if (name === 'vibefm1') {
+			await previewFirmware(index, at, duration, PREVIEW_FADE);
+			log('info', `preview: ${name}:${index}${synced}`);
+			return;
+		}
+		stopFirmwarePreview();
+		const value = { s: name, n: index, orbit: 99, clip: 1, release: PREVIEW_FADE, ...(pitched ? { note: 'a3' } : {}) };
 		await strudelWebaudio.superdough(value, at, duration);
 		log('info', `preview: ${name}:${index}${synced}`);
 	});

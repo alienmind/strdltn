@@ -328,7 +328,9 @@ export function firmwareItems(installed: InstalledFirmware[], available: HubFirm
 				tags: tagsOf(fw),
 				text: textOf(fw),
 				insert: firmwareCode(fw.id).code,
-				...(index >= 0 ? { sound: 'vibefm1', index, soundType: 'firmware' } : {}),
+				sound: 'vibefm1',
+				...(index >= 0 ? { index } : {}),
+				soundType: 'firmware',
 				description: fw.description,
 				// What insert types, with the load line a cached one also gets when the song has none (firmwareLoadEdit).
 				code: fw.url ? `firmware('${fw.url}')\n${firmwareCode(fw.id).code}` : firmwareCode(fw.id).code,
@@ -359,6 +361,8 @@ export function firmwareItems(installed: InstalledFirmware[], available: HubFirm
 				groupRank: 1,
 				tags: tagsOf(fw),
 				text: textOf(fw),
+				sound: 'vibefm1',
+				soundType: 'firmware',
 				available: true,
 				description: fw.description,
 				fields: [

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { BROWSER_VIEW, type BrowserFilterState, type FromBrowser } from '../shared/browser';
 import { CATEGORIES } from '../shared/catalog';
 import { chooseInsert, type InsertArgument } from '../shared/context';
+import { DROP_MIME, dropEdit } from '../shared/drop';
 import type { SoundInfo } from '../shared/protocol';
 import { BrowserView, INDEX_FILE } from './browser';
 import { SongList } from './files';
@@ -125,6 +126,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		insertFirmware: (text, bare, url) => insertFirmware(text, bare, url),
 		showScreen: (id) => void screen.show(id),
 		install: (id) => market.install(id),
+		firmwareFile: async (id) => (await market.screenSource(id))?.file,
 		wantFirmware: () => market.want(),
 	});
 	const market = new FirmwareMarket(context, firmwareLibrary, browser, output);
@@ -213,6 +215,7 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		onSliderLive: (document, from, value) => mixer.sliderLive(document, from, value),
 		onKnobGhost: (document, from, value) => mixer.knobGhost(document, from, value),
 		onKnobLearn: (document, from, toggle) => knobs.learn(document, from, toggle),
+		onDrop: (document, offset, info) => dropOntoDocument(document, offset, info),
 		onDevices: (session, list) => devices.setDevices(session, list),
 		onFrame: (session, key, px, values) => devices.frame(session, key, px, values),
 		onAudio: async (session, kind, wav, info) => {
@@ -318,10 +321,54 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		// Stop is for the song in front. With nothing playing there, it is for the song
 		// that plays in another tab, so the key always ends a sound you hear.
 		vscode.commands.registerCommand('strdltn.stop', () => {
+			browser.stopPreview();
 			const front = frontSession();
 			(front?.started ? front : (playingElsewhere() ?? front))?.stop();
 		}),
-		vscode.commands.registerCommand('strdltn.stopAll', () => sessions.forEach((s) => s.stop())),
+		vscode.commands.registerCommand('strdltn.stopAll', () => {
+			browser.stopPreview();
+			sessions.forEach((s) => s.stop());
+		}),
+		// Dropping a synth, firmware, drum or snippet from the Browser onto the native VS Code editor.
+		vscode.languages.registerDocumentDropEditProvider('strudel', {
+			async provideDocumentDropEdits(document, position, dataTransfer) {
+				const mime = dataTransfer.get(DROP_MIME);
+				let id: string | undefined;
+				let index: number | undefined;
+				if (mime) {
+					try {
+						const parsed = JSON.parse(await mime.asString()) as { id?: string; index?: number };
+						id = parsed.id;
+						index = parsed.index;
+					} catch {
+						// Fall back to lastDrag below.
+					}
+				}
+				const resolved = browser.resolveDrop(id, index);
+				if (!resolved) return undefined;
+				const { item } = resolved;
+				if (item.kind === 'firmware' && item.available) {
+					await market.install(item.id.slice('firmware:'.length));
+				}
+				const text = lf(document.getText());
+				const offset = textOffset(text, position);
+				const change = dropEdit(item, text, offset, resolved.index);
+				const edit = new vscode.WorkspaceEdit();
+				if (item.kind === 'firmware' && !item.available && item.url) {
+					const load = firmwareLoadEdit(text, item.url);
+					if (load) {
+						const p = lineColumn(text, load.offset);
+						edit.insert(document.uri, new vscode.Position(p.line, p.character), load.text);
+					}
+				}
+				const from = lineColumn(text, change.from);
+				const to = lineColumn(text, change.to);
+				edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+				const drop = new vscode.DocumentDropEdit('');
+				drop.additionalEdit = edit;
+				return drop;
+			},
+		}),
 		// The click on the status bar item.
 		vscode.commands.registerCommand('strdltn.togglePlay', () => {
 			const session = frontSession() ?? (isStrudel(vscode.window.activeTextEditor) ? undefined : playingElsewhere());
@@ -486,6 +533,52 @@ export function activate(context: vscode.ExtensionContext): StrdltnApi {
 		if (answer !== 'Delete') return;
 		await packs.clear(workspaceUris());
 		void vscode.window.showInformationMessage(`Sample pack cache deleted: ${formatBytes(usage.bytes)}.`);
+	}
+
+	/** Converts a VS Code line/character position into a `\n`-normalized character offset. */
+	function textOffset(lfText: string, position: vscode.Position): number {
+		let offset = 0;
+		for (let line = 0; line < position.line && offset < lfText.length; line++) {
+			const next = lfText.indexOf('\n', offset);
+			if (next < 0) return lfText.length;
+			offset = next + 1;
+		}
+		return Math.min(lfText.length, offset + position.character);
+	}
+
+	/** Expands a dragged Browser item into a full playable line at `offset` in the Strudel editor, installing Available firmwares automatically. */
+	async function dropOntoDocument(document: vscode.TextDocument, offset: number, info: { id?: string; index?: number; text?: string }): Promise<void> {
+		const resolved = browser.resolveDrop(info.id, info.index);
+		const text = lf(document.getText());
+		if (!resolved) {
+			if (!info.text) return;
+			const p = lineColumn(text, Math.max(0, Math.min(text.length, offset)));
+			const edit = new vscode.WorkspaceEdit();
+			edit.insert(document.uri, new vscode.Position(p.line, p.character), info.text);
+			await vscode.workspace.applyEdit(edit);
+			return;
+		}
+		const { item } = resolved;
+		if (item.kind === 'firmware' && item.available) {
+			await market.install(item.id.slice('firmware:'.length));
+			await Promise.all([...sessions].map((s) => s.refreshFirmware()));
+		}
+		const fresh = lf(document.getText());
+		const change = dropEdit(item, fresh, offset, resolved.index);
+		const edit = new vscode.WorkspaceEdit();
+		if (item.kind === 'firmware' && !item.available && item.url) {
+			const load = firmwareLoadEdit(fresh, item.url);
+			if (load) {
+				const p = lineColumn(fresh, load.offset);
+				edit.insert(document.uri, new vscode.Position(p.line, p.character), load.text);
+			}
+		}
+		const from = lineColumn(fresh, change.from);
+		const to = lineColumn(fresh, change.to);
+		edit.replace(document.uri, new vscode.Range(from.line, from.character, to.line, to.character), change.insert);
+		if (await vscode.workspace.applyEdit(edit)) {
+			evaluateIfPlaying(document);
+		}
 	}
 
 	function previewSound(name: string, index: number): void {

@@ -206,7 +206,7 @@ the side bar is webviews only now. The plan it comes from is phase 1 of `doc/DAW
 
 | Pane | Shows |
 |---|---|
-| Controls | Open by default, collapsible by its header, never auto-folded: Music Controls (Play, Stop, Record, Render, BPM, song); Back and Forward history buttons beside the search field and the preview toggle; one row with the seven colors and the Built-in button |
+| Controls | Open by default, collapsible by its header, never auto-folded: Music Controls (Play, Stop, Record, Render, Undo, Redo, BPM, song); Back and Forward history buttons beside the search field and the preview toggle; one row with the seven colors and the Built-in button |
 | Library | Collections with the saved searches, when there are any; the Library tree: All, Sounds, Drums, Samples, Plugins (with FM-1 Synths under it), Render, MIDI, Songs, Snippets; the link to the manual |
 | Contents | What the trees pick, as a flat list: the chips, the result bar, the rows and the details pane. Its header says Results while a search is typed, else Contents, with the number of rows |
 | Reference | The Reference tree: All, Functions, later Tutorial (see "Reference and tutorial" in `doc/DAW-PLAN.md`) |
@@ -244,30 +244,22 @@ that goes round three states: everything, only what comes with Strudel ("Built-i
 and only what does not ("Not built-in": the project and the packs it loads). It is the
 filter's `builtin`, read by `filterItems` from the item's `place`.
 
-**Previews without a song.** The maintainer found that a click on a sound played nothing
-unless a song was open, the stage was open and "Enable sound" had been clicked, and
-wanted previews to work at once. Now, when no song plays, the page that was clicked plays
-the preview itself with plain Web Audio (`playPreview` in `src/browser/main.ts`): the
-click on the row is a click inside that page, which is what a webview needs to start
-sound. The host decides what to play (`previewPlan` in `src/shared/preview.ts`):
+**Previews without a song, and disposal.** When no song is playing (including with no `.strudel` file open), the Browser page plays every preview itself (`src/browser/preview.ts`): the click on the row is a user gesture inside that webview, so audio starts without opening a song. The host builds the plan (`previewPlan` in `src/shared/preview.ts` and `firmwareFile` for FM-1 firmwares):
 
-| Sound | Played by the page as |
+| Sound | Played by the Browser as |
 |---|---|
-| Samples, drum machines, the project's `samples/`, packs | The file, fetched and decoded; variation `n` wraps as in superdough |
-| Wavetables (`wt_...`) | Its one cycle, looped at A3 |
-| `sine`, `square`, `sawtooth`/`saw`, `triangle`/`tri` | An `OscillatorNode` at A3 |
-| `white`, `pink`, `brown` | Half a second of noise |
-| Soundfonts, `supersaw` and the other synths, firmwares | Not: they go to the engine of a song as before, or a message says to open one |
+| Samples, drum machines, the project's `samples/`, packs | Plain Web Audio, fetched and decoded; variation `n` wraps as in superdough. Short one-shots play their natural length; longer samples cap at 1 loop + fade |
+| Wavetables (`wt_...`) | Its one cycle, looped at A3 for 1 loop + fade |
+| `sine`, `square`, `sawtooth`/`saw`, `triangle`/`tri` | An `OscillatorNode` at A3 for 1 loop + fade |
+| `white`, `pink`, `brown` | Noise for 1 loop + fade |
+| Soundfonts, `supersaw`, `zzfx` and the other Strudel synths | Lazily initialized `superdough` + `@strudel/soundfonts` inside the Browser on preview orbit 99, for 1 loop + fade |
+| VIBE FM-1 firmwares (Installed and Available) | Temporary `AudioWorkletNode` (`dist/vibe-worklet.js`) on its own `GainNode`, for 1 loop + fade, then `{ t: 'dispose' }` terminates the worklet processor |
 
-The addresses come from superdough: the engine sends `urls` with each sound of its list
-(`sampleUrls` in `src/webview/main.ts`; a pitched map gives its note closest to A3). They
-stay in the host and are cached with the sound list. A list cached by an older build has
-none, so samples need one song opened once after the update. The Browser's pages may read
-the workspace folders (the project's samples and `.strdltn/cache`) and fetch over https
-(`connect-src`). While a song plays, the engine still plays the preview, on the next beat
-of the song. Heard by the maintainer on 2026-11-21, with no song open: a sample and a
-sawtooth. The integration test sends the click as a message, which is not a click, so it
-only shows that the page fetched, decoded and started the sound.
+Every preview is time-limited to 1 cycle (`previewCycleSeconds`: 1 cycle of the active song, or 1 cycle at 120 BPM = 2.0 s when no song plays, clamped to `[0.5, 4]` s), fades out smoothly over 0.5 s (`PREVIEW_FADE`), and disposes its nodes. While a song plays, previews route to that song's engine so they land on the next beat; firmware previews there run in the same disposable `AudioWorkletNode` (`previewFirmware` in `src/webview/vibe/index.ts`), never polluting orbit 1 or the Devices view. Clicking another sound or pressing Stop (`strdltn.stop` / Controls Stop) fades out and disposes any running preview immediately.
+
+**Drag and drop into the editor.** Every Browser item row is draggable (`DROP_MIME = 'application/vnd.strdltn.item'` plus `text/plain` and a host-side `lastDrag` fallback). Dropping onto either the Strudel editor (`browserDrop()` in `src/webview/main.ts` -> `onDrop`) or the native editor (`registerDocumentDropEditProvider('strudel', ...)`) runs `dropEdit` (`src/shared/drop.ts`): inside a string it inserts the bare name; anywhere else it inserts a full playable `$name:` line with a unique label and `.gain(slider(...))` on its own line without splitting existing code. Dropping an Available FM-1 firmware installs it into `firmware/<id>/` automatically before inserting.
+
+**Song Undo and Redo.** Music Controls holds Undo and Redo buttons backed by a per-document `UndoStack` (`src/shared/undo.ts`) in `MixerView`. It tracks all document changes (typing, Mixer toggles, cables, inserts, drops), coalesces rapid small typing edits within 600 ms, syncs with native VS Code undo/redo reasons, applies minimal `diffText` edits without stealing focus from the Browser, and re-evaluates when the song plays and the restored text parses cleanly.
 
 **Heights.** VS Code gives the views of a side bar equal heights unless `initialSize`
 says otherwise, and with four views the Library's categories were cut off under the logo
@@ -284,10 +276,12 @@ the sizes it had, until "View: Reset View Locations".
 | `src/shared/tags.ts` | The rules that tag an item from its name. `tags.test.ts` holds the cases |
 | `src/shared/search.ts` | Search, chips, the grouping under headings. Used by the webview and by the host for the test. `search.test.ts` holds the cases |
 | `src/shared/history.ts` | Browser Back/Forward history stack over filter, pane fold states, unfolded trees and sections. `history.test.ts` holds the cases |
+| `src/shared/undo.ts` | Per-song Undo/Redo text stack for Music Controls. `undo.test.ts` holds the cases |
+| `src/shared/drop.ts` | Drag-and-drop line generation and placement (`dropLine`, `dropEdit`) for Browser items. `drop.test.ts` holds the cases |
 | `src/shared/browser.ts` | The messages between the host and the Browser |
 | `src/extension/browser.ts` | `BrowserView`: builds the items, keeps the project file, does what a row asks |
 | `src/extension/snippets.ts`, `src/extension/files.ts` | `SnippetLibrary` and `SongList`: the files under `lib/` and every `.strudel` file |
-| `src/browser/main.ts`, `browser.css`, `icons.ts` | The page: plain DOM and CSS with the `--vscode-*` theme variables, no framework. Built to `dist/browser.js` and `dist/browser.css` |
+| `src/browser/main.ts`, `preview.ts`, `browser.css`, `icons.ts` | The page and standalone preview engine: plain DOM and CSS with the `--vscode-*` theme variables, no framework. Built to `dist/browser.js` and `dist/browser.css` |
 
 **Items.** The host builds them from four sources and sends them all at once, 150 ms
 after the last change (a pack registers hundreds of sounds one by one): the engine's

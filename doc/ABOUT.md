@@ -34,6 +34,21 @@ song you play, and your music as plain files in a project.
 
 [Download the latest release](https://github.com/alienmind/strdltn/releases/latest) | [User manual (PDF)](https://github.com/alienmind/strdltn/releases/latest/download/strdltn-manual.pdf) | [Source on GitHub](https://github.com/alienmind/strdltn)
 
+## Demo video
+
+A song made in [str]dltn Live[code], played from start to end in one take: the editor follows
+each section, the Mixer opens, MIDI knobs turn the bass and a DJ filter, and a VIBE FM firmware
+plays the final drop. Recorded in November 2026, before the Browser got its current panes.
+
+<video controls preload="metadata" playsinline poster="screenshot-showcase.png" width="100%" src="https://github.com/alienmind/strdltn/releases/download/v0.5.0/strdltn-showcase.mp4">
+  <a href="https://github.com/alienmind/strdltn/releases/download/v0.5.0/strdltn-showcase.mp4">Watch the demo video (MP4, 3 min 26 s)</a>
+</video>
+<!-- VIDEO SPEC: the showcase take of doc/VIDEO.md ("Showcase"), 1280x720 H.264 with the moov atom first
+  (ffmpeg -crf 25 -movflags +faststart), an asset of the release v0.5.0. The address plays inline in a <video> tag
+  (checked in Chrome on 2026-11-28: GitHub answers range requests). The poster is doc/screenshot-showcase.png, a
+  frame at 2:30 of the take; the home page copies it beside the page with the other pictures.
+-->
+
 Free and open source (AGPL-3.0-or-later, like Strudel). It runs on desktop VS Code and
 in GitHub Codespaces, so you can also keep a music project as a repository and play it
 from a browser on any machine, with nothing installed.

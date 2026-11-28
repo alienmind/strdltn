@@ -125,7 +125,13 @@ the parts of each section, the Mixer unfolds, a knob is mapped to the bass's squ
 in and swept with a knob before the BREAKDOWN, and OBERVAVE plays in the FINAL DROP. Knobs come through loopMIDI.
 
 `video/scripts/showcase.mjs` (the runner, outside VS Code) and `video/scripts/showcase-driver.cjs` (inside it) make
-the take into `tmp/showcase/`; `video/src/Showcase.tsx` puts it together (`pnpm render:showcase`). The full method,
+the take into `tmp/showcase/`; `video/src/Showcase.tsx` puts it together (`pnpm render:showcase`). Published on
+2026-11-28: a 1280x720 copy for the web (21 MB, from the 137 MB render, with Remotion's bundled `ffmpeg.exe`:
+`-vf scale=1280:-2 -c:v libx264 -preset slow -crf 25 -c:a aac -b:a 160k -movflags +faststart`) is the asset
+`strdltn-showcase.mp4` of the release v0.5.0, and `doc/ABOUT.md` plays it in a `<video>` tag with the poster
+`doc/screenshot-showcase.png`. GitHub serves release assets as `application/octet-stream` with `attachment`, but
+answers range requests, and Chrome plays the address inline (checked on 2026-11-28). A new take replaces the asset
+and the poster. The full method,
 every problem met and its fix are in `tmp/RECORDING.md` (kept out of git, as the maintainer asked). What matters most:
 one take, because the knobs change the sound; the page laid out at 1920x1080 whatever the screen; a screenshot when
 the screencast sends nothing for 0.2 s; Hydra only in the drops and at half resolution, or the busy parts stutter
